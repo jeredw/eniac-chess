@@ -22,9 +22,10 @@ Doing this involves multiple layers of tools and cross-validation.
 
 ## Contents
 
-| File       | Description                                     |
-| ---------- | ----------------------------------------------- |
-| `Makefile` | `make` to build everything, `make test` to test |
-| `chasm.py` | Assembler for the chess VM                      |
-| `test.asm` | Assembler test program                          |
-| `chsim.cc` | Simulator for the chess VM                      |
+| File         | Description                                     |
+| ------------ | ----------------------------------------------- |
+| `Makefile`   | `make` to build everything, `make test` to test |
+| `chasm.py`   | Assembler for the chess VM                      |
+| `test.asm`   | Assembler test program                          |
+| `chsim.cc`   | Simulator for the chess VM                      |
+| `chester.py` | High level model for chess program              |
