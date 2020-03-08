@@ -1,7 +1,7 @@
-# Read and print successive instructions from ft1
+# Read and print successive lines of ft1, both A and B outputs this time
 # a1  - PC
-# a20 - insruction register
-# a19 - aux instruction register ("execute" in final VM)
+# a20 - A output from ft
+# a19 - B output from ft
 # c26 - 1
 # d1 - increment PC
 # d2 - send to FT
@@ -79,11 +79,6 @@ p i.po 1-1   # back to start
 
 # 10-00 NOP
 
-]
-
-
-..
-10-84
 
 # ------------ DATA --------------
 
