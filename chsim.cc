@@ -1,6 +1,7 @@
+#include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <utility>
 
 typedef uint64_t u64;
@@ -86,6 +87,42 @@ static bool read_state_from_file(const char* filename, State* state) {
   return true;
 }
 
+static inline void jsr(State* state, int addr) {
+  state->stack[state->q] = state->pc;
+  state->q ^= 1;
+  state->pc = addr;
+  state->ir = 0;
+}
+
+static inline int near_address(State* state) {
+  return 100 * (state->pc / 100) + ((state->ex >> 8) & 0xff);
+}
+
+static inline int far_address(State* state) {
+  return 100 * ((state->ex >> 16) % 10) + ((state->ex >> 8) & 0xff);
+}
+
+static void assert_sanity(State* state) {
+  assert(state->a >= 0 && state->a < 100);
+  assert(state->b >= 0 && state->b < 100);
+  assert(state->c >= 0 && state->c < 100);
+  assert(state->d >= 0 && state->d < 100);
+  assert(state->e >= 0 && state->e < 100);
+  assert(state->pc >= 100 && state->pc < 400);
+  assert(state->stack[0] >= 0 && state->stack[0] < 400);
+  assert(state->stack[1] >= 0 && state->stack[1] < 400);
+  assert(state->q == 0 || state->q == 1);
+  assert(state->ir <= 0xff'ff'ff'ff'ffull);
+  assert(state->ex <= 0xff'ff'ff'ff'ffull);
+  assert(state->j >= 0 && state->j < 100);
+  assert(state->z >= 0 && state->z < 100);
+  for (int i = 0; i < 15; i++) {
+    for (int j = 0; j < 5; j++) {
+      assert(state->m[i][j] >= 0 && state->m[i][j] < 100);
+    }
+  }
+}
+
 static void step(State* state) {
   // If IR is empty, fetch the next ft row and inc PC.
   // Note this copies 6 words, but the shift below fixes that.
@@ -94,7 +131,7 @@ static void step(State* state) {
     state->pc++;
   }
   // Copy the next instruction into the execute reg.
-  state->ex = state->ir;
+  state->ex = state->ir & 0xff'ff'ff'ff'ffull;
   state->ir >>= 8;
   switch (state->ex & 0xff) {
     case 0: break; // nop
@@ -131,18 +168,13 @@ static void step(State* state) {
       state->pc += state->j % 5;
       state->ir = 0;
       break;
-#define jsr(addr) \
-  state->stack[state->q] = state->pc;\
-  state->q ^= 1;\
-  state->pc = addr;\
-  state->ir = 0
     case 32: // mov A, [addr]
       state->b = (state->ex >> 8) & 0xff;
       [[fallthrough]];
     case 33: // mov A, [B]
       [[fallthrough]];
     case 34: // mov [B], A
-      jsr(state->mswap_pc);
+      jsr(state, state->mswap_pc);
       break;
     case 35: // mov A, imm
       state->a = (state->ex >> 8) & 0xff;
@@ -160,19 +192,17 @@ static void step(State* state) {
     case 70: std::swap(state->a, state->z); break; // swap A, Z
     case 71: state->a = (state->a + 1) % 100; break; // inc A
     case 72: state->b = (state->b + 1) % 100; break; // inc B
-#define near_address 100 * (state->pc / 100) + ((state->ex >> 8) & 0xff)
-#define far_address  100 * ((state->ex >> 16) % 10) + ((state->ex >> 8) & 0xff)
     case 73: // jmp
-      state->pc = near_address;
+      state->pc = near_address(state);
       state->ir = 0;
       break;
     case 74: // jmp far
-      state->pc = far_address;
+      state->pc = far_address(state);
       state->ir = 0;
       break;
     case 80: // jn
       if (state->a >= 50) {
-        state->pc = near_address;
+        state->pc = near_address(state);
         state->ir = 0;
       } else {
         state->ir >>= 8;
@@ -180,7 +210,7 @@ static void step(State* state) {
       break;
     case 81: // jz
       if (state->a == 0) {
-        state->pc = near_address;
+        state->pc = near_address(state);
         state->ir = 0;
       } else {
         state->ir >>= 8;
@@ -189,18 +219,15 @@ static void step(State* state) {
     case 82: // loop
       state->c = (state->c + 99) % 100;
       if (state->c != 0) {
-        state->pc = near_address;
+        state->pc = near_address(state);
         state->ir = 0;
       } else {
         state->ir >>= 8;
       }
       break;
     case 83: // jsr
-      jsr(far_address);
+      jsr(state, far_address(state));
       break;
-#undef near_address
-#undef far_address
-#undef jsr
     case 84: // ret
       state->q ^= 1;
       state->pc = state->stack[state->q];
@@ -218,6 +245,7 @@ static void step(State* state) {
       state->ir = 95;
       break;
   }
+  assert_sanity(state);
 }
 
 #ifndef TEST  // Defined by chsim_test.cc for unit testing.
