@@ -1,0 +1,107 @@
+
+ACCUMULATOR LAYOUT 
+
+1 - registers  +/- AA BB CC DD EE 
+2 - PC         CCC BBB AAAA
+3 - IR         I6 I5 I4 I3 I2
+4 - execute    XX XX XX XX I1
+5 - load/store ZZ JJ 77 76 75     ; Z,J registers and memory 75-77
+5 - 20 = memory addresses 00-77
+
+
+51 ORDER CODE (v4, indexed load and store acc)
+
+00 - nop
+01 - swap A,B
+02 - swap A,C
+03 - swap A,D
+04 - swap A,E
+05 - swap A,Z
+
+10 - loadacc A    ; acc A -> LS
+11 - storeacc A   ; LS -> acc A
+12 - save         ; LS = ABCDE
+13 - restore      ; ABCDE = LS
+14 - swapsave     ; LS <-> ABCDE 
+15 - ftl          ; LS = ft3[A], for initial board load
+
+20 - mov A,B
+21 - mov A,C
+22 - mov A,D
+23 - mov A,E
+24 - mov A,Z
+25 - 
+
+30 - mov A,#XX
+31 - mov A,[#XX] ; mov J,XX; jsr LOAD
+32 - mov [#XX],A ;
+33 - mov A,[B]   ; mov J,B; jsr LOAD
+34 - mov [B],A   ; mov J,B; jsr STORE
+35 - 
+
+40 - indexhi      ; A = 2*B2 + B1>4
+41 - indexlo      ; A = B1%5
+42 - selfmodify   ; next instruction = A
+43 - scan         ; destructively search LS for index of A, to A, -1 if not found
+44 - 
+45 - 
+
+50 - inc A
+51 - inc B
+52 - dec A
+
+70 - add A,D
+71 - neg A
+72 - sub A,D    ; aka compare
+73 - jmp XX      ; within current function table
+74 - jmp far XXX ; to any function table
+75 - jmp +A
+
+80 - jn XX      ; all conditionals within current function table only
+81 - jz XX
+82 - loop XX    ; dec C; if C!=0 jmp XX
+83 - jsr XXX    ; always far
+84 - ret
+85 - 
+
+90 - 
+91 - 
+92 - 
+93 - read AB
+94 - print AB
+95 - halt
+
+
+; [XX] += [YY]
+mov A,#XX
+swap A,B
+mov A,[YY]
+swap A,D
+mov A,[B]
+add A,D
+mov [B],A
+
+
+
+FIND IN ARRAY
+; val to find in D
+; base addr in B
+; array len in C
+; return address or -1 in A
+top:
+ mov a,[b]  ; 00
+ sub a,d    ; 11
+ jz found   ; 22 33
+ inc b      ; 44
+ nop        ; 55
+ loop top   ; 00 11
+ clr a      ; 22
+ dec a      ; 33
+ ret        ; 44
+ nop        ; 55
+found:  
+ mov a,b    ; 00 
+ ret        ; 11
+
+
+
