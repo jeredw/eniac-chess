@@ -213,6 +213,8 @@ p f1.B 4      # ft.B -> d4
 
 # build up the re-ordered IR on d5, then d5 -> IR(a2)
 # use deleters to prevent sign extension of 9s when isolating opcodes
+# Simulator makes this a lot harder than it needs to be... in reality, 
+# this is a single adapter with the pins soldered in permuted order.
 p 3 ad.d.5.-6   # A4A3
 p ad.d.5.-6 ad.s.6.-2
 p ad.s.6.-2 5
