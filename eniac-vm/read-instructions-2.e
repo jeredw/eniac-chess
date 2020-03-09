@@ -93,7 +93,7 @@ b i
 # Zero PC and IR. Do we really need this, or just use ENIAC clear?
 
 # initiate button
-p i.io 1-1
+p i.io 2-1
 
 # start PC (a1) at 0
 p 1-1 a1.5i
@@ -128,10 +128,10 @@ p a2.A 8
 p a2.S 9
 
 # IR.M -> 3-1 via dummy program a20.11 on 1-8
-#p 8 ad.dp.1.11
-#p ad.dp.1.11 1-8
-#p 1-8 a20.11i  # IR < 0
-#p a20.11o 3-1
+p 8 ad.dp.1.11
+p ad.dp.1.11 1-8
+p 1-8 a20.11i  # IR < 0
+p a20.11o 3-1
 
 # IR.P -> 4-1 via dummy program a20.12 on 1-9
 p 9 ad.dp.2.11
@@ -260,7 +260,25 @@ s a1.cc1 C    # +1
 #      goto 5-3
 
 # decode magic here
+p 5-1 a13.5i  # clear a13
+s a13.op5 0
+s a13.cc5 C
+p a13.5o 5-2
 
+p 5-2 a3.8i   # a3 -> d1
+s a3.op8 A
+p a3.8o 5-3
+
+p 5-2 a13.1i  # d1 -> a13
+s a13.op1 a
+p 1 ad.d.16.-8 
+p ad.d.16.-8 a13.a
+#p 1 a13.a
+
+# 5-3 print "decoded" instruction, it's in a13
+p 5-3 i.pi    # print a20,a19
+s pr.2 P
+s pr.3 P
 
 
 
