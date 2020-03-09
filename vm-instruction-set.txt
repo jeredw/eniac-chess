@@ -9,348 +9,67 @@ ACCUMULATOR LAYOUT
 5 - 20 = memory addresses 00-77
 
 
-51 ORDER CODE (v3, sixteen accumulator)
+51 ORDER CODE (v4, indexed load and store acc)
 
 00 - nop
-01 - swapacc 0
-02 - swapacc 1
-03 - swapacc 2
-04 - swapacc 3 
-05 - swapacc 4
+01 - swap A,B
+02 - swap A,C
+03 - swap A,D
+04 - swap A,E
+05 - swap A,Z
 
-10 - swapacc 5
-11 - swapacc 6
-12 - swapacc 7
-13 - swapacc 8
-14 - swapacc 9
-15 - swapacc 10
+10 - loadacc A    ; acc A -> LS
+11 - storeacc A   ; LS -> acc A
+12 - save         ; LS = ABCDE
+13 - restore      ; ABCDE = LS
+14 - swapsave     ; LS <-> ABCDE 
+15 - ftl          ; LS = ft3[A], for initial board load
 
-20 - swapacc 11
-21 - swapacc 12
-22 - swapacc 13
-23 - swapacc 14
-24 - swapacc 15
-25 - ftl        ; ABCDE = ft3[A], for initial board load
+20 - mov A,B
+21 - mov A,C
+22 - mov A,D
+23 - mov A,E
+24 - mov A,Z
+25 - 
 
-30 - indexjmp1  ; T = 2*J2 + J1>4; jmp +T
-31 - indexjmp2  ; T = J1%5; jmp +T
-32 - mov A,[XX] ; mov J,XX; jsr LOAD
-33 - mov A,[B]  ; mov J,B; jsr LOAD
-34 - mov [B],A  ; mov J,B; jsr STORE
-35 - mov A,XX
+30 - mov A,#XX
+31 - mov A,[#XX] ; mov J,XX; jsr LOAD
+32 - mov [#XX],A ;
+33 - mov A,[B]   ; mov J,B; jsr LOAD
+34 - mov [B],A   ; mov J,B; jsr STORE
+35 - 
 
-40 - mov A,B
-41 - mov A,C
-42 - mov A,D
-43 - mov A,E
-44 - mov Z,A
-45 - swap B,A
+40 - indexhi      ; A = 2*B2 + B1>4
+41 - indexlo      ; A = B1%5
+42 - selfmodify   ; next instruction = A
+43 - scan         ; destructively search LS for index of A, to A, -1 if not found
+44 - 
+45 - 
 
-50 - swap C,A
-51 - swap D,A
-52 - swap E,A
+50 - inc A
+51 - inc B
+52 - dec A
 
-70 - swap A,Z
-71 - inc A
-72 - inc B
-73 - jmp XX     ; within current function table
-74 - jmp XXX    ; to any function table
+70 - add A,D
+71 - neg A
+72 - sub A,D    ; aka compare
+73 - jmp XX      ; within current function table
+74 - jmp far XXX ; to any function table
 75 - jmp +A
 
 80 - jn XX      ; all conditionals within current function table only
 81 - jz XX
 82 - loop XX    ; dec C; if C!=0 jmp XX
-83 - jsr XXX
+83 - jsr XXX    ; always far
 84 - ret
-85 - add A,D
+85 - 
 
-90 - sub A,D    ; aka compare
-91 - neg A
-92 - clr A
+90 - 
+91 - 
+92 - 
 93 - read AB
 94 - print AB
 95 - halt
-
-
-LOAD v3
-----
-; computes A <- [J]
-; J contains address in [0..79]
-; B-E unchanged
-LOAD
- indexjmp1    ; indexed jump through address in J
-              ; i.e. T = 2J2 + (J1>4); PC += T
-
-a0:
- swapacc 0
- jmp nextdig
- nop
- nop
- nop   ; pad so a1 starts at  next code line
-
-a1:
- swapacc 1
- jmp nextdig
- nop
- nop
- nop   ; pad so a2 starts at  next code line
-
-.
-.  through a15
-.
-
-; Accumulator contents now in A-E. 
-; Extract the right word based on second digit of address in Z
-nextdig:
- indexjmp2  ; PC += J1 % 5
-
-b0:
- mov Z,A   ; store desired value in Z
- jmp restoreacc
-
-b1:
- swap A,B  ; don't alter A-E contents, we need to swap it back to the accumulator
- mov Z,A
- swap A,B
- jmp restoreacc
-
-.
-.  through B4, which saves E to Z
-.
-
-; and then we need to swap the accumulator again
-restoreacc:
- indexjmp1
-
-c0:
- swapacc 0
- swap A,Z    
- ret
-
-.
-.  through c14
-. 
-
-
-LOAD v2
-----
-
-; computes A <- [B]
-; B contains address in [0..74]
-; B-E unchanged, save used
-LOAD INDEXED:
- mov A,B      ; indexjmp1 reads from A'
- nop
- nop
- nop
- nop
- nop
-LOAD ABSOLUTE:
- save
- mov Z,A'
- indexjmp1    ; indexed jump through address in Z
-              ; i.e. T = 2Z2 + (Z1>4); PC += T
-
-a0:
- swapacc 0    ; destroys Z 
- mov Z,A'     ; restore address to Z
- jmp nextdig
- nop
- nop   ; pad so a1 starts at  next code line
-
-a1:
- swapacc 1
- mov Z,A'
- jmp nextdig
- nop
- nop   ; pad so a2 starts at  next code line
-
-.
-.  through a14
-.
-
-; Accumulator contents now in A-E. 
-; Extract the right word based on second digit of address in Z
-nextdig:
- indexjmp2  ; PC += Z1 % 5
-
-b0:
- save A   ; store desired value in A'
- jmp restoreacc
-
-b1:
- swap A,B  ; don't alter A-E contents, we need to swap it back to the accumulator
- save A
- swap A,B
- jmp restoreacc
-
-.
-.  through B4, which saves E to A'
-.
-
-; and then we need to swap the accumulator again
-restoreacc:
- indexjmp1
-
-c0:
- swapacc 0  ; destroys Z
- restore    ; also moves return val into A
- ret
-
-.
-.  through c14
-. 
-
-
-
-STORE:
-acc X
-indexjmp2
-b0:
- swap Z,A ; Z=ACC12, A=val
- acc X    ; write to ACC
- restore
- ret
-b1:
- swap Z,A ; Z=ACC12, A=val
- mov B,A  ; B = val
- swap Z,A ; restore ACC12, Z=val
- acc X    ; write to ACC
- restore
- ret
-
-
-SCAN ACCUMULATOR to find piece at location
-
-One accumulator's worth of search:
- ; all of this together is equivalent to load 0
- swap  0   ; ABCDE = acc0, acc0=junk    
- save      ; store acc0 contents
- mov Z,A   ; save acc[0] in z
- swap  0   ; acc0=ABCDE, ABCDE=junk
- restore   ; BCDE=ACC0
- mov A,Z   ; A=ACC0
-
- skipeq a,d
- clr a
- add a,#PIECE
- ret
-
- shift          ; 00 
- skipeq a,d     ; 11
- clr a          ; 22
- add a,#PIECE   ; 33 44
- ret            ; 55
-
- ... 3 more times
-
-next_accumulator:
-
-
-51 ORDER CODE (v1)
-
-00 - nop
-01 - load 0
-02 - load 1
-03 - load 2
-04 - load 3 
-05 - load 4
-
-10 - load 5
-11 - load 6
-12 - load 7
-13 - store 0
-14 - store 1
-15 - store 2
-
-20 - store 3
-21 - store 4
-22 - store 5
-23 - store 6
-24 - store 7
-25 - indexjmp1  ; mov Z,A2; A = 2*A1 + A2>4; jmp +A
-
-30 - indexjmp2  ; Z = Z%5; jmp +Z
-31 - bank 0
-32 - bank 1
-33 - mov A,XX   ; aka LDA TRAP 0
-34 - mov A,[B]  ; aka LDA TRAP 1
-35 - mov XX,A   ; aka STA TRAP
-
-40 - mov A,B
-41 - mov A,C
-42 - mov A,D
-43 - swap B,A
-44 - swap C,A
-45 - swap D,A
-
-50 - add A,D
-51 - add A,#XX
-52 - neg A
-
-70 - clr A
-71 - inc A
-72 - inc B
-73 - jmp XX
-74 - jmp XXX
-75 - jmp +A
-
-80 - jp XX
-81 - jz XX
-82 - loop XX
-83 - save
-84 - restore
-85 - jsr XXX
-
-90 - ret
-91 - mov A,E
-92 - mov E,A
-93 - read A
-94 - print A
-95 - halt
-
-
-
-51 ORDER CODE (v0)
-
-00-11 store X
-12-23 load X
-24 - bank 0
-25 - bank 1
-30 - mov A,XX
-31 - mov D,XX
-32 - mov A,[B]
-32 - mov XX,A
-33 - mov A,B
-34 - mov A,C
-35 - mov A,D
-40 - swap B,A
-41 - swap C,A
-42 - swap D,A
-43 - add A,D
-44 - add A,#XX
-45 - neg A
-50 - inc A
-51 - inc B
-52 - clr A
-70 - jmp 0XX
-71 - jmp 1XX
-72 - jmp 2XX
-73 - jmp +A
-74 - jp XX
-75 - jz XX
-80 - save
-81 - restore 
-82 - mov A,E
-83 - mov E,A
-84 - loop XX
-84 - A = 2*X +(Y>4)
-90 - jsr XXXX
-91 - ret
-92 - read A
-93 - print A
-94 - halt
-95 - nop
 
 
 ; [XX] += [YY]
@@ -385,100 +104,4 @@ found:
  ret        ; 11
 
 
-
-LDA TRAP
-; A contains xy in [0..74]
-; computes A <- [A]
-; B-E unchanged, save used
-lda:
- save
- indexjmp1 ; mov Z,A2; A = 2A2 + A1>4; jmp +A
-
-a0:
- bank 0
- load 0
- jmp nextdig
-a1:
- bank 0
- load 1
- jmp nextdig
-a2:
- bank 0
- load 2
- jmp nextdig
-a3:
- bank 0
- load 3
- jmp nextdig
-a4:
- bank 0
- load 4
- jmp nextdig
-a5:
- bank 0
- load 5
- jmp nextdig
-a6:
- bank 0
- load 6
- jmp nextdig
-a7:
- bank 0
- load 7
- jmp nextdig
-a8:
- bank 1
- load 0
- jmp nextdig
-a9:
- bank 1
- load 1
- jmp nextdig
-a10:
- bank 1
- load 2
- jmp nextdig
-a11:
- bank 1
- load 3
- jmp nextdig
-a12:
- bank 1
- load 4
- jmp nextdig
-a13:
- bank 1
- load 5
- jmp nextdig
-a14:
- bank 1
- load 6
- jmp nextdig
-
-nextdig:
- indexjmp2
-
-b0:
- restore
- ret
-b1:
- mov A,B
- restore
- ret
-b2:
- mov A,C
- restore
- ret
-b3:
- mov A,D
- restore
- ret
-b4:
- mov A,E
- restore
- ret
-
-
-
-word = y div 2
 
