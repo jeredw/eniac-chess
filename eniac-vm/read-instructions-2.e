@@ -1,3 +1,5 @@
+b i
+
 # Read succesive instructions lines and "execute" individual instructions
 #
 # Accumulator layout
@@ -183,7 +185,7 @@ s a3.cc7 C
 
 p 4-1 f1.1i   # trigger ft
 s f1.rp1 1    # 1 repeat (neccessary?)
-s f1.op1 A0   # don't offset argument, send complement 
+s f1.op1 S0   # don't offset argument, send complement 
 s f1.cl1 C    # pulse on C when done
 p f1.C 4-2    # proceed to 4-2 when ready for argument
 
@@ -207,33 +209,42 @@ p ad.sd.4.0 f1.arg
 
 p f1.A 3      # ft.A -> d3
 p f1.B 4      # ft.B -> d4
+#s f1.A10s 0
 
 # build up the re-ordered IR on d5, then d5 -> IR(a2)
-p 3 ad.sd.5.2   # A4A3
-p ad.sd.5.2 5
-p 3 ad.sd.6.0   # A2A1
-p ad.sd.6.0 ad.s.7.2 
-p ad.s.7.2 5
-p 4 ad.sd.8.4   # B6B5
-p ad.sd.8.4 ad.s.9.4
-p ad.s.9.4 5
-p 4 ad.sd.10.2  # B4B3
-p ad.sd.10.2 ad.s.11.6
-p ad.s.11.6 5
-p 4 ad.s.12.8  # B2B1
-p ad.s.12.8 5
+# use deleters to prevent sign extension of 9s when isolating opcodes
+p 3 ad.d.5.-6   # A4A3
+p ad.d.5.-6 ad.s.6.-2
+p ad.s.6.-2 5
+
+p 3 ad.d.7.-8   # A2A1
+p ad.d.7.-8 ad.s.8.2 
+p ad.s.8.2 5
+
+p 4 ad.d.8.-4   # B6B5 digits don't move but delete other digits
+p ad.d.8.-4 ad.s.9.-4
+p ad.s.9.-4 ad.s.10.4
+p ad.s.10.4 5
+
+p 4 ad.d.11.-6   # B4B3
+p ad.d.11.-6 ad.s.12.-2
+p ad.s.12.-2 ad.s.13.6
+p ad.s.13.6 5
+
+p 4 ad.s.14.8  # B2B1, dont need to delete left digits b/c we want M sign
+p ad.s.14.8 5
 
 p 4-3 a2.8i   # B2B1 B4B3 B6B5 A2A1 A4A3+1 -> IR(a2)
 s a2.op8 b
-#s a2.cc8 C    # +1
+s a2.cc8 C    # +1
 p 5 a2.b     
 p a2.8o 5-1   # goto 5-1, dispatch
 
 p 4-3 a3.2i   # 99 99 99 99 A6A5 -> EX(a3)
 s a3.op2 b
-#s a3.cc2 C    # +1
-p 3 ad.s.13.-4     # A>>4 to select first instruction, and pad with 9s
-p ad.s.13.-4 a3.b
+s a3.cc2 C    # +1
+p 3 ad.s.15.-4     # A>>4 to select first instruction, and pad with 9s
+p ad.s.15.-4 a3.b
 
 # PC (a1) += 1
 p 4-3 a1.1i
