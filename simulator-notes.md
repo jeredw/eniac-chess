@@ -4,9 +4,13 @@ Notes on simulator oddities
 Commands
 --------
 
-b p = pulse button
+ b p = press pulse button
 
-dt, pt, u do nothing (?)
+To advance by one add cycle only per b p press, first do
+
+ s cy.op 1a
+
+dt, pt, u seem to do nothing despite the docs (?)
 
 
 Adapters
@@ -85,7 +89,7 @@ Function table
 
 10000000000 0 1 0 0 0
 
-active program, 0 cycle 0 0 0 
+active program, arg ring add subtr arg_setup 
 
 
 Constants

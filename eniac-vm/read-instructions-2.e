@@ -28,7 +28,7 @@
 #
 # 2-1 begin fetch cycle
 #      - clear EX
-#      - discriminate on IR, M to 3-1, P to 4-1
+#      - discriminate on IR: M to 3-1, P to 4-1
 # 3-1 instruction ready in IR
 #      - EX += IR
 #      - clear IR
@@ -88,75 +88,81 @@
 
 
 # -- 1-1 initialize
+# Zero PC and IR. Do we really need this, or just use ENIAC clear?
 
 # initiate button
 p i.io 1-1
 
 # start PC (a1) at 0
 p 1-1 a1.5i
-s a1.op5 0
-a a1.cc5 C
+s a1.op5 e
+s a1.cc5 C
 p a1.5o 2-1
 
 # start IR (a2) at 0 to force a fetch on first cycle
 p 1-1 a2.5i
 s a2.op5 0
-a a2.cc5 C
+s a2.cc5 C
+
 
 
 # -- 2-1 begin fetch cycle
 
-# - clear EX (a3)
-p 2-1 a3.1i
-s a3.op1 0
-s a3.cc1 C
-
-# - discriminate on IR (a2), M to 3-1, P to 4-1
-p 2-1 a2.5i
-s a2.op5 AS # send on both A and S outputs so one of 3-1,4-1 gets a pulse
-
-# use sign digit adapters and dummy programs a20.11, a20.12 to discriminate
-p a2.A ad.dp.1.11
-p ad.dp.1.11 a20.11i  # IR < 0
-p a2.11o 3-1
-
-p a2.S ad.dp.2.11
-p ad.dp.2.11 a20.12i  # IR >= 0
-p a2.12o 4-1
+# - clear EX(a3)
+p 2-1 a3.5i
+s a3.op5 0
+s a3.cc5 C
+p a3.5o 2-2
 
 
-# -- 3-1 instruction ready in IR
+# -- 2-2 discriminate on IR (a2): M to 3-1, P to 4-1
+# During this cycle we both discriminate and read out the contents of IR into EX
 
-# - EX (a3) += IR (a2), clear IR (a2)
-p 3-1 a2.5i   # IR -> d1
-s a2.op5 A
-s a2.cc5 C    # clear IR
-p a2.A 1
-p a2.5o 3-2
+# - IR.A -> d8, IR.S-> d9
+p 2-2 a2.6i
+s a2.op6 AS # send on both A and S outputs so one of 3-1,4-1 gets a pulse
+s a2.cc6 C  # clear IR after transmission
+p a2.A 8
+p a2.S 9
 
-p 3-1 a3.2i   # d1 -> EX 
-s a3.op2 a
-p 1 a3.a 
+# IR.M -> 3-1 via dummy program a20.11 on 1-8
+#p 8 ad.dp.1.11
+#p ad.dp.1.11 1-8
+#p 1-8 a20.11i  # IR < 0
+#p a20.11o 3-1
+
+# IR.P -> 4-1 via dummy program a20.12 on 1-9
+p 9 ad.dp.2.11
+p ad.dp.2.11 1-9
+p 1-9 a20.12i  # IR >= 0
+p a20.12o 4-1
+
+# EX(a3) = IR(a2)
+p 2-2 a3.1i   # d8 -> a3
+s a3.op1 a
+p 8 a3.a
 
 
-# -- 3-2 shift IR right, fill in left with 99, add 1
-# - IR (a2) += EX (a3)>>2. 
-# - IR +=1 to cause sign rollover if empty
-# - goto 5-2
 
-# EX < 0 here (we discriminated at 2-1) so shift will sign-extend 99 into left of IR
-# Adding 1 to IR will overflow 99 99 99 99 99 (no more instructions)
+# -- 3-1 no fetch needed, consume instruction
+# - IR(a2) = EX(a3)>>2 + 1
+# EX < 0 here (we discriminated at 2-2) so shift will sign-extend 99 into left of IR
+# then store back to IR
+# Adding 1 to EX will overflow 99 99 99 99 99 (if no more instructions)
+# then goto decode at 5-1
 
-p 3-2 a3.5i   # EX (a3) -> d1
-s a3.op5 A
+p 3-1 a3.6i   # EX(a3) -> d1
+s a3.op6 A
 p a3.A 1 
-p a3.5o 5-2   # goto 5-2 to dispatch instruction in EX
+p a3.6o 5-1   # goto 5-1, decode instruction in EX
 
-p 3-1 a2.1i   # IR (a2) += d1>>2 + 1 
-p 1 a.s.3.-2  # shift EX right by 2, to delete instruction we will execute
-p a.s.3.-2 a2.a 
+# store shifted instructions back to IR(a2) (this deletes just-excuted opcode)
+p 3-1 a2.1i   
+p 1 ad.s.3.-2  # d1>>2 -> IR(a2) 
+p ad.s.3.-2 a2.a 
 s a2.op1 a
-s a2.CC1 C    # add 1
+s a2.cc1 C    # add 1, this is key to detecting no more opcodes
+
 
 
 # -- 4-1 load new line of instructions from ft
@@ -164,20 +170,20 @@ s a2.CC1 C    # add 1
 # - delay 4 then goto 4-3
 
 # - clear IR (a2) (not needed? already zero here from overflow?) 
-p 4-1 a2.6i 
-s a2.op6 0   # nop
-s a2.cc6 C   # then clear 
-s a2.rp6 4   # repeat 4. This is our delay.
-p a2.6o 4-3  # then go to 4-3
+p 4-1 a2.7i 
+s a2.op7 0   # nop
+s a2.cc7 C   # then clear 
+s a2.rp7 4   # repeat 4. This is our delay.
+p a2.7o 4-3  # then go to 4-3
 
 # - clear EX (a3) as well, it will also receive from FT
-p 4-1 a2.6i  
-s a2.op6 0
-s a2.cc6 C
+p 4-1 a3.7i  
+s a3.op7 0
+s a3.cc7 C
 
 p 4-1 f1.1i   # trigger ft
-s f1.rp1 1    # 1 repeat
-s f1.op1 A0   # don't offset argument 
+s f1.rp1 1    # 1 repeat (neccessary?)
+s f1.op1 A0   # don't offset argument, send complement 
 s f1.cl1 C    # pulse on C when done
 p f1.C 4-2    # proceed to 4-2 when ready for argument
 
@@ -188,8 +194,7 @@ p f1.C 4-2    # proceed to 4-2 when ready for argument
 
 p 4-2 a1.6i   # a1 -> d2
 s a1.op6 A
-p a1.A 2
-
+p a1.A 2      # use d2 because we're going through adapter
 p 2 ad.sd.4.0 # bottom two digits of d2
 p ad.sd.4.0 f1.arg
 
@@ -200,21 +205,40 @@ p ad.sd.4.0 f1.arg
 #      - PC (a1) += 1
 #      - goto 5-1
 
-p f1.A 3      # ft.A -> d
-p 4-3 a2.7i   # d3 -> IR (a2)
-p 3 a2.b     
-s a2.op7 b
-p a2.7o 5-1   # goto 5-1, dispatch
-
+p f1.A 3      # ft.A -> d3
 p f1.B 4      # ft.B -> d4
-p 4-3 a2.2i   # d4 -> EX (a3)
-s a2.op2 b
-p 4 a2.b
+
+# build up the re-ordered IR on d5, then d5 -> IR(a2)
+p 3 ad.sd.5.2   # A4A3
+p ad.sd.5.2 5
+p 3 ad.sd.6.0   # A2A1
+p ad.sd.6.0 ad.s.7.2 
+p ad.s.7.2 5
+p 4 ad.sd.8.4   # B6B5
+p ad.sd.8.4 ad.s.9.4
+p ad.s.9.4 5
+p 4 ad.sd.10.2  # B4B3
+p ad.sd.10.2 ad.s.11.6
+p ad.s.11.6 5
+p 4 ad.s.12.8  # B2B1
+p ad.s.12.8 5
+
+p 4-3 a2.8i   # B2B1 B4B3 B6B5 A2A1 A4A3+1 -> IR(a2)
+s a2.op8 b
+#s a2.cc8 C    # +1
+p 5 a2.b     
+p a2.8o 5-1   # goto 5-1, dispatch
+
+p 4-3 a3.2i   # 99 99 99 99 A6A5 -> EX(a3)
+s a3.op2 b
+#s a3.cc2 C    # +1
+p 3 ad.s.13.-4     # A>>4 to select first instruction, and pad with 9s
+p ad.s.13.-4 a3.b
 
 # PC (a1) += 1
 p 4-3 a1.1i
-s a1.op1 b    # nothing connected to a1.b, add 0
-a a1.cc1 C    # +1
+s a1.op1 e    # nothing connected
+s a1.cc1 C    # +1
 
 
 # 5-1 dispatch instruction in low two digits of EX
@@ -225,29 +249,6 @@ a a1.cc1 C    # +1
 # decode magic here
 
 
-# 5-2 instruction decode: I >= 53?
-#      - reset all MP steppers
-#      - discriminate on EX, P to 5-4 and M to 5-6
-#
-# 5-3 dispatch I > 53
-#      - EX += some magic constant from CT
-#      - goto 5-4
-# 5-4 dispatch I>53 continued
-#      - send I2 to mp.G
-#      - send I1 to mp.H, mp.J, mp.K
-#      - goto 5-5
-# 5-5 start execution I>52
-#      - in pulse to MP.G
-#
-# 5-6 dispatch I<=53
-#      - send 9-I2 to A
-#      - send 9-I1 to mp.B, mp.C, mp.D, mp.E, mp.F, mp.G
-#      - goto 5-9
-# 5-7 start executio I<53
-#      - in pulse to MP.A
-
-
-
 
 
 
@@ -255,9 +256,6 @@ a a1.cc1 C    # +1
 
 
 # ------------ DATA --------------
-
-# function table init
-s f1.mpm1 p   # don't negate
 
 # function table values
 s f1.RA0L6 0
