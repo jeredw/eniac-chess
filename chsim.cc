@@ -137,9 +137,11 @@ static void step(State* state) {
     case 4: std::swap(state->a, state->e); break; // swap A, E
     case 5: std::swap(state->a, state->z); break; // swap A, Z
     case 10: // loadacc A
+      assert(0 <= state->a && state->a < 15);
       std::copy(state->m[state->a], state->m[state->a] + 5, state->ls);
       break;
     case 11: // storeacc A
+      assert(0 <= state->a && state->a < 15);
       std::copy(state->ls, state->ls + 5, state->m[state->a]);
       break;
     case 12: std::copy(state->rf, state->rf + 5, state->ls); break; // save
