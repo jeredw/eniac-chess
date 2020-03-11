@@ -1,8 +1,10 @@
+CCFLAGS=--std=c++17 -Wall -Werror -pedantic
+
 chsim: chsim.cc
-	c++ --std=c++14 -Wall -Werror -O2 -o chsim chsim.cc
+	c++ $(CCFLAGS) -O2 -o chsim chsim.cc
 
 chsim_test: chsim_test.cc chsim.cc
-	c++ --std=c++14 -Wall -Werror -Wno-unused-function -o chsim_test chsim_test.cc
+	c++ $(CCFLAGS) -Wno-unused-function -o chsim_test chsim_test.cc
 
 .PHONY: test clean
 test:

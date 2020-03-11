@@ -33,10 +33,10 @@ ACCUMULATOR LAYOUT
 25 - 
 
 30 - mov A,#XX
-31 - mov A,[#XX] ; mov J,XX; jsr LOAD
-32 - mov [#XX],A ;
-33 - mov A,[B]   ; mov J,B; jsr LOAD
-34 - mov [B],A   ; mov J,B; jsr STORE
+31 - mov A,[#XX] ; mov B,XX; jsr LOAD
+32 - mov [#XX],A ; mov B,XX; jsr STORE
+33 - mov A,[B]   ; jsr LOAD
+34 - mov [B],A   ; jsr STORE
 35 - 
 
 40 - indexhi      ; A = 2*B2 + B1>4

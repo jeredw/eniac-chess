@@ -3,39 +3,32 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <utility>
+#include <algorithm>
 
 typedef uint64_t u64;
 
 struct State {
   int isa_version = 0;
-  int mswap_pc = 300;
+  int load_pc = 300;
+  int store_pc = 320;
 
   // Register file
-  union {
-    int rf[5]{};
-    struct {
-      int a;
-      int b;
-      int c;
-      int d;
-      int e;
-    };
-  };
+  int rf[5]{};
+  int &a = rf[0];
+  int &b = rf[1];
+  int &c = rf[2];
+  int &d = rf[3];
+  int &e = rf[4];
   // PC and stack
   int pc = 100;
   int stack[2]{};
-  int q = 0;
-  // IR and execution scratch
+  int sp = 0;
+  // Current row of instructions
   u64 ir = 0;
-  u64 ex = 0;
   // Load store scratch
-  union {
-    int ls[5]{};
-    struct {
-      int z;
-      int j;
-    };
-  };
+  int ls[5]{};
+  int &z = ls[0];
+  int &j = ls[1];
   // Memory
   int m[15][5]{};
 
@@ -57,12 +50,12 @@ static bool read_state_from_file(const char* filename, State* state) {
     return false;
   }
   char line[128];
-  if (!fgets(line, 128, fp) || strcmp(line, "; isa=v3") != 0) {
+  if (!fgets(line, 128, fp) || strcmp(line, "; isa=v4") != 0) {
     fprintf(stderr, "unrecognized input format\n");
     fclose(fp);
     return false;
   }
-  state->isa_version = 3;
+  state->isa_version = 4;
   int line_number = 2;
   while (fgets(line, 128, fp)) {
     int index;
@@ -88,18 +81,18 @@ static bool read_state_from_file(const char* filename, State* state) {
 }
 
 static inline void jsr(State* state, int addr) {
-  state->stack[state->q] = state->pc;
-  state->q ^= 1;
+  state->stack[state->sp] = state->pc;
+  state->sp ^= 1;
   state->pc = addr;
   state->ir = 0;
 }
 
 static inline int near_address(State* state) {
-  return 100 * (state->pc / 100) + ((state->ex >> 8) & 0xff);
+  return 100 * (state->pc / 100) + (state->ir & 0xff);
 }
 
 static inline int far_address(State* state) {
-  return 100 * ((state->ex >> 16) % 10) + ((state->ex >> 8) & 0xff);
+  return 100 * ((state->ir >> 8) % 10) + (state->ir & 0xff);
 }
 
 static void assert_sanity(State* state) {
@@ -108,12 +101,16 @@ static void assert_sanity(State* state) {
   assert(state->c >= 0 && state->c < 100);
   assert(state->d >= 0 && state->d < 100);
   assert(state->e >= 0 && state->e < 100);
+  assert(state->ls[0] >= 0 && state->ls[0] < 100);
+  assert(state->ls[1] >= 0 && state->ls[1] < 100);
+  assert(state->ls[2] >= 0 && state->ls[2] < 100);
+  assert(state->ls[3] >= 0 && state->ls[3] < 100);
+  assert(state->ls[4] >= 0 && state->ls[4] < 100);
   assert(state->pc >= 100 && state->pc < 400);
   assert(state->stack[0] >= 0 && state->stack[0] < 400);
   assert(state->stack[1] >= 0 && state->stack[1] < 400);
-  assert(state->q == 0 || state->q == 1);
+  assert(state->sp == 0 || state->sp == 1);
   assert(state->ir <= 0xff'ff'ff'ff'ffull);
-  assert(state->ex <= 0xff'ff'ff'ff'ffull);
   assert(state->j >= 0 && state->j < 100);
   assert(state->z >= 0 && state->z < 100);
   for (int i = 0; i < 15; i++) {
@@ -130,74 +127,85 @@ static void step(State* state) {
     state->ir = state->function_table[state->pc];
     state->pc++;
   }
-  // Copy the next instruction into the execute reg.
-  state->ex = state->ir & 0xff'ff'ff'ff'ffull;
+  int opcode = state->ir & 0xff;
   state->ir >>= 8;
-  switch (state->ex & 0xff) {
+  switch (opcode) {
     case 0: break; // nop
-    case 1: std::swap(state->rf, state->m[0]); break;
-    case 2: std::swap(state->rf, state->m[1]); break;
-    case 3: std::swap(state->rf, state->m[2]); break;
-    case 4: std::swap(state->rf, state->m[3]); break;
-    case 5: std::swap(state->rf, state->m[4]); break;
-    case 10: std::swap(state->rf, state->m[5]); break;
-    case 11: std::swap(state->rf, state->m[6]); break;
-    case 12: std::swap(state->rf, state->m[7]); break;
-    case 13: std::swap(state->rf, state->m[8]); break;
-    case 14: std::swap(state->rf, state->m[9]); break;
-    case 15: std::swap(state->rf, state->m[10]); break;
-    case 20: std::swap(state->rf, state->m[11]); break;
-    case 21: std::swap(state->rf, state->m[12]); break;
-    case 22: std::swap(state->rf, state->m[13]); break;
-    case 23: std::swap(state->rf, state->m[14]); break;
-    case 24: std::swap(state->rf, state->ls); break;
-    case 25: { // ftl
+    case 1: std::swap(state->a, state->b); break; // swap A, B
+    case 2: std::swap(state->a, state->c); break; // swap A, C
+    case 3: std::swap(state->a, state->d); break; // swap A, D
+    case 4: std::swap(state->a, state->e); break; // swap A, E
+    case 5: std::swap(state->a, state->z); break; // swap A, Z
+    case 10: // loadacc A
+      std::copy(state->m[state->a], state->m[state->a] + 5, state->ls);
+      break;
+    case 11: // storeacc A
+      std::copy(state->ls, state->ls + 5, state->m[state->a]);
+      break;
+    case 12: std::copy(state->rf, state->rf + 5, state->ls); break; // save
+    case 13: std::copy(state->ls, state->ls + 5, state->rf); break; // restore
+    case 14: std::swap(state->rf, state->ls); break; // swapsave
+    case 15: { // ftl
       u64 data = state->function_table[state->a + 300];
-      state->a = data & 0xff;
-      state->b = (data >> 8) & 0xff;
-      state->c = (data >> 16) & 0xff;
-      state->d = (data >> 24) & 0xff;
-      state->e = (data >> 32) & 0xff;
+      state->ls[0] = data & 0xff;
+      state->ls[1] = (data >> 8) & 0xff;
+      state->ls[2] = (data >> 16) & 0xff;
+      state->ls[3] = (data >> 24) & 0xff;
+      state->ls[4] = (data >> 32) & 0xff;
       break;
     }
-    case 30: // indexjmp1 (jmp +J/5)
-      state->pc += state->j / 5;
-      state->ir = 0;
-      break;
-    case 31: // indexjmp2 (jmp +J%5)
-      state->pc += state->j % 5;
-      state->ir = 0;
-      break;
-    case 32: // mov A, [addr]
-      state->b = (state->ex >> 8) & 0xff;
-      [[fallthrough]];
-    case 33: // mov A, [B]
-      [[fallthrough]];
-    case 34: // mov [B], A
-      jsr(state, state->mswap_pc);
-      break;
-    case 35: // mov A, imm
-      state->a = (state->ex >> 8) & 0xff;
+    case 20: state->a = state->b; break; // mov A, B
+    case 21: state->a = state->c; break; // mov A, C
+    case 22: state->a = state->d; break; // mov A, D
+    case 23: state->a = state->e; break; // mov A, E
+    case 24: state->a = state->z; break; // mov A, Z
+    case 30: // mov A, imm
+      state->a = state->ir & 0xff;
       state->ir >>= 8;
       break;
-    case 40: state->a = state->b; break; // mov A, B
-    case 41: state->a = state->c; break; // mov A, C
-    case 42: state->a = state->d; break; // mov A, D
-    case 43: state->a = state->e; break; // mov A, E
-    case 44: state->z = state->a; break; // mov Z, A
-    case 45: std::swap(state->a, state->b); break; // swap A, B
-    case 50: std::swap(state->a, state->c); break; // swap A, C
-    case 51: std::swap(state->a, state->d); break; // swap A, D
-    case 52: std::swap(state->a, state->e); break; // swap A, E
-    case 70: std::swap(state->a, state->z); break; // swap A, Z
-    case 71: state->a = (state->a + 1) % 100; break; // inc A
-    case 72: state->b = (state->b + 1) % 100; break; // inc B
+    case 31: // mov A, [addr]
+      state->b = state->ir & 0xff;
+      [[fallthrough]];
+    case 33: // mov A, [B]
+      jsr(state, state->load_pc);
+      break;
+    case 32: // mov [addr], A
+      state->b = state->ir & 0xff;
+      [[fallthrough]];
+    case 34: // mov [B], A
+      jsr(state, state->store_pc);
+      break;
+    case 40: state->a = state->b / 5; break; // indexhi
+    case 41: state->a = state->b % 5; break; // indexlo
+    case 42: state->ir = (state->ir & ~0xff) | state->a; break; // selfmodify
+    case 43: { // scan
+      int value_to_find = state->a;
+      state->a = 99;
+      for (int i = 0; i < 5; i++) {
+        if (state->ls[i] == value_to_find) {
+          state->a = i;
+          break;
+        }
+        state->ls[i] = 0;
+      }
+      break;
+    }
+    case 50: state->a = (state->a + 1) % 100; break; // inc A
+    case 51: state->b = (state->b + 1) % 100; break; // inc B
+    case 52: state->a = (state->a + 99) % 100; break; // dec A
+    case 70: state->a = (state->a + state->d) % 100; break; // add A,D
+    case 71: state->a = (100 - state->a) % 100; break; // neg A
+    case 72: state->a = (state->a + (100 - state->d)) % 100; break; // sub A,D
     case 73: // jmp
       state->pc = near_address(state);
       state->ir = 0;
       break;
     case 74: // jmp far
       state->pc = far_address(state);
+      state->ir = 0;
+      break;
+    case 75: // jmp +A
+      state->pc += state->a;
       state->ir = 0;
       break;
     case 80: // jn
@@ -229,14 +237,10 @@ static void step(State* state) {
       jsr(state, far_address(state));
       break;
     case 84: // ret
-      state->q ^= 1;
-      state->pc = state->stack[state->q];
+      state->sp ^= 1;
+      state->pc = state->stack[state->sp];
       state->ir = 0;
       break;
-    case 85: state->a = (state->a + state->d) % 100; break; // add A,D
-    case 90: state->a = (state->a + (100 - state->d)) % 100; break; // sub A,D
-    case 91: state->a = (100 - state->a) % 100; break; // neg A
-    case 92: state->a = 0; break; // clr A
     case 93: // read AB
       break;
     case 94: // print AB
