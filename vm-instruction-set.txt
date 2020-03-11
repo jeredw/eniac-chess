@@ -6,7 +6,7 @@ ACCUMULATOR LAYOUT
 3 - IR         I6 I5 I4 I3 I2
 4 - execute    XX XX XX XX I1
 5 - load/store ZZ JJ 77 76 75     ; Z,J registers and load/store scratch
-5 - 20 = memory addresses 00-74
+6 - 20 = memory addresses 00-74
 
 
 51 ORDER CODE (v4, indexed load and store acc)

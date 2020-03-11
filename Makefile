@@ -7,8 +7,8 @@ chsim_test: chsim_test.cc chsim.cc
 .PHONY: test clean
 test:
 	python chasm_test.py
-	python chasm.py ucode.asm test.asm > /tmp/test.lst
-	cmp /tmp/test.lst test.lst
+	python chasm.py chasm_test.asm > /tmp/chasm_test.lst
+	cmp /tmp/chasm_test.lst chasm_test.lst
 	make chsim_test
 	./chsim_test
 

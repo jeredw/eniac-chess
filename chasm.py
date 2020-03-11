@@ -269,9 +269,9 @@ class Builtins(PrimitiveParsing):
     if self.context.isa_version and self.context.isa_version != arg:
       self.out.error("saw isa '{}' but already selected isa '{}'".format(
                      arg, self.context.isa_version))
-    elif arg == "v3":
+    elif arg == "v4":
       self.context.isa_version = arg
-      self.context.isa = V3(self.context, self.out)
+      self.context.isa = V4(self.context, self.out)
     else:
       self.out.error("invalid isa '{}'".format(arg))
 
@@ -281,28 +281,34 @@ class Builtins(PrimitiveParsing):
     if label: self.context.labels[label] = self.out.output_row
 
 
-class V3(PrimitiveParsing):
+class V4(PrimitiveParsing):
   def __init__(self, context, out):
     PrimitiveParsing.__init__(self, context, out)
     self.dispatch_table = {
       "nop": self.bind(opcode=0),
-      "swapacc": self._swapacc,
-      "ftl": self.bind(opcode=25),
-      "indexjmp1": self.bind(opcode=30),
-      "indexjmp2": self.bind(opcode=31),
-      "mov": self._mov,
       "swap": self._swap,
+      "loadacc": self.bind(want_arg=r"A", opcode=10),
+      "storeacc": self.bind(want_arg=r"A", opcode=11),
+      "save": self.bind(opcode=12),
+      "restore": self.bind(opcode=13),
+      "swapsave": self.bind(opcode=14),
+      "ftl": self.bind(opcode=15),
+      "mov": self._mov,
+      "indexhi": self.bind(opcode=40),
+      "indexlo": self.bind(opcode=41),
+      "selfmodify": self.bind(opcode=42),
+      "scan": self.bind(opcode=43),
       "inc": self._inc,
+      "dec": self.bind(want_arg=r"A", opcode=52),
+      "add": self.bind(want_arg=r"A,\s*D", opcode=70),
+      "neg": self.bind(want_arg=r"A", opcode=71),
+      "sub": self.bind(want_arg=r"A,\s*D", opcode=72),
       "jmp": self._jmp,
       "jn": self._jn,
       "jz": self._jz,
       "loop": self._loop,
       "jsr": self._jsr,
       "ret": self.bind(opcode=84),
-      "add": self.bind(want_arg=r"A,\s*D", opcode=85),
-      "sub": self.bind(want_arg=r"A,\s*D", opcode=90),
-      "neg": self.bind(want_arg=r"A", opcode=91),
-      "clr": self.bind(want_arg=r"A", opcode=92),
       "read": self.bind(want_arg=r"AB", opcode=93),
       "print": self.bind(want_arg=r"AB", opcode=94),
       "halt": self.bind(opcode=95),
@@ -312,66 +318,53 @@ class V3(PrimitiveParsing):
     try:
       self.dispatch_table[op](label, op, arg)
     except KeyError:
-      self.out.error("unrecognized opcode '{}' (using isa v3)".format(op))
-
-  def _swapacc(self, label, op, arg):
-    try:
-      value = int(arg, base=10)
-      if value < 0 or value > 15: raise ValueError
-      if 0 <= value <= 4: self.out.emit(1 + value)
-      elif 5 <= value <= 10: self.out.emit(5 + value)
-      elif 11 <= value <= 15: self.out.emit(9 + value)
-    except ValueError:
-      self.out.error("invalid swapacc argument '{}'".format(arg))
+      self.out.error("unrecognized opcode '{}' (using isa v4)".format(op))
 
   def _mov(self, label, op, arg):
-    if re.match(r"A,\s*\[B\]", arg):
-      self.out.emit(33)
-      return
-    m = re.match(r"A,\s*\[(.+?)\]", arg)
-    if m:
-      address = self._address_or_label(m.group(1), far=False)
-      self.out.emit(32, address % 100)
-      return
-    if re.match(r"\[B\],\s*A", arg):
-      self.out.emit(34)
-    elif re.match(r"A,\s*B", arg):
-      self.out.emit(40)
-    elif re.match(r"A,\s*C", arg):
-      self.out.emit(41)
-    elif re.match(r"A,\s*D", arg):
-      self.out.emit(42)
-    elif re.match(r"A,\s*E", arg):
-      self.out.emit(43)
-    elif re.match(r"Z,\s*A", arg):
-      self.out.emit(44)
-    else:
-      m = re.match(r"A,\s*(.+)", arg)
+    patterns = [(r"A,\s*B", 20, ''),
+                (r"A,\s*C", 21, ''),
+                (r"A,\s*D", 22, ''),
+                (r"A,\s*E", 23, ''),
+                (r"A,\s*Z", 24, ''),
+                (r"A,\s*\[B\]", 33, ''),
+                (r"A,\s*\[(.+?)\]", 31, 'a'),
+                (r"\[B\],\s*A", 34, ''),
+                (r"\[(.+?)\],\s*A", 32, 'a'),
+                (r"A,\s*(.+)", 30, 'w'),]
+    for regex, opcode, arg_type in patterns:
+      m = re.match(regex, arg)
       if m:
-        word = self._word_or_label(m.group(1))
-        self.out.emit(35, word % 100)
-        return
+        if not arg_type:
+          self.out.emit(opcode)
+        else:
+          word = self._word_or_label(m.group(1))
+          if arg_type != 'a' or 0 <= word <= 74:
+            self.out.emit(opcode, word % 100)
+          else:
+            self.out.error("address out of mov range '{}'".format(word))
+        break
+    else:
       self.out.error("invalid mov argument '{}'".format(arg))
 
   def _swap(self, label, op, arg):
     if re.match(r"B,\s*A|A,\s*B", arg):
-      self.out.emit(45)
+      self.out.emit(1)
     elif re.match(r"C,\s*A|A,\s*C", arg):
-      self.out.emit(50)
+      self.out.emit(2)
     elif re.match(r"D,\s*A|A,\s*D", arg):
-      self.out.emit(51)
+      self.out.emit(3)
     elif re.match(r"E,\s*A|A,\s*E", arg):
-      self.out.emit(52)
+      self.out.emit(4)
     elif re.match(r"Z,\s*A|A,\s*Z", arg):
-      self.out.emit(70)
+      self.out.emit(5)
     else:
       self.out.error("invalid swap argument '{}'".format(arg))
 
   def _inc(self, label, op, arg):
     if arg == "A":
-      self.out.emit(71)
+      self.out.emit(50)
     elif arg == "B":
-      self.out.emit(72)
+      self.out.emit(51)
     else:
       self.out.error("invalid inc argument '{}'".format(arg))
 
