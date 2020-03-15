@@ -35,7 +35,7 @@
 #      - goto 2-1
 # 1-4 no more instructons in IR, load new line from ft
 #      - stimulate FT
-#      - clear IR (not needed?)
+#      - clear IR (should already be, but we may go to 1-4 after loading PC in jump instructions )
 #      - clear EX
 #      - delay 4 then goto 1-6
 # 1-5 ft argument request
@@ -43,7 +43,7 @@
 # 1-6 read ft line of instructions
 #      FT sends complement of A and B
 #      - IR = M I6 I5 I4 I3 I2+1 = B2B1 B4B3 B6B5 A2A1 A4A3+1
-#      - EX = M 99 99 99 99 I1 = 99 99 99 99 A6A5
+#      - EX = M 99 99 99 99 I1 = 99 99 99 99 A6A5 +1?
 #      - PC += 1
 #      - goto 2-1
 #
@@ -169,7 +169,7 @@ p f1.C 1-5    # proceed to 1-5 when ready for argument
 # -- 1-5 ft argument request
 # - FT <- bottom two digits of PC (a1)
 
-p 1-5 a1.6i   # a1 -> d2
+p 1-5 a1.6i   # PC -> d2
 s a1.op6 A
 p a1.A 2      # use d2 not d1 because we're going through adapter
 p 2 ad.sd.4.0 # bottom two digits of d2
@@ -198,7 +198,7 @@ p 3 ad.d.7.-8   # A2A1
 p ad.d.7.-8 ad.s.8.2 
 p ad.s.8.2 5
 
-p 4 ad.d.8.-4   # B6B5 digits don't move but delete other digits
+p 4 ad.d.8.-4   # B6B5 digits don't move but must delete other digits
 p ad.d.8.-4 ad.s.9.-4
 p ad.s.9.-4 ad.s.10.4
 p ad.s.10.4 5

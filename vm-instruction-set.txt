@@ -9,42 +9,42 @@ ACCUMULATOR LAYOUT
 6 - 20 = memory addresses 00-74
 
 
-51 ORDER CODE (v4, indexed load and store acc)
+51 ORDER CODE (v4, extended registers)
 
 00 - nop          ; NB opcodes chosen for indexlo/selfmodify/nop
 01 - swap A,B
 02 - swap A,C
 03 - swap A,D
 04 - swap A,E
-05 - swap A,Z
+05 - swap A,F
 
-10 - loadacc A    ; acc A -> LS
-11 - storeacc A   ; LS -> acc A
-12 - save         ; LS = ABCDE
-13 - restore      ; ABCDE = LS
-14 - swapsave     ; LS <-> ABCDE 
-15 - ftl          ; LS = ft3[A], for initial board load
+10 - loadacc A    ; acc A -> FGHIJ
+11 - storeacc A   ; FGHIJ -> acc A
+12 - swap         ; ABCDE <-> FGHIJ
+13 - scan         ; destructively search FGHIJ for index of A, to A, -1 if not found
+14 - ftload A     ; FGHIJ = ft3[A] last 10 digits
+15 - 
 
 20 - mov A,B
 21 - mov A,C
 22 - mov A,D
 23 - mov A,E
-24 - mov A,Z
-25 - 
+24 - mov A,F
+25 - mov A,G
 
-30 - mov A,#XX
-31 - mov A,[#XX] ; mov B,XX; jsr LOAD
-32 - mov [#XX],A ; mov B,XX; jsr STORE
-33 - mov A,[B]   ; jsr LOAD
-34 - mov [B],A   ; jsr STORE
+30 - mov A,H 
+31 - mov A,I
+32 - mov A,J
+33 - ftlookup A,#XX ; A <- ft3[A+XX] last 2 digits
+34 - exec A         ; next instruction = A
 35 - 
 
-40 - indexhi      ; A = 2*B2 + B1>4
-41 - indexlo      ; A = B1%5
-42 - selfmodify   ; next instruction = A
-43 - scan         ; destructively search LS for index of A, to A, -1 if not found
-44 - 
-45 - 
+40 - mov A,#XX
+41 - mov D,#XX   
+42 - mov A,[#XX]  ; mov A,#XX; jsr LOAD
+43 - mov A,[B]    ; mov J,B; jsr LOAD
+44 - mov [#XX],A  ; mov J,B; jsr STORE
+45 - indexhi      ; A = 2*B2 + B1>4
 
 50 - inc A
 51 - inc B
@@ -52,19 +52,19 @@ ACCUMULATOR LAYOUT
 
 70 - add A,D
 71 - neg A
-72 - sub A,D    ; aka compare
-73 - jmp XX      ; within current function table
-74 - jmp far XXX ; to any function table
+72 - sub A,D      ; aka compare
+73 - jmp XX       ; within current function table
+74 - jmp far XXXX ; to any function table
 75 - jmp +A
 
-80 - jn XX      ; all conditionals within current function table only
-81 - jz XX
-82 - loop XX    ; dec C; if C!=0 jmp XX
-83 - jsr XXX    ; always far
-84 - ret
-85 - 
+80 - jn XX        ; jump if A<0 
+81 - jz XX        ; jump if A==0
+82 - jil XX       ; jump if A is an illegal board square: D2 or D1 is 0 or 9
+83 - loop XX      ; dec C; jump if C!=0
+84 - jsr XXXX     ; always far
+85 - ret
 
-90 - 
+90 - jnz XX       ; jump if A!=0
 91 - 
 92 - 
 93 - read AB
@@ -72,15 +72,173 @@ ACCUMULATOR LAYOUT
 95 - halt
 
 
-; [XX] += [YY]
-mov A,#XX
-swap A,B
-mov A,[YY]
-swap A,D
-mov A,[B]
-add A,D
-mov [B],A
 
+
+
+Extended accumulator plan
+-------------------------
+
+
+1 - RF
+Register file
++/- AA BB CC DD EE 
+No sends
+
+2 - PC         
+Program counter
+CCC BBB AAAA
+Send S A4,A3 to ft3,ft2 program inputs to fetch
+
+3 - IR
+Instruction register
+I6 I5 I4 I3 I2
+discriminate on PM to detect fetch needed
+  P only for regular use via A
+
+4 - EX
+execute    
+XX XX XX XX I1
+discriminate on PM to detect opcode <= 53
+  P only for regular use via A
+
+5 - LS
+load/store. Make this a13 for card printing?
+ZZ XX XX XX XX  
+
+
+6 - MEM6
+Discriminate PM to LOADACC
+P only for regular use via A
+
+7 - MEM7
+Send S to load 0-9
+
+8 - MEM8
+Send S to load 10-14
+
+9 - MEM9
+Discriminate PM to STOREACC
+P only for regular use via A
+
+10 - MEM10
+Send S to store 0-9
+
+11 - MEM11
+Send S to store 10-14
+
+
+
+INSTRUCTION IMPLEMENTATIONS
+---------------------------
+
+LOADACC A
+---------
+# accumulator index in A, store result in LS
+
+# start the FT lookup on A1 immediately, setup condition on A2
+1 - ping FT3, send A2 to MEM9 PM, clear LS
+
+2 - send A1 to ft3, discriminate MEM9
+
+# case MEM9 PM=M, meaning A>=10. Control via MEM7
+if A2>0 
+  3 - add M0 to MEM9 to restore PM=P, EX=MEM1, clear MEM1 
+  5 - receive A,B into MEM7                      # will be negative, no discrim program pulse on S out
+  6 - transmit MEM7 via S, clear MEM7
+  7 - listen on LS, MEM7=EX
+
+# case MEM9 PM=P, meaning A<10. Control via MEM6
+else 
+  3 - EX=MEM6, clear MEM6
+  5 - receive A,B into MEM6
+  6 - transmit MEM6 via S
+  7 - listen on LS, MEM6=EX
+
+
+
+STOREACC A
+----------
+# accumulator index in A, accumulator contents to write in SAVE
+
+# start the FT lookup on A1 immediately, setup condition on A2
+1 - ping FT3, send A2 to MEM9 PM, clear LS
+
+2 - send A1 to ft3, discriminate MEM10
+
+# case MEM10 PM=M, meaning A>=10. Control via IR Low
+if A2>0 
+  3 - add M0 to MEM10 to restore PM=P, EX=MEM8, clear MEM8
+  5 - receive A,B into MEM8                      # will be negative, no discrim program pulse on S out
+  6 - transmit MEM8 via S, clear MEM8
+  7 - listen on LS, MEM8=EX
+
+# case MEM10 PM=P, meaning A<10. Control via MEM0
+else 
+  3 - EX=MEM0, clear MEM0
+  5 - receive A,B into MEM0
+  6 - transmit MEM0 via S
+  7 - listen on LS, MEM0=EX
+
+
+
+EX = 0
+if A<10 # control via SAVE
+  EX = SAVE
+  SAVE = 0
+  send A1 to ft3
+  receive A,B into SAVE
+  transmit SAVE via S
+  transmit EX
+  SAVE = EX?
+else # control via IR high
+  EX = PC # save PC to EX
+  PC = A+5
+  send PC1 to ft3
+  PC = 0 
+  recieve A,B into PC
+  transmit PC via S
+  transmit SAVE
+  PC = EX
+
+
+
+
+JMP XXXX
+--------
+XX XX to PC 4,3,2,1
+
+
+JSR XXXX
+--------
+# Shift PC and write XXXX
+# 000 CCC BBBB -> CCC BBB XXXX
+# Use FT entries for four to three digit address conversion
+# i.e. two digit prefix [00,09,90] to one digit prefix[0, 1, 2]
+PC to EX, clear EX, ping FT3
+EX43 to FT3, EX7,6,5,2,1 to PC10,9,8,6,5   ; shift PC left by one address, leave a gap for the encoded digit
+XX XX to PC 4,3,2,1
+FT3.B1 to PC7
+
+
+RET
+---
+# CCC BBB AAAA -> 000 CCC BBBB
+# Use FT entires for 3->4 digit address conversion
+PC to EX, clear X, ping FT3
+EX to FT3, EX7,6,5,2,1 to PC10,9,8,6,5   ; shift PC right by one address, leave 2 digit gap for the decoded digit
+EX7 to FT3, EX10,9,8,6,5 to PC7,6,5,2,1
+FT3.B4,3 to PC4,3
+
+
+
+SAMPLE CODE
+
+; [XX] += [YY]
+mov A,[XX]        ; 01
+swap A,D          ; 2
+mov A,[YY]        ; 34
+add A,D           ; 5
+mov [XX],A        ; 67
 
 
 FIND IN ARRAY
