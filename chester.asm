@@ -1,7 +1,7 @@
 ; BISHOP/ROOK/QUEEN/KING MOVE GEN
 ; Input:
 ;    A = -1 if piece found on last_to, otherwise 0
-;    B = piece type (derivable from piece_index, but explicit here)
+;    B = piece_type (derivable from piece_index, but explicit here)
 ;    F = enum state or 99 for first move 
 ;    G = piece index
 ;    H = last_to - last generated move
@@ -15,7 +15,7 @@
 ; Ensure A=0 if enumstate=0
 ;
 ; Works by indexing over an array of start and end directions, up/down/left/right then diagonals
-; So we put these values into two four-entry lookup tables on ft3:
+; So we put these values into two four-entry lookup tables on ft3 and index by piece_type:
 ;   ROW     START     END
 ;   bishop  4         7
 ;   rook    0         3

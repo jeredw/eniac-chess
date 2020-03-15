@@ -20,10 +20,10 @@ ACCUMULATOR LAYOUT
 
 10 - loadacc A    ; acc A -> FGHIJ
 11 - storeacc A   ; FGHIJ -> acc A
-12 - swap         ; ABCDE <-> FGHIJ
-13 - scan         ; destructively search FGHIJ for index of A, to A, -1 if not found
+12 - swapall      ; ABCDE <-> FGHIJ
+13 - scanall      ; destructively search FGHIJ for index of A, to A, -1 if not found
 14 - ftload A     ; FGHIJ = ft3[A] last 10 digits
-15 - 
+15 - ftlookup A,#XX ; A <- ft3[A+XX] last 2 digits
 
 20 - mov A,B
 21 - mov A,C
@@ -35,7 +35,7 @@ ACCUMULATOR LAYOUT
 30 - mov A,H 
 31 - mov A,I
 32 - mov A,J
-33 - ftlookup A,#XX ; A <- ft3[A+XX] last 2 digits
+33 - 
 34 - exec A         ; next instruction = A
 35 - 
 
@@ -65,10 +65,10 @@ ACCUMULATOR LAYOUT
 85 - ret
 
 90 - jnz XX       ; jump if A!=0
-91 - 
-92 - 
-93 - read AB
-94 - print AB
+91 - read AB
+92 - print AB
+93 - 
+94 - nextline     ; go immediately to line fetch
 95 - halt
 
 
@@ -142,8 +142,8 @@ LOADACC A
 
 # case MEM9 PM=M, meaning A>=10. Control via MEM7
 if A2>0 
-  3 - add M0 to MEM9 to restore PM=P, EX=MEM1, clear MEM1 
-  5 - receive A,B into MEM7                      # will be negative, no discrim program pulse on S out
+  3 - add M0 to MEM9 to restore PM=P, EX=MEM7, clear MEM7
+  5 - receive A,B into MEM7
   6 - transmit MEM7 via S, clear MEM7
   7 - listen on LS, MEM7=EX
 
@@ -165,40 +165,21 @@ STOREACC A
 
 2 - send A1 to ft3, discriminate MEM10
 
-# case MEM10 PM=M, meaning A>=10. Control via IR Low
+# case MEM10 PM=M, meaning A>=10. Control via MEM11
 if A2>0 
-  3 - add M0 to MEM10 to restore PM=P, EX=MEM8, clear MEM8
-  5 - receive A,B into MEM8                      # will be negative, no discrim program pulse on S out
-  6 - transmit MEM8 via S, clear MEM8
-  7 - listen on LS, MEM8=EX
+  3 - add M0 to MEM9 to restore PM=P, EX=MEM11, clear MEM11
+  5 - receive A,B into MEM10
+  6 - transmit MEM11 via S, clear MEM11
+  7 - listen on LS, MEM11=EX
 
-# case MEM10 PM=P, meaning A<10. Control via MEM0
+# case MEM10 PM=P, meaning A<10. Control via MEM10
 else 
-  3 - EX=MEM0, clear MEM0
-  5 - receive A,B into MEM0
-  6 - transmit MEM0 via S
-  7 - listen on LS, MEM0=EX
+  3 - EX=MEM10, clear MEM10
+  5 - receive A,B into MEM10
+  6 - transmit MEM10 via S
+  7 - listen on LS, MEM10=EX
 
 
-
-EX = 0
-if A<10 # control via SAVE
-  EX = SAVE
-  SAVE = 0
-  send A1 to ft3
-  receive A,B into SAVE
-  transmit SAVE via S
-  transmit EX
-  SAVE = EX?
-else # control via IR high
-  EX = PC # save PC to EX
-  PC = A+5
-  send PC1 to ft3
-  PC = 0 
-  recieve A,B into PC
-  transmit PC via S
-  transmit SAVE
-  PC = EX
 
 
 
