@@ -28,10 +28,10 @@ p a1.5o 1-2   # goto 1-2
 
 # 1-2 test adapters
 #
-p 1-2 a1.6i   # a1 -> d1 (data bus 1)
+p 1-2 a1.6i   # a1.A -> d1 (data bus 1), a2.S -> d2
+s a1.op6 AS
 p a1.A 1
-s a1.op6 A
-
+p a1.S 2
 
 # shift left 2
 p 1-2 a2.1i   
@@ -51,14 +51,14 @@ s a6.op1 a
 p 1 ad.d.3.4      # a6 = first four digits of a1
 p ad.d.3.4 a6.a  
 
-# AABBCCDDEE -> DDEE00AABB into a8
+# AABBCCDDEE -> DDEE00AABB into a8, via d4
 p 1-2 a8.1i   
 s a8.op1 a
 p 1 ad.s.4.6 
-p ad.s.4.6 2
+p ad.s.4.6 4
 p 1 ad.s.5.-6 
-p ad.s.5.-6 2
-p 2 a8.a  
+p ad.s.5.-6 4
+p 4 a8.a  
 
 # AABBCCDDEE -> EE000000AA into a10
 p 1-2 a10.1i   
@@ -67,7 +67,7 @@ p 1 ad.s.6.-8
 p ad.s.6.-8 a10.a  
 p 1 ad.s.6.8
 
-# AABBCCDDEE -> 0000CCBBAA into a12
+# AABBCCDDEE -> 0000CCBBAA into a12, via d3
 # computed as AA sd.x.8 + BB (sd.x.6 then s.x.2) + CC (sd.x4 then s.x.4)
 # from bus 1 to 3 (bus 2 used for a8)
 p 1-2 a12.1i   
@@ -85,4 +85,19 @@ p ad.sd.10.4 ad.s.11.4
 p ad.s.11.4 3
 
 p 3 a12.a
+
+# a14: drop first two digits and sign
+p 1-2 a14.1i   
+s a14.op1 a
+p 2 ad.d.12.-2      # drop first two digits -a1, also drop the PM digit (sign)
+p ad.d.12.-2 a14.a  
+
+# a16: Move 1,2 of -a1 into 10,8 (left shift by 8, drop sign)
+p 1-2 a16.1i   
+s a16.op1 a
+p 2 ad.s.13.8
+p ad.s.13.8 a16.a  
+
+
+
 
