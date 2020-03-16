@@ -9,6 +9,8 @@ TODO(jered):
   an assembly implementation.
 """
 
+import game
+
 # machine model
 # - 78 two digit words
 M = [0 for _ in range(78)]
@@ -516,24 +518,29 @@ def print_best_move():
                                         M[best_move_piece_index],
                                         decode_position(M[best_move_new_position])))
 
-#init_board()
-#M[white_queen] = encode_position(4, 4)
-#M[black_queen] = encode_position(4, 3)
-#M[black_pawn_3] = encode_position(3, 3)
-#M[white_pawn_1] = encode_position(1, 6)
+def main():
+  global M
+  #init_board()
+  #M[white_queen] = encode_position(4, 4)
+  #M[black_queen] = encode_position(4, 3)
+  #M[black_pawn_3] = encode_position(3, 3)
+  #M[white_pawn_1] = encode_position(1, 6)
 
-init_board()
-find_best_move(max_depth=4)
-print_best_move()
+  init_board()
+  find_best_move(max_depth=4)
+  print_best_move()
 
-#
-#print('move (the initial state)')
-#print_board()
-#while True:
-#  generate_next_move()
-#  if M[move_piece_index] == 0:
-#    break
-#  print_move()
-#  apply_move()
-#  print_board()
-#  unapply_move()
+  #
+  #print('move (the initial state)')
+  #print_board()
+  #while True:
+  #  generate_next_move()
+  #  if M[move_piece_index] == 0:
+  #    break
+  #  print_move()
+  #  apply_move()
+  #  print_board()
+  #  unapply_move()
+
+if __name__ == "__main__":
+  main()
