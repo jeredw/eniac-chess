@@ -18,31 +18,20 @@ class TestSquare(unittest.TestCase):
     self.assertEqual(str(Square(x=8, y=8)), "h8")
 
   def testInBounds(self):
-    self.assertFalse(Square(x=0, y=4).in_bounds())
-    self.assertTrue(Square(x=1, y=4).in_bounds())
-    self.assertTrue(Square(x=8, y=4).in_bounds())
-    self.assertFalse(Square(x=9, y=4).in_bounds())
-    self.assertFalse(Square(x=4, y=0).in_bounds())
-    self.assertTrue(Square(x=4, y=1).in_bounds())
-    self.assertTrue(Square(x=4, y=8).in_bounds())
-    self.assertFalse(Square(x=4, y=9).in_bounds())
+    self.assertFalse(Square(x=0, y=4).in_bounds)
+    self.assertTrue(Square(x=1, y=4).in_bounds)
+    self.assertTrue(Square(x=8, y=4).in_bounds)
+    self.assertFalse(Square(x=9, y=4).in_bounds)
+    self.assertFalse(Square(x=4, y=0).in_bounds)
+    self.assertTrue(Square(x=4, y=1).in_bounds)
+    self.assertTrue(Square(x=4, y=8).in_bounds)
+    self.assertFalse(Square(x=4, y=9).in_bounds)
 
   def testAdd(self):
     self.assertEqual(Square(x=4, y=4) + (0, 1), Square(x=4, y=5))
     self.assertEqual(Square(x=4, y=4) + (0, -1), Square(x=4, y=3))
     self.assertEqual(Square(x=4, y=4) + (-1, 0), Square(x=3, y=4))
     self.assertEqual(Square(x=4, y=4) + (3, 0), Square(x=7, y=4))
-
-  def testRayGenerator(self):
-    self.assertEqual(list(ray(Square("e4"), -1, -1)), ["d3", "c2", "b1"])
-    self.assertEqual(list(ray(Square("e4"), -1, 0)), ["d4", "c4", "b4", "a4"])
-    self.assertEqual(list(ray(Square("e4"), -1, 1)), ["d5", "c6", "b7", "a8"])
-    self.assertEqual(list(ray(Square("e4"),  0, -1)), ["e3", "e2", "e1"])
-    self.assertEqual(list(ray(Square("e4"),  0, 0)), [])
-    self.assertEqual(list(ray(Square("e4"),  0, 1)), ["e5", "e6", "e7", "e8"])
-    self.assertEqual(list(ray(Square("e4"),  1, -1)), ["f3", "g2", "h1"])
-    self.assertEqual(list(ray(Square("e4"),  1, 0)), ["f4", "g4", "h4"])
-    self.assertEqual(list(ray(Square("e4"),  1, 1)), ["f5", "g6", "h7"])
 
 
 class TestBoard(unittest.TestCase):
@@ -340,140 +329,180 @@ class TestMove(unittest.TestCase):
     p = Position.epd("4r2k/3qbp2/p3bp1p/8/8/P1RQ4/1PP2PPP/2K1R3 b - -")
     self.assertEqual(Move.san("Qa4", p), Move(fro=Square("d7"), to=Square("a4")))
 
-  #def testSanExhaustive(self):
-  #  import glob
-  #  for filename in glob.glob("benchmarks/*.epd"):
-  #    with open(filename) as f:
-  #      print(filename)
-  #      for line in f:
-  #        print(line)
-  #        p = Position.epd(line.strip())
-  #        if "bm" in p.ops:
-  #          bm = p.ops["bm"].split(" ")
-  #          print(":{}:".format(bm[0]))
-  #          m = Move.san(bm[0], p)
+  @unittest.skip("useful for debugging but goofy as a test")
+  def testAllSanExamples(self):
+    import glob
+    for filename in glob.glob("benchmarks/*.epd"):
+      with open(filename) as f:
+        print(filename)
+        for line in f:
+          print(line)
+          p = Position.epd(line.strip())
+          if "bm" in p.ops:
+            bm = p.ops["bm"].split(" ")
+            print(":{}:".format(bm[0]))
+            m = Move.san(bm[0], p)
 
 
 class TestMoveGeneration(unittest.TestCase):
-  def testPerft1(self):
+  def testPerftInitial(self):
     p = Position.fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-    self.assertEqual(perft(p, max_depth=1), 20)
+    self.assertEqual(perft(p, depth=1), 20)
 
-  def testPerft2(self):
+  def testPerftInitialDepth2(self):
+    p = Position.fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    self.assertEqual(perft(p, depth=2), 400)
+
+  def testPerftInitialDepth3(self):
+    p = Position.fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    self.assertEqual(perft(p, depth=3), 8902)
+
+  @unittest.skip("slow")
+  def testPerftInitialDepth4(self):
+    p = Position.fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    self.assertEqual(perft(p, depth=4), 197281)
+
+  @unittest.skip("really slow")
+  def testPerftInitialDepth5(self):
+    p = Position.fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    self.assertEqual(perft(p, depth=5), 4865609)
+
+  def testPerftJones1(self):
     p = Position.fen("r6r/1b2k1bq/8/8/7B/8/8/R3K2R b QK - 3 2")
-    self.assertEqual(perft(p, max_depth=1), 8)
+    self.assertEqual(perft(p, depth=1), 8)
 
-  def testPerft3(self):
+  def testPerftJones2(self):
     p = Position.fen("8/8/8/2k5/2pP4/8/B7/4K3 b - d3 5 3")
-    self.assertEqual(perft(p, max_depth=1), 8)
+    self.assertEqual(perft(p, depth=1), 8)
 
-  def testPerft4(self):
+  def testPerftJones3(self):
     p = Position.fen("r1bqkbnr/pppppppp/n7/8/8/P7/1PPPPPPP/RNBQKBNR w QqKk - 2 2")
-    self.assertEqual(perft(p, max_depth=1), 19)
+    self.assertEqual(perft(p, depth=1), 19)
 
-  def testPerft5(self):
+  def testPerftJones4(self):
     p = Position.fen("r3k2r/p1pp1pb1/bn2Qnp1/2qPN3/1p2P3/2N5/PPPBBPPP/R3K2R b QqKk - 3 2")
-    self.assertEqual(perft(p, max_depth=1), 5)
+    self.assertEqual(perft(p, depth=1), 5)
 
-  def testPerft6(self):
+  def testPerftJones5(self):
     p = Position.fen("2kr3r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R b QK - 3 2")
-    self.assertEqual(perft(p, max_depth=1), 44)
+    self.assertEqual(perft(p, depth=1), 44)
 
-  def testPerft7(self):
+  def testPerftJones6(self):
     p = Position.fen("rnb2k1r/pp1Pbppp/2p5/q7/2B5/8/PPPQNnPP/RNB1K2R w QK - 3 9")
-    self.assertEqual(perft(p, max_depth=1), 39)
+    self.assertEqual(perft(p, depth=1), 39)
 
-  def testPerft8(self):
+  def testPerftJones7(self):
     p = Position.fen("2r5/3pk3/8/2P5/8/2K5/8/8 w - - 5 4")
-    self.assertEqual(perft(p, max_depth=1), 9)
+    self.assertEqual(perft(p, depth=1), 9)
 
-  def testPerft9(self):
-    pass
-    #p = Position.fen("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8")
-    #self.assertEqual(perft(p, max_depth=3), 62379)
-"""
-[
-   {
-      "depth":3,
-      "nodes":62379,
-      "fen":"rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"
-   },
-   {
-      "depth":3,
-      "nodes":89890,
-      "fen":"r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10"
-   },
-   {
-      "depth":6,
-      "nodes":1134888,
-      "fen":"3k4/3p4/8/K1P4r/8/8/8/8 b - - 0 1"
-   },
-   {
-      "depth":6,
-      "nodes":1015133,
-      "fen":"8/8/4k3/8/2p5/8/B2P2K1/8 w - - 0 1"
-   },
-   {
-      "depth":6,
-      "nodes":1440467,
-      "fen":"8/8/1k6/2b5/2pP4/8/5K2/8 b - d3 0 1"
-   },
-   {
-      "depth":6,
-      "nodes":661072,
-      "fen":"5k2/8/8/8/8/8/8/4K2R w K - 0 1"
-   },
-   {
-      "depth":6,
-      "nodes":803711,
-      "fen":"3k4/8/8/8/8/8/8/R3K3 w Q - 0 1"
-   },
-   {
-      "depth":4,
-      "nodes":1274206,
-      "fen":"r3k2r/1b4bq/8/8/8/8/7B/R3K2R w KQkq - 0 1"
-   },
-   {
-      "depth":4,
-      "nodes":1720476,
-      "fen":"r3k2r/8/3Q4/8/8/5q2/8/R3K2R b KQkq - 0 1"
-   },
-   {
-      "depth":6,
-      "nodes":3821001,
-      "fen":"2K2r2/4P3/8/8/8/8/8/3k4 w - - 0 1"
-   },
-   {
-      "depth":5,
-      "nodes":1004658,
-      "fen":"8/8/1P2K3/8/2n5/1q6/8/5k2 b - - 0 1"
-   },
-   {
-      "depth":6,
-      "nodes":217342,
-      "fen":"4k3/1P6/8/8/8/8/K7/8 w - - 0 1"
-   },
-   {
-      "depth":6,
-      "nodes":92683,
-      "fen":"8/P1k5/K7/8/8/8/8/8 w - - 0 1"
-   },
-   {
-      "depth":6,
-      "nodes":2217,
-      "fen":"K1k5/8/P7/8/8/8/8/8 w - - 0 1"
-   },
-   {
-      "depth":7,
-      "nodes":567584,
-      "fen":"8/k1P5/8/1K6/8/8/8/8 w - - 0 1"
-   },
-   {
-      "depth":4,
-      "nodes":23527,
-      "fen":"8/8/2k5/5q2/5n2/8/5K2/8 b - - 0 1"
-   }
-"""
+  def testPerftJones8(self):
+    p = Position.fen("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8")
+    self.assertEqual(perft(p, depth=3), 62379)
+
+  def testPerftJones9(self):
+    p = Position.fen("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10")
+    self.assertEqual(perft(p, depth=3), 89890)
+
+  @unittest.skip("slow")
+  def testPerftJones10(self):
+    p = Position.fen("3k4/3p4/8/K1P4r/8/8/8/8 b - - 0 1")
+    self.assertEqual(perft(p, depth=6), 1134888)
+
+  @unittest.skip("slow")
+  def testPerftJones11(self):
+    p = Position.fen("8/8/4k3/8/2p5/8/B2P2K1/8 w - - 0 1")
+    self.assertEqual(perft(p, depth=6), 1015133)
+
+  @unittest.skip("slow")
+  def testPerftJones12(self):
+    p = Position.fen("8/8/1k6/2b5/2pP4/8/5K2/8 b - d3 0 1")
+    self.assertEqual(perft(p, depth=6), 1440467)
+
+  @unittest.skip("slow")
+  def testPerftJones13(self):
+    p = Position.fen("5k2/8/8/8/8/8/8/4K2R w K - 0 1")
+    self.assertEqual(perft(p, depth=6), 661072)
+
+  @unittest.skip("slow")
+  def testPerftJones14(self):
+    p = Position.fen("3k4/8/8/8/8/8/8/R3K3 w Q - 0 1")
+    self.assertEqual(perft(p, depth=6), 803711)
+
+  @unittest.skip("slow")
+  def testPerftJones15(self):
+    p = Position.fen("r3k2r/1b4bq/8/8/8/8/7B/R3K2R w KQkq - 0 1")
+    self.assertEqual(perft(p, depth=2), 1141)
+    self.assertEqual(perft(p, depth=4), 1274206)
+
+  @unittest.skip("slow")
+  def testPerftJones16(self):
+    p = Position.fen("r3k2r/8/3Q4/8/8/5q2/8/R3K2R b KQkq - 0 1")
+    self.assertEqual(perft(p, depth=4), 1720476)
+
+  @unittest.skip("slow")
+  def testPerftJones17(self):
+    p = Position.fen("2K2r2/4P3/8/8/8/8/8/3k4 w - - 0 1")
+    self.assertEqual(perft(p, depth=6), 3821001)
+
+  @unittest.skip("slow")
+  def testPerftJones18(self):
+    p = Position.fen("8/8/1P2K3/8/2n5/1q6/8/5k2 b - - 0 1")
+    self.assertEqual(perft(p, depth=5), 1004658)
+
+  def testPerftJones19(self):
+    p = Position.fen("4k3/1P6/8/8/8/8/K7/8 w - - 0 1")
+    self.assertEqual(perft(p, depth=6), 217342)
+
+  def testPerftJones20(self):
+    p = Position.fen("8/P1k5/K7/8/8/8/8/8 w - - 0 1")
+    self.assertEqual(perft(p, depth=6), 92683)
+
+  def testPerftJones21(self):
+    p = Position.fen("K1k5/8/P7/8/8/8/8/8 w - - 0 1")
+    self.assertEqual(perft(p, depth=6), 2217)
+
+  def testPerftJones22(self):
+    p = Position.fen("8/k1P5/8/1K6/8/8/8/8 w - - 0 1")
+    self.assertEqual(perft(p, depth=7), 567584)
+
+  def testPerftJones23(self):
+    p = Position.fen("8/8/2k5/5q2/5n2/8/5K2/8 b - - 0 1")
+    self.assertEqual(perft(p, depth=4), 23527)
+
+  def testPerftKiwipeteDepth3(self):
+    p = Position.fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0")
+    self.assertEqual(perft(p, depth=3), 97862)
+
+  @unittest.skip("slow")
+  def testPerftKiwipeteDepth4(self):
+    p = Position.fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0")
+    self.assertEqual(perft(p, depth=4), 4085603)
+
+  def testPerftCporgPosition3Depth4(self):
+    p = Position.fen("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 0")
+    self.assertEqual(perft(p, depth=4), 43238)
+
+  @unittest.skip("slow")
+  def testPerftCporgPosition3Depth5(self):
+    p = Position.fen("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 0")
+    self.assertEqual(perft(p, depth=5), 674624)
+
+  def testPerftCporgPosition4Depth3(self):
+    p = Position.fen("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1")
+    self.assertEqual(perft(p, depth=3), 9467)
+
+  @unittest.skip("slow")
+  def testPerftCporgPosition4Depth4(self):
+    p = Position.fen("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1")
+    self.assertEqual(perft(p, depth=4), 422333)
+
+  def testPerftTalkchess(self):
+    p = Position.fen("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8")
+    self.assertEqual(perft(p, depth=3), 62379)
+
+  def testPerftEdwardsDepth3(self):
+    p = Position.fen("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10")
+    self.assertEqual(perft(p, depth=3), 89890)
 
 if __name__ == "__main__":
   unittest.main()
