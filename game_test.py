@@ -512,6 +512,22 @@ class TestMoveGeneration(unittest.TestCase):
     p = Position.fen("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10")
     self.assertEqual(perft(p, depth=3), 89890)
 
+  @unittest.skip("slow and sorta redundant")
+  def testPerftSuite(self):
+    with open("benchmarks/perftsuite.epd") as f:
+      for line in f:
+        line = line.strip()
+        print(line)
+        p = Position.epd(line)
+        for depth in range(1, 7):
+          depth_key = "D" + str(depth)
+          if not depth_key in p.ops: break
+          node_count = int(p.ops[depth_key], 10)
+          if node_count < 200000:
+            self.assertEqual(perft(p, depth=depth), node_count)
+          else:
+            break
+
 
 if __name__ == "__main__":
   unittest.main()
