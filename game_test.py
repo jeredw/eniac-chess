@@ -3,12 +3,19 @@ import unittest
 from game import *
 
 class TestSquare(unittest.TestCase):
-  def testCtorName(self):
-    self.assertEqual(Square("e4"), Square(x=5, y=4))
-    self.assertEqual(Square("a1"), Square(x=1, y=1))
-    self.assertEqual(Square("h1"), Square(x=8, y=1))
-    self.assertEqual(Square("a8"), Square(x=1, y=8))
-    self.assertEqual(Square("h8"), Square(x=8, y=8))
+  def testNamed(self):
+    self.assertEqual(Square.named("e4"), Square(x=5, y=4))
+    self.assertEqual(Square.named("a1"), Square(x=1, y=1))
+    self.assertEqual(Square.named("h1"), Square(x=8, y=1))
+    self.assertEqual(Square.named("a8"), Square(x=1, y=8))
+    self.assertEqual(Square.named("h8"), Square(x=8, y=8))
+
+  def testClassAttrs(self):
+    self.assertEqual(Square.e4, Square(x=5, y=4))
+    self.assertEqual(Square.a1, Square(x=1, y=1))
+    self.assertEqual(Square.h1, Square(x=8, y=1))
+    self.assertEqual(Square.a8, Square(x=1, y=8))
+    self.assertEqual(Square.h8, Square(x=8, y=8))
 
   def testStr(self):
     self.assertEqual(str(Square(x=5, y=4)), "e4")
@@ -36,43 +43,44 @@ class TestSquare(unittest.TestCase):
 
 class TestBoard(unittest.TestCase):
   def setUp(self):
-    self.start_pos = Board([["r", "n", "b", "q", "k", "b", "n", "r"],
-                            ["p", "p", "p", "p", "p", "p", "p", "p"],
-                            [".", ".", ".", ".", ".", ".", ".", "."],
-                            [".", ".", ".", ".", ".", ".", ".", "."],
-                            [".", ".", ".", ".", ".", ".", ".", "."],
-                            [".", ".", ".", ".", ".", ".", ".", "."],
-                            ["P", "P", "P", "P", "P", "P", "P", "P"],
-                            ["R", "N", "B", "Q", "K", "B", "N", "R"]])
+    self.initial = Board([["r", "n", "b", "q", "k", "b", "n", "r"],
+                          ["p", "p", "p", "p", "p", "p", "p", "p"],
+                          [".", ".", ".", ".", ".", ".", ".", "."],
+                          [".", ".", ".", ".", ".", ".", ".", "."],
+                          [".", ".", ".", ".", ".", ".", ".", "."],
+                          [".", ".", ".", ".", ".", ".", ".", "."],
+                          ["P", "P", "P", "P", "P", "P", "P", "P"],
+                          ["R", "N", "B", "Q", "K", "B", "N", "R"]])
 
   def testUnpack(self):
-    self.assertEqual(Board.unpack("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"), self.start_pos)
+    self.assertEqual(Board.unpack("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"), self.initial)
 
-  def testPack(self):
-    self.assertEqual(self.start_pos.pack(), "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+  def testStr(self):
+    self.assertEqual(str(self.initial), "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
 
   def testIter(self):
-    self.assertEqual(list(self.start_pos),
-                     [("a8", "r"), ("b8", "n"), ("c8", "b"), ("d8", "q"), ("e8", "k"), ("f8", "b"), ("g8", "n"), ("h8", "r"),
-                      ("a7", "p"), ("b7", "p"), ("c7", "p"), ("d7", "p"), ("e7", "p"), ("f7", "p"), ("g7", "p"), ("h7", "p"),
-                      ("a2", "P"), ("b2", "P"), ("c2", "P"), ("d2", "P"), ("e2", "P"), ("f2", "P"), ("g2", "P"), ("h2", "P"),
-                      ("a1", "R"), ("b1", "N"), ("c1", "B"), ("d1", "Q"), ("e1", "K"), ("f1", "B"), ("g1", "N"), ("h1", "R")])
+    self.assertEqual(list(self.initial),
+                     [(Square.named(s), p) for s, p in 
+                      [("a8", "r"), ("b8", "n"), ("c8", "b"), ("d8", "q"), ("e8", "k"), ("f8", "b"), ("g8", "n"), ("h8", "r"),
+                       ("a7", "p"), ("b7", "p"), ("c7", "p"), ("d7", "p"), ("e7", "p"), ("f7", "p"), ("g7", "p"), ("h7", "p"),
+                       ("a2", "P"), ("b2", "P"), ("c2", "P"), ("d2", "P"), ("e2", "P"), ("f2", "P"), ("g2", "P"), ("h2", "P"),
+                       ("a1", "R"), ("b1", "N"), ("c1", "B"), ("d1", "Q"), ("e1", "K"), ("f1", "B"), ("g1", "N"), ("h1", "R")]])
 
   def testGet(self):
-    self.assertEqual(self.start_pos["a8"], "r")
-    self.assertEqual(self.start_pos["g2"], "P")
-    self.assertEqual(self.start_pos[Square(x=1, y=1)], "R")
+    self.assertEqual(self.initial[Square.a8], "r")
+    self.assertEqual(self.initial[Square.g2], "P")
+    self.assertEqual(self.initial[Square(x=1, y=1)], "R")
 
   def testSet(self):
-    self.start_pos["e2"], self.start_pos["e4"] = empty, "P"
-    self.assertEqual(self.start_pos["e2"], empty)
-    self.assertEqual(self.start_pos["e4"], "P")
-    self.start_pos[Square(x=1, y=1)] = empty
-    self.assertEqual(self.start_pos["a1"], empty)
+    self.initial[Square.e2], self.initial[Square.e4] = empty, "P"
+    self.assertEqual(self.initial[Square.e2], empty)
+    self.assertEqual(self.initial[Square.e4], "P")
+    self.initial[Square(x=1, y=1)] = empty
+    self.assertEqual(self.initial[Square.a1], empty)
 
   def testFind(self):
-    self.assertEqual(self.start_pos.find("K"), "e1")
-    self.assertEqual(self.start_pos.find("k"), "e8")
+    self.assertEqual(self.initial.find("K"), Square.e1)
+    self.assertEqual(self.initial.find("k"), Square.e8)
 
 
 class TestPosition(unittest.TestCase):
@@ -104,7 +112,7 @@ class TestPosition(unittest.TestCase):
                                      ["R", "N", "B", "Q", "K", "B", "N", "R"]]))
     self.assertEqual(p.to_move, "b")
     self.assertEqual(p.castling, "KQkq")
-    self.assertEqual(p.ep_target, Square("e3"))
+    self.assertEqual(p.ep_target, Square.e3)
     self.assertEqual(p.ops["hmvc"], "0")
     self.assertEqual(p.ops["fmvn"], "1")
 
@@ -120,7 +128,7 @@ class TestPosition(unittest.TestCase):
                                      ["R", "N", "B", "Q", "K", "B", "N", "R"]]))
     self.assertEqual(p.to_move, "w")
     self.assertEqual(p.castling, "KQkq")
-    self.assertEqual(p.ep_target, Square("c6"))
+    self.assertEqual(p.ep_target, Square.c6)
     self.assertEqual(p.ops["hmvc"], "0")
     self.assertEqual(p.ops["fmvn"], "2")
 
@@ -166,7 +174,7 @@ class TestPosition(unittest.TestCase):
                               ["R", "N", "B", "Q", "K", "B", "N", "R"]]),
                  to_move="b",
                  castling="KQkq",
-                 ep_target=Square("e3"),
+                 ep_target=Square.named("e3"),
                  ops={"hmvc": "0", "fmvn": "1"})
     self.assertEqual(p.to_fen(), "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
 
@@ -181,7 +189,7 @@ class TestPosition(unittest.TestCase):
                               ["R", "N", "B", "Q", "K", "B", "N", "R"]]),
                  to_move="w",
                  castling="KQkq",
-                 ep_target=Square("c6"),
+                 ep_target=Square.named("c6"),
                  ops={"hmvc": "0", "fmvn": "2"})
     self.assertEqual(p.to_fen(), "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2")
 
@@ -272,62 +280,62 @@ class TestPosition(unittest.TestCase):
 
 class TestMove(unittest.TestCase):
   def testLan(self):
-    self.assertEqual(Move.lan("e2e4"), Move(fro=Square("e2"), to=Square("e4")))
-    self.assertEqual(Move.lan("b7b8q"), Move(fro=Square("b7"), to=Square("b8"), promo="q"))
+    self.assertEqual(Move.lan("e2e4"), Move(fro=Square.e2, to=Square.e4))
+    self.assertEqual(Move.lan("b7b8q"), Move(fro=Square.b7, to=Square.b8, promo="q"))
 
   def testStr(self):
-    self.assertEqual(str(Move(fro=Square("e2"), to=Square("e4"))), "e2e4")
-    self.assertEqual(str(Move(fro=Square("b7"), to=Square("b8"), promo="q")), "b7b8q")
+    self.assertEqual(str(Move(fro=Square.e2, to=Square.e4)), "e2e4")
+    self.assertEqual(str(Move(fro=Square.b7, to=Square.b8, promo="q")), "b7b8q")
 
   def testSanPawns(self):
     p = Position.epd("8/7p/2k1Pp2/pp1p2p1/3P2P1/4P3/P3K2P/8 w - -")
-    self.assertEqual(Move.san("e4", p), Move(fro=Square("e3"), to=Square("e4")))
+    self.assertEqual(Move.san("e4", p), Move(fro=Square.e3, to=Square.e4))
     p = Position.epd("8/4P3/8/N1K5/k7/8/7q/8 w - -")
-    self.assertEqual(Move.san("e8=Q+", p), Move(fro=Square("e7"), to=Square("e8"), promo="q"))
-    self.assertEqual(Move.san("e8Q+", p), Move(fro=Square("e7"), to=Square("e8"), promo="q"))
+    self.assertEqual(Move.san("e8=Q+", p), Move(fro=Square.e7, to=Square.e8, promo="q"))
+    self.assertEqual(Move.san("e8Q+", p), Move(fro=Square.e7, to=Square.e8, promo="q"))
     p = Position.epd("2rq1rk1/p2nbppp/bp6/2P5/2p5/1PB3P1/P2N1PBP/R2Q1RK1 w - -")
-    self.assertEqual(Move.san("cxb6", p), Move(fro=Square("c5"), to=Square("b6")))
+    self.assertEqual(Move.san("cxb6", p), Move(fro=Square.c5, to=Square.b6))
     p = Position.epd("qk4q1/5P2/8/1K6/8/8/8/8 w - -")
-    self.assertEqual(Move.san("fxg8=Q+", p), Move(fro=Square("f7"), to=Square("g8"), promo="q"))
+    self.assertEqual(Move.san("fxg8=Q+", p), Move(fro=Square.f7, to=Square.g8, promo="q"))
     p = Position.epd("r1bqkb1r/pp2pppp/1nnp4/1B2P3/3P4/5N2/PP3PPP/RNBQK2R b KQkq -")
-    self.assertEqual(Move.san("dxe5", p), Move(fro=Square("d6"), to=Square("e5")))
+    self.assertEqual(Move.san("dxe5", p), Move(fro=Square.d6, to=Square.e5))
     p = Position.epd("r1bq1rk1/pppp1ppp/2n2n2/6N1/2P1p3/2b3P1/PP1PPPBP/R1BQ1RK1 w - -")
-    self.assertEqual(Move.san("bxc3", p), Move(fro=Square("b2"), to=Square("c3")))
+    self.assertEqual(Move.san("bxc3", p), Move(fro=Square.b2, to=Square.c3))
 
   def testSanPieceOnly(self):
     p = Position.epd("r3kb1r/1bqn2pp/p3pn2/1pp5/4P3/2NB1N2/PP3PPP/R1BQ1RK1 w kq -")
-    self.assertEqual(Move.san("Bc2", p), Move(fro=Square("d3"), to=Square("c2")))
+    self.assertEqual(Move.san("Bc2", p), Move(fro=Square.d3, to=Square.c2))
     p = Position.epd("2rq2k1/1p3pb1/1n4pp/pP2p3/P1b1P3/2N4P/2B1NPP1/R1Q3K1 b - -")
-    self.assertEqual(Move.san("Bf8", p), Move(fro=Square("g7"), to=Square("f8")))
-    self.assertEqual(Move.san("Bg7f8", p), Move(fro=Square("g7"), to=Square("f8")))
+    self.assertEqual(Move.san("Bf8", p), Move(fro=Square.g7, to=Square.f8))
+    self.assertEqual(Move.san("Bg7f8", p), Move(fro=Square.g7, to=Square.f8))
     p = Position.epd("r3kb1r/1bqn2pp/p3pn2/1pp5/4P3/2NB1N2/PP3PPP/R1BQ1RK1 w kq -")
-    self.assertEqual(Move.san("Ng5", p), Move(fro=Square("f3"), to=Square("g5")))
+    self.assertEqual(Move.san("Ng5", p), Move(fro=Square.f3, to=Square.g5))
     p = Position.epd("1r1rb1k1/5ppp/4p3/1p1p3P/1q2P2Q/pN3P2/PPP4P/1K1R2R1 w - -")
-    self.assertEqual(Move.san("Rxg7+", p), Move(fro=Square("g1"), to=Square("g7")))
+    self.assertEqual(Move.san("Rxg7+", p), Move(fro=Square.g1, to=Square.g7))
 
   def testSanChecks(self):
     p = Position.epd("8/8/8/8/8/4N3/3N4/K1k1q3 w - -")
-    self.assertEqual(Move.san("Nb3#", p), Move(fro=Square("d2"), to=Square("b3")))
+    self.assertEqual(Move.san("Nb3#", p), Move(fro=Square.d2, to=Square.b3))
     p = Position.epd("k1q5/2K5/7p/8/8/8/6P1/8 w - -")
-    self.assertEqual(Move.san("Kxc8", p), Move(fro=Square("c7"), to=Square("c8")))
+    self.assertEqual(Move.san("Kxc8", p), Move(fro=Square.c7, to=Square.c8))
     p = Position.epd("2r1b3/p3kpp1/7p/3P4/7P/2p1KPP1/P7/1BR5 w - -")
-    self.assertEqual(Move.san("Kd4", p), Move(fro=Square("e3"), to=Square("d4")))
+    self.assertEqual(Move.san("Kd4", p), Move(fro=Square.e3, to=Square.d4))
 
   def testSanFromFile(self):
     p = Position.epd("2k4r/pb1r1p2/5P2/2qp4/1pp3Q1/6P1/1P3PBP/R4RK1 w - -")
-    self.assertEqual(Move.san("Rfe1", p), Move(fro=Square("f1"), to=Square("e1")))
+    self.assertEqual(Move.san("Rfe1", p), Move(fro=Square.f1, to=Square.e1))
     p = Position.epd("5r1k/2p3q1/1p1npr2/pPn1N1pp/P1PN4/R4PPP/4Q1K1/3R4 w - -")
-    self.assertEqual(Move.san("Ndc6", p), Move(fro=Square("d4"), to=Square("c6")))
+    self.assertEqual(Move.san("Ndc6", p), Move(fro=Square.d4, to=Square.c6))
     p = Position.epd("3r3r/p4pk1/5Rp1/3q4/1p1P2RQ/5N2/P1P4P/2b4K w - -")
-    self.assertEqual(Move.san("Rfxg6+", p), Move(fro=Square("f6"), to=Square("g6")))
+    self.assertEqual(Move.san("Rfxg6+", p), Move(fro=Square.f6, to=Square.g6))
 
   def testSanCastling(self):
     p = Position.epd("r2q1rk1/pp1bppbp/2np1np1/8/2BNP3/2N1BP2/PPPQ2PP/R3K2R w KQ -")
-    self.assertEqual(Move.san("O-O-O", p), Move(fro=Square("e1"), to=Square("c1")))
+    self.assertEqual(Move.san("O-O-O", p), Move(fro=Square.e1, to=Square.c1))
     p = Position.epd("r2qk2r/3n1ppp/p3p3/3nP3/3R4/5N2/1P1N1PPP/3QR1K1 b kq -")
-    self.assertEqual(Move.san("O-O", p), Move(fro=Square("e8"), to=Square("g8")))
+    self.assertEqual(Move.san("O-O", p), Move(fro=Square.e8, to=Square.g8))
     p = Position.epd("4r2k/3qbp2/p3bp1p/8/8/P1RQ4/1PP2PPP/2K1R3 b - -")
-    self.assertEqual(Move.san("Qa4", p), Move(fro=Square("d7"), to=Square("a4")))
+    self.assertEqual(Move.san("Qa4", p), Move(fro=Square.d7, to=Square.a4))
 
   @unittest.skip("useful for debugging but goofy as a test")
   def testAllSanExamples(self):
@@ -503,6 +511,7 @@ class TestMoveGeneration(unittest.TestCase):
   def testPerftEdwardsDepth3(self):
     p = Position.fen("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10")
     self.assertEqual(perft(p, depth=3), 89890)
+
 
 if __name__ == "__main__":
   unittest.main()

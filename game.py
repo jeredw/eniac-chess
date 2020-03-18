@@ -24,42 +24,62 @@ rank_names = " 12345678"
 
 
 class Square(object):
+  """Coordinates for a board square.
+
+  x is the file and runs from 1 to 8 corresponding to A-H.
+  y is the rank and runs from 1 to 8 with white pieces starting on ranks 1 and 2.
+  """
   def __init__(self, x=0, y=0):
-    if isinstance(x, str):
-      assert len(x) == 2
-      self.x = file_names.index(x[0])
-      self.y = rank_names.index(x[1])
-    else:
-      self.x = x
-      self.y = y
+    self.x = x
+    self.y = y
     self.in_bounds = 1 <= self.x <= 8 and 1 <= self.y <= 8
 
   def __str__(self):
     return file_names[self.x] + rank_names[self.y]
 
   def __repr__(self):
-    return 'Square("{}")'.format(self)
+    return 'Square.{}'.format(self)
+
+  @staticmethod
+  def named(name):
+    assert len(name) == 2
+    return Square(x=file_names.index(name[0]), y=rank_names.index(name[1]))
 
   def __eq__(self, other):
-    if isinstance(other, str):
-      return self == Square(other)
     return self.x == other.x and self.y == other.y
 
   def __add__(self, deltas):
     dx, dy = deltas
     return Square(x=self.x + dx, y=self.y + dy)
 
-Square.a1 = Square("a1")
-Square.h1 = Square("h1")
-Square.a8 = Square("a8")
-Square.h8 = Square("h8")
+# Populate attributes on the Square class Square.a1 .. Square.h8.
+# This makes it convenient to refer to squares by name.
+for rn in rank_names:
+  for fn in file_names:
+    name = fn + rn
+    setattr(Square, name, Square.named(name))
 
 
 class Board(object):
+  """A chess board.
+
+  ranks is a matrix of pieces with black on top and white on bottom.  Note
+  this means white pieces are in row 7 of the matrix which is rank 1, so
+  coordinates are flipped.
+
+  white_king_square and black_king_square cache where kings are, which is
+  needed when testing for check; they are calculated if left unspecified.
+  """
   def __init__(self, ranks=None, white_king_square=None, black_king_square=None):
     self.ranks = ranks
     self.white_king_square = white_king_square or self.find("K")
     self.black_king_square = black_king_square or self.find("k")
+
+  def __str__(self):
+    fen = "/".join("".join(rank) for rank in self.ranks)
+    for num_dots in range(8, 0, -1):
+      fen = fen.replace(empty * num_dots, str(num_dots))
+    return fen
 
   @staticmethod
   def unpack(fen):
@@ -76,15 +96,9 @@ class Board(object):
     assert len(ranks) == 8
     return Board(ranks=ranks)
 
-  def pack(self):
-    fen = "/".join("".join(rank) for rank in self.ranks)
-    for num_dots in range(8, 0, -1):
-      fen = fen.replace(empty * num_dots, str(num_dots))
-    return fen
-
   def pretty_print(self):
     for rank in self.ranks:
-      print(''.join(rank))
+      print("".join(rank))
 
   def __iter__(self):
     for y, rank in enumerate(self.ranks):
@@ -93,14 +107,10 @@ class Board(object):
           yield (Square(x=x+1, y=8-y), piece)
 
   def __getitem__(self, pos):
-    if isinstance(pos, str):
-      pos = Square(pos)
     assert pos.in_bounds
     return self.ranks[8 - pos.y][pos.x - 1]
 
   def __setitem__(self, pos, piece):
-    if isinstance(pos, str):
-      pos = Square(pos)
     assert pos.in_bounds
     if piece == "K":
       self.white_king_square = pos
@@ -118,6 +128,7 @@ class Board(object):
 
 
 class Position(object):
+  """A chess position description modeled after the EPD format."""
   def __init__(self, board=None, to_move=None, castling=None, ep_target=None, ops=None):
     self.board = board
     self.to_move = to_move
@@ -131,7 +142,7 @@ class Position(object):
     self.ops = ops
 
   def __deepcopy__(self, memodict={}):
-    # Really helps with runtime for perft tests because copy.deepcopy() is slow.
+    # Speeds up perft because copy.deepcopy() is slow.
     board = Board(ranks=[[p for p in rank] for rank in self.board.ranks],
                   white_king_square=self.board.white_king_square,
                   black_king_square=self.board.black_king_square)
@@ -147,7 +158,7 @@ class Position(object):
                     ops=ops)
 
   @staticmethod
-  def start():
+  def initial():
     return Position.fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 
   @staticmethod
@@ -160,12 +171,12 @@ class Position(object):
     return Position(board=Board.unpack(packed_board),
                     to_move=to_move,
                     castling=(castling if castling != "-" else ""),
-                    ep_target=(Square(ep_target) if ep_target != "-" else None),
+                    ep_target=(Square.named(ep_target) if ep_target != "-" else None),
                     ops={"hmvc": halfmove_clock, "fmvn": fullmove})
 
   def to_fen(self):
     fen = []
-    fen.append(self.board.pack())
+    fen.append(str(self.board))
     fen.append(self.to_move)
     fen.append("".join(sorted(self.castling)) if self.castling else "-")
     fen.append(str(self.ep_target) if self.ep_target else "-")
@@ -183,11 +194,13 @@ class Position(object):
     return Position(board=Board.unpack(packed_board),
                     to_move=to_move,
                     castling=(castling if castling != "-" else ""),
-                    ep_target=(Square(ep_target) if ep_target != "-" else None),
+                    ep_target=(Square.named(ep_target) if ep_target != "-" else None),
                     ops=_parse_epd_ops(ops))
 
 
 def _parse_epd_ops(s):
+  # This parses the ops part of EPD strings.  These are not regular and a small
+  # parser is simpler than hacking together res.
   # bm f5; id "Undermine.001"; c0 "f5=10, Be5+=2, Bf2=3, Bg4=2";
   ops = {}
   i = 0; n = len(s)
@@ -223,6 +236,15 @@ def _parse_epd_ops(s):
 
 
 class Move(object):
+  """A move in a chess game.
+
+  fro is the square moved from and to is the square moved to.
+  promo is set only for pawn promotion moves.  It is a lowercase letter saying
+  what type of piece the pawn is to be promoted to.
+
+  This representation is chosen to match "long algebraic notation" used in the
+  UCI protocol.
+  """
   def __init__(self, fro=None, to=None, promo=""):
     self.fro = fro
     self.to = to
@@ -230,9 +252,10 @@ class Move(object):
 
   @staticmethod
   def lan(s):
+    """Parse a move in long algebraic notation."""
     assert 4 <= len(s) <= 5
-    fro = Square(s[0:2])
-    to = Square(s[2:4])
+    fro = Square.named(s[0:2])
+    to = Square.named(s[2:4])
     promo = ""
     if len(s) == 5:
       assert(s[4] in "rnbq")
@@ -247,6 +270,13 @@ class Move(object):
 
   @staticmethod
   def san(s, position):
+    """Parse a move in standard algebraic notation.
+
+    s is the notation and position is the game state before the move happened.
+    Position is required to disambiguate, e.g. for the move "Nf3", what knight?
+
+    Needed because EPD uses this to specify "best moves" for benchmarks.
+    """
     s = s.rstrip("+#")
     if s == "O-O" or s == "0-0":
       return Move.black_oo if position.to_move == "b" else Move.white_oo
@@ -261,7 +291,7 @@ class Move(object):
     if m:
       piece, to_desc = m.groups()
       piece = _piece_for_color(piece, position.to_move)
-      return _disambiguate_san(position, piece, '', to_desc)
+      return _disambiguate_san(position, piece, "", to_desc)
     m = re.match(r"^([a-h]|[a-h][1-8])x?([a-h][1-8])=?([RNBQ]?)$", s)
     if m:
       from_desc, to_desc, promo = m.groups()
@@ -271,18 +301,19 @@ class Move(object):
     assert m
     to_desc, promo = m.groups()
     piece = _piece_for_color("p", position.to_move)
-    return _disambiguate_san(position, piece, '', to_desc, promo.lower())
+    return _disambiguate_san(position, piece, "", to_desc, promo.lower())
 
   def __eq__(self, other):
     return (self.fro == other.fro and
             self.to == other.to and
             self.promo == other.promo)
 
+# Long algebraic notation is ambiguous for castling... O-O-O is always coded as
+# e1c1, but that could also be a rook or a queen move.
 Move.white_ooo = Move.lan("e1c1")
 Move.white_oo = Move.lan("e1g1")
 Move.black_ooo = Move.lan("e8c8")
 Move.black_oo = Move.lan("e8g8")
-
 def _is_castling_move(position, move):
   piece = position.board[move.fro]
   if piece.lower() == "k":
@@ -300,14 +331,14 @@ def _is_castling_move(position, move):
       return True
   return False
 
-def _disambiguate_san(position, piece, from_desc, to_desc, promo=''):
-  to = Square(to_desc)
+def _disambiguate_san(position, piece, from_desc, to_desc, promo=""):
+  to = Square.named(to_desc)
   result = None
   if len(from_desc) < 2:
     from_desc = from_desc or "-"
     from_rank = rank_names.find(from_desc)
     from_file = file_names.find(from_desc)
-    for move in legal_moves(position):
+    for move, _ in legal_moves(position):
       if ((from_rank == -1 or move.fro.y == from_rank) and
           (from_file == -1 or move.fro.x == from_file) and
           (move.to == to and position.board[move.fro] == piece and move.promo == promo)):
@@ -315,10 +346,11 @@ def _disambiguate_san(position, piece, from_desc, to_desc, promo=''):
         result = move
     assert result
   else:
-    result = Move(fro=Square(from_desc), to=to)
+    result = Move(fro=Square.named(from_desc), to=to)
   return result
 
 def make_move(position, move):
+  """Returns the new position after applying move to position."""
   piece = position.board[move.fro]
   p2 = copy.deepcopy(position)
   p2.to_move = "w" if position.to_move == "b" else "b"
@@ -345,6 +377,7 @@ def make_move(position, move):
   return p2
 
 def _update_castling_eligibility(position, move, piece):
+  # Use a string instead of sets because sets slow down perft.
   mask = position.castling
   if (piece == "R" and move.fro == Square.h1) or move.to == Square.h1:
     mask = mask.replace("K", "")
@@ -364,25 +397,25 @@ def _update_castling_eligibility(position, move, piece):
 
 def _do_castling(position, move):
   if move == Move.white_oo:
-    position.board["e1"] = empty
-    position.board["f1"] = "R"
-    position.board["g1"] = "K"
-    position.board["h1"] = empty
+    position.board[Square.e1] = empty
+    position.board[Square.f1] = "R"
+    position.board[Square.g1] = "K"
+    position.board[Square.h1] = empty
   elif move == Move.white_ooo:
-    position.board["a1"] = empty
-    position.board["c1"] = "K"
-    position.board["d1"] = "R"
-    position.board["e1"] = empty
+    position.board[Square.a1] = empty
+    position.board[Square.c1] = "K"
+    position.board[Square.d1] = "R"
+    position.board[Square.e1] = empty
   elif move == Move.black_oo:
-    position.board["e8"] = empty
-    position.board["f8"] = "r"
-    position.board["g8"] = "k"
-    position.board["h8"] = empty
+    position.board[Square.e8] = empty
+    position.board[Square.f8] = "r"
+    position.board[Square.g8] = "k"
+    position.board[Square.h8] = empty
   elif move == Move.black_ooo:
-    position.board["a8"] = empty
-    position.board["c8"] = "k"
-    position.board["d8"] = "r"
-    position.board["e8"] = empty
+    position.board[Square.a8] = empty
+    position.board[Square.c8] = "k"
+    position.board[Square.d8] = "r"
+    position.board[Square.e8] = empty
 
 def _slide_moves(position, fro, own_pieces, deltas):
   for dx, dy in deltas:
@@ -436,28 +469,56 @@ def _pawn_moves(position, fro, own_pieces, dy):
       elif there != empty and there not in own_pieces:
         yield from _pawn_push(fro, to)
 
-def _castling_moves(position, own_pieces):
-  r1 = lambda f: f + ("1" if position.to_move == "w" else "8")
-  def can_castle(between, king_visits):
-    # Can't castle out of check or through an occupied or attacked square.
-    # It's ok that position.board has the king on the e file for all the
-    # threatened() calls because it would not block any new threats.
-    ok = (all(position.board[r1(fi)] == empty for fi in between) and
-          not any(_threatened(position, position.to_move, Square(r1(fi)))
-                  for fi in king_visits))
-    return ok
-  if own_pieces[king] in position.castling:
-    assert position.board[r1("e")] == own_pieces[king]
-    assert position.board[r1("h")] == own_pieces[rook]
-    if can_castle(["f", "g"], ["e", "f", "g"]):
-      yield Move.lan(r1("e") + r1("g"))
-  if own_pieces[queen] in position.castling:
-    assert position.board[r1("e")] == own_pieces[king]
-    assert position.board[r1("a")] == own_pieces[rook]
-    if can_castle(["b", "c", "d"], ["e", "d", "c"]):
-      yield Move.lan(r1("e") + r1("c"))
+def _castling_moves(position):
+  # Can't castle out of check or through an occupied or attacked square.
+  # It's ok that position.board has the king on the e file for all the
+  # _threatened() calls because it would not block any new threats.
+  if position.to_move == "w":
+    if "K" in position.castling:
+      assert position.board[Square.e1] == "K"
+      assert position.board[Square.h1] == "R"
+      if (position.board[Square.f1] == empty and
+          position.board[Square.g1] == empty and
+          not _threatened(position, "w", Square.e1) and
+          not _threatened(position, "w", Square.f1) and
+          not _threatened(position, "w", Square.g1)):
+        yield Move.white_oo
+    if "Q" in position.castling:
+      assert position.board[Square.e1] == "K"
+      assert position.board[Square.a1] == "R"
+      if (position.board[Square.b1] == empty and
+          position.board[Square.c1] == empty and
+          position.board[Square.d1] == empty and
+          not _threatened(position, "w", Square.e1) and
+          not _threatened(position, "w", Square.d1) and
+          not _threatened(position, "w", Square.c1)):
+        yield Move.white_ooo
+  else:
+    if "k" in position.castling:
+      assert position.board[Square.e8] == "k"
+      assert position.board[Square.h8] == "r"
+      if (position.board[Square.f8] == empty and
+          position.board[Square.g8] == empty and
+          not _threatened(position, "b", Square.e8) and
+          not _threatened(position, "b", Square.f8) and
+          not _threatened(position, "b", Square.g8)):
+        yield Move.black_oo
+    if "q" in position.castling:
+      assert position.board[Square.e8] == "k"
+      assert position.board[Square.a8] == "r"
+      if (position.board[Square.b8] == empty and
+          position.board[Square.c8] == empty and
+          position.board[Square.d8] == empty and
+          not _threatened(position, "b", Square.e8) and
+          not _threatened(position, "b", Square.d8) and
+          not _threatened(position, "b", Square.c8)):
+        yield Move.black_ooo
 
 def pseudo_legal_moves(position):
+  """Yields pseudo-legal moves possible from position.
+
+  Pseudo-legal moves are all possible moves without regard to king safety.
+  """
   own_pieces = black_pieces if position.to_move == "b" else white_pieces
   pawn_delta = -1 if position.to_move == "b" else +1
   for fro, piece in position.board:
@@ -473,25 +534,31 @@ def pseudo_legal_moves(position):
       yield from _slide_moves(position, fro, own_pieces, queen_deltas)
     elif piece == own_pieces[king]:
       yield from _step_moves(position, fro, own_pieces, king_deltas)
-  yield from _castling_moves(position, own_pieces)
+  yield from _castling_moves(position)
 
 def _threatened(position, player, square):
   """Returns true if, after moving to position, square would be threatened.
-     This is used to prune pseudo-legal moves that would lead to check, and so
-     does not subject attacker moves to pins or check restrictions."""
+
+  This is used to prune pseudo-legal moves that would lead to check, and so
+  does not subject attacker moves to pins or check restrictions.
+  """
   enemy_pieces = black_pieces if player == "w" else white_pieces
+  # It's much faster for perft to access the board array directly here, rather
+  # than using __getitem__, and is about as clear.
+  x, y = square.x, square.y
   for dx, dy in knight_deltas:
-    fro = square + (dx, dy)
-    if fro.in_bounds:
-      there = position.board[fro]
+    xp, yp = x + dx, y + dy
+    if 1 <= xp <= 8 and 1 <= yp <= 8:
+      there = position.board.ranks[8 - yp][xp - 1]
       if there == enemy_pieces[knight]:
         return True
   for dx, dy in queen_deltas:
+    xp, yp = x, y
     for n in range(1, 8):
-      fro = square + (dx * n, dy * n)
-      if not fro.in_bounds:
+      xp += dx; yp += dy
+      if not (1 <= xp <= 8 and 1 <= yp <= 8):
         break
-      there = position.board[fro]
+      there = position.board.ranks[8 - yp][xp - 1]
       if there == empty:
         continue
       if there not in enemy_pieces:
@@ -513,27 +580,34 @@ def _threatened(position, player, square):
   return False
 
 def legal_moves(position):
+  """Yields all legal moves and next positions for a given position."""
   for move in pseudo_legal_moves(position):
-    if _is_castling_move(position, move):
-      yield move
-      continue
     p2 = make_move(position, move)
+    if _is_castling_move(position, move):
+      yield (move, p2)
+      continue
     king_square = (p2.board.white_king_square if position.to_move == "w" else
                    p2.board.black_king_square)
     assert king_square
     if not _threatened(p2, position.to_move, king_square):
-      yield move
+      yield (move, p2)
 
 def perft(position, depth=1):
+  """Sums numbers of moves possible at each depth starting from position.
+
+  These counts are useful to validate move generation.
+  """
   if depth == 0: return 1
   moves = list(legal_moves(position))
   count = 0
-  for move in moves:
-    p2 = make_move(position, move)
+  for move, p2 in moves:
     count += perft(p2, depth=depth-1)
   return count
 
+
 if __name__ == "__main__":
   import cProfile
-  p = Position.fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0")
-  cProfile.run("perft(p, depth=3)")
+#  p = Position.fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0")
+#  cProfile.run("perft(p, depth=3)")
+  p = Position.fen("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1")
+  cProfile.run("perft(p, depth=4)")
