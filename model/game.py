@@ -174,7 +174,7 @@ class Position(object):
                     ep_target=(Square.named(ep_target) if ep_target != "-" else None),
                     ops={"hmvc": halfmove_clock, "fmvn": fullmove})
 
-  def to_fen(self):
+  def __str__(self):
     fen = []
     fen.append(str(self.board))
     fen.append(self.to_move)
@@ -338,7 +338,7 @@ def _disambiguate_san(position, piece, from_desc, to_desc, promo=""):
     from_desc = from_desc or "-"
     from_rank = rank_names.find(from_desc)
     from_file = file_names.find(from_desc)
-    for move, _ in legal_moves(position):
+    for move, _ in ReferenceMoveGen().legal_moves(position):
       if ((from_rank == -1 or move.fro.y == from_rank) and
           (from_file == -1 or move.fro.x == from_file) and
           (move.to == to and position.board[move.fro] == piece and move.promo == promo)):
@@ -417,197 +417,210 @@ def _do_castling(position, move):
     position.board[Square.d8] = "r"
     position.board[Square.e8] = empty
 
-def _slide_moves(position, fro, own_pieces, deltas):
-  for dx, dy in deltas:
-    for n in range(1, 8):
-      to = fro + (dx * n, dy * n)
-      if not to.in_bounds:
-        break
-      there = position.board[to]
-      if there == empty:
-        yield Move(fro=fro, to=to)
-      else:
-        if there not in own_pieces:
-          yield Move(fro=fro, to=to)
-        break
 
-def _step_moves(position, fro, own_pieces, deltas):
-  for dx, dy in deltas:
-    to = fro + (dx, dy)
-    if to.in_bounds:
-      there = position.board[to]
-      if there == empty or there not in own_pieces:
-        yield Move(fro=fro, to=to)
+class ReferenceMoveGen(object):
+  """A slow (perft ~18knodes/sec) but correct move generator.
 
-def _pawn_push(fro, to):
-  if to.y == 1 or to.y == 8:
-    for promo in "rnbq":
-      yield Move(fro=fro, to=to, promo=promo)
-  else:
-    yield Move(fro=fro, to=to)
-
-def _pawn_moves(position, fro, own_pieces, dy):
-  from_start_rank = (fro.y == 2 and dy == 1) or (fro.y == 7 and dy == -1)
-  deltas = [dy, 2 * dy] if from_start_rank else [dy]
-  for d in deltas:
-    to = fro + (0, d)
-    there = position.board[to]
-    if there == empty:
-      yield from _pawn_push(fro, to)
-    else:
-      break
-  for dx in (-1, 1):
-    to = fro + (dx, dy)
-    if to.in_bounds:
-      there = position.board[to]
-      if position.ep_target and to == position.ep_target:
-        passed_to = to + (0, -dy)
-        if passed_to.in_bounds:
-          there = position.board[passed_to]
-          if there.lower() == "p" and there not in own_pieces:
-            yield from _pawn_push(fro, to)
-      elif there != empty and there not in own_pieces:
-        yield from _pawn_push(fro, to)
-
-def _castling_moves(position):
-  # Can't castle out of check or through an occupied or attacked square.
-  # It's ok that position.board has the king on the e file for all the
-  # _threatened() calls because it would not block any new threats.
-  if position.to_move == "w":
-    if "K" in position.castling:
-      assert position.board[Square.e1] == "K"
-      assert position.board[Square.h1] == "R"
-      if (position.board[Square.f1] == empty and
-          position.board[Square.g1] == empty and
-          not _threatened(position, "w", Square.e1) and
-          not _threatened(position, "w", Square.f1) and
-          not _threatened(position, "w", Square.g1)):
-        yield Move.white_oo
-    if "Q" in position.castling:
-      assert position.board[Square.e1] == "K"
-      assert position.board[Square.a1] == "R"
-      if (position.board[Square.b1] == empty and
-          position.board[Square.c1] == empty and
-          position.board[Square.d1] == empty and
-          not _threatened(position, "w", Square.e1) and
-          not _threatened(position, "w", Square.d1) and
-          not _threatened(position, "w", Square.c1)):
-        yield Move.white_ooo
-  else:
-    if "k" in position.castling:
-      assert position.board[Square.e8] == "k"
-      assert position.board[Square.h8] == "r"
-      if (position.board[Square.f8] == empty and
-          position.board[Square.g8] == empty and
-          not _threatened(position, "b", Square.e8) and
-          not _threatened(position, "b", Square.f8) and
-          not _threatened(position, "b", Square.g8)):
-        yield Move.black_oo
-    if "q" in position.castling:
-      assert position.board[Square.e8] == "k"
-      assert position.board[Square.a8] == "r"
-      if (position.board[Square.b8] == empty and
-          position.board[Square.c8] == empty and
-          position.board[Square.d8] == empty and
-          not _threatened(position, "b", Square.e8) and
-          not _threatened(position, "b", Square.d8) and
-          not _threatened(position, "b", Square.c8)):
-        yield Move.black_ooo
-
-def pseudo_legal_moves(position):
-  """Yields pseudo-legal moves possible from position.
-
-  Pseudo-legal moves are all possible moves without regard to king safety.
+  Ignores draws by repetition, the fifty move rule and insufficient material.
+  Options allow for turning off more complex chess rules.  ignore_check returns
+  pseudo-legal moves that leave the player in check (but does not affect
+  castling rules.)
   """
-  own_pieces = black_pieces if position.to_move == "b" else white_pieces
-  pawn_delta = -1 if position.to_move == "b" else +1
-  for fro, piece in position.board:
-    if piece == own_pieces[pawn]:
-      yield from _pawn_moves(position, fro, own_pieces, pawn_delta)
-    elif piece == own_pieces[rook]:
-      yield from _slide_moves(position, fro, own_pieces, rook_deltas)
-    elif piece == own_pieces[knight]:
-      yield from _step_moves(position, fro, own_pieces, knight_deltas)
-    elif piece == own_pieces[bishop]:
-      yield from _slide_moves(position, fro, own_pieces, bishop_deltas)
-    elif piece == own_pieces[queen]:
-      yield from _slide_moves(position, fro, own_pieces, queen_deltas)
-    elif piece == own_pieces[king]:
-      yield from _step_moves(position, fro, own_pieces, king_deltas)
-  yield from _castling_moves(position)
+  def __init__(self,
+               ignore_check=False,
+               allow_castling=True,
+               allow_en_passant_captures=True,
+               allowed_promotions="rnbq"):
+    self.ignore_check = ignore_check
+    self.allow_castling = allow_castling
+    self.allow_en_passant_captures = allow_en_passant_captures
+    self.allowed_promotions = allowed_promotions
 
-def _threatened(position, player, square):
-  """Returns true if, after moving to position, square would be threatened.
-
-  This is used to prune pseudo-legal moves that would lead to check, and so
-  does not subject attacker moves to pins or check restrictions.
-  """
-  enemy_pieces = black_pieces if player == "w" else white_pieces
-  # It's much faster for perft to access the board array directly here, rather
-  # than using __getitem__, and is about as clear.
-  x, y = square.x, square.y
-  for dx, dy in knight_deltas:
-    xp, yp = x + dx, y + dy
-    if 1 <= xp <= 8 and 1 <= yp <= 8:
-      there = position.board.ranks[8 - yp][xp - 1]
-      if there == enemy_pieces[knight]:
-        return True
-  for dx, dy in queen_deltas:
-    xp, yp = x, y
-    for n in range(1, 8):
-      xp += dx; yp += dy
-      if not (1 <= xp <= 8 and 1 <= yp <= 8):
-        break
-      there = position.board.ranks[8 - yp][xp - 1]
-      if there == empty:
+  def legal_moves(self, position):
+    """Yields all legal moves and next positions for a given position."""
+    for move in self._pseudo_legal_moves(position):
+      p2 = make_move(position, move)
+      if _is_castling_move(position, move):
+        yield (move, p2)
         continue
-      if there not in enemy_pieces:
+      king_square = (p2.board.white_king_square if position.to_move == "w" else
+                     p2.board.black_king_square)
+      assert king_square
+      if self.ignore_check or not self._threatened(p2, position.to_move, king_square):
+        yield (move, p2)
+
+  def _pseudo_legal_moves(self, position):
+    """Yields pseudo-legal moves possible from position.
+
+    Pseudo-legal moves are all possible moves without regard to king safety.
+    """
+    own_pieces = black_pieces if position.to_move == "b" else white_pieces
+    pawn_delta = -1 if position.to_move == "b" else +1
+    for fro, piece in position.board:
+      if piece == own_pieces[pawn]:
+        yield from self._pawn_moves(position, fro, own_pieces, pawn_delta)
+      elif piece == own_pieces[rook]:
+        yield from self._slide_moves(position, fro, own_pieces, rook_deltas)
+      elif piece == own_pieces[knight]:
+        yield from self._step_moves(position, fro, own_pieces, knight_deltas)
+      elif piece == own_pieces[bishop]:
+        yield from self._slide_moves(position, fro, own_pieces, bishop_deltas)
+      elif piece == own_pieces[queen]:
+        yield from self._slide_moves(position, fro, own_pieces, queen_deltas)
+      elif piece == own_pieces[king]:
+        yield from self._step_moves(position, fro, own_pieces, king_deltas)
+    if self.allow_castling:
+      yield from self._castling_moves(position)
+
+  def _slide_moves(self, position, fro, own_pieces, deltas):
+    for dx, dy in deltas:
+      for n in range(1, 8):
+        to = fro + (dx * n, dy * n)
+        if not to.in_bounds:
+          break
+        there = position.board[to]
+        if there == empty:
+          yield Move(fro=fro, to=to)
+        else:
+          if there not in own_pieces:
+            yield Move(fro=fro, to=to)
+          break
+
+  def _step_moves(self, position, fro, own_pieces, deltas):
+    for dx, dy in deltas:
+      to = fro + (dx, dy)
+      if to.in_bounds:
+        there = position.board[to]
+        if there == empty or there not in own_pieces:
+          yield Move(fro=fro, to=to)
+
+  def _pawn_moves(self, position, fro, own_pieces, dy):
+    from_start_rank = (fro.y == 2 and dy == 1) or (fro.y == 7 and dy == -1)
+    deltas = [dy, 2 * dy] if from_start_rank else [dy]
+    for d in deltas:
+      to = fro + (0, d)
+      there = position.board[to]
+      if there == empty:
+        yield from self._pawn_push(fro, to)
+      else:
         break
-      # NB: Ignore en passant pawn captures.
-      if (n == 1 and
-          ((there == "p" and abs(dx) == 1 and dy == +1) or
-           (there == "P" and abs(dx) == 1 and dy == -1))):
-        return True
-      if there.lower() == "r" and (dx == 0 or dy == 0):
-        return True
-      if there.lower() == "b" and not (dx == 0 or dy == 0):
-        return True
-      if there.lower() == "q":
-        return True
-      if there.lower() == "k" and n == 1:
-        return True
-      break
-  return False
+    for dx in (-1, 1):
+      to = fro + (dx, dy)
+      if to.in_bounds:
+        there = position.board[to]
+        if there != empty and there not in own_pieces:
+          yield from self._pawn_push(fro, to)
+        if self.allow_en_passant_captures and position.ep_target and to == position.ep_target:
+          passed_to = to + (0, -dy)
+          if passed_to.in_bounds:
+            there = position.board[passed_to]
+            if there.lower() == "p" and there not in own_pieces:
+              yield from self._pawn_push(fro, to)
 
-def legal_moves(position):
-  """Yields all legal moves and next positions for a given position."""
-  for move in pseudo_legal_moves(position):
-    p2 = make_move(position, move)
-    if _is_castling_move(position, move):
-      yield (move, p2)
-      continue
-    king_square = (p2.board.white_king_square if position.to_move == "w" else
-                   p2.board.black_king_square)
-    assert king_square
-    if not _threatened(p2, position.to_move, king_square):
-      yield (move, p2)
+  def _pawn_push(self, fro, to):
+    if to.y == 1 or to.y == 8:
+      for promo in self.allowed_promotions:
+        yield Move(fro=fro, to=to, promo=promo)
+    else:
+      yield Move(fro=fro, to=to)
 
-def perft(position, depth=1):
+  def _castling_moves(self, position):
+    # Can't castle out of check or through an occupied or attacked square.
+    # It's ok that position.board has the king on the e file for all the
+    # _threatened() calls because it would not block any new threats.
+    if position.to_move == "w":
+      if "K" in position.castling:
+        assert position.board[Square.e1] == "K"
+        assert position.board[Square.h1] == "R"
+        if (position.board[Square.f1] == empty and
+            position.board[Square.g1] == empty and
+            not self._threatened(position, "w", Square.e1) and
+            not self._threatened(position, "w", Square.f1) and
+            not self._threatened(position, "w", Square.g1)):
+          yield Move.white_oo
+      if "Q" in position.castling:
+        assert position.board[Square.e1] == "K"
+        assert position.board[Square.a1] == "R"
+        if (position.board[Square.b1] == empty and
+            position.board[Square.c1] == empty and
+            position.board[Square.d1] == empty and
+            not self._threatened(position, "w", Square.e1) and
+            not self._threatened(position, "w", Square.d1) and
+            not self._threatened(position, "w", Square.c1)):
+          yield Move.white_ooo
+    else:
+      if "k" in position.castling:
+        assert position.board[Square.e8] == "k"
+        assert position.board[Square.h8] == "r"
+        if (position.board[Square.f8] == empty and
+            position.board[Square.g8] == empty and
+            not self._threatened(position, "b", Square.e8) and
+            not self._threatened(position, "b", Square.f8) and
+            not self._threatened(position, "b", Square.g8)):
+          yield Move.black_oo
+      if "q" in position.castling:
+        assert position.board[Square.e8] == "k"
+        assert position.board[Square.a8] == "r"
+        if (position.board[Square.b8] == empty and
+            position.board[Square.c8] == empty and
+            position.board[Square.d8] == empty and
+            not self._threatened(position, "b", Square.e8) and
+            not self._threatened(position, "b", Square.d8) and
+            not self._threatened(position, "b", Square.c8)):
+          yield Move.black_ooo
+
+  def _threatened(self, position, player, square):
+    """Returns true if, after moving to position, square would be threatened.
+
+    This is used to prune pseudo-legal moves that would lead to check, and so
+    does not subject attacker moves to pins or check restrictions.
+    """
+    enemy_pieces = black_pieces if player == "w" else white_pieces
+    # It's much faster for perft to access the board array directly here, rather
+    # than using __getitem__, and is about as clear.
+    x, y = square.x, square.y
+    for dx, dy in knight_deltas:
+      xp, yp = x + dx, y + dy
+      if 1 <= xp <= 8 and 1 <= yp <= 8:
+        there = position.board.ranks[8 - yp][xp - 1]
+        if there == enemy_pieces[knight]:
+          return True
+    for dx, dy in queen_deltas:
+      xp, yp = x, y
+      for n in range(1, 8):
+        xp += dx; yp += dy
+        if not (1 <= xp <= 8 and 1 <= yp <= 8):
+          break
+        there = position.board.ranks[8 - yp][xp - 1]
+        if there == empty:
+          continue
+        if there not in enemy_pieces:
+          break
+        # NB: Ignore en passant pawn captures.
+        if (n == 1 and
+            ((there == "p" and abs(dx) == 1 and dy == +1) or
+             (there == "P" and abs(dx) == 1 and dy == -1))):
+          return True
+        if there.lower() == "r" and (dx == 0 or dy == 0):
+          return True
+        if there.lower() == "b" and not (dx == 0 or dy == 0):
+          return True
+        if there.lower() == "q":
+          return True
+        if there.lower() == "k" and n == 1:
+          return True
+        break
+    return False
+
+
+def perft(position, move_gen, depth=1):
   """Sums numbers of moves possible at each depth starting from position.
 
   These counts are useful to validate move generation.
   """
   if depth == 0: return 1
-  moves = list(legal_moves(position))
+  moves = list(move_gen.legal_moves(position))
   count = 0
   for move, p2 in moves:
-    count += perft(p2, depth=depth-1)
+    count += perft(p2, move_gen, depth=depth-1)
   return count
-
-
-if __name__ == "__main__":
-  import cProfile
-#  p = Position.fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 0")
-#  cProfile.run("perft(p, depth=3)")
-  p = Position.fen("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1")
-  cProfile.run("perft(p, depth=4)")

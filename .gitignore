@@ -4,3 +4,4 @@ chsim_test
 eniac
 images/
 perft
+__pycache__

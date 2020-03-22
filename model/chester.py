@@ -3,13 +3,9 @@
 """Model for ENIAC chess program.
 
 This is a hacky prototype of a search program for the ENIAC chess VM.
-TODO(jered):
-- Write a short, high-level version of the logic to validate the algorthm.
-- Split into parts with traceable inputs and outputs for cross-validation with
-  an assembly implementation.
+TODO(jered): Rewrite this... verify the pieces against reference
+implementation, provide tracepoints for verifying asm, and wrap for UCI.
 """
-
-import game
 
 # machine model
 # - 78 two digit words
@@ -232,11 +228,11 @@ def generate_next_move():
     # reset new_position
     if M[move_captured_piece_index] != 0:
       M[move_new_position] = M[move_original_position]
- 
+
     # generate the next possible position to move to
     (x, y)         = decode_position(M[M[move_piece_index]])
     (new_x, new_y) = decode_position(M[move_new_position])
- 
+
     if white_pawn_1 <= M[move_piece_index] <= white_pawn_8:
       # push 1/maybe push 2, capture -x, capture +x
       if M[move_enumeration_state] == 1:
@@ -363,7 +359,7 @@ def generate_next_move():
       elif M[move_enumeration_state] == 9:
         M[move_enumeration_state] = 0
         continue
- 
+
     # if the new position is off the board, time to consider next state
     (new_x, new_y) = decode_position(M[move_new_position])
     if new_x == 0 or new_x == 9 or new_y == 0 or new_y == 9:
@@ -391,7 +387,7 @@ def generate_next_move():
         # can't capture straight ahead; and if moving to capture, must capture something.
         M[move_enumeration_state] += 1
         continue
- 
+
     if M[move_captured_piece_index] != 0:
       # hit something -> next enumeration state for next move
       M[move_enumeration_state] += 1
@@ -405,7 +401,7 @@ def generate_next_move():
           white_knight_1 == M[move_piece_index] or white_knight_2 == M[move_piece_index] or
           black_knight_1 == M[move_piece_index] or black_knight_2 == M[move_piece_index]):
         M[move_enumeration_state] += 1
- 
+
     # we have a valid move to try
     break
 
