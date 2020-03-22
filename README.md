@@ -26,6 +26,17 @@ Doing this involves multiple layers of tools and cross-validation.
 | ------------ | ----------------------------------------------- |
 | `Makefile`   | `make` to build everything, `make test` to test |
 | `chasm.py`   | Assembler for the chess VM                      |
-| `test.asm`   | Assembler test program                          |
 | `chsim.cc`   | Simulator for the chess VM                      |
-| `chester.py` | High level model for chess program              |
+| `model/`     | High level model for chess engine               |
+
+# Playing with SCID
+
+`model/uci_driver.py` communicates between UCI-compatible Chess software like
+[SCID vs Mac](http://scidvspc.sourceforge.net/#toc3) and engines wrapped by the
+`uciengine.UCIEngine` class.  To configure SCID, go to Tools > Analysis Engines
+and press New.  Then set Command to `/usr/local/bin/python3`, Directory to
+`/.../eniac-chess/model`, and parameters to `uci_driver.py`.  (In the future,
+different engines will be selectable by command-line arguments.)
+
+To play games directly in SCID, select Play > Computer - UCI Engine.  No UCI
+options are supported yet, so best to uncheck most everything.
