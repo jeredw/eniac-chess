@@ -24,8 +24,25 @@ def usage():
   print("easm.py infile.ea outfile.e")
 
 
+# Possible arguments to p (things that can be patched)
+# N,M = unsigned integers
+# aN.Mo
+# aN.Mi
+# aN.[abcde]
+# aN.[AS]
+# N-M           # program line
+# N             # data trunk
+# ad.dp.N.M
+# ad.s.N.M
+# ad.d.N.M
+# ad.sd.N.M
+
+
 def line_p(line, m, out):
-  out.emit("PPP " +  line)
+  arg1,arg2,comment = m.groups()
+  if not comment:
+    comment=""
+  out.emit("PPP arg1=" + arg1 + " arg2=" + arg2 + " " + comment)
 
 def line_s(line, m, out): 
   out.emit("SSS " +  line)
@@ -36,8 +53,8 @@ def line_blank(line, m, out):
 
 # The types of lines we understand
 dispatch_table_line = {
-  re.compile(r"p .*(#.*)?")   : line_p,
-  re.compile(r"s .*(#.*)?")   : line_s,
+  re.compile(r"p\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?")   : line_p,
+  re.compile(r"s\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?")   : line_s,
   re.compile(r".*(#.*)?")     : line_blank
 }
 
