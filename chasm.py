@@ -1,12 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Assembles programs for the ENIAC chess VM."""
+"""Assembler for the ENIAC chess VM.
+
+See chasm_test.asm and vm-instruction-set.txt for a description of the assembly
+language and available assembler directives.
+"""
+
+# This is a simple two pass table-driven assembler.
+# - Pass 0: compute values for labels
+# - Pass 1: emit code
+#
+# Because the ISA is under construction, programs are versioned using an .isa
+# directive which selects the correct table for that ISA version - the "tables"
+# are classes like V4 which implement a dispatch() method to assemble a given
+# mnemonic.
+
 import sys
 import re
 
 def usage():
   print("chasm.py infiles...")
 
+# These REs are all we need for the grammar of the assembly language.
 COMMENT = re.compile(r";.*")
 LINE = re.compile(r"""^(?P<label>\w*)\s*  # optional label
                        (?P<op>\.?\w*)\s*  # directive or mnemonic
@@ -14,6 +29,12 @@ LINE = re.compile(r"""^(?P<label>\w*)\s*  # optional label
 
 
 class Assembler(object):
+  """Assembles one file at a time and collects the output.
+
+  operands_in_same_row controls whether instructions and their operands must be
+  packed into the same ENIAC function table row.
+  print_errors is to avoid spamming errors from unit tests.
+  """
   def __init__(self,
                operands_in_same_row=True,
                print_errors=True):
@@ -24,8 +45,14 @@ class Assembler(object):
     self.builtins = Builtins(self.context, self.out)
 
   def assemble(self, filename, text):
+    """Assemble one file of text.
+
+    filename is the name of the file for error messages, and text is all the
+    file's text as a string.
+    """
     self.context.filename = filename
     self.context.assembler_pass = 0
+    # We don't know where in the function tables assembly will begin.
     self.out.output_row = None
     self.out.word_of_output_row = 0
     self._scan(text)
@@ -35,9 +62,10 @@ class Assembler(object):
     return self.out
 
   def _scan(self, text):
+    # Do a single assembly pass (which one: context.assembler_pass) over text.
     for line_number, line in enumerate(text.splitlines()):
       self.context.line_number = line_number
-      line = COMMENT.sub("", line).rstrip()
+      line = COMMENT.sub("", line).rstrip()  # Strip comments and newlines
       if not line: continue
       m = LINE.match(line)
       assert m  # should always match because "arg" group slurps everything
@@ -45,15 +73,21 @@ class Assembler(object):
 
       if label:
         if op not in (".align", ".equ", ".org"):
+          # Jumps are only allowed to the start of a function table row, so
+          # labels can only point there.  It'd be nicer syntax if labels forced
+          # instructions to be aligned, but code space is tight and we might
+          # make better coding decisions if we're forced to think about it.
           self.out.error("only '.align', '.equ', or '.org' may be labeled")
           continue
         if len(label) == 1 or all(c.isdigit() for c in label):
+          # Labels that are all digits would be ambiguous with addresses.
+          # Labels that are single characters would be ambiguous with registers.
           self.out.error("invalid label name '{}'".format(label))
           continue
 
-      if op.startswith('.'):
+      if op.startswith('.'):  # directive 
         self.builtins.dispatch(label, op, arg)
-      elif self.context.isa:
+      elif self.context.isa:  # delegate to table for ISA
         self.context.isa.dispatch(label, op, arg)
       else:
         self.out.error("no isa selected, missing .isa directive? (stopping)")
@@ -63,17 +97,23 @@ class Assembler(object):
 
 
 class Context(object):
+  """Global state for assembly, e.g. the current filename and line number."""
   def __init__(self):
     self.assembler_pass = 0
     self.filename = None
     self.line_number = 0
     self.had_fatal_error = False
-    self.isa = None
+    self.isa = None  # object that knows how to assemble the selected isa
     self.isa_version = ''
     self.labels = {}
 
 
 class Output(object):
+  """Collects assembler output, both errors and code.
+
+  This class tracks the current output position in ENIAC function tables, and
+  enforces packing constraints.
+  """
   def __init__(self,
                context=None,
                operands_in_same_row=True,
@@ -87,16 +127,29 @@ class Output(object):
     self.context = context
 
   def error(self, what):
-    self.errors.append((self.context.filename, 1 + self.context.line_number, what))
-    if self.print_errors:
-      print("{}:{}: {}".format(self.context.filename, 1 + self.context.line_number, what))
+    """Log an error message with context about where it happened."""
+    message = "{}:{}: {}".format(self.context.filename,
+                                 1 + self.context.line_number,
+                                 what)
+    self.errors.append(message)
+    if self.print_errors:  # Disabled for unit tests to avoid spam
+      print(message)
 
   def emit(self, *values):
+    """Emit one or more opcode/argument words.
+
+    If operands_in_same_row is true, all the given values must go on the same
+    function table row.  If necessary, pad out the current row with 0s (i.e.
+    nops) and move to a new row to guarantee this.
+
+    NB: Values that go on the same row need to be in the same emit() call.
+    """
     if self.operands_in_same_row:
       assert len(values) <= 6
       assert 0 <= self.word_of_output_row < 6
       space_left_in_row = 6 - self.word_of_output_row
       if len(values) > space_left_in_row:
+        # values don't all fit, pad row with 0s and move to new row.
         while self.word_of_output_row != 0:
           self.emit(0)
 
@@ -107,6 +160,9 @@ class Output(object):
         self.context.had_fatal_error = True
         break
       if self.context.assembler_pass == 1:
+        # This is the second pass where we're actually emitting code.  (In the
+        # first pass, we track output indices but don't generate code, because
+        # we don't know label addresses yet.)
         index = (self.output_row, self.word_of_output_row)
         if index in self.output:
           self.error("overwriting output, conflicting .org?")
@@ -124,6 +180,7 @@ class Output(object):
         self.output_row += 1
 
   def to_array(self):
+    """Dumps raw output function table contents as an array."""
     result = []
     for i in range(100, 400):
       row = 0
@@ -135,17 +192,26 @@ class Output(object):
     return result
 
   def function_table(self):
+    """Return the current function table."""
     if self.output_row is not None:
       return self.output_row // 100
     return 0
 
 
 class PrimitiveParsing(object):
+  """Parsing utilities shared by builtin directives and ISA parsers.
+
+  Inherit from this to get reusable parsers for numbers, addresses, etc.
+  """
   def __init__(self, context, out):
     self.context = context
     self.out = out
 
   def _word(self, arg):
+    """Parse arg as a two digit word.
+  
+    Turns signed numbers into 10's complement without an explicit sign.
+    """
     try:
       value = int(arg, base=10)
       if value < -50:
@@ -160,6 +226,13 @@ class PrimitiveParsing(object):
       return 0
 
   def _address(self, arg):
+    """Parse arg as a function table address.
+
+    Two digit addresses are relative to the current function table, and three
+    digit addresses are absolute (with the first digit giving FT number).
+
+    Note: You probably want _address_or_label, instead.
+    """
     try:
       value = int(arg, base=10)
       if len(arg) <= 2:  # relative address
@@ -176,15 +249,21 @@ class PrimitiveParsing(object):
       return 0
 
   def _address_or_label(self, arg, far=False):
+    """Parse arg as a function table address, possibly given by a label.
+
+    If far is false, the address must reside in the current output function
+    table.
+    """
     def check_function_table(address):
       if not far and self.out.function_table() != address // 100:
         self.out.error("expecting address in current function table")
-        return 0
+        return 0  # keep going to find more errors
       return address
 
-    if re.match(r"\d+", arg):
+    if re.match(r"\d+", arg):  # all digits - not a label
       return check_function_table(self._address(arg))
     if self.context.assembler_pass == 0:
+      # Labels aren't resolved yet on the first pass.
       return 0
     try:
       return check_function_table(self.context.labels[arg])
@@ -193,6 +272,11 @@ class PrimitiveParsing(object):
       return 0
 
   def _word_or_label(self, arg, require_defined=False):
+    """Parse arg as a two digit word or label with a two digit word value.
+
+    If require_defined is true then labels must be defined even on the first
+    assembly pass (used by .equ).
+    """
     if re.match(r"-?\d+", arg):
       return self._word(arg)
     if self.context.assembler_pass == 0 and not require_defined:
@@ -204,11 +288,17 @@ class PrimitiveParsing(object):
       return 0
 
   def bind(self, opcode='', want_arg=''):
+    """Make a function to parse a simple instruction.
+
+    Used to make filling out dispatch tables simpler.  opcode is the opcode to
+    return and, if set, want_arg is a regex that must match the argument field.
+    """
     return lambda label, op, arg: self._generic(label, op, arg,
                                                 opcode=opcode,
                                                 want_arg=want_arg)
 
   def _generic(self, label, op, arg, opcode=0, want_arg=''):
+    """Generic parser for simple instructions."""
     if want_arg:
       if not re.match(want_arg, arg):
         self.out.error("invalid argument '{}'".format(arg))
@@ -220,6 +310,7 @@ class PrimitiveParsing(object):
 
 
 class Builtins(PrimitiveParsing):
+  """Parses and applies side-effects from assembler directives."""
   def __init__(self, context, out):
     PrimitiveParsing.__init__(self, context, out)
     self.dispatch_table = {
@@ -231,41 +322,53 @@ class Builtins(PrimitiveParsing):
     }
 
   def dispatch(self, label, op, arg):
+    """Parse a directive line."""
     try:
       self.dispatch_table[op](label, op, arg)
     except KeyError:
       self.out.error("unrecognized directive '{}'".format(op))
 
   def _align(self, label, op, arg):
+    """Forces output to the start of a function table row."""
     if arg != "":
       self.out.error("invalid .align argument '{}'".format(arg))
       return
+    # If already at the start of a row, no need to pad.
     while self.out.word_of_output_row != 0:
       self.out.emit(0)
-    if self.context.assembler_pass == 1: return
-    if label in self.context.labels:
-      self.out.error("redefinition of '{}'".format(label))
-      return
-    if label: self.context.labels[label] = self.out.output_row
+    if self.context.assembler_pass == 0:
+      if label in self.context.labels:
+        self.out.error("redefinition of '{}'".format(label))
+        return
+      if label: self.context.labels[label] = self.out.output_row
 
   def _dw(self, label, op, arg):
+    """Emits a literal value or values at the current output position."""
     values = re.split(r",\s*", arg)
     for value in values:
-      # only does anything on pass 1 which also requires label defined
+      # emit only does anything on pass 1 which also requires label defined
       word = self._word_or_label(value)
       self.out.emit(word % 100)
 
   def _equ(self, label, op, arg):
-    if self.context.assembler_pass == 1: return
-    if not label:
-      self.out.error("missing label for '.equ'")
-      return
-    if label in self.context.labels:
-      self.out.error("redefinition of '{}'".format(label))
-      return
-    self.context.labels[label] = self._word_or_label(arg, require_defined=True)
+    """Assigns a value to a label directly."""
+    if self.context.assembler_pass == 0:
+      if not label:
+        self.out.error("missing label for '.equ'")
+        return
+      if label in self.context.labels:
+        self.out.error("redefinition of '{}'".format(label))
+        return
+      # argument may be a label to permit things like
+      # rook   .equ 1
+      # bishop .equ 2
+      # last_piece .equ bishop
+      # Forward references aren't allowed because they'd require another
+      # assembly pass.
+      self.context.labels[label] = self._word_or_label(arg, require_defined=True)
 
   def _isa(self, label, op, arg):
+    """Selects what isa to use."""
     if self.context.isa_version and self.context.isa_version != arg:
       self.out.error("saw isa '{}' but already selected isa '{}'".format(
                      arg, self.context.isa_version))
@@ -276,12 +379,14 @@ class Builtins(PrimitiveParsing):
       self.out.error("invalid isa '{}'".format(arg))
 
   def _org(self, label, op, arg):
+    """Sets output position for the assembler."""
     self.out.output_row = self._address(arg)
     self.out.word_of_output_row = 0
     if label: self.context.labels[label] = self.out.output_row
 
 
 class V4(PrimitiveParsing):
+  """Parses V4 of the VM ISA."""
   def __init__(self, context, out):
     PrimitiveParsing.__init__(self, context, out)
     self.dispatch_table = {
@@ -315,12 +420,17 @@ class V4(PrimitiveParsing):
     }
 
   def dispatch(self, label, op, arg):
+    """Parse an instruction line."""
     try:
       self.dispatch_table[op](label, op, arg)
     except KeyError:
       self.out.error("unrecognized opcode '{}' (using isa v4)".format(op))
 
   def _mov(self, label, op, arg):
+    # Try each of these regexes in order and assemble the first that matches
+    # arg.  Note that [label] would also match [B] so order is important.
+    # 'a' means the captured pattern is a direct address, and 'w' means
+    # it is an immediate word.
     patterns = [(r"A,\s*B", 20, ''),
                 (r"A,\s*C", 21, ''),
                 (r"A,\s*D", 22, ''),
@@ -338,6 +448,8 @@ class V4(PrimitiveParsing):
           self.out.emit(opcode)
         else:
           word = self._word_or_label(m.group(1))
+          # Check that arg is a valid direct address (valid memory locations
+          # are 0-74).
           if arg_type != 'a' or 0 <= word <= 74:
             self.out.emit(opcode, word % 100)
           else:
@@ -372,6 +484,9 @@ class V4(PrimitiveParsing):
     if arg == "+A":
       self.out.emit(75)
     elif arg.startswith("far "):
+      # There is a separate "jmp far" menmonic so that we always know the size
+      # of instructions, so we can unambiguously compute label targets on the
+      # first pass.  arg[4:] strips off the leading "far ".
       address = self._address_or_label(arg[4:], far=True)
       self.out.emit(74, address % 100, address // 100)
     else:
