@@ -5,7 +5,7 @@ ACCUMULATOR LAYOUT
 2 - PC         CCC BBB AAAA
 3 - IR         I6 I5 I4 I3 I2
 4 - execute    XX XX XX XX I1
-5 - load/store JJ II HH GG FF
+5 - load/store FF GG HH II JJ
 6 - 20 = memory addresses 00-74
 
 
