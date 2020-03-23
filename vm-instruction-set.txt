@@ -43,7 +43,7 @@ ACCUMULATOR LAYOUT
 41 - mov D,#XX   
 42 - mov A,[#XX]  ; mov B,#XX; jsr LOAD
 43 - mov A,[B]    ; jsr LOAD
-44 - mov [#XX],A  ; jsr STORE
+44 - mov [#XX],A  ; mov B,#XX; jsr STORE
 45 - indexhi      ; A = 2*B2 + B1>4
 
 50 - inc A
