@@ -22,7 +22,7 @@ ACCUMULATOR LAYOUT
 11 - storeacc A   ; FGHIJ -> acc A
 12 - swapall      ; ABCDE <-> FGHIJ
 13 - scanall      ; destructively search FGHIJ for index of A, to A, -1 if not found
-14 - ftload A     ; FGHIJ = ft3[A] last 10 digits
+14 - ftload A     ; FGHIJ = ft3[A] first 10 digits
 15 - ftlookup A,#XX ; A <- ft3[A+XX] last 2 digits
 
 20 - mov A,B
