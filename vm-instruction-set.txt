@@ -5,13 +5,13 @@ ACCUMULATOR LAYOUT
 2 - PC         CCC BBB AAAA
 3 - IR         I6 I5 I4 I3 I2
 4 - execute    XX XX XX XX I1
-5 - load/store ZZ JJ 77 76 75     ; Z,J registers and load/store scratch
+5 - load/store JJ II HH GG FF
 6 - 20 = memory addresses 00-74
 
 
 51 ORDER CODE (v4, extended registers)
 
-00 - nop          ; NB opcodes chosen for indexlo/selfmodify/nop
+00 - nop          ; NB opcodes chosen for indexswap
 01 - swap A,B
 02 - swap A,C
 03 - swap A,D
@@ -36,14 +36,14 @@ ACCUMULATOR LAYOUT
 31 - mov A,I
 32 - mov A,J
 33 - 
-34 - exec A         ; next instruction = A
+34 - indexswap    ; next instruction = G%5
 35 - 
 
 40 - mov A,#XX
 41 - mov D,#XX   
-42 - mov A,[#XX]  ; mov A,#XX; jsr LOAD
-43 - mov A,[B]    ; mov J,B; jsr LOAD
-44 - mov [#XX],A  ; mov J,B; jsr STORE
+42 - mov A,[#XX]  ; mov B,#XX; jsr LOAD
+43 - mov A,[B]    ; jsr LOAD
+44 - mov [#XX],A  ; jsr STORE
 45 - indexhi      ; A = 2*B2 + B1>4
 
 50 - inc A
