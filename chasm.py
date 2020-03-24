@@ -394,15 +394,13 @@ class V4(PrimitiveParsing):
       "swap": self._swap,
       "loadacc": self.bind(want_arg=r"A", opcode=10),
       "storeacc": self.bind(want_arg=r"A", opcode=11),
-      "save": self.bind(opcode=12),
-      "restore": self.bind(opcode=13),
-      "swapsave": self.bind(opcode=14),
-      "ftl": self.bind(opcode=15),
+      "swapall": self.bind(opcode=12),
+      "scanall": self.bind(opcode=13),
+      "ftload": self.bind(want_arg=r"A", opcode=14),
+      "ftlookup": self._ftlookup,
       "mov": self._mov,
-      "indexhi": self.bind(opcode=40),
-      "indexlo": self.bind(opcode=41),
-      "selfmodify": self.bind(opcode=42),
-      "scan": self.bind(opcode=43),
+      "indexswap": self.bind(opcode=34),
+      "indexacc": self.bind(opcode=45),
       "inc": self._inc,
       "dec": self.bind(want_arg=r"A", opcode=52),
       "add": self.bind(want_arg=r"A,\s*D", opcode=70),
@@ -411,11 +409,14 @@ class V4(PrimitiveParsing):
       "jmp": self._jmp,
       "jn": self._jn,
       "jz": self._jz,
+      "jil": self._jil,
       "loop": self._loop,
       "jsr": self._jsr,
-      "ret": self.bind(opcode=84),
-      "read": self.bind(want_arg=r"AB", opcode=93),
-      "print": self.bind(want_arg=r"AB", opcode=94),
+      "ret": self.bind(opcode=85),
+      "jnz": self._jnz,
+      "read": self.bind(want_arg=r"AB", opcode=91),
+      "print": self.bind(want_arg=r"AB", opcode=92),
+      "nextline": self.bind(opcode=94),
       "halt": self.bind(opcode=95),
     }
 
@@ -435,12 +436,17 @@ class V4(PrimitiveParsing):
                 (r"A,\s*C", 21, ''),
                 (r"A,\s*D", 22, ''),
                 (r"A,\s*E", 23, ''),
-                (r"A,\s*Z", 24, ''),
-                (r"A,\s*\[B\]", 33, ''),
-                (r"A,\s*\[(.+?)\]", 31, 'a'),
-                (r"\[B\],\s*A", 34, ''),
-                (r"\[(.+?)\],\s*A", 32, 'a'),
-                (r"A,\s*(.+)", 30, 'w'),]
+                (r"A,\s*F", 24, ''),
+                (r"A,\s*G", 25, ''),
+                (r"A,\s*H", 30, ''),
+                (r"A,\s*I", 31, ''),
+                (r"A,\s*J", 32, ''),
+                (r"A,\s*\[B\]", 43, ''),
+                (r"A,\s*\[(.+?)\]", 42, 'a'),
+                #(r"\[B\],\s*A", xx, ''),
+                (r"\[(.+?)\],\s*A", 44, 'a'),
+                (r"A,\s*(.+)", 40, 'w'),
+                (r"D,\s*(.+)", 41, 'w'),]
     for regex, opcode, arg_type in patterns:
       m = re.match(regex, arg)
       if m:
@@ -467,10 +473,21 @@ class V4(PrimitiveParsing):
       self.out.emit(3)
     elif re.match(r"E,\s*A|A,\s*E", arg):
       self.out.emit(4)
-    elif re.match(r"Z,\s*A|A,\s*Z", arg):
+    elif re.match(r"F,\s*A|A,\s*F", arg):
       self.out.emit(5)
     else:
       self.out.error("invalid swap argument '{}'".format(arg))
+
+  def _ftlookup(self, label, op, arg):
+    m = re.match(r"A,\s*(.+)", arg)
+    if m:
+      word = self._word_or_label(m.group(1))
+      if 0 <= word <= 99:
+        self.out.emit(15, word)
+      else:
+        self.out.error("ftlookup argument out of range '{}'".format(word))
+    else:
+      self.out.error("invalid ftlookup argument '{}'".format(arg))
 
   def _inc(self, label, op, arg):
     if arg == "A":
@@ -501,14 +518,21 @@ class V4(PrimitiveParsing):
     address = self._address_or_label(arg, far=False)
     self.out.emit(81, address % 100)
 
-  def _loop(self, label, op, arg):
+  def _jil(self, label, op, arg):
     address = self._address_or_label(arg, far=False)
     self.out.emit(82, address % 100)
 
+  def _loop(self, label, op, arg):
+    address = self._address_or_label(arg, far=False)
+    self.out.emit(83, address % 100)
+
   def _jsr(self, label, op, arg):
     address = self._address_or_label(arg, far=True)
-    self.out.emit(83, address % 100, address // 100)
+    self.out.emit(84, address % 100, address // 100)
 
+  def _jnz(self, label, op, arg):
+    address = self._address_or_label(arg, far=False)
+    self.out.emit(90, address % 100)
 
 def main():
   if len(sys.argv) == 1:

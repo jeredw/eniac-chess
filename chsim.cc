@@ -9,8 +9,8 @@ typedef uint64_t u64;
 
 struct State {
   int isa_version = 0;
-  int load_pc = 300;
-  int store_pc = 320;
+  int load_pc = 390;
+  int store_pc = 392;
 
   // Register file
   int rf[5]{};
@@ -27,8 +27,11 @@ struct State {
   u64 ir = 0;
   // Load store scratch
   int ls[5]{};
-  int &z = ls[0];
-  int &j = ls[1];
+  int &f = ls[0];
+  int &g = ls[1];
+  int &h = ls[2];
+  int &i = ls[3];
+  int &j = ls[4];
   // Memory
   int m[15][5]{};
 
@@ -101,18 +104,16 @@ static void assert_sanity(State* state) {
   assert(state->c >= 0 && state->c < 100);
   assert(state->d >= 0 && state->d < 100);
   assert(state->e >= 0 && state->e < 100);
-  assert(state->ls[0] >= 0 && state->ls[0] < 100);
-  assert(state->ls[1] >= 0 && state->ls[1] < 100);
-  assert(state->ls[2] >= 0 && state->ls[2] < 100);
-  assert(state->ls[3] >= 0 && state->ls[3] < 100);
-  assert(state->ls[4] >= 0 && state->ls[4] < 100);
+  assert(state->f >= 0 && state->f < 100);
+  assert(state->g >= 0 && state->g < 100);
+  assert(state->h >= 0 && state->h < 100);
+  assert(state->i >= 0 && state->i < 100);
+  assert(state->j >= 0 && state->j < 100);
   assert(state->pc >= 100 && state->pc < 400);
   assert(state->stack[0] >= 0 && state->stack[0] < 400);
   assert(state->stack[1] >= 0 && state->stack[1] < 400);
   assert(state->sp == 0 || state->sp == 1);
   assert(state->ir <= 0xff'ff'ff'ff'ffull);
-  assert(state->j >= 0 && state->j < 100);
-  assert(state->z >= 0 && state->z < 100);
   for (int i = 0; i < 15; i++) {
     for (int j = 0; j < 5; j++) {
       assert(state->m[i][j] >= 0 && state->m[i][j] < 100);
@@ -135,7 +136,7 @@ static void step(State* state) {
     case 2: std::swap(state->a, state->c); break; // swap A, C
     case 3: std::swap(state->a, state->d); break; // swap A, D
     case 4: std::swap(state->a, state->e); break; // swap A, E
-    case 5: std::swap(state->a, state->z); break; // swap A, Z
+    case 5: std::swap(state->a, state->f); break; // swap A, F
     case 10: // loadacc A
       assert(0 <= state->a && state->a < 15);
       std::copy(state->m[state->a], state->m[state->a] + 5, state->ls);
@@ -144,43 +145,8 @@ static void step(State* state) {
       assert(0 <= state->a && state->a < 15);
       std::copy(state->ls, state->ls + 5, state->m[state->a]);
       break;
-    case 12: std::copy(state->rf, state->rf + 5, state->ls); break; // save
-    case 13: std::copy(state->ls, state->ls + 5, state->rf); break; // restore
-    case 14: std::swap(state->rf, state->ls); break; // swapsave
-    case 15: { // ftl
-      u64 data = state->function_table[state->a + 300];
-      state->ls[0] = data & 0xff;
-      state->ls[1] = (data >> 8) & 0xff;
-      state->ls[2] = (data >> 16) & 0xff;
-      state->ls[3] = (data >> 24) & 0xff;
-      state->ls[4] = (data >> 32) & 0xff;
-      break;
-    }
-    case 20: state->a = state->b; break; // mov A, B
-    case 21: state->a = state->c; break; // mov A, C
-    case 22: state->a = state->d; break; // mov A, D
-    case 23: state->a = state->e; break; // mov A, E
-    case 24: state->a = state->z; break; // mov A, Z
-    case 30: // mov A, imm
-      state->a = state->ir & 0xff;
-      state->ir >>= 8;
-      break;
-    case 31: // mov A, [addr]
-      state->b = state->ir & 0xff;
-      [[fallthrough]];
-    case 33: // mov A, [B]
-      jsr(state, state->load_pc);
-      break;
-    case 32: // mov [addr], A
-      state->b = state->ir & 0xff;
-      [[fallthrough]];
-    case 34: // mov [B], A
-      jsr(state, state->store_pc);
-      break;
-    case 40: state->a = state->b / 5; break; // indexhi
-    case 41: state->a = state->b % 5; break; // indexlo
-    case 42: state->ir = (state->ir & ~0xff) | state->a; break; // selfmodify
-    case 43: { // scan
+    case 12: std::swap(state->rf, state->ls); break; // swapall
+    case 13: { // scanall
       int value_to_find = state->a;
       state->a = 99;
       for (int i = 0; i < 5; i++) {
@@ -192,6 +158,50 @@ static void step(State* state) {
       }
       break;
     }
+    case 14: { // ftl
+      u64 data = state->function_table[state->a + 300];
+      state->f = data & 0xff;
+      state->g = (data >> 8) & 0xff;
+      state->h = (data >> 16) & 0xff;
+      state->i = (data >> 24) & 0xff;
+      state->j = (data >> 32) & 0xff;
+      break;
+    }
+    case 15: { // ftlookup
+      int offset = (state->a + (state->ir & 0xff)) % 100;
+      u64 data = state->function_table[offset + 300];
+      state->a = (data >> 40) & 0xff;
+      break;
+    }
+    case 20: state->a = state->b; break; // mov A, B
+    case 21: state->a = state->c; break; // mov A, C
+    case 22: state->a = state->d; break; // mov A, D
+    case 23: state->a = state->e; break; // mov A, E
+    case 24: state->a = state->f; break; // mov A, F
+    case 25: state->a = state->g; break; // mov A, G
+    case 30: state->a = state->h; break; // mov A, H
+    case 31: state->a = state->i; break; // mov A, I
+    case 32: state->a = state->j; break; // mov A, J
+    case 34: state->ir = (state->ir & ~0xff) | (state->g % 5); break; // indexswap
+    case 40: // mov A, imm
+      state->a = state->ir & 0xff;
+      state->ir >>= 8;
+      break;
+    case 41: // mov D, imm
+      state->d = state->ir & 0xff;
+      state->ir >>= 8;
+      break;
+    case 42: // mov A, [addr]
+      state->b = state->ir & 0xff;
+      [[fallthrough]];
+    case 43: // mov A, [B]
+      jsr(state, state->load_pc);
+      break;
+    case 44: // mov [addr], A
+      state->b = state->ir & 0xff;
+      jsr(state, state->store_pc);
+      break;
+    case 45: state->a = state->b / 5; break; // indexacc
     case 50: state->a = (state->a + 1) % 100; break; // inc A
     case 51: state->b = (state->b + 1) % 100; break; // inc B
     case 52: state->a = (state->a + 99) % 100; break; // dec A
@@ -226,7 +236,18 @@ static void step(State* state) {
         state->ir >>= 8;
       }
       break;
-    case 82: // loop
+    case 82: { // jil
+      int d1 = state->a % 10;
+      int d2 = (state->a / 10) % 10;
+      if (d1 == 0 || d1 == 9 || d2 == 0 || d2 == 9) {
+        state->pc = near_address(state);
+        state->ir = 0;
+      } else {
+        state->ir >>= 8;
+      }
+      break;
+    }
+    case 83: // loop
       state->c = (state->c + 99) % 100;
       if (state->c != 0) {
         state->pc = near_address(state);
@@ -235,17 +256,28 @@ static void step(State* state) {
         state->ir >>= 8;
       }
       break;
-    case 83: // jsr
+    case 84: // jsr
       jsr(state, far_address(state));
       break;
-    case 84: // ret
+    case 85: // ret
       state->sp ^= 1;
       state->pc = state->stack[state->sp];
       state->ir = 0;
       break;
-    case 93: // read AB
+    case 90: // jnz
+      if (state->a != 0) {
+        state->pc = near_address(state);
+        state->ir = 0;
+      } else {
+        state->ir >>= 8;
+      }
       break;
-    case 94: // print AB
+    case 91: // read AB
+      break;
+    case 92: // print AB
+      break;
+    case 94: // nextline
+      state->ir = 0;
       break;
     case 95: // halt
       state->ir = 95;

@@ -35,35 +35,39 @@ flub .equ king
   swap A, C
   swap A, D
   swap A, E
-  swap A, Z
+  swap A, F
   swap B, A
   swap C, A
   swap D, A
   swap E, A
-  swap Z, A
+  swap F, A
   loadacc A
   storeacc A
-  save
-  restore
-  swapsave
-  ftl
+  swapall
+  scanall
+  ftload A
+  ftlookup A, 10
+  ftlookup A, king
   mov A, B
   mov A, C
   mov A, D
   mov A, E
-  mov A, Z
+  mov A, F
+  mov A, G
+  mov A, H
+  mov A, I
+  mov A, J
+  indexswap
   mov A, 10
   mov A, king
+  mov D, 10
+  mov D, king
   mov A, [king]
   mov A, [10]
+  mov A, [B]
   mov [king], A
   mov [10], A
-  mov A, [B]
-  mov [B], A
-  indexhi
-  indexlo
-  selfmodify
-  scan
+  ;mov [B], A
   inc A
   inc B
   dec A
@@ -75,11 +79,14 @@ flub .equ king
   jmp +A
   jn target
   jz target
+  jil target
   loop target
   jsr faraway
   ret
+  jnz target
   read AB
   print AB
+  nextline
   halt
 
   ; test that multiword instructions are forced into a single row

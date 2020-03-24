@@ -335,19 +335,19 @@ class TestV4(unittest.TestCase):
     self.assertFalse(self.out.errors)
     self.assertEqual(self.out.output, {(100, 0): 4})
 
-  def testSwapZA(self):
-    self.isa.dispatch("", "swap", "Z, A")
+  def testSwapFA(self):
+    self.isa.dispatch("", "swap", "F, A")
     self.assertFalse(self.out.errors)
     self.assertEqual(self.out.output, {(100, 0): 5})
 
-  def testSwapAZ(self):
-    self.isa.dispatch("", "swap", "A, Z")
+  def testSwapAF(self):
+    self.isa.dispatch("", "swap", "A, F")
     self.assertFalse(self.out.errors)
     self.assertEqual(self.out.output, {(100, 0): 5})
 
   def testSwap_ErrorInvalidArgument(self):
-    self.isa.dispatch("", "swap", "bogus")
-    self.assertEqual(self.out.errors, ["file:1: invalid swap argument 'bogus'"])
+    self.isa.dispatch("", "swap", "G")
+    self.assertEqual(self.out.errors, ["file:1: invalid swap argument 'G'"])
 
   def testLoadacc(self):
     self.isa.dispatch("", "loadacc", "A")
@@ -367,41 +367,52 @@ class TestV4(unittest.TestCase):
     self.isa.dispatch("", "storeacc", "bogus")
     self.assertEqual(self.out.errors, ["file:1: invalid argument 'bogus'"])
 
-  def testSave(self):
-    self.isa.dispatch("", "save", "")
+  def testSwapall(self):
+    self.isa.dispatch("", "swapall", "")
     self.assertFalse(self.out.errors)
     self.assertEqual(self.out.output, {(100, 0): 12})
 
-  def testSave_ErrorArgument(self):
-    self.isa.dispatch("", "save", "bogus")
+  def testSwapall_ErrorArgument(self):
+    self.isa.dispatch("", "swapall", "bogus")
     self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
-  def testRestore(self):
-    self.isa.dispatch("", "restore", "")
+  def testScanall(self):
+    self.isa.dispatch("", "scanall", "")
     self.assertFalse(self.out.errors)
     self.assertEqual(self.out.output, {(100, 0): 13})
 
-  def testRestore_ErrorArgument(self):
-    self.isa.dispatch("", "restore", "bogus")
+  def testScanall_ErrorArgument(self):
+    self.isa.dispatch("", "scanall", "bogus")
     self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
-  def testSwapsave(self):
-    self.isa.dispatch("", "swapsave", "")
+  def testFtload(self):
+    self.isa.dispatch("", "ftload", "A")
     self.assertFalse(self.out.errors)
     self.assertEqual(self.out.output, {(100, 0): 14})
 
-  def testSwapsave_ErrorArgument(self):
-    self.isa.dispatch("", "swapsave", "bogus")
-    self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
+  def testFtload_ErrorArgument(self):
+    self.isa.dispatch("", "ftload", "B")
+    self.assertEqual(self.out.errors, ["file:1: invalid argument 'B'"])
 
-  def testFtl(self):
-    self.isa.dispatch("", "ftl", "")
+  def testFtlookup(self):
+    self.isa.dispatch("", "ftlookup", "A, 99")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 15})
+    self.assertEqual(self.out.output, {(100, 0): 15, (100, 1): 99})
 
-  def testFtl_ErrorArgument(self):
-    self.isa.dispatch("", "ftl", "bogus")
-    self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
+  def testFtlookupLabel(self):
+    self.context.labels = {"label": 99}
+    self.isa.dispatch("", "ftlookup", "A, label")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 15, (100, 1): 99})
+
+  def testFtlookupLabel_ErrorOutOfRange(self):
+    self.context.labels = {"label": 199}
+    self.isa.dispatch("", "ftlookup", "A, label")
+    self.assertEqual(self.out.errors, ["file:1: ftlookup argument out of range '199'"])
+
+  def testFtlookupLabel_ErrorInvalidArgument(self):
+    self.isa.dispatch("", "ftlookup", "B, 99")
+    self.assertEqual(self.out.errors, ["file:1: invalid ftlookup argument 'B, 99'"])
 
   def testMovAB(self):
     self.isa.dispatch("", "mov", "A, B")
@@ -423,32 +434,63 @@ class TestV4(unittest.TestCase):
     self.assertFalse(self.out.errors)
     self.assertEqual(self.out.output, {(100, 0): 23})
 
-  def testMovAZ(self):
-    self.isa.dispatch("", "mov", "A, Z")
+  def testMovAF(self):
+    self.isa.dispatch("", "mov", "A, F")
     self.assertFalse(self.out.errors)
     self.assertEqual(self.out.output, {(100, 0): 24})
 
-  def testMovLoadImmediate(self):
+  def testMovAG(self):
+    self.isa.dispatch("", "mov", "A, G")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 25})
+
+  def testMovAH(self):
+    self.isa.dispatch("", "mov", "A, H")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 30})
+
+  def testMovAI(self):
+    self.isa.dispatch("", "mov", "A, I")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 31})
+
+  def testMovAJ(self):
+    self.isa.dispatch("", "mov", "A, J")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 32})
+
+  def testMovLoadAImmediate(self):
     self.isa.dispatch("", "mov", "A, 99")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 30, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 40, (100, 1): 99})
 
-  def testMovLoadImmediateLabel(self):
+  def testMovLoadAImmediateLabel(self):
     self.context.labels = {"label": 99}
     self.isa.dispatch("", "mov", "A, label")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 30, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 40, (100, 1): 99})
+
+  def testMovLoadDImmediate(self):
+    self.isa.dispatch("", "mov", "D, 99")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 41, (100, 1): 99})
+
+  def testMovLoadDImmediateLabel(self):
+    self.context.labels = {"label": 99}
+    self.isa.dispatch("", "mov", "D, label")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 41, (100, 1): 99})
 
   def testMovLoadDirect(self):
     self.isa.dispatch("", "mov", "A, [42]")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 31, (100, 1): 42})
+    self.assertEqual(self.out.output, {(100, 0): 42, (100, 1): 42})
 
   def testMovLoadDirectLabel(self):
     self.context.labels = {"label": 42}
     self.isa.dispatch("", "mov", "A, [label]")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 31, (100, 1): 42})
+    self.assertEqual(self.out.output, {(100, 0): 42, (100, 1): 42})
 
   def testMovLoadDirectLabel_ErrorOutOfRange(self):
     self.context.labels = {"label": 123}
@@ -458,13 +500,13 @@ class TestV4(unittest.TestCase):
   def testMovStoreDirect(self):
     self.isa.dispatch("", "mov", "[42], A")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 32, (100, 1): 42})
+    self.assertEqual(self.out.output, {(100, 0): 44, (100, 1): 42})
 
   def testMovStoreDirectLabel(self):
     self.context.labels = {"label": 42}
     self.isa.dispatch("", "mov", "[label], A")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 32, (100, 1): 42})
+    self.assertEqual(self.out.output, {(100, 0): 44, (100, 1): 42})
 
   def testMovStoreDirectLabel_ErrorOutOfRange(self):
     self.context.labels = {"label": 123}
@@ -474,51 +516,33 @@ class TestV4(unittest.TestCase):
   def testMovLoadDirectB(self):
     self.isa.dispatch("", "mov", "A, [B]")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 33})
+    self.assertEqual(self.out.output, {(100, 0): 43})
 
-  def testMovStoreDirectB(self):
-    self.isa.dispatch("", "mov", "[B], A")
-    self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 34})
+  #def testMovStoreDirectB(self):
+  #  self.isa.dispatch("", "mov", "[B], A")
+  #  self.assertFalse(self.out.errors)
+  #  self.assertEqual(self.out.output, {(100, 0): xx})
 
   def testMov_ErrorInvalidArgument(self):
     self.isa.dispatch("", "mov", "bogus")
     self.assertEqual(self.out.errors, ["file:1: invalid mov argument 'bogus'"])
 
-  def testIndexhi(self):
-    self.isa.dispatch("", "indexhi", "")
+  def testIndexswap(self):
+    self.isa.dispatch("", "indexswap", "")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 40})
+    self.assertEqual(self.out.output, {(100, 0): 34})
 
-  def testIndexhi_ErrorArgument(self):
-    self.isa.dispatch("", "indexhi", "bogus")
+  def testIndexswap_ErrorArgument(self):
+    self.isa.dispatch("", "indexswap", "bogus")
     self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
-  def testIndexlo(self):
-    self.isa.dispatch("", "indexlo", "")
+  def testIndexacc(self):
+    self.isa.dispatch("", "indexacc", "")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 41})
+    self.assertEqual(self.out.output, {(100, 0): 45})
 
-  def testIndexlo_ErrorArgument(self):
-    self.isa.dispatch("", "indexlo", "bogus")
-    self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
-
-  def testSelfmodify(self):
-    self.isa.dispatch("", "selfmodify", "")
-    self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 42})
-
-  def testSelfmodify_ErrorArgument(self):
-    self.isa.dispatch("", "selfmodify", "bogus")
-    self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
-
-  def testScan(self):
-    self.isa.dispatch("", "scan", "")
-    self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 43})
-
-  def testScan_ErrorArgument(self):
-    self.isa.dispatch("", "scan", "bogus")
+  def testIndexacc_ErrorArgument(self):
+    self.isa.dispatch("", "indexacc", "bogus")
     self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
   def testIncA(self):
@@ -656,21 +680,41 @@ class TestV4(unittest.TestCase):
     self.isa.dispatch("", "jz", "299")
     self.assertEqual(self.out.errors, ["file:1: expecting address in current function table"])
 
+  def testJil(self):
+    self.isa.dispatch("", "jil", "199")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 82, (100, 1): 99})
+
+  def testJilRelative(self):
+    self.isa.dispatch("", "jil", "99")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 82, (100, 1): 99})
+
+  def testJilLabel(self):
+    self.context.labels = {"label": 199}
+    self.isa.dispatch("", "jil", "label")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 82, (100, 1): 99})
+
+  def testJil_ErrorFar(self):
+    self.isa.dispatch("", "jil", "299")
+    self.assertEqual(self.out.errors, ["file:1: expecting address in current function table"])
+
   def testLoop(self):
     self.isa.dispatch("", "loop", "199")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 82, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 83, (100, 1): 99})
 
   def testLoopRelative(self):
     self.isa.dispatch("", "loop", "99")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 82, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 83, (100, 1): 99})
 
   def testLoopLabel(self):
     self.context.labels = {"label": 199}
     self.isa.dispatch("", "loop", "label")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 82, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 83, (100, 1): 99})
 
   def testLoop_ErrorFar(self):
     self.isa.dispatch("", "loop", "299")
@@ -679,13 +723,13 @@ class TestV4(unittest.TestCase):
   def testJsr(self):
     self.isa.dispatch("", "jsr", "399")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 83, (100, 1): 99, (100, 2): 3})
+    self.assertEqual(self.out.output, {(100, 0): 84, (100, 1): 99, (100, 2): 3})
 
   def testJsrLabel(self):
     self.context.labels = {"label": 199}
     self.isa.dispatch("", "jsr", "label")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 83, (100, 1): 99, (100, 2): 1})
+    self.assertEqual(self.out.output, {(100, 0): 84, (100, 1): 99, (100, 2): 1})
 
   def testJsr_ErrorUnrecognizedLabel(self):
     self.isa.dispatch("", "jsr", "bogus")
@@ -694,16 +738,36 @@ class TestV4(unittest.TestCase):
   def testRet(self):
     self.isa.dispatch("", "ret", "")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 84})
+    self.assertEqual(self.out.output, {(100, 0): 85})
 
   def testRet_ErrorInvalidArgument(self):
     self.isa.dispatch("", "ret", "bogus")
     self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
+  def testJnz(self):
+    self.isa.dispatch("", "jnz", "199")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 90, (100, 1): 99})
+
+  def testJnzRelative(self):
+    self.isa.dispatch("", "jnz", "99")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 90, (100, 1): 99})
+
+  def testJnzLabel(self):
+    self.context.labels = {"label": 199}
+    self.isa.dispatch("", "jnz", "label")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 90, (100, 1): 99})
+
+  def testJnz_ErrorFar(self):
+    self.isa.dispatch("", "jnz", "299")
+    self.assertEqual(self.out.errors, ["file:1: expecting address in current function table"])
+
   def testReadAB(self):
     self.isa.dispatch("", "read", "AB")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 93})
+    self.assertEqual(self.out.output, {(100, 0): 91})
 
   def testRead_ErrorInvalidArgument(self):
     self.isa.dispatch("", "read", "bogus")
@@ -712,11 +776,20 @@ class TestV4(unittest.TestCase):
   def testPrintAB(self):
     self.isa.dispatch("", "print", "AB")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 94})
+    self.assertEqual(self.out.output, {(100, 0): 92})
 
   def testPrint_ErrorInvalidArgument(self):
     self.isa.dispatch("", "print", "bogus")
     self.assertEqual(self.out.errors, ["file:1: invalid argument 'bogus'"])
+
+  def testNextline(self):
+    self.isa.dispatch("", "nextline", "")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 94})
+
+  def testNextline_ErrorInvalidArgument(self):
+    self.isa.dispatch("", "nextline", "bogus")
+    self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
   def testHalt(self):
     self.isa.dispatch("", "halt", "")
