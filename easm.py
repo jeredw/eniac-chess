@@ -13,29 +13,103 @@
 # d     data trunk, 1-9
 # r     accumulator receiver, 1-5 on each accumulator
 # t     accumulator transciever, 6-12 on each accumulator
-# as    shift adapter, 1-40 (simulator limitation)
-# ad    deleter adapter, 1-40
-# adp   digit pulse adapter, 1-40
-# asd   "specical digit" adapter, 1-40
+# ad    adapter, 1-40 (simulator limitation) for each type
 import sys
 import re
 
 def usage():
   print("easm.py infile.ea outfile.e")
 
+class OutOfResources(Exception):
+  pass
+
+class SyntaxError(Exception):
+  pass
 
 # Possible arguments to p (things that can be patched)
 # N,M = unsigned integers
-# aN.Mo
-# aN.Mi
-# aN.[abcde]
-# aN.[AS]
-# N-M           # program line
-# N             # data trunk
-# ad.dp.N.M
-# ad.s.N.M
-# ad.d.N.M
-# ad.sd.N.M
+
+"a(\d\d?|{a-[az-]+}).((\d\d?|{[rt]-[az-]+})[io]|op(\d\d?|{[rt]-[az-]+})|[abgdeAS]|)"
+
+# this is effectively the symbol table
+names = {
+  'd':  {},
+  'p':  {},
+  'a':  {},
+  'ad': {},
+}
+
+
+patch_dispatch = {
+  re.compile(r"\d\d?"):           patch_literal,      # digit trunk
+  re.compile(r"{d-[az-]+}"):      patch_d,            
+  re.compile(r"\d\d?-\d\d?"):     patch_literal,      # program line
+  re.compile(r"{p-[az-]+}"):      patch_p,
+  re.compile(r"a.+\..+"):         patch_accum,        # accumulator, more complex handling
+  re.compile(r"ad\..+"):          patch_adapter       # adapter
+}
+
+def patch_literal(arg):
+  return arg, {}  # empty dictionary meaning no named substitutions
+
+# Allocate one of the global resources
+def allocate_global(resource, name):
+  things = {
+    'd': ("digit trunks", 9)
+    'p': ("program lines", 121
+    'a': ("accumulators", 20),
+    'ad.s': ("shift adapters", 20),
+    'ad.d': ("deleter adapters", 20),
+    'ad.dp': ("digit pulse adapters", 20),
+    'ad.sd': ("special digit adapters", 20)
+  }
+
+  limit = things[resource][1]
+  error = things[resource][0]
+  n = names[resource]
+  if n == limit:
+    raise OutOfResources(error)
+
+  number = n+1
+  d[name] = number
+  return number
+
+
+def patch_d(arg):
+  name = arg[1:-1]  # strip off curly braces
+  d = names['d']
+  if name in d:
+    n = d[name]
+  else:
+    n = allocate_global('d',name))
+  text = str(n)
+  return text, {name: text}
+
+
+def patch_p(arg):
+  name = arg[1:-1]  # strip off curly braces
+  p = names['p']
+  if name in p:
+    n = p[name]
+  else:
+    n = allocate_global('p',name))
+  text = f'{Math.floor(x/11)+1}-{x%11+1}'
+  return text, {name: text}
+
+def patch_adapter(arg):
+  m = re.match('(?P<type>ad\.(s|d|dp|sd))\.{(?P<name>ad-[az-]+)}\.(?P<param>-?\d\d?)',arg)
+  if not m:
+    raise SyntaxError('bad adapter syntax')
+  adtype = m.group('name')
+  name = m.group('type')
+  ad = names[adtype]
+  if name in ad:
+    n = ad[name]
+  else
+    n = allocate_global(adtype, name)
+  text = f'{adtype}.{n}.{m.group(\'param\')}'
+  return text, {name: text}
+
 
 
 def line_p(line, m, out):
@@ -53,9 +127,9 @@ def line_blank(line, m, out):
 
 # The types of lines we understand
 dispatch_table_line = {
-  re.compile(r"p\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?")   : line_p,
-  re.compile(r"s\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?")   : line_s,
-  re.compile(r".*(#.*)?")     : line_blank
+  re.compile(r"p\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?"): line_p,
+  re.compile(r"s\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?"): line_s,
+  re.compile(r".*(#.*)?") : line_blank
 }
 
 
