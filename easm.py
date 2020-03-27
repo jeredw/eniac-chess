@@ -16,6 +16,8 @@
 # ad    adapter, 1-40 (simulator limitation) for each type
 import sys
 import re
+from dataclasses import dataclass
+from typing import Dict
 
 def usage():
   print("easm.py infile.ea outfile.e")
@@ -29,50 +31,69 @@ class SyntaxError(Exception):
 # Possible arguments to p (things that can be patched)
 # N,M = unsigned integers
 
-"a(\d\d?|{a-[az-]+}).((\d\d?|{[rt]-[az-]+})[io]|op(\d\d?|{[rt]-[az-]+})|[abgdeAS]|)"
-
-# this is effectively the symbol table
-names = {
-  'd':  {},
-  'p':  {},
-  'a':  {},
-  'ad': {},
-}
 
 
-patch_dispatch = {
-  re.compile(r"\d\d?"):           patch_literal,      # digit trunk
-  re.compile(r"{d-[az-]+}"):      patch_d,            
-  re.compile(r"\d\d?-\d\d?"):     patch_literal,      # program line
-  re.compile(r"{p-[az-]+}"):      patch_p,
-  re.compile(r"a.+\..+"):         patch_accum,        # accumulator, more complex handling
-  re.compile(r"ad\..+"):          patch_adapter       # adapter
-}
+@dataclass
+class Resource:
+  '''A single type of enumerated resource, and the allocated items'''
+  desc: str
+  limit: int
+  symbols: Dict[str,int]
+
+class SymbolTable:
+  def __init__(self):
+    # shared across entire machine
+    self.sym_global = {
+      'd':      Resource('digit trunks', 9, {}),
+      'p':      Resource('program lines', 121, {}),
+      'a':      Resource('accumulators', 20, {}),
+      'ad.s':   Resource('shift adapters', 40, {}),
+      'ad.d':   Resource('deleter adapters', 40, {}),
+      'ad.dp':  Resource('digit pulse adapters', 40, {}),
+      'ad.sd':  Resource('special digit adapters', 40, {})
+    }
+    # per accumulator
+    self.sym_acc = [ 
+      { 
+        'r':    Resource('receiver programs', 4, {}),
+        't':    Resource('transciever programs', 8, {}),
+        'i':    Resource('accumulator inputs', 5, {})
+      } 
+      for i in range(20) ]
+
+  def _lookup(self, r:Resource, name:str):
+    # is this symbol defined already?
+    if name in r.symbols:
+      return r.symbols[name]
+
+    # not found, allocate the next available
+    allocated = r.symbols.values()
+    for i in range(1,r.limit+1):        # 1 based resource numbers 
+      if i not in allocated:
+        r.symbols[name] = i
+        return i
+    
+    raise OutOfResources(r.desc)
+
+  def define(self, resource_type, name, idx):
+    '''Define a name to refer to a given resource'''
+    r = self.sym_global[resource_type]
+    r.symbols[name] = idx
+
+  def lookup(self, resource_type, name):
+    '''Lookup/allocate a named global resource of given type'''
+    r = self.sym_global[resource_type]
+    return self._lookup(r, name)
+
+  def lookup_acc(self, acc_idx, resource_type, name):
+    '''Lookup/allocate a named resource on a particular accumulator'''
+    r = self.sym_acc[acc_idx][resource_type]
+    return self._lookup(r, name)
+
+
 
 def patch_literal(arg):
   return arg, {}  # empty dictionary meaning no named substitutions
-
-# Allocate one of the global resources
-def allocate_global(resource, name):
-  things = {
-    'd': ("digit trunks", 9)
-    'p': ("program lines", 121
-    'a': ("accumulators", 20),
-    'ad.s': ("shift adapters", 20),
-    'ad.d': ("deleter adapters", 20),
-    'ad.dp': ("digit pulse adapters", 20),
-    'ad.sd': ("special digit adapters", 20)
-  }
-
-  limit = things[resource][1]
-  error = things[resource][0]
-  n = names[resource]
-  if n == limit:
-    raise OutOfResources(error)
-
-  number = n+1
-  d[name] = number
-  return number
 
 
 def patch_d(arg):
@@ -81,8 +102,8 @@ def patch_d(arg):
   if name in d:
     n = d[name]
   else:
-    n = allocate_global('d',name))
-  text = str(n)
+    n = allocate_global('d',name)
+  text = str(n+1)
   return text, {name: text}
 
 
@@ -92,12 +113,13 @@ def patch_p(arg):
   if name in p:
     n = p[name]
   else:
-    n = allocate_global('p',name))
+    n = allocate_global('p',name)
   text = f'{Math.floor(x/11)+1}-{x%11+1}'
   return text, {name: text}
 
+
 def patch_adapter(arg):
-  m = re.match('(?P<type>ad\.(s|d|dp|sd))\.{(?P<name>ad-[az-]+)}\.(?P<param>-?\d\d?)',arg)
+  m = re.match('(?P<type>ad\.(s|d|dp|sd))\.{(?P<name>ad-[A-Za-z0-9-]+)}\.(?P<param>-?\d\d?)', arg)
   if not m:
     raise SyntaxError('bad adapter syntax')
   adtype = m.group('name')
@@ -105,11 +127,58 @@ def patch_adapter(arg):
   ad = names[adtype]
   if name in ad:
     n = ad[name]
-  else
+  else:
     n = allocate_global(adtype, name)
-  text = f'{adtype}.{n}.{m.group(\'param\')}'
+  text = f"{adtype}.{n}.{m.group('param')}"
   return text, {name: text}
 
+
+def patch_accum(arg):
+  # we can do up to two lookups per accumulator patch: accumulator and program/input
+  m = re.match('a(?P<accum>(\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<connection>((\d\d?|{[rt]-[A-Za-z0-9-]+})[io]|[abgdeAS]))', arg)
+  if not m:
+    raise SyntaxError('bad accumulator syntax')
+
+  symbols = {}
+  text = 'a'
+
+  # is the accumulator named or literal?
+  accum = m.groups('accum')
+  if '-' in accum: 
+    # it's an accumulator name, lookup
+    a = names['a']
+    if accum in a:
+      n = a[accum]
+    else:
+      n = allocate_global('a',accum)
+    text = 'a' + str(n+1)
+    symbols[accum] = text
+  else:
+    # it's a literal
+    text = accum    
+
+  text += '.'
+
+  # does the connection contain a name?
+  accum = m.groups('connection')
+  if '-' in accum: 
+    # it's a program (transceiver/reciever) name, lookup
+    pass
+  else:
+    # it's a literal
+    text += connection    
+
+  return text, symbols
+
+
+patch_dispatch = {
+  re.compile(r"\d\d?"):           patch_literal,      # digit trunk
+  re.compile(r"{d-[a-z-]+}"):     patch_d,            
+  re.compile(r"\d\d?-\d\d?"):     patch_literal,      # program line
+  re.compile(r"{p-[a-z-]+}"):     patch_p,
+  re.compile(r"a.+\..+"):         patch_accum,        # accumulator, more complex handling
+  re.compile(r"ad\..+"):          patch_adapter       # adapter
+}
 
 
 def line_p(line, m, out):
