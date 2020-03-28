@@ -68,7 +68,7 @@ class SymbolTable:
 
     # not found, allocate the next available
     allocated = r.symbols.values()
-    for i in range(1,r.limit+1):        # 1 based resource numbers 
+    for i in range(r.limit):
       if i not in allocated:
         r.symbols[name] = i
         return i
@@ -92,114 +92,7 @@ class SymbolTable:
 
 
 
-def patch_literal(arg):
-  return arg, {}  # empty dictionary meaning no named substitutions
 
-
-def patch_d(arg):
-  name = arg[1:-1]  # strip off curly braces
-  d = names['d']
-  if name in d:
-    n = d[name]
-  else:
-    n = allocate_global('d',name)
-  text = str(n+1)
-  return text, {name: text}
-
-
-def patch_p(arg):
-  name = arg[1:-1]  # strip off curly braces
-  p = names['p']
-  if name in p:
-    n = p[name]
-  else:
-    n = allocate_global('p',name)
-  text = f'{Math.floor(x/11)+1}-{x%11+1}'
-  return text, {name: text}
-
-
-def patch_adapter(arg):
-  m = re.match('(?P<type>ad\.(s|d|dp|sd))\.{(?P<name>ad-[A-Za-z0-9-]+)}\.(?P<param>-?\d\d?)', arg)
-  if not m:
-    raise SyntaxError('bad adapter syntax')
-  adtype = m.group('name')
-  name = m.group('type')
-  ad = names[adtype]
-  if name in ad:
-    n = ad[name]
-  else:
-    n = allocate_global(adtype, name)
-  text = f"{adtype}.{n}.{m.group('param')}"
-  return text, {name: text}
-
-
-def patch_accum(arg):
-  # we can do up to two lookups per accumulator patch: accumulator and program/input
-  m = re.match('a(?P<accum>(\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<connection>((\d\d?|{[rt]-[A-Za-z0-9-]+})[io]|[abgdeAS]))', arg)
-  if not m:
-    raise SyntaxError('bad accumulator syntax')
-
-  symbols = {}
-  text = 'a'
-
-  # is the accumulator named or literal?
-  accum = m.groups('accum')
-  if '-' in accum: 
-    # it's an accumulator name, lookup
-    a = names['a']
-    if accum in a:
-      n = a[accum]
-    else:
-      n = allocate_global('a',accum)
-    text = 'a' + str(n+1)
-    symbols[accum] = text
-  else:
-    # it's a literal
-    text = accum    
-
-  text += '.'
-
-  # does the connection contain a name?
-  accum = m.groups('connection')
-  if '-' in accum: 
-    # it's a program (transceiver/reciever) name, lookup
-    pass
-  else:
-    # it's a literal
-    text += connection    
-
-  return text, symbols
-
-
-patch_dispatch = {
-  re.compile(r"\d\d?"):           patch_literal,      # digit trunk
-  re.compile(r"{d-[a-z-]+}"):     patch_d,            
-  re.compile(r"\d\d?-\d\d?"):     patch_literal,      # program line
-  re.compile(r"{p-[a-z-]+}"):     patch_p,
-  re.compile(r"a.+\..+"):         patch_accum,        # accumulator, more complex handling
-  re.compile(r"ad\..+"):          patch_adapter       # adapter
-}
-
-
-def line_p(line, m, out):
-  arg1,arg2,comment = m.groups()
-  if not comment:
-    comment=""
-  out.emit("PPP arg1=" + arg1 + " arg2=" + arg2 + " " + comment)
-
-def line_s(line, m, out): 
-  out.emit("SSS " +  line)
-
-def line_blank(line, m, out): 
-  out.emit(line)
-
-
-# The types of lines we understand
-dispatch_table_line = {
-  re.compile(r"p\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?"): line_p,
-  re.compile(r"s\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?"): line_s,
-  re.compile(r".*(#.*)?") : line_blank
-}
 
 
 class Assembler(object):
@@ -208,6 +101,100 @@ class Assembler(object):
                print_errors=True):
     self.context = Context(filename)
     self.out = Output(context=self.context)
+    self.symbols = SymbolTable()
+
+  # Each argument processor fn maps from 0-based resource ids to strings
+  # All return (string to output, table of symbol substitutions)
+
+  def _patch_literal(self, arg):
+    return arg, {}  # empty dictionary meaning no named substitutions
+
+  def _patch_d(self, arg):
+    name = arg[1:-1]  # strip off curly braces
+    n = self.symbols.lookup(name)
+    text = str(n+1)
+    return text, {name: text}
+
+  def patch_p(self, arg):
+    name = arg[1:-1]  # strip off curly braces
+    n = self.symbols.lookup(name)
+    text = f'{Math.floor(n/11)+1}-{n%11+1}'
+    return text, {name: text}
+
+  def patch_adapter(self, arg):
+    m = re.match('(?P<type>ad\.(s|d|dp|sd))\.{(?P<name>ad-[A-Za-z0-9-]+)}\.(?P<param>-?\d\d?)', arg)
+    if not m:
+      raise SyntaxError('bad adapter syntax')
+
+    adtype = m.group('type')
+    name = m.group('name')
+    n = self.symbols.lookup(adtype, name)
+    text = f"{adtype}.{n+1}.{m.group('param')}"
+    return text, {name: text}
+
+  def patch_accum(self, arg):
+    # we can do up to two lookups per accumulator patch: accumulator and program/input
+    m = re.match('a(?P<accum>(\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<connection>((\d\d?|{[rt]-[A-Za-z0-9-]+})[io]|[abgdeAS]))', arg)
+    if not m:
+      raise SyntaxError('bad accumulator syntax')
+
+    symbols = {}
+    text = 'a'
+
+    # is the accumulator named or literal?
+    accum = m.groups('accum')
+    if 'a-' in accum: 
+      name = accum[1:-1] # strip braces
+      n = self.symbols.lookup(name)
+      text = 'a' + str(n+1)
+      symbols[name] = text
+    else:
+      # it's a literal
+      text = accum    
+
+    text += '.'
+
+    # does the connection contain a name?
+    accum = m.groups('connection')
+    if '-' in accum: 
+      # it's a program (transceiver/reciever) name, lookup
+      pass
+    else:
+      # it's a literal
+      text += connection    
+
+    return text, symbols
+
+
+  patch_dispatch = {
+    re.compile(r"\d\d?"):           patch_literal,      # digit trunk
+    re.compile(r"{d-[a-z-]+}"):     patch_d,            
+    re.compile(r"\d\d?-\d\d?"):     patch_literal,      # program line
+    re.compile(r"{p-[a-z-]+}"):     patch_p,
+    re.compile(r"a.+\..+"):         patch_accum,        # accumulator, more complex handling
+    re.compile(r"ad\..+"):          patch_adapter       # adapter
+  }
+
+
+  def line_p(line, m, out):
+    arg1,arg2,comment = m.groups()
+    if not comment:
+      comment=""
+    out.emit("PPP arg1=" + arg1 + " arg2=" + arg2 + " " + comment)
+
+  def line_s(line, m, out): 
+    out.emit("SSS " +  line)
+
+  def line_blank(line, m, out): 
+    out.emit(line)
+
+
+  # The types of lines we understand
+  dispatch_table_line = {
+    re.compile(r"p\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?"): line_p,
+    re.compile(r"s\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?"): line_s,
+    re.compile(r".*(#.*)?") : line_blank
+  }
 
   def assemble(self, file):
     text = file.read()
