@@ -29,7 +29,7 @@ class OutOfResources(Exception):
 class SyntaxError(Exception):
   pass
 
-# Handles tabbing the comment out. Used also be test suite
+# Handles tabbing the comment out. Used also by the test suite
 def format_comment(line, comment):
   if not comment or comment=='':
     return line
@@ -150,7 +150,7 @@ class Assembler(object):
 
   def patch_accum(self, arg):
     # up to two lookups per accumulator patch: acc idx and program/input
-    m = re.match('a(?P<accum>(\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<connection>((\d\d?|{[rt]-[A-Za-z0-9-]+})[io]|[abgdeAS]))', arg)
+    m = re.match('a(?P<accum>(\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<connection>((\d\d?|{[rti]-[A-Za-z0-9-]+})[io]?|[abgdeAS]))', arg)
     if not m:
       raise SyntaxError('bad accumulator connection')
 
@@ -162,7 +162,7 @@ class Assembler(object):
       name = accum[1:-1] # strip braces
       n = self.symbols.lookup('a', name)
       accumtext = 'a' + str(n+1)
-      symbols[name] = text
+      symbols[name] = accumtext
     else:
       # it's a literal
       accumtext = 'a' + accum    
@@ -170,14 +170,16 @@ class Assembler(object):
     # if the connection contains a name, lookup. 
     connection = m.group('connection')
     if '-' in connection: 
-      m = re.match("({[rti]-[A-Za-z0-9-]+})([io])") # should always match
-      name = m[0]
-      suffix = m[1]
+      m = re.match("({[rti]-[A-Za-z0-9-]+})([io]?)", connection) # should always match
+      name, suffix = m.groups()
 
-      acc_idx = int(accumtext[1:])  # read from the we just produced, which may have been looked up
+      acc_idx = int(accumtext[1:])  # read from the text we just produced, which may have been looked up
+      name = name[1:-1]             # strip braces
       res_type = name[0]
 
       n = self.symbols.lookup_acc(acc_idx, res_type, name)
+      if res_type=='t':
+        n += 4                      # transcievers are numbered starting after 4 recievers
 
       if suffix == '': 
         # {i-input-name}
@@ -189,6 +191,9 @@ class Assembler(object):
         # {[tr]-program-name}[io]
         if res_type == 'i':
           raise SyntaxError("extra 'i' or 'o' after named input")
+        if res_type=='r' and suffix=='o':
+          raise SyntaxError("receiver programs do not have outputs")
+
         connecttext = str(n+1) + suffix
 
       symbols[name] = connecttext # resolve 
@@ -204,12 +209,12 @@ class Assembler(object):
 
   def patch_argument(self, arg):
     patch_dispatch = {
-        re.compile(r"\d\d?"):           self.patch_literal, # digit trunk
-        re.compile(r"{d-[a-z0-9-]+}"):  self.patch_d,            
-        re.compile(r"\d\d?-\d\d?"):     self.patch_literal, # program line
-        re.compile(r"{p-[a-z0-9-]+}"):  self.patch_p,
-        re.compile(r"ad\..+"):          self.patch_adapter, # adapter
-        re.compile(r"a.+\..+"):         self.patch_accum    # accumulator, more complex handling
+        re.compile(r"\d\d?"):             self.patch_literal, # digit trunk
+        re.compile(r"{d-[A-Za-z0-9-]+}"): self.patch_d,            
+        re.compile(r"\d\d?-\d\d?"):       self.patch_literal, # program line
+        re.compile(r"{p-[A-Za-z0-9-]+}"): self.patch_p,
+        re.compile(r"ad\..+"):            self.patch_adapter, # adapter
+        re.compile(r"a.+\..+"):           self.patch_accum    # accumulator, more complex handling
     }
 
     for pattern, handler in patch_dispatch.items():

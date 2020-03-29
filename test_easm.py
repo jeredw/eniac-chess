@@ -67,67 +67,146 @@ class TestAssembler(unittest.TestCase):
   #  - allocation of a different name to a different resource
   #  - running out of resources
 
+  # test that there are exactly numleft resources, then we error
   def run_out(self, a, prefix, suffix, numleft):
-      for i in range(numleft):
-        a.assemble_line(prefix + str(i) + suffix)
-      with self.assertRaises(OutOfResources):
-        a.assemble_line(prefix + str(numleft) + suffix)
+    for i in range(numleft):
+      a.assemble_line(prefix + str(i) + suffix)
+    with self.assertRaises(OutOfResources):
+      a.assemble_line(prefix + str(numleft) + suffix)
 
   def test_program_line(self):
-      a = Assembler()
-      self.assertEqual(
-        a.assemble_line('p {p-name} a3.5i'), format_comment('p 1-1 a3.5i','# p-name=1-1'))
-      self.assertEqual(
-        a.assemble_line('p {p-name} a4.1i'), format_comment('p 1-1 a4.1i','# p-name=1-1'))
-      self.assertEqual(
-        a.assemble_line('p a13.5o {p-other-name}'), format_comment('p a13.5o 1-2','# p-other-name=1-2'))
-      self.run_out(a, 'p {p-', '} a1.1i', 119)
+    a = Assembler()
+    self.assertEqual(
+      a.assemble_line('p {p-name} a3.5i'), format_comment('p 1-1 a3.5i','# p-name=1-1'))
+    self.assertEqual(
+      a.assemble_line('p {p-name} a4.1i'), format_comment('p 1-1 a4.1i','# p-name=1-1'))
+    self.assertEqual(
+      a.assemble_line('p a13.5o {p-other-name}'), format_comment('p a13.5o 1-2','# p-other-name=1-2'))
+    self.run_out(a, 'p {p-', '} a1.1i', 119)
 
   def test_data_trunk(self):
-      a = Assembler()
-      self.assertEqual(
-        a.assemble_line('p {d-name} a3.a'), format_comment('p 1 a3.a','# d-name=1')) 
-      self.assertEqual(
-        a.assemble_line('p a4.S {d-name}'),format_comment('p a4.S 1','# d-name=1')) 
-      self.assertEqual(
-        a.assemble_line('p a16.A {d-other-name} '),format_comment('p a16.A 2','# d-other-name=2'))
-      self.run_out(a, 'p {d-', '} a1.a', 7)
+    a = Assembler()
+    self.assertEqual(
+      a.assemble_line('p {d-name} a3.a'), format_comment('p 1 a3.a','# d-name=1')) 
+    self.assertEqual(
+      a.assemble_line('p a4.S {d-name}'),format_comment('p a4.S 1','# d-name=1')) 
+    self.assertEqual(
+      a.assemble_line('p a16.A {d-other-name} '),format_comment('p a16.A 2','# d-other-name=2'))
+    self.run_out(a, 'p {d-', '} a1.a', 7)
 
-  def test_adapter(self):
-      a = Assembler()
-      self.assertEqual(
-        a.assemble_line('p a20.A ad.s.{ad-name}.3'), format_comment('p a20.A ad.s.1.3','# ad-name=1'))
-      self.assertEqual(
-        a.assemble_line('p ad.s.{ad-other-name}.3 a11.g'), format_comment('p ad.s.2.3 a11.g','# ad-other-name=2'))
-      self.assertEqual(
-        a.assemble_line('p 2 ad.s.{ad-other-name}.4'), format_comment('p 2 ad.s.2.4','# ad-other-name=2'))
-      self.run_out(a, 'p ad.s.{ad-', '}.1 a1.a', 38)
+  def test_shift_adapter(self):
+    a = Assembler()
+    self.assertEqual(
+      a.assemble_line('p a20.A ad.s.{ad-name}.3'), format_comment('p a20.A ad.s.1.3','# ad-name=1'))
+    self.assertEqual(
+      a.assemble_line('p ad.s.{ad-other-name}.3 a11.g'), format_comment('p ad.s.2.3 a11.g','# ad-other-name=2'))
+    self.assertEqual(
+      a.assemble_line('p 2 ad.s.{ad-other-name}.4'), format_comment('p 2 ad.s.2.4','# ad-other-name=2'))
+    self.run_out(a, 'p ad.s.{ad-', '}.1 a1.a', 38)
 
-      self.assertEqual(
-        a.assemble_line('p a20.A ad.d.{ad-name}.3'), format_comment('p a20.A ad.d.1.3','# ad-name=1'))
-      self.assertEqual(
-        a.assemble_line('p ad.d.{ad-other-name}.3 a11.g'), format_comment('p ad.d.2.3 a11.g','# ad-other-name=2'))
-      self.assertEqual(
-        a.assemble_line('p 3 ad.d.{ad-other-name}.3 '), format_comment('p 3 ad.d.2.3','# ad-other-name=2'))
-      self.run_out(a, 'p ad.d.{ad-', '}.1 a1.a', 38)
+  def test_deleter_adapter(self):
+    a = Assembler()
+    self.assertEqual(
+      a.assemble_line('p a20.A ad.d.{ad-name}.3'), format_comment('p a20.A ad.d.1.3','# ad-name=1'))
+    self.assertEqual(
+      a.assemble_line('p ad.d.{ad-other-name}.3 a11.g'), format_comment('p ad.d.2.3 a11.g','# ad-other-name=2'))
+    self.assertEqual(
+      a.assemble_line('p 3 ad.d.{ad-other-name}.3 '), format_comment('p 3 ad.d.2.3','# ad-other-name=2'))
+    self.run_out(a, 'p ad.d.{ad-', '}.1 a1.a', 38)
 
-      self.assertEqual(
-        a.assemble_line('p a20.A ad.dp.{ad-name}.11'), format_comment('p a20.A ad.dp.1.11','# ad-name=1'))
-      self.assertEqual(
-        a.assemble_line('p a20.A ad.dp.{ad-other-name}.11'), format_comment('p a20.A ad.dp.2.11','# ad-other-name=2'))
-      self.assertEqual(
-        a.assemble_line('p ad.dp.{ad-other-name}.11 5-5'), format_comment('p ad.dp.2.11 5-5','# ad-other-name=2'))
-      self.run_out(a, 'p ad.dp.{ad-', '}.11 5-5', 38)
+  def test_digit_pulse_adapter(self):
+    a = Assembler()
+    self.assertEqual(
+      a.assemble_line('p a20.A ad.dp.{ad-name}.11'), format_comment('p a20.A ad.dp.1.11','# ad-name=1'))
+    self.assertEqual(
+      a.assemble_line('p a20.A ad.dp.{ad-other-name}.11'), format_comment('p a20.A ad.dp.2.11','# ad-other-name=2'))
+    self.assertEqual(
+      a.assemble_line('p ad.dp.{ad-other-name}.11 5-5'), format_comment('p ad.dp.2.11 5-5','# ad-other-name=2'))
+    self.run_out(a, 'p ad.dp.{ad-', '}.11 5-5', 38)
 
-      self.assertEqual(
-        a.assemble_line('p a20.A ad.sd.{ad-name}.8'), format_comment('p a20.A ad.sd.1.8','# ad-name=1'))
-      self.assertEqual(
-        a.assemble_line('p a20.A ad.sd.{ad-other-name}.8'), format_comment('p a20.A ad.sd.2.8','# ad-other-name=2'))
-      self.assertEqual(
-        a.assemble_line('p ad.sd.{ad-other-name}.8 4'),format_comment('p ad.sd.2.8 4','# ad-other-name=2'))
-      self.run_out(a, 'p ad.sd.{ad-', '}.8 1', 38)
+  def test_special_digit_adapter(self):
+    a = Assembler()
+    self.assertEqual(
+      a.assemble_line('p a20.A ad.sd.{ad-name}.8'), format_comment('p a20.A ad.sd.1.8','# ad-name=1'))
+    self.assertEqual(
+      a.assemble_line('p a20.A ad.sd.{ad-other-name}.8'), format_comment('p a20.A ad.sd.2.8','# ad-other-name=2'))
+    self.assertEqual(
+      a.assemble_line('p ad.sd.{ad-other-name}.8 4'), format_comment('p ad.sd.2.8 4','# ad-other-name=2'))
+    self.run_out(a, 'p ad.sd.{ad-', '}.8 1', 38)
 
+  def test_accumulator_lookup(self):
+    a = Assembler()
+    self.assertEqual(
+      a.assemble_line('p a{a-name}.A 8'), format_comment('p a1.A 8','# a-name=a1'))
+    self.assertEqual(
+      a.assemble_line('p a{a-other-name}.A 8'), format_comment('p a2.A 8','# a-other-name=a2'))
+    self.assertEqual(
+      a.assemble_line('p 8 a{a-other-name}.a'), format_comment('p 8 a2.a','# a-other-name=a2'))
+    self.run_out(a, 'p a{a-', '}.A 1', 18)
 
+  def test_accumulator_reciever(self):
+    a = Assembler()
+    self.assertEqual(
+      a.assemble_line('p 1-1 a1.{r-name}i'), format_comment('p 1-1 a1.1i','# r-name=1i'))
+    self.assertEqual(
+      a.assemble_line('p 1-1 a1.{r-other-name}i'), format_comment('p 1-1 a1.2i','# r-other-name=2i'))
+    self.assertEqual(
+      a.assemble_line('p a1.{r-other-name}o 2-2'), format_comment('p a1.2o 2-2','# r-other-name=2o'))
+    self.run_out(a, 'p 1-1 a1.{r-', '}i', 2)
+
+    # we've run out of recievers on a1, but should still be plenty on a2
+    self.run_out(a, 'p 1-1 a2.{r-', '}i', 4)
+
+  def test_accumulator_reciever(self):
+    a = Assembler()
+    self.assertEqual(
+      a.assemble_line('p 1-1 a1.{r-name}i'), format_comment('p 1-1 a1.1i','# r-name=1i'))
+    self.assertEqual(
+      a.assemble_line('p 1-1 a1.{r-other-name}i'), format_comment('p 1-1 a1.2i','# r-other-name=2i'))
+    self.assertEqual(
+      a.assemble_line('p 1-1 a1.{r-name}i'), format_comment('p 1-1 a1.1i','# r-name=1i'))
+    self.run_out(a, 'p 1-1 a1.{r-', '}i', 2)
+
+    # we've run out of recievers on a1, but should still be plenty on a2
+    self.run_out(a, 'p 1-1 a2.{r-', '}i', 4)
+
+  def test_accumulator_transciever(self):
+    a = Assembler()
+    self.assertEqual(
+      a.assemble_line('p 1-1 a1.{t-name}i'), format_comment('p 1-1 a1.5i','# t-name=5i'))
+    self.assertEqual(
+      a.assemble_line('p 1-1 a1.{t-other-name}i'), format_comment('p 1-1 a1.6i','# t-other-name=6i'))
+    self.assertEqual(
+      a.assemble_line('p a1.{t-other-name}o 2-2'), format_comment('p a1.6o 2-2','# t-other-name=6o'))
+    self.run_out(a, 'p 1-1 a1.{t-', '}i', 6)
+
+    # we've run out of transcievers on a1, but should still be plenty on a2
+    self.run_out(a, 'p 1-1 a2.{t-', '}i', 8)
+
+  def test_accumulator_inputs(self):
+    a = Assembler()
+    self.assertEqual(
+      a.assemble_line('p 4 a1.{i-name}'), format_comment('p 4 a1.a','# i-name=a'))
+    self.assertEqual(
+      a.assemble_line('p 4 a1.{i-other-name}'), format_comment('p 4 a1.b','# i-other-name=b'))
+    self.assertEqual(
+      a.assemble_line('p 4 a1.{i-other-other-name}'), format_comment('p 4 a1.g','# i-other-other-name=g'))
+    self.run_out(a, 'p 4 a1.{i-', '}', 2)
+
+    # we've run out of inputs on a1, but should still be plenty on a2
+    self.run_out(a, 'p 4 a2.{i-', '}', 5)
+
+  def test_reciever_output_error(self):
+    a = Assembler()
+    with self.assertRaises(SyntaxError):
+      a.assemble_line('p a1.{r-name}o 1-1')  # receivers do not have outputs
+
+  def test_missing_io_error(self):
+    a = Assembler()
+    with self.assertRaises(SyntaxError):
+      a.assemble_line('p a1.{r-name} 1-1')  # need i after receiver
+    with self.assertRaises(SyntaxError):
+      a.assemble_line('p a1.{t-name} 1-1')  # need i or after transceiver
 
 
 if __name__ == '__main__':
