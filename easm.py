@@ -16,6 +16,7 @@
 # ad    adapter, 1-40 (simulator limitation) for each type
 import sys
 import re
+import math
 from dataclasses import dataclass
 from typing import Dict
 
@@ -28,8 +29,21 @@ class OutOfResources(Exception):
 class SyntaxError(Exception):
   pass
 
-# Possible arguments to p (things that can be patched)
-# N,M = unsigned integers
+# Handles tabbing the comment out. Used also be test suite
+def format_comment(line, comment):
+  if not comment or comment=='':
+    return line
+
+  comment_col = 30
+  l = len(line)
+
+  if l>=comment_col:
+    return line + ' ' + comment # always at least one space
+
+  while l<comment_col:
+    line += ' '
+    l += 1
+  return line + comment
 
 
 
@@ -96,30 +110,31 @@ class SymbolTable:
 
 
 class Assembler(object):
-  def __init__(self,
-               filename,
-               print_errors=True):
-    self.context = Context(filename)
+  def __init__(self):
+    self.context = Context('filename')
     self.out = Output(context=self.context)
     self.symbols = SymbolTable()
 
+
   # Each argument processor fn maps from 0-based resource ids to strings
   # All return (string to output, table of symbol substitutions)
-
-  def _patch_literal(self, arg):
+  def patch_literal(self, arg):
     return arg, {}  # empty dictionary meaning no named substitutions
 
-  def _patch_d(self, arg):
+
+  def patch_d(self, arg):
     name = arg[1:-1]  # strip off curly braces
-    n = self.symbols.lookup(name)
+    n = self.symbols.lookup('d', name)
     text = str(n+1)
     return text, {name: text}
 
+
   def patch_p(self, arg):
     name = arg[1:-1]  # strip off curly braces
-    n = self.symbols.lookup(name)
-    text = f'{Math.floor(n/11)+1}-{n%11+1}'
+    n = self.symbols.lookup('p', name)
+    text = f'{math.floor(n/11)+1}-{n%11+1}'
     return text, {name: text}
+
 
   def patch_adapter(self, arg):
     m = re.match('(?P<type>ad\.(s|d|dp|sd))\.{(?P<name>ad-[A-Za-z0-9-]+)}\.(?P<param>-?\d\d?)', arg)
@@ -130,85 +145,131 @@ class Assembler(object):
     name = m.group('name')
     n = self.symbols.lookup(adtype, name)
     text = f"{adtype}.{n+1}.{m.group('param')}"
-    return text, {name: text}
+    return text, {name: str(n+1)}
+
 
   def patch_accum(self, arg):
-    # we can do up to two lookups per accumulator patch: accumulator and program/input
+    # up to two lookups per accumulator patch: acc idx and program/input
     m = re.match('a(?P<accum>(\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<connection>((\d\d?|{[rt]-[A-Za-z0-9-]+})[io]|[abgdeAS]))', arg)
     if not m:
-      raise SyntaxError('bad accumulator syntax')
+      raise SyntaxError('bad accumulator connection')
 
     symbols = {}
-    text = 'a'
 
     # is the accumulator named or literal?
-    accum = m.groups('accum')
+    accum = m.group('accum')
     if 'a-' in accum: 
       name = accum[1:-1] # strip braces
-      n = self.symbols.lookup(name)
-      text = 'a' + str(n+1)
+      n = self.symbols.lookup('a', name)
+      accumtext = 'a' + str(n+1)
       symbols[name] = text
     else:
       # it's a literal
-      text = accum    
+      accumtext = 'a' + accum    
 
-    text += '.'
+    # if the connection contains a name, lookup. 
+    connection = m.group('connection')
+    if '-' in connection: 
+      m = re.match("({[rti]-[A-Za-z0-9-]+})([io])") # should always match
+      name = m[0]
+      suffix = m[1]
 
-    # does the connection contain a name?
-    accum = m.groups('connection')
-    if '-' in accum: 
-      # it's a program (transceiver/reciever) name, lookup
-      pass
+      acc_idx = int(accumtext[1:])  # read from the we just produced, which may have been looked up
+      res_type = name[0]
+
+      n = self.symbols.lookup_acc(acc_idx, res_type, name)
+
+      if suffix == '': 
+        # {i-input-name}
+        if res_type != 'i':
+          raise SyntaxError("missing 'i' or 'o' after program number")
+        connecttext = ['a','b','g','d','e'][n]
+        symbols[name] = connecttext
+      else:
+        # {[tr]-program-name}[io]
+        if res_type == 'i':
+          raise SyntaxError("extra 'i' or 'o' after named input")
+        connecttext = str(n+1) + suffix
+
+      symbols[name] = connecttext # resolve 
+
     else:
       # it's a literal
-      text += connection    
+      connecttext = connection    
 
+    # put it all back together
+    text = accumtext + '.' + connecttext
     return text, symbols
 
 
-  patch_dispatch = {
-    re.compile(r"\d\d?"):           patch_literal,      # digit trunk
-    re.compile(r"{d-[a-z-]+}"):     patch_d,            
-    re.compile(r"\d\d?-\d\d?"):     patch_literal,      # program line
-    re.compile(r"{p-[a-z-]+}"):     patch_p,
-    re.compile(r"a.+\..+"):         patch_accum,        # accumulator, more complex handling
-    re.compile(r"ad\..+"):          patch_adapter       # adapter
-  }
+  def patch_argument(self, arg):
+    patch_dispatch = {
+        re.compile(r"\d\d?"):           self.patch_literal, # digit trunk
+        re.compile(r"{d-[a-z0-9-]+}"):  self.patch_d,            
+        re.compile(r"\d\d?-\d\d?"):     self.patch_literal, # program line
+        re.compile(r"{p-[a-z0-9-]+}"):  self.patch_p,
+        re.compile(r"ad\..+"):          self.patch_adapter, # adapter
+        re.compile(r"a.+\..+"):         self.patch_accum    # accumulator, more complex handling
+    }
+
+    for pattern, handler in patch_dispatch.items():
+      if pattern.match(arg):
+        return handler(arg)
+
+    raise SyntaxError(f"unknown patch connection '{arg}'")
 
 
-  def line_p(line, m, out):
-    arg1,arg2,comment = m.groups()
-    if not comment:
-      comment=""
-    out.emit("PPP arg1=" + arg1 + " arg2=" + arg2 + " " + comment)
+  def line_p(self, arg1, arg2, comment):
+    text1, symbols1 = self.patch_argument(arg1)
+    text2, symbols2 = self.patch_argument(arg2)
 
-  def line_s(line, m, out): 
-    out.emit("SSS " +  line)
+    symbols = list(symbols1.items()) + list(symbols2.items())
+    symbol_comments = ', '.join([f'{k}={v}' for k,v in symbols])
+    if symbol_comments != '':
+      symbol_comments = '# ' + symbol_comments
 
-  def line_blank(line, m, out): 
-    out.emit(line)
+    if comment:
+      comment = symbol_comments + '; ' + comment[1:] # strip leading # on comment
+    else:
+      comment = symbol_comments
+
+    line = format_comment('p ' + text1 + ' ' + text2, comment)
+    return line
 
 
-  # The types of lines we understand
-  dispatch_table_line = {
-    re.compile(r"p\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?"): line_p,
-    re.compile(r"s\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?"): line_s,
-    re.compile(r".*(#.*)?") : line_blank
-  }
+  def line_s(self, arg1, arg2, comment): 
+    self.out.emit("SSS " +  line)
+
+
+  def line_blank(self, arg1, arg2, comment): 
+    self.out.emit(line)
+
+
+  def assemble_line(self,line):
+    # The types of lines we understand
+    line_dispatch = {
+      re.compile(r"p\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?"): self.line_p,
+      re.compile(r"s\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?"): self.line_s,
+      re.compile(r".*(#.*)?") : self.line_blank
+    }
+
+    for pattern, handler in line_dispatch.items():
+      m = pattern.match(line)
+      if m:
+        arg1, arg2, comment = m.groups()
+        return handler(arg1, arg2, comment)
+        break
+
 
   def assemble(self, file):
     text = file.read()
     self._scan(text)
 
+
   def _scan(self, text):
     for line_number, line in enumerate(text.splitlines()):
       self.context.line_number = line_number
-
-      for pattern, handler in dispatch_table_line.items():
-        m = pattern.match(line)
-        if m:
-          handler(line, m, self.out)
-          break
+      self.assemble_line()
 
 
 
@@ -233,10 +294,8 @@ class Output(object):
       print("{}:{}: {}".format(self.context.filename, 1 + self.context.line_number, what))
 
   def emit(self, line):
-    print(line) 
-
-
-
+    #print(line) 
+    pass
 
 
 def main():
