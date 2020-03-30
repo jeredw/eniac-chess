@@ -60,6 +60,11 @@ class TestAssembler(unittest.TestCase):
   def test_literal(self):
       a = Assembler()
       self.assertEqual(a.assemble_line('p 1-1 a3.5i'),'p 1-1 a3.5i') 
+      self.assertEqual(a.assemble_line('p 8 ad.dp.1.11'), 'p 8 ad.dp.1.11')
+  def test_comment(self):
+      a = Assembler()
+      self.assertEqual(a.assemble_line('s a2.cc7 C   # then clear'),'s a2.cc7 C                    # then clear') 
+      self.assertEqual(a.assemble_line(''), '')
 
   # test several things for each type of resource:
   #  - intitial allocation of the first resource on the machine (e.g. 1-1)
@@ -82,6 +87,8 @@ class TestAssembler(unittest.TestCase):
       a.assemble_line('p {p-name} a4.1i'), format_comment('p 1-1 a4.1i','# p-name=1-1'))
     self.assertEqual(
       a.assemble_line('p a13.5o {p-other-name}'), format_comment('p a13.5o 1-2','# p-other-name=1-2'))
+    self.assertEqual(
+      a.assemble_line('p i.io {p-other-name}'), format_comment('p i.io 1-2','# p-other-name=1-2'))
     self.run_out(a, 'p {p-', '} a1.1i', 119)
 
   def test_data_trunk(self):
@@ -123,6 +130,7 @@ class TestAssembler(unittest.TestCase):
     self.assertEqual(
       a.assemble_line('p ad.dp.{ad-other-name}.11 5-5'), format_comment('p ad.dp.2.11 5-5','# ad-other-name=2'))
     self.run_out(a, 'p ad.dp.{ad-', '}.11 5-5', 38)
+
 
   def test_special_digit_adapter(self):
     a = Assembler()

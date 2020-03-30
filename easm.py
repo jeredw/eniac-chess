@@ -24,10 +24,18 @@ def usage():
   print("easm.py infile.ea outfile.e")
 
 class OutOfResources(Exception):
-  pass
+  def __init__(self, msg):
+    self.msg = msg
+
+  def __str__(self):
+    return 'Out of ' + self.msg
 
 class SyntaxError(Exception):
-  pass
+  def __init__(self, msg):
+    self.msg = msg
+
+  def __str__(self):
+    return 'Syntax error: ' + self.msg
 
 # Handles tabbing the comment out. Used also by the test suite
 def format_comment(line, comment):
@@ -108,10 +116,7 @@ class SymbolTable:
 
 class Assembler(object):
   def __init__(self):
-    self.context = Context('filename')
-    self.out = Output(context=self.context)
     self.symbols = SymbolTable()
-
 
   # Each argument processor fn maps from 0-based resource ids to strings
   # All return (string to output, table of symbol substitutions)
@@ -134,15 +139,20 @@ class Assembler(object):
 
 
   def patch_adapter(self, arg):
-    m = re.match('(?P<type>ad\.(s|d|dp|sd))\.{(?P<name>ad-[A-Za-z0-9-]+)}\.(?P<param>-?\d\d?)', arg)
+    m = re.match(r'(?P<type>ad\.(s|d|dp|sd))\.(?P<name>(\d\d?|{ad-[A-Za-z0-9-]+}))\.(?P<param>-?\d\d?)', arg)
     if not m:
       raise SyntaxError('bad adapter syntax')
 
-    adtype = m.group('type')
     name = m.group('name')
-    n = self.symbols.lookup(adtype, name)
-    text = f"{adtype}.{n+1}.{m.group('param')}"
-    return text, {name: str(n+1)}
+    if '{ad-' in name:
+      name = name[1:-1] # strip off curly braces       
+      adtype = m.group('type')
+      n = self.symbols.lookup(adtype, name)
+      text = f"{adtype}.{n+1}.{m.group('param')}"
+      return text, {name: str(n+1)}
+    else:
+      # literal adapter number
+      return arg, {}
 
 
   # translates a literal accumulator number or named accumulator into aXX
@@ -218,7 +228,7 @@ class Assembler(object):
         re.compile(r"{p-[A-Za-z0-9-]+}"): self.patch_p,       # named program line
         re.compile(r"ad\..+"):            self.patch_adapter, # adapter
         re.compile(r"a.+\..+"):           self.patch_accum,   # accumulator, more complex handling
-        re.compile(r"f[123]\..+"):        self.arg_literal    # function table 
+        re.compile(r".+"):                self.arg_literal    # function table, initiating unit, etc. (all else)
     }
 
     for pattern, handler in patch_dispatch.items():
@@ -231,16 +241,21 @@ class Assembler(object):
   def symbols_to_comment(self, symbols1, symbols2, comment):
     symbols = list(symbols1.items()) + list(symbols2.items())
     symbol_comment = ', '.join([f'{k}={v}' for k,v in symbols])
-    if symbol_comment != '':
-      symbol_comment = '# ' + symbol_comment
 
+    if symbol_comment == '':
+      return comment
+
+    symbol_comment = '# ' + symbol_comment
     if comment:
       return symbol_comment + '; ' + comment[1:] # strip leading # on comment
     else:
       return symbol_comment
 
 
-  def line_p(self, arg1, arg2, comment):
+  def line_p(self, line):
+    m = re.match(r'p\s+([^\s]+)\s+([^\s]+)\s*(#.*)?', line)
+    arg1, arg2, comment = m.groups()
+
     text1, symbols1 = self.patch_argument(arg1)
     text2, symbols2 = self.patch_argument(arg2)
 
@@ -249,22 +264,23 @@ class Assembler(object):
     return format_comment('p ' + text1 + ' ' + text2, comment)
   
 
-  def line_s(self, arg1, arg2, comment): 
-    accumtext = None
+  def line_s(self, line): 
+    m = re.match(r's\s+([^\s]+)\s+([^\s]+)\s*(#.*)?', line)
+    arg1, arg2, comment = m.groups()
 
     # accumulator switches are the only place we currently replace
-    m = re.match('a(?P<accum>(\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<prog>.+)',arg1)
+    accumtext = None
+    m = re.match('a(?P<accum>[^.]+)\.(?P<prog>.+)',arg1)
     if m: 
       accumtext, symbols1 = self.lookup_accum(m.group('accum'))
       progtext, symbols2 = self.lookup_accum_arg(accumtext, m.group('prog'))
       symbols1.update(symbols2)
       arg1 = accumtext + '.' + progtext
-    
     else:
       # it's not an accumulator, no replacement
       symbols1 = {}
 
-    # arg2 may be an input name
+    # arg2 may be an input name e.g. {i-name}
     if '{i-' in arg2:
       name = arg2[1:-1]  # strip braces
       if not accumtext:
@@ -277,72 +293,58 @@ class Assembler(object):
     return format_comment('s ' + arg1 + ' ' + arg2, comment)
 
 
-  def line_blank(self, arg1, arg2, comment): 
-    self.out.emit(line)
+  def line_blank(self, line): 
+    return line
 
 
   def assemble_line(self,line):
     # The types of lines we understand
     line_dispatch = {
-      re.compile(r"p\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?"): self.line_p,
-      re.compile(r"s\s+(?P<arg1>[^\s]+)\s+(?P<arg2>[^\s]+)(?P<comment>\s+#.*)?"): self.line_s,
-      re.compile(r".*(#.*)?") : self.line_blank
+      re.compile(r'p\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'): self.line_p,
+      re.compile(r's\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'): self.line_s,
+      re.compile(r'.*(#.*)?') : self.line_blank
     }
 
     for pattern, handler in line_dispatch.items():
-      m = pattern.match(line)
-      if m:
-        arg1, arg2, comment = m.groups()
-        return handler(arg1, arg2, comment)
+      if pattern.match(line):
+        return handler(line)
         break
 
-
-  def assemble(self, file):
-    text = file.read()
-    self._scan(text)
+    raise SyntaxError('unknown command')
 
 
   def _scan(self, text):
+    out = ''
     for line_number, line in enumerate(text.splitlines()):
-      self.context.line_number = line_number
-      self.assemble_line()
+      try:
+        outlines = self.assemble_line(line)
+      except Exception as e:
+        print(line)
+        print(str(e) + ' at line ' + str(line_number) )
+        return None
+      out += outlines + '\n'
+    return out
+
+  def assemble(self, intext):
+    return self._scan(intext)
 
 
 
-class Context(object):
-  def __init__(self, filename):
-    self.filename = filename
-    self.line_number = 0
-    self.had_fatal_error = False
-
-
-class Output(object):
-  def __init__(self,
-               context=None,
-               print_errors=True):
-    self.print_errors = print_errors
-    self.errors = []
-    self.output = ""
-
-  def error(self, what):
-    self.errors.append((self.context.filename, 1 + self.context.line_number, what))
-    if self.print_errors:
-      print("{}:{}: {}".format(self.context.filename, 1 + self.context.line_number, what))
-
-  def emit(self, line):
-    #print(line) 
-    pass
+    
 
 
 def main():
-  if len(sys.argv) == 1:
+  if len(sys.argv) < 3:
     usage()
     sys.exit(1)
 
-  infile = sys.argv[1]
-  f = open(infile)
-  asm = Assembler(infile)
-  out = asm.assemble(f)
+  intext = open(sys.argv[1]).read()
+
+  a = Assembler()
+  outtext = a.assemble(intext)
+
+  if outtext:
+    open(sys.argv[2], 'w+').write(outtext)
 
 if __name__ == "__main__":
   main()
