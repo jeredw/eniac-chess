@@ -134,6 +134,18 @@ class TestAssembler(unittest.TestCase):
       a.assemble_line('p ad.sd.{ad-other-name}.8 4'), format_comment('p ad.sd.2.8 4','# ad-other-name=2'))
     self.run_out(a, 'p ad.sd.{ad-', '}.8 1', 38)
 
+  def test_ftable(self):
+    # we don't currently track resources on ftables but we should be able to patch to named lines
+    a = Assembler()
+    self.assertEqual(
+      a.assemble_line('p {p-name} f1.1i'), format_comment('p 1-1 f1.1i','# p-name=1-1'))
+    self.assertEqual(
+      a.assemble_line('p f1.C {p-other-name}'), format_comment('p f1.C 1-2','# p-other-name=1-2'))
+    self.assertEqual(
+      a.assemble_line('p {d-name} f1.arg'), format_comment('p 1 f1.arg','# d-name=1'))
+    self.assertEqual(
+      a.assemble_line('p f1.A {d-other-name}'), format_comment('p f1.A 2','# d-other-name=2'))
+
   def test_accumulator_lookup(self):
     a = Assembler()
     self.assertEqual(
@@ -151,20 +163,11 @@ class TestAssembler(unittest.TestCase):
     self.assertEqual(
       a.assemble_line('p 1-1 a1.{r-other-name}i'), format_comment('p 1-1 a1.2i','# r-other-name=2i'))
     self.assertEqual(
-      a.assemble_line('p a1.{r-other-name}o 2-2'), format_comment('p a1.2o 2-2','# r-other-name=2o'))
-    self.run_out(a, 'p 1-1 a1.{r-', '}i', 2)
-
-    # we've run out of recievers on a1, but should still be plenty on a2
-    self.run_out(a, 'p 1-1 a2.{r-', '}i', 4)
-
-  def test_accumulator_reciever(self):
-    a = Assembler()
+      a.assemble_line('p a1.{r-other-name}i 2-2'), format_comment('p a1.2i 2-2','# r-other-name=2i'))
     self.assertEqual(
-      a.assemble_line('p 1-1 a1.{r-name}i'), format_comment('p 1-1 a1.1i','# r-name=1i'))
+      a.assemble_line('p {p-name} a1.{r-other-name}i'), format_comment('p 1-1 a1.2i','# p-name=1-1, r-other-name=2i'))
     self.assertEqual(
-      a.assemble_line('p 1-1 a1.{r-other-name}i'), format_comment('p 1-1 a1.2i','# r-other-name=2i'))
-    self.assertEqual(
-      a.assemble_line('p 1-1 a1.{r-name}i'), format_comment('p 1-1 a1.1i','# r-name=1i'))
+      a.assemble_line('p {p-name} a{a-name}.{r-other-name}i'), format_comment('p 1-1 a1.2i','# p-name=1-1, a-name=a1, r-other-name=2i'))
     self.run_out(a, 'p 1-1 a1.{r-', '}i', 2)
 
     # we've run out of recievers on a1, but should still be plenty on a2
@@ -207,6 +210,27 @@ class TestAssembler(unittest.TestCase):
       a.assemble_line('p a1.{r-name} 1-1')  # need i after receiver
     with self.assertRaises(SyntaxError):
       a.assemble_line('p a1.{t-name} 1-1')  # need i or after transceiver
+
+  def test_switch_literal(self):
+    a = Assembler()
+    self.assertEqual(a.assemble_line('s cy.op 1a'), 's cy.op 1a')
+    self.assertEqual(a.assemble_line('s i.io 1-1'), 's i.io 1-1')
+    self.assertEqual(a.assemble_line('s a1.op5 a'), 's a1.op5 a')
+
+  def test_switch_accumulator(self):
+    a = Assembler()
+    self.assertEqual(a.assemble_line('s a{a-name}.op5 a'), format_comment('s a1.op5 a','# a-name=a1'))
+    self.assertEqual(a.assemble_line('s a{a-other-name}.op5 a'), format_comment('s a2.op5 a','# a-other-name=a2'))
+    self.assertEqual(a.assemble_line('s a1.op{r-name} a'), format_comment('s a1.op1 a','# r-name=op1'))
+    self.assertEqual(a.assemble_line('s a1.op{t-name} a'), format_comment('s a1.op5 a','# t-name=op5'))
+    self.assertEqual(a.assemble_line('s a1.op1 {i-name}'), format_comment('s a1.op1 a','# i-name=a'))
+    self.assertEqual(a.assemble_line('s a1.op2 {i-other-name}'), format_comment('s a1.op2 b','# i-other-name=b'))
+    self.assertEqual(a.assemble_line('s a{a-name}.op{t-name} {i-other-name}'), format_comment('s a1.op5 b','# a-name=a1, t-name=op5, i-other-name=b'))
+
+  def test_non_accumulator_switch_input(self):
+    a = Assembler()
+    with self.assertRaises(SyntaxError):
+      a.assemble_line('s cy.op {i-name}')
 
 
 if __name__ == '__main__':

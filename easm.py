@@ -106,9 +106,6 @@ class SymbolTable:
 
 
 
-
-
-
 class Assembler(object):
   def __init__(self):
     self.context = Context('filename')
@@ -118,7 +115,7 @@ class Assembler(object):
 
   # Each argument processor fn maps from 0-based resource ids to strings
   # All return (string to output, table of symbol substitutions)
-  def patch_literal(self, arg):
+  def arg_literal(self, arg):
     return arg, {}  # empty dictionary meaning no named substitutions
 
 
@@ -148,102 +145,136 @@ class Assembler(object):
     return text, {name: str(n+1)}
 
 
-  def patch_accum(self, arg):
-    # up to two lookups per accumulator patch: acc idx and program/input
-    m = re.match('a(?P<accum>(\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<connection>((\d\d?|{[rti]-[A-Za-z0-9-]+})[io]?|[abgdeAS]))', arg)
-    if not m:
-      raise SyntaxError('bad accumulator connection')
-
-    symbols = {}
-
-    # is the accumulator named or literal?
-    accum = m.group('accum')
-    if 'a-' in accum: 
+  # translates a literal accumulator number or named accumulator into aXX
+  # handles:
+  #   a13
+  #   a{a-name}
+  # returns text, symbols pair
+  def lookup_accum(self, accum):
+    if '{a-' in accum:
+      # it's a name like {a-foo}
       name = accum[1:-1] # strip braces
       n = self.symbols.lookup('a', name)
       accumtext = 'a' + str(n+1)
-      symbols[name] = accumtext
+      return accumtext, {name: accumtext }
     else:
-      # it's a literal
-      accumtext = 'a' + accum    
+      # it's just a number like 12
+      return 'a' + accum, {}
 
-    # if the connection contains a name, lookup. 
-    connection = m.group('connection')
-    if '-' in connection: 
-      m = re.match("({[rti]-[A-Za-z0-9-]+})([io]?)", connection) # should always match
-      name, suffix = m.groups()
 
-      acc_idx = int(accumtext[1:])  # read from the text we just produced, which may have been looked up
-      name = name[1:-1]             # strip braces
-      res_type = name[0]
+  # translates [prefix]{reciever, transciever, or input}[suffix] into text, symbol
+  # using prefix and suffix this handles cases like:
+  #   op5
+  #   op{t-name}
+  #   12i
+  #   {t-name}i
+  #   {i-name}
+  #   b
+  # returns text,symbols pair 
+  def lookup_accum_arg(self, accumtext, arg):
+    if '-' in arg:
+      m = re.match('(?P<prefix>[^{\d]*)(?P<name>{[rti]-[A-Za-z0-9-]+})(?P<suffix>.*)', arg)
+
+      name = m.group('name')[1:-1]  # strip braces
+      acc_idx = int(accumtext[1:])
+      res_type = name[0]            # r or t
 
       n = self.symbols.lookup_acc(acc_idx, res_type, name)
-      if res_type=='t':
-        n += 4                      # transcievers are numbered starting after 4 recievers
-
-      if suffix == '': 
-        # {i-input-name}
-        if res_type != 'i':
-          raise SyntaxError("missing 'i' or 'o' after program number")
-        connecttext = ['a','b','g','d','e'][n]
-        symbols[name] = connecttext
+      if res_type=='r':
+        argtext = str(n+1)
+      elif res_type=='t':
+        argtext = str(n+5)          # transcievers start at 5
       else:
-        # {[tr]-program-name}[io]
-        if res_type == 'i':
-          raise SyntaxError("extra 'i' or 'o' after named input")
-        if res_type=='r' and suffix=='o':
-          raise SyntaxError("receiver programs do not have outputs")
+        argtext = ['a','b','g','d','e'][n]
 
-        connecttext = str(n+1) + suffix
-
-      symbols[name] = connecttext # resolve 
-
+      argtext = m.group('prefix')+argtext+m.group('suffix')
+      return argtext, {name: argtext}
     else:
-      # it's a literal
-      connecttext = connection    
+      # literal
+      return arg, {}
+
+
+  def patch_accum(self, arg):
+    # up to two lookups per accumulator patch: acc idx and program/input
+    # long regex for terminal ensures that i, o, or None suffix matches t,r,i
+    m = re.match('a(?P<accum>(\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<terminal>((\d\d?|{t-[A-Za-z0-9-]+})[io]|(\d\d?|{r-[A-Za-z0-9-]+})i|{i-[A-Za-z0-9-]+}|[abgdeAS]))', arg)
+    if not m:
+      raise SyntaxError('bad accumulator terminal')
+
+    accumtext, symbols = self.lookup_accum(m.group('accum'))
+    argtext, symbols2 = self.lookup_accum_arg(accumtext, m.group('terminal'))
+    symbols.update(symbols2)
 
     # put it all back together
-    text = accumtext + '.' + connecttext
+    text = accumtext + '.' + argtext
     return text, symbols
 
 
   def patch_argument(self, arg):
     patch_dispatch = {
-        re.compile(r"\d\d?"):             self.patch_literal, # digit trunk
-        re.compile(r"{d-[A-Za-z0-9-]+}"): self.patch_d,            
-        re.compile(r"\d\d?-\d\d?"):       self.patch_literal, # program line
-        re.compile(r"{p-[A-Za-z0-9-]+}"): self.patch_p,
+        re.compile(r"\d\d?"):             self.arg_literal,   # digit trunk literal
+        re.compile(r"{d-[A-Za-z0-9-]+}"): self.patch_d,       # named digit trunk     
+        re.compile(r"\d\d?-\d\d?"):       self.arg_literal,   # program line literal
+        re.compile(r"{p-[A-Za-z0-9-]+}"): self.patch_p,       # named program line
         re.compile(r"ad\..+"):            self.patch_adapter, # adapter
-        re.compile(r"a.+\..+"):           self.patch_accum    # accumulator, more complex handling
+        re.compile(r"a.+\..+"):           self.patch_accum,   # accumulator, more complex handling
+        re.compile(r"f[123]\..+"):        self.arg_literal    # function table 
     }
 
     for pattern, handler in patch_dispatch.items():
       if pattern.match(arg):
         return handler(arg)
 
-    raise SyntaxError(f"unknown patch connection '{arg}'")
+    raise SyntaxError(f"unknown patch terminal '{arg}'")
+
+
+  def symbols_to_comment(self, symbols1, symbols2, comment):
+    symbols = list(symbols1.items()) + list(symbols2.items())
+    symbol_comment = ', '.join([f'{k}={v}' for k,v in symbols])
+    if symbol_comment != '':
+      symbol_comment = '# ' + symbol_comment
+
+    if comment:
+      return symbol_comment + '; ' + comment[1:] # strip leading # on comment
+    else:
+      return symbol_comment
 
 
   def line_p(self, arg1, arg2, comment):
     text1, symbols1 = self.patch_argument(arg1)
     text2, symbols2 = self.patch_argument(arg2)
 
-    symbols = list(symbols1.items()) + list(symbols2.items())
-    symbol_comments = ', '.join([f'{k}={v}' for k,v in symbols])
-    if symbol_comments != '':
-      symbol_comments = '# ' + symbol_comments
+    comment = self.symbols_to_comment(symbols1, symbols2, comment)
 
-    if comment:
-      comment = symbol_comments + '; ' + comment[1:] # strip leading # on comment
-    else:
-      comment = symbol_comments
-
-    line = format_comment('p ' + text1 + ' ' + text2, comment)
-    return line
-
+    return format_comment('p ' + text1 + ' ' + text2, comment)
+  
 
   def line_s(self, arg1, arg2, comment): 
-    self.out.emit("SSS " +  line)
+    accumtext = None
+
+    # accumulator switches are the only place we currently replace
+    m = re.match('a(?P<accum>(\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<prog>.+)',arg1)
+    if m: 
+      accumtext, symbols1 = self.lookup_accum(m.group('accum'))
+      progtext, symbols2 = self.lookup_accum_arg(accumtext, m.group('prog'))
+      symbols1.update(symbols2)
+      arg1 = accumtext + '.' + progtext
+    
+    else:
+      # it's not an accumulator, no replacement
+      symbols1 = {}
+
+    # arg2 may be an input name
+    if '{i-' in arg2:
+      name = arg2[1:-1]  # strip braces
+      if not accumtext:
+        raise SyntaxError('switch cannot be set to an accumulator input')
+      arg2, symbols2 = self.lookup_accum_arg(accumtext, arg2)
+    else:
+      symbols2 = {}
+
+    comment = self.symbols_to_comment(symbols1, symbols2, comment)
+    return format_comment('s ' + arg1 + ' ' + arg2, comment)
 
 
   def line_blank(self, arg1, arg2, comment): 
