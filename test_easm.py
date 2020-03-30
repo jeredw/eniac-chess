@@ -61,10 +61,32 @@ class TestAssembler(unittest.TestCase):
       a = Assembler()
       self.assertEqual(a.assemble_line('p 1-1 a3.5i'),'p 1-1 a3.5i') 
       self.assertEqual(a.assemble_line('p 8 ad.dp.1.11'), 'p 8 ad.dp.1.11')
+
   def test_comment(self):
       a = Assembler()
+
+      # test comment alignment
       self.assertEqual(a.assemble_line('s a2.cc7 C   # then clear'),'s a2.cc7 C                    # then clear') 
+
+      # test leading ws
+      self.assertEqual(a.assemble_line(' s a2.cc7 C   # then clear'),' s a2.cc7 C                   # then clear') 
+
       self.assertEqual(a.assemble_line(''), '')
+
+  def test_define(self):
+      a = Assembler()
+      self.assertEqual(
+        a.assemble_line('{p-name}=5-5'), '# {p-name}=5-5')
+      self.assertEqual(
+        a.assemble_line('p {p-name} a3.5i'), format_comment('p 5-5 a3.5i','# p-name=5-5'))
+      self.assertEqual(
+        a.assemble_line('{d-name}=5'), '# {d-name}=5')
+      self.assertEqual(
+        a.assemble_line('p {d-name} a3.g'), format_comment('p 5 a3.g','# d-name=5'))
+      self.assertEqual(
+        a.assemble_line('{a-name}=13'), '# {a-name}=13')
+      self.assertEqual(
+        a.assemble_line('p 1 a{a-name}.d'), format_comment('p 1 a13.d','# a-name=a13'))
 
   # test several things for each type of resource:
   #  - intitial allocation of the first resource on the machine (e.g. 1-1)
@@ -130,7 +152,6 @@ class TestAssembler(unittest.TestCase):
     self.assertEqual(
       a.assemble_line('p ad.dp.{ad-other-name}.11 5-5'), format_comment('p ad.dp.2.11 5-5','# ad-other-name=2'))
     self.run_out(a, 'p ad.dp.{ad-', '}.11 5-5', 38)
-
 
   def test_special_digit_adapter(self):
     a = Assembler()

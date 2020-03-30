@@ -253,20 +253,20 @@ class Assembler(object):
 
 
   def line_p(self, line):
-    m = re.match(r'p\s+([^\s]+)\s+([^\s]+)\s*(#.*)?', line)
-    arg1, arg2, comment = m.groups()
+    m = re.match(r'(\s*p)\s+([^\s]+)\s+([^\s]+)\s*(#.*)?', line)
+    header, arg1, arg2, comment = m.groups()
 
     text1, symbols1 = self.patch_argument(arg1)
     text2, symbols2 = self.patch_argument(arg2)
 
     comment = self.symbols_to_comment(symbols1, symbols2, comment)
 
-    return format_comment('p ' + text1 + ' ' + text2, comment)
+    return format_comment(header + ' ' + text1 + ' ' + text2, comment)
   
 
   def line_s(self, line): 
-    m = re.match(r's\s+([^\s]+)\s+([^\s]+)\s*(#.*)?', line)
-    arg1, arg2, comment = m.groups()
+    m = re.match(r'(\s*s)\s+([^\s]+)\s+([^\s]+)\s*(#.*)?', line)
+    header, arg1, arg2, comment = m.groups()
 
     # accumulator switches are the only place we currently replace
     accumtext = None
@@ -290,28 +290,47 @@ class Assembler(object):
       symbols2 = {}
 
     comment = self.symbols_to_comment(symbols1, symbols2, comment)
-    return format_comment('s ' + arg1 + ' ' + arg2, comment)
+    return format_comment(header + ' ' + arg1 + ' ' + arg2, comment)
 
 
-  def line_blank(self, line): 
+  # Handles symbol definitions e.g. {p-mememe}=3-1
+  def line_define(self, line):
+    m = re.match(r'{(?P<name>[apd]-[A-Za-z0-9-]+)}\s*=\s*(?P<value>\d\d?(-\d\d?)?)\s*(#.*)?', line)
+    name = m.group('name')
+    value = m.group('value')
+    res_type = name[0]
+
+    if res_type=='a' or res_type=='d':
+      value = int(value)-1
+    else:
+      # parse program lines e.g. 3-1
+      a,b = value.split('-')
+      if not b:
+        raise SyntaxError('bad program line syntax')
+      value = (int(a)-1)*11 + int(b)-1
+
+    self.symbols.define(res_type, name, value)
+
+    return '# ' + line  # echo the define statement, commented out
+
+
+  def line_literal(self, line): 
     return line
 
 
   def assemble_line(self,line):
     # The types of lines we understand
     line_dispatch = {
-      re.compile(r'p\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'): self.line_p,
-      re.compile(r's\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'): self.line_s,
-      re.compile(r'.*(#.*)?') : self.line_blank
+      re.compile(r'\s*p\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'):  self.line_p,
+      re.compile(r'\s*s\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'):  self.line_s,
+      re.compile(r'\s*{[apd]-[A-Za-z0-9-]+}\s*=.+'):       self.line_define,
+      re.compile(r'.*'):                                self.line_literal
     }
 
     for pattern, handler in line_dispatch.items():
       if pattern.match(line):
         return handler(line)
         break
-
-    raise SyntaxError('unknown command')
-
 
   def _scan(self, text):
     out = ''
@@ -327,10 +346,6 @@ class Assembler(object):
 
   def assemble(self, intext):
     return self._scan(intext)
-
-
-
-    
 
 
 def main():
