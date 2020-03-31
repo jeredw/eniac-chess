@@ -155,8 +155,8 @@ class Assembler(object):
       return arg, {}
 
 
-  # translates a literal accumulator number or named accumulator into aXX
-  # handles:
+  # Translates a literal accumulator number or named accumulator into aXX
+  # Handles cases:
   #   a13
   #   a{a-name}
   # returns text, symbols pair
@@ -168,12 +168,12 @@ class Assembler(object):
       accumtext = 'a' + str(n+1)
       return accumtext, {name: accumtext }
     else:
-      # it's just a number like 12
-      return 'a' + accum, {}
+      # it's a literal like 'a12'
+      return accum, {}
 
 
-  # translates [prefix]{reciever, transciever, or input}[suffix] into text, symbol
-  # using prefix and suffix this handles cases like:
+  # Translates [prefix]{reciever, transciever, or input}[suffix] into text, symbol
+  # using prefix and suffix. Handles cases:
   #   op5
   #   op{t-name}
   #   12i
@@ -185,9 +185,9 @@ class Assembler(object):
     if '-' in arg:
       m = re.match('(?P<prefix>[^{\d]*)(?P<name>{[rti]-[A-Za-z0-9-]+})(?P<suffix>.*)', arg)
 
-      name = m.group('name')[1:-1]  # strip braces
-      acc_idx = int(accumtext[1:])
-      res_type = name[0]            # r or t
+      name = m.group('name')[1:-1]    # strip braces
+      acc_idx = int(accumtext[1:])-1  # strip 'a', convert to 0-based
+      res_type = name[0]              # r or t
 
       n = self.symbols.lookup_acc(acc_idx, res_type, name)
       if res_type=='r':
@@ -207,7 +207,7 @@ class Assembler(object):
   def patch_accum(self, arg):
     # up to two lookups per accumulator patch: acc idx and program/input
     # long regex for terminal ensures that i, o, or None suffix matches t,r,i
-    m = re.match('a(?P<accum>(\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<terminal>((\d\d?|{t-[A-Za-z0-9-]+})[io]|(\d\d?|{r-[A-Za-z0-9-]+})i|{i-[A-Za-z0-9-]+}|[abgdeAS]))', arg)
+    m = re.match('(?P<accum>(a\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<terminal>((\d\d?|{t-[A-Za-z0-9-]+})[io]|(\d\d?|{r-[A-Za-z0-9-]+})i|{i-[A-Za-z0-9-]+}|[abgdeAS]))', arg)
     if not m:
       raise SyntaxError('bad accumulator terminal')
 
@@ -227,7 +227,7 @@ class Assembler(object):
         re.compile(r"\d\d?-\d\d?"):       self.arg_literal,   # program line literal
         re.compile(r"{p-[A-Za-z0-9-]+}"): self.patch_p,       # named program line
         re.compile(r"ad\..+"):            self.patch_adapter, # adapter
-        re.compile(r"a.+\..+"):           self.patch_accum,   # accumulator, more complex handling
+        re.compile(r"(a\d\d?|{a-[A-Za-z0-9-]+})\..+"): self.patch_accum,   # accumulator, more complex handling
         re.compile(r".+"):                self.arg_literal    # function table, initiating unit, etc. (all else)
     }
 
@@ -254,23 +254,23 @@ class Assembler(object):
 
   def line_p(self, line):
     m = re.match(r'(\s*p)\s+([^\s]+)\s+([^\s]+)\s*(#.*)?', line)
-    header, arg1, arg2, comment = m.groups()
+    leading_ws, arg1, arg2, comment = m.groups()
 
     text1, symbols1 = self.patch_argument(arg1)
     text2, symbols2 = self.patch_argument(arg2)
 
     comment = self.symbols_to_comment(symbols1, symbols2, comment)
 
-    return format_comment(header + ' ' + text1 + ' ' + text2, comment)
+    return format_comment(leading_ws + ' ' + text1 + ' ' + text2, comment)
   
 
   def line_s(self, line): 
     m = re.match(r'(\s*s)\s+([^\s]+)\s+([^\s]+)\s*(#.*)?', line)
-    header, arg1, arg2, comment = m.groups()
+    leading_ws, arg1, arg2, comment = m.groups()
 
     # accumulator switches are the only place we currently replace
     accumtext = None
-    m = re.match('a(?P<accum>[^.]+)\.(?P<prog>.+)',arg1)
+    m = re.match('(?P<accum>(a\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<prog>.+)',arg1)
     if m: 
       accumtext, symbols1 = self.lookup_accum(m.group('accum'))
       progtext, symbols2 = self.lookup_accum_arg(accumtext, m.group('prog'))
@@ -290,23 +290,30 @@ class Assembler(object):
       symbols2 = {}
 
     comment = self.symbols_to_comment(symbols1, symbols2, comment)
-    return format_comment(header + ' ' + arg1 + ' ' + arg2, comment)
+    return format_comment(leading_ws + ' ' + arg1 + ' ' + arg2, comment)
 
 
-  # Handles symbol definitions e.g. {p-mememe}=3-1
+  # Handles symbol definitions e.g. {p-foo}=3-1
   def line_define(self, line):
-    m = re.match(r'{(?P<name>[apd]-[A-Za-z0-9-]+)}\s*=\s*(?P<value>\d\d?(-\d\d?)?)\s*(#.*)?', line)
+    m = re.match(r'{(?P<name>[apd]-[A-Za-z0-9-]+)}\s*=\s*(?P<value>a?\d\d?(-\d\d?)?)\s*(#.*)?', line)
+    if not m:
+      raise SyntaxError('bad definition value')
     name = m.group('name')
     value = m.group('value')
     res_type = name[0]
 
-    if res_type=='a' or res_type=='d':
+    if res_type=='d':
+      if not re.match(r'\d\d?',value):
+        raise SyntaxError('bad data trunk value')
       value = int(value)-1
+    elif res_type=='a':
+      if not re.match(r'a\d\d?',value):
+        raise SyntaxError('bad accumulator value')
+      value = int(value[1:])-1          # 'a1' -> 0
     else:
-      # parse program lines e.g. 3-1
+      if not re.match(r'\d\d?-\d\d?',value):
+        raise SyntaxError('bad program line value')
       a,b = value.split('-')
-      if not b:
-        raise SyntaxError('bad program line syntax')
       value = (int(a)-1)*11 + int(b)-1
 
     self.symbols.define(res_type, name, value)
@@ -321,16 +328,17 @@ class Assembler(object):
   def assemble_line(self,line):
     # The types of lines we understand
     line_dispatch = {
-      re.compile(r'\s*p\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'):  self.line_p,
-      re.compile(r'\s*s\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'):  self.line_s,
-      re.compile(r'\s*{[apd]-[A-Za-z0-9-]+}\s*=.+'):       self.line_define,
-      re.compile(r'.*'):                                self.line_literal
+      re.compile(r'\s*p\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'): self.line_p,
+      re.compile(r'\s*s\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'): self.line_s,
+      re.compile(r'\s*{[apd]-[A-Za-z0-9-]+}\s*=.+'):      self.line_define,
+      re.compile(r'.*'):                                  self.line_literal
     }
 
     for pattern, handler in line_dispatch.items():
       if pattern.match(line):
         return handler(line)
         break
+
 
   def _scan(self, text):
     out = ''
@@ -339,10 +347,11 @@ class Assembler(object):
         outlines = self.assemble_line(line)
       except Exception as e:
         print(line)
-        print(str(e) + ' at line ' + str(line_number) )
+        print(str(e) + ' at line ' + str(line_number+1) )
         return None
       out += outlines + '\n'
     return out
+
 
   def assemble(self, intext):
     return self._scan(intext)
