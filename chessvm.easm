@@ -75,7 +75,7 @@ $clear {p-fetch} {a-ex} {t-fetch} {p-fetchcheck}
 # -- p-fetchcheck: discriminate on IR: M to nofetch, P to fetchline
 # During this cycle we both discriminate and read out the contents of IR into EX
 
-# - Send on both ir.A and ir.B so one of two programs gets a pulse
+# - Send on both ir.A and ir.S so one of two programs gets a pulse
 p {p-fetchcheck} {a-ir}.{t-fetchcheck}i
 s {a-ir}.op{t-fetchcheck} AS               
 s {a-ir}.cc{t-fetchcheck} C   # clear IR after transmission
@@ -128,11 +128,8 @@ s {a-ir}.cc{r-shifted} C    # add 1, this is key to detecting no more opcodes
 # - delay 4 then goto {p-fetchread}
 
 # - clear IR (not needed? already zero here from overflow?) and delay 4
-p {p-fetchline} {a-ir}.{t-fetchline}i 
-s {a-ir}.op{t-fetchline} 0    # nop
-s {a-ir}.cc{t-fetchline} C    # then clear 
+$clear {p-fetchline} {a-ir} {t-fetchline} {p-fetchread}
 s {a-ir}.rp{t-fetchline} 4    # repeat 4 to wait for FT result
-p {a-ir}.{t-fetchline}o {p-fetchread}
 
 # - clear EX as well, it will also receive from FT
 p {p-fetchline} {a-ex}.{t-fetchline}i  
@@ -217,10 +214,8 @@ s {a-pc}.cc{r-increment} C    # +1
 
 # decode magic here
 
-p {p-decode} {a-reg}.{t-decode}i  # clear register file
-s {a-reg}.op{t-decode} 0
-s {a-reg}.cc{t-decode} C
-p {a-reg}.{t-decode}o {p-printop}
+# clear register file
+$clear {p-decode} {a-reg} {t-decode} {p-printop}
 
 # EX -> mainbus
 p {p-printop} {a-ex}.{t-printop}i   
