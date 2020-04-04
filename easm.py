@@ -369,7 +369,7 @@ class Assembler(object):
       line = line.replace('{{', '{')
       line = line.replace('}}', '}')
       outlines += self.assemble_line(line) + '\n'
-    return self.assemble(outlines).strip()  # '\n' will be added by _scan
+    return outlines.strip()  # '\n' will be added by _scan
 
 
   def line_inmacro(self, line):
