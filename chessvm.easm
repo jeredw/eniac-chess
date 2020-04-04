@@ -55,6 +55,14 @@
 #      - PC += 1
 #      - goto execute
 
+# define a macro "clear" to clear accumulator acc,
+# triggered on inp and emitting outp when done (via transceiver t)
+defmacro clear inp acc t outp
+p {$inp} {$acc}.{$t}i
+s {$acc}.op{$t} 0
+s {$acc}.cc{$t} C
+p {$acc}.{$t}o {$outp}
+endmacro
 
 # -- {p-fetch} begin fetch cycle
 
@@ -62,12 +70,7 @@
 p i.io {p-fetch}
 
 # - clear a-ex
-p {p-fetch} {a-ex}.{t-fetch}i
-s {a-ex}.op{t-fetch} 0
-s {a-ex}.cc{t-fetch} C
-p {a-ex}.{t-fetch}o {p-fetchcheck}
-
-# MACRO: clear {p-fetch} {a-ex} {t-fetchclear} {p-fetchcheck} 
+$clear {p-fetch} {a-ex} {t-fetch} {p-fetchcheck}
 
 # -- p-fetchcheck: discriminate on IR: M to nofetch, P to fetchline
 # During this cycle we both discriminate and read out the contents of IR into EX

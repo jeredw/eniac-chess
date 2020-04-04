@@ -1,5 +1,6 @@
 import unittest
-from easm import SymbolTable, Assembler, format_comment, OutOfResources, SyntaxError
+import textwrap
+from easm import SymbolTable, Assembler, format_comment, OutOfResources, SyntaxError, Macro
 
 class TestSymbolTable(unittest.TestCase):
 
@@ -260,6 +261,34 @@ class TestAssembler(unittest.TestCase):
     a = Assembler()
     with self.assertRaises(SyntaxError):
       a.assemble_line('s cy.op {i-name}')
+
+  def test_macro(self):
+    a = Assembler()
+    program = textwrap.dedent('''\
+      defmacro test arg1 arg2  # for testing
+      expansion $arg1 {$arg2}
+      endmacro  # yay
+      $test A {B}''')
+    out = a.assemble(program)
+    self.assertEqual(out.splitlines(),
+                     ["# (elided 'test' macro definition)",
+                      'expansion A {B}'])
+
+  def test_defmacro_missing_name(self):
+    a = Assembler()
+    with self.assertRaises(SyntaxError):
+      a.assemble_line('defmacro')  # missing name
+
+  def test_domacro_undef(self):
+    a = Assembler()
+    with self.assertRaises(SyntaxError):
+      a.assemble_line('$undefined huh what')  # undefined macro
+
+  def test_domacro_argcount(self):
+    a = Assembler()
+    a.macros['test'] = Macro(name='test', args=['arg1', 'arg2'], lines=[])
+    with self.assertRaises(SyntaxError):
+      out = a.assemble_line('$test A')
 
 
 if __name__ == '__main__':

@@ -113,10 +113,20 @@ class SymbolTable:
     return self._lookup(r, name)
 
 
+@dataclass
+class Macro:
+  '''A text macro that substitutes args for bound values in lines.'''
+  name: str
+  args: [str]
+  lines: [str]
+
 
 class Assembler(object):
   def __init__(self):
     self.symbols = SymbolTable()
+    self.defmacro = None  # Macro object currently being defined
+    self.macros = {}  # name -> Macro
+
 
   # Each argument processor fn maps from 0-based resource ids to strings
   # All return (string to output, table of symbol substitutions)
@@ -325,12 +335,60 @@ class Assembler(object):
     return line
 
 
+  def line_defmacro(self, line):
+    m = re.match(r'\s*defmacro\s+(?P<name>[^\s]+)\s*(?P<args>[^#]*)(#.*)?', line)
+    if not m:
+      raise SyntaxError('bad defmacro')
+    name = m.group('name')
+    args = m.group('args').strip().split()
+    self.defmacro = Macro(name=name, args=args, lines=[])
+    return f"# (elided '{name}' macro definition)"
+
+
+  def line_domacro(self, line):
+    m = re.match(r'\s*\$(?P<name>[^\s]+)\s*(?P<args>[^#]*)(#.*)?', line)
+    if not m:
+      raise SyntaxError('bad macro invocation')
+    name = m.group('name')
+    args = m.group('args').strip().split()
+    if not name in self.macros:
+      raise SyntaxError(f"undefined macro '{name}'")
+    macro = self.macros[name]
+    if len(args) != len(macro.args):
+      raise SyntaxError(f'macro argument count mismatch')
+
+    # map from argument names to values
+    arg_values = dict(zip(macro.args, args))
+
+    # output macro lines with appropriate substitutions
+    outlines = ''
+    for line in macro.lines:
+      for name, value in arg_values.items():
+        line = line.replace(f'${name}', value)
+      # in case people want to say $macro {arg} instead of $macro arg
+      line = line.replace('{{', '{')
+      line = line.replace('}}', '}')
+      outlines += self.assemble_line(line) + '\n'
+    return self.assemble(outlines).strip()  # '\n' will be added by _scan
+
+
+  def line_inmacro(self, line):
+    # add lines to macro until reaching endmacro
+    if re.match(r'\s*endmacro', line):
+      self.macros[self.defmacro.name] = self.defmacro
+      self.defmacro = None
+      return
+    self.defmacro.lines.append(line)
+
+
   def assemble_line(self,line):
     # The types of lines we understand
     line_dispatch = {
       re.compile(r'\s*p\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'): self.line_p,
       re.compile(r'\s*s\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'): self.line_s,
       re.compile(r'\s*{[apd]-[A-Za-z0-9-]+}\s*=.+'):      self.line_define,
+      re.compile(r'\s*defmacro.*'):                       self.line_defmacro,
+      re.compile(r'\s*\$([^\s]+).*'):                     self.line_domacro,
       re.compile(r'.*'):                                  self.line_literal
     }
 
@@ -344,12 +402,19 @@ class Assembler(object):
     out = ''
     for line_number, line in enumerate(text.splitlines()):
       try:
-        outlines = self.assemble_line(line)
+        if self.defmacro:
+          outlines = self.line_inmacro(line)
+        else:
+          outlines = self.assemble_line(line)
       except Exception as e:
         print(line)
         print(str(e) + ' at line ' + str(line_number+1) )
         return None
-      out += outlines + '\n'
+      if outlines:
+        out += outlines + '\n'
+    if self.defmacro:
+      print(f'unterminated macro {self.defmacro.name}')
+      return None
     return out
 
 
