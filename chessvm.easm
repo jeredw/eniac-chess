@@ -1,6 +1,6 @@
 # ENIAC-VM for playing chess
 # created 2020-3-30 by Jonathan Stray
-# This file assembles to a .e suitable file for use with the ENIAC simulator,
+# This file assembles with easm to a .e file suitable for use with the ENIAC simulator,
 # after appending the function table switch settings which contain the chess code.
 
 # Accumulator layout
@@ -38,7 +38,7 @@
 # {p-fetchcheck} do we need to fetch?
 #      - discriminate on IR: M to nofetch, P to fetchline
 #      - EX = IR
-# {p- nofetch} no fetch needed, consume instruction
+# {p-nofetch} no fetch needed, consume instruction
 #      - IR(a2) = EX(a3)>>2 + 1
 #      - goto 2-1
 # {p-fetchline} no more instructons in IR, load new line from ft
@@ -156,18 +156,18 @@ p ad.sd.{ad-fetcharg}.0 f1.arg
 
 # -- {p-fetchread} read ft line of instructions
 #  - FT sends complement of A and B
-#  - IR (a2) = M I6 I5 I4 I3 I2+1 = B2B1 B4B3 B6B5 A2A1 A4A3+1
-#  - EX (a3) = M 99 99 99 99 I1 = 99 99 99 99 A6A5+1
-#  - PC (a1) += 1
+#  - IR = M I6 I5 I4 I3 I2+1 = B2B1 B4B3 B6B5 A2A1 A4A3+1
+#  - EX = M 99 99 99 99 I1 = 99 99 99 99 A6A5+1
+#  - PC += 1
 #  - goto p-decode
 
 p f1.A {d-f1A}
 p f1.B {d-f1B}
 
-# build up the re-ordered IR on d5, then d5 -> IR(a2)
+# build up the re-ordered IR on d-main
 # use deleters to prevent sign extension of 9s when isolating opcodes
 # Simulator makes this a lot harder than it needs to be... in reality, 
-# all this is a single adapter with the pins soldered in permuted order.
+# all this would be a single adapter with the pins soldered in permuted order.
 
 p {d-f1A} ad.d.{ad-fr1}.-6          # A4A3
 p ad.d.{ad-fr1}.-6 ad.s.{ad-fr2}.-2
