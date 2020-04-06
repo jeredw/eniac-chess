@@ -93,14 +93,12 @@ p {a-ir}.S {d-irS}
 
 # IR < 0  -> {p-nofetch} via dummy program on a20
 p {d-irA} ad.dp.{ad-irA}.11
-p ad.dp.{ad-irA}.11 {p-irA}
-p {p-irA} a20.{t-irA}i
+p ad.dp.{ad-irA}.11 a20.{t-irA}i
 p a20.{t-irA}o {p-nofetch}
 
 # IR > 0 -> {p-fetchline} via dummy program on a20
 p {d-irS} ad.dp.{ad-irS}.11
-p ad.dp.{ad-irS}.11 {p-irS}
-p {p-irS} a20.{t-irS}i
+p ad.dp.{ad-irS}.11 a20.{t-irS}i
 p a20.{t-irS}o {p-fetchline}
 
 # EX = IR permuted, I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, assembled on d-ir-to-ex
@@ -146,7 +144,7 @@ p {p-disc-op} {a-ex}.{t-disc-op}i
 s {a-ex}.op{t-disc-op} AS
 p {a-ex}.A {d-exA}
 p {a-ex}.S {d-exS}
-# p {a-ex}.{t-disc-op}o {p-return-ir} 
+# no use of transciever output atm
 
 # < 0  -> {p-opgt53}
 p {d-exA} ad.dp.{ad-exA}.11
@@ -236,7 +234,7 @@ p ad.sd.{ad-fetcharg}.0 f1.arg
 # -- {p-fetchread} read ft line of instructions
 #  - FT sends complement of A and B
 #  - IR = M I6 I5 I4 I3 I2+1 = B2B1 B4B3 B6B5 A2A1 A4A3+1
-#  - EX = M 99 99 99 99 I1 = 99 99 99 99 A6A5+1
+#  - EX = M I1 00 00 00 00  = A6A5+1 00 00 00 00
 #  - PC += 1
 #  - goto p-decode
 
@@ -276,10 +274,11 @@ s {a-ir}.op{t-fetchread} {i-fetchread}
 s {a-ir}.cc{t-fetchread} C    # +1
 p {a-ir}.{t-fetchread}o {p-flipex-printex} # should be: goto decode
 
-# 99 99 99 99 A6A5+1 -> EX(a3)
+# A6A5+1 00 00 00 00  -> EX
 p {p-fetchread} {a-ex}.{r-fetchread}i   
-p {d-f1A} ad.s.{ad-fr12}.-4         # A>>4 to select first instruction, and pad with 9s
-p ad.s.{ad-fr12}.-4 {a-ex}.{i-fetchread}
+p {d-f1A} ad.s.{ad-fr12}.-4              # A>>4 to select first instruction
+p ad.s.{ad-fr12}.-4 ad.s.{ad-fr13}.8     # then <<8
+p ad.s.{ad-fr13}.8 {a-ex}.{i-fetchread}
 s {a-ex}.op{r-fetchread} {i-fetchread}
 s {a-ex}.cc{r-fetchread} C    # +1
 
@@ -292,7 +291,8 @@ s {a-pc}.cc{r-increment} C    # +1
 
 # -- {p-flipex-printex} - change sign of EX from M to P, then print
 # M9900000001 -> d-main, but we use an adapter to keep only the M
-p {p-flipex-printex} c.27i
+p {p-flipex-printex} c.28i
+s c.s28 Jlr
 
 p {p-flipex-printex} {a-ex}.{t-flipex}i
 s {a-ex}.op{t-flipex} {i-flipex}
@@ -314,8 +314,8 @@ p {a-ex}.{t-printop}o {p-printop2}
 # mainbus -> REG
 p {p-printop} {a-reg}.{r-printop}i
 s {a-reg}.op{r-printop} {i-printop}
-p {d-exA} ad.d.{ad-printop}.-8 
-p ad.d.{ad-printop}.-8 {a-reg}.{i-printop}
+p {d-exA} ad.sd.{ad-printop}.8
+p ad.sd.{ad-printop}.8 {a-reg}.{i-printop}
 #p {d-exA} {a-reg}.a
 
 # print "decoded" instruction, it's in a13
