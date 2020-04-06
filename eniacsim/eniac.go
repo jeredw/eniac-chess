@@ -426,6 +426,14 @@ func proccmd(cmd string) int {
 		default:
 			fmt.Printf("unknown unit for switch: %s\n", p[0])
 		}
+	case "set":
+		if len(f) != 3 {
+			fmt.Println("set syntax: set a13 -9876543210")
+			break
+		}
+		unit, _ := strconv.Atoi(f[1][1:])
+		value, _ := strconv.ParseInt(f[2], 10, 64)
+		accset(unit, value)
 	case "u":
 	case "dt":
 	case "pt":

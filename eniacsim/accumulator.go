@@ -134,6 +134,18 @@ func accclear(acc int) {
 	units[acc].sign = false
 }
 
+func accset(acc int, value int64) {
+	units[acc].sign = value < 0
+	if value < 0 {
+		value = -value
+	}
+	for i := 0; i < 10; i++ {
+		units[acc].val[i] = byte(value % 10)
+		units[acc].decff[i] = false
+		value /= 10
+	}
+}
+
 func accinterconnect(p1 []string, p2 []string) {
 	unit1, _ := strconv.Atoi(p1[0][1:])
 	unit2 := -1
