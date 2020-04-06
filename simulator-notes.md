@@ -24,8 +24,17 @@ the id's are unique within the setup (you re-use them to do a wired-or, see belo
 So ad.s.1.2 is an adapter with id 1 that shifts it input 2 to the right. 
 Simplest use is a patch directly between units, like this:
 
-p a1.A ad.s.1.2
+p a1.A ad.s.1.2     # shift two digits right
 p ad.s.1.2 a2.a 
+
+p a1.A ad.s.1.-2    # shift two digits left
+p ad.s.1.-2 a2.b 
+
+
+The deleter adapter ad.d.[id].[parameter] deletes or keeps the specified number of digits
+p a1.A ad.d.1.4     # keep first 4 digits
+p a1.A ad.d.1.-4    # zero first 4 digits
+p a1.A ad.d.1.0     # keep only sign
 
 If you want to use the same output (e.g. A) through different adapters on
 different programs, then connect adapters to a data trunk

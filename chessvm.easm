@@ -64,6 +64,15 @@ s {$acc}.cc{$t} C
 p {$acc}.{$t}o {$outp}
 endmacro
 
+# dummy program definition, with a given delay
+defmacro dummy inp acc t delay outp
+p {$inp} $acc.{$t}i
+s $acc.op{$t} 0
+s $acc.rp{$t} $delay
+p $acc.{$t}o {$outp}
+endmacro
+
+
 # -- {p-fetch} begin fetch cycle
 
 # initiate button
@@ -129,24 +138,68 @@ p {d-main} {a-ex}.{i-nofetch}
 p {a-ex}.{t-nofetch}o {p-disc-op}
 
 
-# -- {p-disc-op} discriminate opcode I1>=53, to switch between two decode pathways
+# -- {p-disc-op} discriminate opcode I1>53, to switch between two decode pathways
+# EX is now 153-I1 99-I5 99-I4 99-I3 99-I2
 # Also store shifted instructions back to IR, this deletes just-dispatched opcode
 
 p {p-disc-op} {a-ex}.{t-disc-op}i
 s {a-ex}.op{t-disc-op} AS
 p {a-ex}.A {d-exA}
 p {a-ex}.S {d-exS}
-p {a-ex}.{t-disc-op}o {p-decode}  # for now just print EX
+# p {a-ex}.{t-disc-op}o {p-return-ir} 
 
-# Store EX back to IR, with current opcode replaced by 99 (consume instruction)
-# also add 1 to IR, to cause overflow if no more opcodes
+# < 0  -> {p-opgt53}
+p {d-exA} ad.dp.{ad-exA}.11
+p ad.dp.{ad-exA}.11 {p-opgt53-dummy}   # deletable p-line?
+p {p-opgt53-dummy} a20.{t-exA}i
+p a20.{t-exA}o {p-opgt53}
+
+# > 0 -> {p-ople53} via dummy program on a20
+p {d-exS} ad.dp.{ad-exS}.11
+p ad.dp.{ad-exS}.11 {p-ople53-dummy}   # deletable p-line?
+p {p-ople53-dummy} a20.{t-exS}i
+p a20.{t-exS}o {p-ople53}
+
+# meanwhile, store EX back into IR, without the instruction we are now decoding
 p {p-disc-op} {a-ir}.{r-disc-op}i   
 s {a-ir}.op{r-disc-op} {i-disc-op}
 
-p {d-exA} ad.s.{ad-disc-op1}.2   # set EX 10,9 to 99 by shifting left 2 then right 2
+# Delete first two digits by shifting EX left 2 then right 2
+# This gives M99 if EX<0 at this point, P00 otherwise
+p {d-exA} ad.s.{ad-disc-op1}.2   
 p ad.s.{ad-disc-op1}.2 ad.s.{ad-disc-op2}.-2 
 p ad.s.{ad-disc-op2}.-2 {a-ir}.{i-disc-op}
-s {a-ir}.cc{r-disc-op} C          # add 1 to new I1, this is key to detecting no more opcodes
+
+
+# -- p-ople53 - decode opcode which is <= 53
+# EX = P 153-I1 ...
+# Leftmost opcode in IR now P00
+# Add M9900000001 so it resets to M but then overflows to P if no more opcodes
+
+p {p-ople53} c.27i 
+s c.s27 Jlr
+s c.jl M
+s c.j10 9
+s c.j9  9 
+s c.j1  1
+
+p {p-ople53} {a-ir}.{t-plusM99}i
+s {a-ir}.op{t-plusM99} {i-plusM99}
+p {d-main} {a-ir}.{i-plusM99}
+p {a-ir}.{t-plusM99}o {p-printex}
+
+
+# -- p-opgt53 - decode opcode which is > 53
+# EX = M 153-I1 ...
+# Leftmost opcode in IR is now M99
+# Add 1 to cause overflow if no more opcodes (roll 9's over to 0)
+
+p {p-opgt53} {a-ir}.{r-plusone}i 
+s {a-ir}.op{r-plusone} {i-plusone} # not connected
+s {a-ir}.cc{r-plusone} C
+
+# PLACEHOLDER: flip sign and send to printer
+$dummy {p-opgt53} a20 {t-opgt53-printex} 1 {p-flipex-printex}
 
 
 # -- {p-fetchline} no more instructons in IR, load new line from ft
@@ -221,7 +274,7 @@ p {p-fetchread} {a-ir}.{t-fetchread}i
 p {d-main} {a-ir}.{i-fetchread}     
 s {a-ir}.op{t-fetchread} {i-fetchread}
 s {a-ir}.cc{t-fetchread} C    # +1
-p {a-ir}.{t-fetchread}o {p-decode}        # decode
+p {a-ir}.{t-fetchread}o {p-flipex-printex} # should be: goto decode
 
 # 99 99 99 99 A6A5+1 -> EX(a3)
 p {p-fetchread} {a-ex}.{r-fetchread}i   
@@ -236,14 +289,24 @@ s {a-pc}.op{r-increment} {i-nothing}    # nothing connected
 s {a-pc}.cc{r-increment} C    # +1
 
 
-# {p-decode} decode instruction in low two digits of EX
 
-# decode magic here
+# -- {p-flipex-printex} - change sign of EX from M to P, then print
+# M9900000001 -> d-main, but we use an adapter to keep only the M
+p {p-flipex-printex} c.27i
+
+p {p-flipex-printex} {a-ex}.{t-flipex}i
+s {a-ex}.op{t-flipex} {i-flipex}
+p {d-main} ad.d.{ad-flipex}.0           # keep 0 digits, i.e. sign only
+p ad.d.{ad-flipex}.0 {a-ex}.{i-flipex}
+p {a-ex}.{t-flipex}o {p-printex} 
+
+
+# -- {p-printex} print EX and stop
 
 # clear register file
-$clear {p-decode} {a-reg} {t-decode} {p-printop}
+$clear {p-printex} {a-reg} {t-decode} {p-printop}
 
-# EX -> mainbus
+# EX -> d-exA
 p {p-printop} {a-ex}.{t-printop}i   
 s {a-ex}.op{t-printop} A
 p {a-ex}.{t-printop}o {p-printop2}
@@ -251,7 +314,7 @@ p {a-ex}.{t-printop}o {p-printop2}
 # mainbus -> REG
 p {p-printop} {a-reg}.{r-printop}i
 s {a-reg}.op{r-printop} {i-printop}
-p {d-main} ad.d.{ad-printop}.-8 
+p {d-exA} ad.d.{ad-printop}.-8 
 p ad.d.{ad-printop}.-8 {a-reg}.{i-printop}
 #p {d-exA} {a-reg}.a
 

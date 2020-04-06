@@ -254,7 +254,7 @@ class Assembler(object):
 
   def symbols_to_comment(self, symbols1, symbols2, comment):
     symbols = list(symbols1.items()) + list(symbols2.items())
-    symbol_comment = ', '.join([f'{k}={v}' for k,v in symbols])
+    symbol_comment = ', '.join([f'{v}={k}' for k,v in symbols])
 
     if symbol_comment == '':
       return comment
