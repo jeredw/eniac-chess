@@ -94,33 +94,59 @@ p ad.dp.{ad-irS}.11 {p-irS}
 p {p-irS} a20.{t-irS}i
 p a20.{t-irS}o {p-fetchline}
 
-# EX = IR
-p {p-fetchcheck} {a-ex}.{r-load-ir}i
-s {a-ex}.op{r-load-ir} {i-load-ir}
-p {d-irA} {a-ex}.{i-load-ir}
+# EX = IR permuted, I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, assembled on d-ir-to-ex
+# This puts the next instruction in the left of EX, ready to discriminate
+p {p-fetchcheck} {a-ex}.{r-ir-to-ex}i   
+s {a-ex}.op{r-ir-to-ex} {i-ir-to-ex}
+
+# extract IR2,1 and shift to far left. 
+p {d-irA} ad.s.{ad-ir-to-ex1}.8
+p ad.s.{ad-ir-to-ex1}.8 {d-ir-to-ex}
+
+# Shift the rest right, then drop the first two digits so the sign extend doesn't give 99
+p {d-irA} ad.s.{ad-ir-to-ex2}.-2
+p ad.s.{ad-ir-to-ex2}.-2 ad.d.{ad-ir-to-ex3}.-2 
+p ad.d.{ad-ir-to-ex3}.-2 {d-ir-to-ex}
+
+p {d-ir-to-ex} {a-ex}.{i-ir-to-ex}
 
 
+# -- {p-nofetch} no fetch needed, begin instruction decode
+# EX is now 100-I1 99-I5 99-I4 99-I3 99-I2
+# Begin decode by adding 53 to EX, from constant transmitter
 
-# -- {p-nofetch} no fetch needed, consume instruction
-# - IR = EX>>2 + 1
-# EX < 0 here so shift will sign-extend 99 into left of IR
-# If no more instructions then EX=M 99 99 99 99 99 and adding 1 will overflow
-# then goto decode at 5-1
+# Send 53 from CT to d-main
+p {p-nofetch} c.26i 
+s c.s26 Klr
+s c.k10 5
+s c.k9  3 
+p c.o {d-main} 
 
-# EX -> main bus
+# EX += d-main
 p {p-nofetch} {a-ex}.{t-nofetch}i
-s {a-ex}.op{t-nofetch} A
-p {a-ex}.A {d-main} 
-p {a-ex}.{t-nofetch}o {p-decode}   # goto decode instruction in EX
+s {a-ex}.op{t-nofetch} {i-nofetch}
+p {d-main} {a-ex}.{i-nofetch}
+p {a-ex}.{t-nofetch}o {p-disc-op}
 
-# main bus >> 2 -> IR
-# store shifted instructions back to IR, this deletes just-dispatched opcode
-p {p-nofetch} {a-ir}.{r-shifted}i   
-p {d-main} ad.s.{ad-irshift}.-2  
-p ad.s.{ad-irshift}.-2 {a-ir}.{i-shifted} 
-s {a-ir}.op{r-shifted} {i-shifted} 
-s {a-ir}.cc{r-shifted} C    # add 1, this is key to detecting no more opcodes
 
+# -- {p-disc-op} discriminate opcode I1>=53, to switch between two decode pathways
+# Also store shifted instructions back to IR, this deletes just-dispatched opcode
+
+p {p-disc-op} {a-ex}.{t-disc-op}i
+s {a-ex}.op{t-disc-op} AS
+p {a-ex}.A {d-exA}
+p {a-ex}.S {d-exS}
+p {a-ex}.{t-disc-op}o {p-decode}  # for now just print EX
+
+# Store EX back to IR, with current opcode replaced by 99 (consume instruction)
+# also add 1 to IR, to cause overflow if no more opcodes
+p {p-disc-op} {a-ir}.{r-disc-op}i   
+s {a-ir}.op{r-disc-op} {i-disc-op}
+
+p {d-exA} ad.s.{ad-disc-op1}.2   # set EX 10,9 to 99 by shifting left 2 then right 2
+p ad.s.{ad-disc-op1}.2 ad.s.{ad-disc-op2}.-2 
+p ad.s.{ad-disc-op2}.-2 {a-ir}.{i-disc-op}
+s {a-ir}.cc{r-disc-op} C          # add 1 to new I1, this is key to detecting no more opcodes
 
 
 # -- {p-fetchline} no more instructons in IR, load new line from ft
@@ -227,7 +253,7 @@ p {p-printop} {a-reg}.{r-printop}i
 s {a-reg}.op{r-printop} {i-printop}
 p {d-main} ad.d.{ad-printop}.-8 
 p ad.d.{ad-printop}.-8 {a-reg}.{i-printop}
-#p {d-main} {a-reg}.a
+#p {d-exA} {a-reg}.a
 
 # print "decoded" instruction, it's in a13
 p {p-printop2} i.pi 

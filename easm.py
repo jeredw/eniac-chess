@@ -195,6 +195,8 @@ class Assembler(object):
     if '-' in arg:
       m = re.match('(?P<prefix>[^{\d]*)(?P<name>{[rti]-[A-Za-z0-9-]+})(?P<suffix>.*)', arg)
 
+      prefix = m.group('prefix')
+      suffix = m.group('suffix')
       name = m.group('name')[1:-1]    # strip braces
       acc_idx = int(accumtext[1:])-1  # strip 'a', convert to 0-based
       res_type = name[0]              # r or t
@@ -205,9 +207,11 @@ class Assembler(object):
       elif res_type=='t':
         argtext = str(n+5)          # transcievers start at 5
       else:
+        if prefix!='':
+          raise SyntaxError(f"extra characters '{prefix}' before input specifier")
         argtext = ['a','b','g','d','e'][n]
 
-      argtext = m.group('prefix')+argtext+m.group('suffix')
+      argtext = prefix + argtext + suffix 
       return argtext, {name: argtext}
     else:
       # literal
@@ -410,7 +414,7 @@ class Assembler(object):
         print(line)
         print(str(e) + ' at line ' + str(line_number+1) )
         return None
-      if outlines:
+      if outlines != None:
         out += outlines + '\n'
     if self.defmacro:
       print(f'unterminated macro {self.defmacro.name}')

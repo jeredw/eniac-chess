@@ -229,17 +229,19 @@ class TestAssembler(unittest.TestCase):
     # we've run out of inputs on a1, but should still be plenty on a2
     self.run_out(a, 'p 4 a2.{i-', '}', 5)
 
+  def test_bad_accumulator_arg_error(self):
+    a = Assembler()
+    with self.assertRaises(SyntaxError):
+      a.assemble_line('p a1.{r-name} 1-1')        # need i after receiver
+    with self.assertRaises(SyntaxError):
+      a.assemble_line('p a1.{t-name} 1-1')        # need i or o after transceiver
+    with self.assertRaises(SyntaxError):
+      a.assemble_line('s {a-name}.cc{i-name} 1')  # junk before {i-}, user probably meant {r-} here
+
   def test_reciever_output_error(self):
     a = Assembler()
     with self.assertRaises(SyntaxError):
       a.assemble_line('p a1.{r-name}o 1-1')  # receivers do not have outputs
-
-  def test_missing_io_error(self):
-    a = Assembler()
-    with self.assertRaises(SyntaxError):
-      a.assemble_line('p a1.{r-name} 1-1')  # need i after receiver
-    with self.assertRaises(SyntaxError):
-      a.assemble_line('p a1.{t-name} 1-1')  # need i or after transceiver
 
   def test_switch_literal(self):
     a = Assembler()
