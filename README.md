@@ -19,15 +19,15 @@ Doing this involves multiple layers of tools and cross-validation.
 | `Makefile`               | `make` to build everything, `make test` to test |
 | `vm-instruction-set.txt` | A description of VM opcodes and accumulator layout      | 
 | `easm.py`                | An ENIAC "micro-assembler" which converts `.easm` we code into `.e` the simulator runs |        
-| `chessvm.easm`           | VM source code, written in the custom macro-assembly language |
-| `chessvm.e`              | Assembled VM (output of easm on chessvm.easm). Effectively a [netlist](https://en.wikipedia.org/wiki/Netlist) for the VM. But no "code" for the VM to run yet |
+| `chessvm.easm`           | VM source code, written in the custom micro-assembly language |
+| `chessvm.e`              | Assembled VM (output of `easm` on `chessvm.easm`). Effectively a [netlist](https://en.wikipedia.org/wiki/Netlist) for the VM which the simulator can run. |
 | `chasm.py`               | Assembler targeting chess VM. Turns `.asm` into object code representing function table switch settings -- the ENIAC's "ROM" |
 | `chsim.cc`     | Simulator for the chess VM, for efficient development and cross-validation of the `.easm` implementation |
 | `model/`       | High level models for the chess engine, written in Python to test tiny chess algorithms |
 | `chester.asm`  | Chess program written in VM assembly |
 | `chester.e`    | Chess for the ENIAC. Result of concatenating `chessvm.e` (VM patch settings) with output of `chasm` on `chester.asm` (code in function tables) |
 
-We then run `chess.e` on an ENIAC simulator -- we use Bryan Stuart's [pulse-level simulation](https://www.cs.drexel.edu/~bls96/eniac/))as it supports the adapters we need to permute digit trunks, and it seems to be the gold standard of historical fidelity.
+We then run `chester.e` on an ENIAC simulator -- we use Bryan Stuart's [pulse-level simulation](https://www.cs.drexel.edu/~bls96/eniac/))as it supports the adapters we need to permute digit trunks, and it seems to be the gold standard of historical fidelity.
 
 # Playing with SCID
 
