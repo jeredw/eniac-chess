@@ -148,14 +148,12 @@ p {a-ex}.S {d-exS}
 
 # < 0  -> {p-opgt53}
 p {d-exA} ad.dp.{ad-exA}.11
-p ad.dp.{ad-exA}.11 {p-opgt53-dummy}   # deletable p-line?
-p {p-opgt53-dummy} a20.{t-exA}i
+p ad.dp.{ad-exA}.11 a20.{t-exA}i
 p a20.{t-exA}o {p-opgt53}
 
 # > 0 -> {p-ople53} via dummy program on a20
 p {d-exS} ad.dp.{ad-exS}.11
-p ad.dp.{ad-exS}.11 {p-ople53-dummy}   # deletable p-line?
-p {p-ople53-dummy} a20.{t-exS}i
+p ad.dp.{ad-exS}.11 a20.{t-exS}i
 p a20.{t-exS}o {p-ople53}
 
 # meanwhile, store EX back into IR, without the instruction we are now decoding
@@ -184,6 +182,8 @@ s c.j1  1
 p {p-ople53} {a-ir}.{t-plusM99}i
 s {a-ir}.op{t-plusM99} {i-plusM99}
 p {d-main} {a-ir}.{i-plusM99}
+
+# PLACEHOLDER: send to printer
 p {a-ir}.{t-plusM99}o {p-printex}
 
 
