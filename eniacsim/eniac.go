@@ -657,11 +657,11 @@ func main() {
 	}
 
 	sc := bufio.NewScanner(os.Stdin)
-	fmt.Print("> ")
+	fmt.Printf("%04d> ", acyc % 10000)
 	for sc.Scan() {
 		if proccmd(sc.Text()) < 0 {
 			break
 		}
-		fmt.Print("> ")
+		fmt.Printf("%04d> ", acyc % 10000)
 	}
 }

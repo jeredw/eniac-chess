@@ -51,6 +51,7 @@ var clocks = []int {
 var cmode = Cont
 var cyc = 0
 var intbch chan int
+var acyc = 0
 
 func cycstat() string {
 	if cyc >= len(clocks) {
@@ -79,6 +80,7 @@ func cyclectl(cch chan [2]string) {
 				cmode = Pulse
 			case "1a", "1A":
 				cmode = Add
+				acyc = 0
 			case "co", "CO":
 				cmode = Cont
 				if oldmode == Add || oldmode == Pulse {
@@ -142,5 +144,6 @@ func cycleunit(cch chan pulse, bch chan int) {
 				<- p.resp
 			}
 		}
+		acyc++
 	}	
 }
