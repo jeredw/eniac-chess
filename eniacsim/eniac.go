@@ -62,6 +62,42 @@ foo:
 	}
 }
 
+func tee(a, b chan pulse) chan pulse {
+	var t = make(chan pulse)
+	go func() {
+		for {
+			select {
+			case pa := <-a:
+				if pa.val != 0 {
+					t <- pa
+				}
+			case pb := <-b:
+				if pb.val != 0 {
+					t <- pb
+				}
+			case pt := <-t:
+				if pt.val != 0 {
+					var pt2 pulse
+					if a != nil {
+						pt2.resp = make(chan int)
+						pt2.val = pt.val
+						a <- pt2
+						<- pt2.resp
+					}
+					if b != nil {
+						pt2.resp = make(chan int)
+						pt2.val = pt.val
+						b <- pt2
+						<- pt2.resp
+					}
+					pt.resp <- 1
+				}
+			}
+		}
+	}()
+	return t
+}
+
 func proccmd(cmd string) int {
 	f := strings.Fields(cmd)
 	for i, s := range f {

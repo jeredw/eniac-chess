@@ -216,7 +216,7 @@ func accplug(unit int, jack string, ch chan pulse) {
 		foundjack := false
 		for i, j := range jacks {
 			if j == jack {
-				units[unit].ctlterm[i] = ch
+				units[unit].ctlterm[i] = tee(units[unit].ctlterm[i], ch)
 				foundjack = true
 				break
 			}
