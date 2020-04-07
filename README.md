@@ -18,8 +18,8 @@ Doing this involves multiple layers of tools and cross-validation.
 | ------------------------ | ----------------------------------------------- |
 | `Makefile`               | `make` to build everything, `make test` to test |
 | `vm-instruction-set.txt` | A description of VM opcodes and accumulator layout      | 
-| `easm.py`                | An ENIAC "micro-assembler" which converts `.easm` we code into `.e` the simulator runs |        
-| `chessvm.easm`           | VM source code, written in the custom micro-assembly language |
+| `easm.py`                | An ENIAC "patch assembler" which converts `.easm` we code into `.e` the simulator runs |        
+| `chessvm.easm`           | VM source code, written in the custom patch assembly language |
 | `chessvm.e`              | Assembled VM (output of `easm` on `chessvm.easm`). Effectively a [netlist](https://en.wikipedia.org/wiki/Netlist) for the VM which the simulator can run. |
 | `chasm.py`               | Assembler targeting chess VM. Turns `.asm` into object code representing function table switch settings -- the ENIAC's "ROM" |
 | `chsim.cc`     | Simulator for the chess VM, for efficient development and cross-validation of the `.easm` implementation |
