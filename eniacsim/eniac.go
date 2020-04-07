@@ -154,6 +154,8 @@ func proccmd(cmd string) int {
 	case "D":
 		fmt.Println(initstat())
 		fmt.Println(mpstat())
+		acchdr := "      9876543210 9876543210 r 123456789012"
+		fmt.Printf("%s   %s\n", acchdr, acchdr)
 		for i := 0; i < 20; i += 2 {
 			fmt.Print(accstat(i))
 			fmt.Print("   ")
