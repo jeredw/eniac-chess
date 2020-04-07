@@ -76,10 +76,10 @@ var units [20]accumulator
 func accstat(unit int) string {
 	var s string
 
-  //s = fmt.Sprintf("a%-2d ", unit + 1)
-  s = ""
+	// NB used by doprint()
+	s = fmt.Sprintf("a%-2d ", unit + 1)
 	if units[unit].sign {
-		//s += "M "
+		s += "M "
 	} else {
 		s += "P "
 	}

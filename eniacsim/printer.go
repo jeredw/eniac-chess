@@ -32,20 +32,20 @@ func doprint() (s string) {
 	for i := 1; i < 9; i++ {
 		raw[i] = accstat(i+11)
 	}
-	p1 := raw[0][13:18]
+	p1 := raw[0][17:22]
 	sgn[0] = 'P'
-	p1 += raw[1][2:12]
-	sgn[1] = raw[1][0]
-	sgn[2] = raw[1][0]
-	p1 += raw[2][2:12]
-	sgn[3] = raw[2][0]
-	sgn[4] = raw[2][0]
-	p1 += raw[3][7:12]
-	sgn[5] = raw[3][0]
+	p1 += raw[1][6:16]
+	sgn[1] = raw[1][4]
+	sgn[2] = raw[1][4]
+	p1 += raw[2][6:16]
+	sgn[3] = raw[2][4]
+	sgn[4] = raw[2][4]
+	p1 += raw[3][11:16]
+	sgn[5] = raw[3][4]
 	for i := 4; i < 9; i++ {
-		p1 += raw[i][2:12]
-		sgn[2*(i-4)+6] = raw[i][0]
-		sgn[2*(i-4)+7] = raw[i][0]
+		p1 += raw[i][6:16]
+		sgn[2*(i-4)+6] = raw[i][4]
+		sgn[2*(i-4)+7] = raw[i][4]
 	}
 	p2 := ""
 	st := 0
