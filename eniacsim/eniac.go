@@ -148,6 +148,9 @@ func proccmd(cmd string) int {
 		case 'p':
 			fmt.Println(mpstat())
 		}
+	case "P":
+		cycbut <- 1
+		fallthrough
 	case "D":
 		fmt.Println(initstat())
 		fmt.Println(mpstat())
