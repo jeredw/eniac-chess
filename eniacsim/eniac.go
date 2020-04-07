@@ -152,6 +152,7 @@ func proccmd(cmd string) int {
 		cycbut <- 1
 		fallthrough
 	case "D":
+    fmt.Println()
 		fmt.Println(initstat())
 		fmt.Println(mpstat())
 		acchdr := "      9876543210 9876543210 r 123456789012"
@@ -167,6 +168,7 @@ func proccmd(cmd string) int {
 			fmt.Println(ftstat(i))
 		}
 		fmt.Println(consstat())
+    fmt.Println()
 	case "f":
 		if len(f) != 3 {
 			fmt.Println("file syntax: f (r|p) filename")
