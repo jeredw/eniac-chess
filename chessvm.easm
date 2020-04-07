@@ -51,25 +51,55 @@
 # {p-fetchread} read ft line of instructions
 #      FT sends complement of A and B
 #      - IR = M I6 I5 I4 I3 I2+1 = B2B1 B4B3 B6B5 A2A1 A4A3+1
-#      - EX = M 99 99 99 99 I1 = 99 99 99 99 A6A5 +1?
+#      - EX = M I1+1 99 99 99 99 = A6A5+1 99 99 99 99?
 #      - PC += 1
 #      - goto execute
 
 # define a macro "clear" to clear accumulator acc,
 # triggered on inp and emitting outp when done (via transceiver t)
 defmacro clear inp acc t outp
-p {$inp} {$acc}.{$t}i
-s {$acc}.op{$t} 0
-s {$acc}.cc{$t} C
-p {$acc}.{$t}o {$outp}
+  p {$inp} {$acc}.{$t}i
+  s {$acc}.op{$t} 0
+  s {$acc}.cc{$t} C
+  p {$acc}.{$t}o {$outp}
 endmacro
+
 
 # dummy program definition, with a given delay
 defmacro dummy inp acc t delay outp
-p {$inp} $acc.{$t}i
-s $acc.op{$t} 0
-s $acc.rp{$t} $delay
-p $acc.{$t}o {$outp}
+  p {$inp} $acc.{$t}i
+  s $acc.op{$t} 0
+  s $acc.rp{$t} $delay
+  p $acc.{$t}o {$outp}
+endmacro
+
+
+# Discrimination
+#   inp   - input program line
+#   acc   - accumulator to wire for discrimination
+#   dummy - accumulator to use for dummy programs
+#   name  - base for transciever names on acc and dummy
+#   da,ds - data busses to use for acc.A acc.S
+#   outp  - program line for acc>=0
+#   outm  - program line for acc<0
+defmacro discriminate inp acc dummy name da ds outp outm
+
+  p $inp $acc.{t-$name}i
+  s $acc.op{t-$name} AS               
+  s $acc.cc{t-$name} C   # clear IR after transmission
+  p $acc.A $da
+  p $acc.S $ds
+
+  # acc >= 0 -> outp
+  p $ds ad.dp.{ad-disc-$name-S}.11
+  p ad.dp.{ad-disc-$name-S}.11 $dummy.{t-$name-S}i
+  p $dummy.{t-$name-S}o $outp
+
+  # acc < 0 -> outm
+  p $da ad.dp.{ad-disc-$name-A}.11
+  p ad.dp.{ad-disc-$name-A}.11 $dummy.{t-$name-A}i
+  p $dummy.{t-$name-A}o $outm
+
 endmacro
 
 
@@ -84,22 +114,7 @@ $clear {p-fetch} {a-ex} {t-fetch} {p-fetchcheck}
 # -- p-fetchcheck: discriminate on IR: M to nofetch, P to fetchline
 # During this cycle we both discriminate and read out the contents of IR into EX
 
-# - Send on both ir.A and ir.S so one of two programs gets a pulse
-p {p-fetchcheck} {a-ir}.{t-fetchcheck}i
-s {a-ir}.op{t-fetchcheck} AS               
-s {a-ir}.cc{t-fetchcheck} C   # clear IR after transmission
-p {a-ir}.A {d-irA}
-p {a-ir}.S {d-irS}
-
-# IR < 0  -> {p-nofetch} via dummy program on a20
-p {d-irA} ad.dp.{ad-irA}.11
-p ad.dp.{ad-irA}.11 a20.{t-irA}i
-p a20.{t-irA}o {p-nofetch}
-
-# IR > 0 -> {p-fetchline} via dummy program on a20
-p {d-irS} ad.dp.{ad-irS}.11
-p ad.dp.{ad-irS}.11 a20.{t-irS}i
-p a20.{t-irS}o {p-fetchline}
+$discriminate {p-fetchcheck} {a-ir} a20 fetchcheck {d-irA} {d-irS} {p-fetchline} {p-nofetch}
 
 # EX = IR permuted, I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, assembled on d-ir-to-ex
 # This puts the next instruction in the left of EX, ready to discriminate
