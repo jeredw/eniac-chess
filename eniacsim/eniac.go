@@ -134,6 +134,8 @@ func proccmd(cmd string) int {
 		case 'a':
 			unit, _ := strconv.Atoi(f[1][1:])
 			fmt.Println(accstat(unit-1))
+		case 'b':
+			fmt.Println(debugstat())
 		case 'c':
 			fmt.Println(consstat())
 		case 'd':
@@ -309,6 +311,13 @@ func proccmd(cmd string) int {
 			}
 			unit, _ := strconv.Atoi(p2[0][1:])
 			accplug(unit - 1, p2[1], ch)
+		case p2[0] == "debug":
+			if len(p2) != 2 {
+				fmt.Println("Debugger jumper syntax: debug.bpn")
+				break
+			}
+			unit, _ := strconv.Atoi(p2[1][2:])
+			debugplug(unit, ch, f[1])
 		case p2[0] == "c":
 			if len(p2) != 2 {
 				fmt.Println("Invalid constant jumper:", cmd)
@@ -375,6 +384,8 @@ func proccmd(cmd string) int {
 				unit, _ := strconv.Atoi(p[1])
 				accreset(unit)
 			}
+		case "b":
+			debugreset()
 		case "c":
 			consreset()
 		case "d":
@@ -396,6 +407,7 @@ func proccmd(cmd string) int {
 	case "R":
 		initreset()
 		cycreset()
+		debugreset()
 		mpreset()
 		ftreset(0)
 		ftreset(1)

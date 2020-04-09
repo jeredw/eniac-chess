@@ -52,6 +52,7 @@ var cmode = Cont
 var cyc = 0
 var intbch chan int
 var acyc = 0
+var stop = false
 
 func cycstat() string {
 	if cyc >= len(clocks) {
@@ -115,6 +116,7 @@ func cycleunit(cch chan pulse, bch chan int) {
 
 	p.resp = make(chan int)
 	for {
+		stop = false
 		if cmode == Add {
 			<- intbch
 		}
@@ -145,5 +147,8 @@ func cycleunit(cch chan pulse, bch chan int) {
 			}
 		}
 		acyc++
-	}	
+		if stop {
+			cmode = Add
+		}
+	}
 }
