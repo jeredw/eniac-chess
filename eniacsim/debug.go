@@ -38,7 +38,9 @@ func dobp(b *bp) {
 		}
 		if p.val != 0 {
 			fmt.Printf("triggered bp%d %s\n", b.n, b.what)
+			stopmu.Lock()
 			stop = true
+			stopmu.Unlock()
 		}
 		if p.resp != nil {
 			p.resp <- 1

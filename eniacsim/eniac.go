@@ -122,6 +122,7 @@ func proccmd(cmd string) int {
 			initbut <- 4
 		case "p":
 			cycbut <- 1
+			<- cycbutdone
 		case "r":
 			initbut <- 3
 		}
@@ -152,6 +153,7 @@ func proccmd(cmd string) int {
 		}
 	case "n":
 		cycbut <- 1
+		<- cycbutdone
 		fallthrough
 	case "D":
 		fmt.Println()
@@ -619,6 +621,7 @@ func main() {
 	initbut = make(chan int)
 	cycsw = make(chan [2]string)
 	cycbut = make(chan int)
+	cycbutdone = make(chan int)
 	mpsw = make(chan [2]string)
 	divsw = make(chan [2]string)
 	multsw = make(chan [2]string)
@@ -673,11 +676,16 @@ func main() {
 	}
 
 	sc := bufio.NewScanner(os.Stdin)
-	fmt.Printf("%04d> ", acyc % 10000)
+	var prompt = func() {
+		acycmu.Lock()
+		fmt.Printf("%04d> ", acyc % 10000)
+		acycmu.Unlock()
+	}
+	prompt()
 	for sc.Scan() {
 		if proccmd(sc.Text()) < 0 {
 			break
 		}
-		fmt.Printf("%04d> ", acyc % 10000)
+		prompt()
 	}
 }
