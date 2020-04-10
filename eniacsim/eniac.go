@@ -488,7 +488,7 @@ func proccmd(cmd string) int {
 		}
 		unit, _ := strconv.Atoi(f[1][1:])
 		value, _ := strconv.ParseInt(f[2], 10, 64)
-		accset(unit, value)
+		accset(unit - 1, value)
 	case "u":
 	case "dt":
 	case "pt":
