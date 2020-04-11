@@ -5,7 +5,7 @@ t0=$(date +%s)
 for t in tests/*.e
 do
   echo $t
-  ./eniac -g -t 5000 $t > /tmp/$t.out
+  ./eniac -g -t 50000 $t > /tmp/$t.out
   cmp /tmp/$t.out $t.out
 done
 t=$(date +%s)
