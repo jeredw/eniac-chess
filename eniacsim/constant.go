@@ -288,68 +288,70 @@ func getval(sel int) (sgn byte, val []byte, pos1pp int) {
 var digitcons = []int { 0, Onep, Twop, (Onep | Twop), Fourp, (Onep | Fourp),
 	(Twop | Fourp), (Onep | Twop | Fourp), (Twop | Twopp | Fourp),
 	(Onep | Twop | Twopp | Fourp) }
+var val []byte
+var sign byte
+var pos1pp int
+var whichrp bool
 
-func consunit(cyctrunk chan pulse) {
-	var val []byte
-	var sign byte
-	var pos1pp int
-	var whichrp bool
-
-	consupdate = make(chan int)
-	go consunit2()
-	resp := make(chan int)
-	for {
-		p :=<- cyctrunk
-		sending := -1
-		for i := 0; i < 30; i++ {
-			if consinff2[i] {
-				sending = i
-				sign, val, pos1pp = getval(i)
-				break
-			}
-		}
-		cyc := p.val
-		if cyc & Ccg != 0 {
-			whichrp = false
-		} else if cyc & Rp != 0 {
-			if whichrp {
-				for i := 0; i < 30; i++ {
-					if consinff1[i] {
-						consinff1[i] = false
-						consinff2[i] = true
-					}
-				}
-				whichrp = false
-			} else {
-				whichrp = true
-			}
-		}
-		if sending > -1 {
-			if cyc & Cpp != 0 {
-				handshake(1, conspout[sending], resp)
-				consinff2[sending] = false
-				sending = -1
-			} else if cyc & Ninep != 0 {
-				n := 0
-				for i := uint(0); i < uint(10); i++ {
-					if cyc & digitcons[val[i]] != 0 {
-						n |= 1 << i
-					}
-				}
-				if sign == 1 {
-					n |= 1 << 10
-				}
-				if n != 0 {
-					handshake(n, consout, resp)
-				}
-			} else if cyc & Onepp != 0 && pos1pp >= 0 && sign == 1 {
-				handshake(1 << uint(pos1pp), consout, resp)
-			}
-		}
-		if p.resp != nil {
-			p.resp <- 1
+func conspulse(p pulse, resp chan int) {
+	sending := -1
+	for i := 0; i < 30; i++ {
+		if consinff2[i] {
+			sending = i
+			sign, val, pos1pp = getval(i)
+			break
 		}
 	}
+	cyc := p.val
+	if cyc & Ccg != 0 {
+		whichrp = false
+	} else if cyc & Rp != 0 {
+		if whichrp {
+			for i := 0; i < 30; i++ {
+				if consinff1[i] {
+					consinff1[i] = false
+					consinff2[i] = true
+				}
+			}
+			whichrp = false
+		} else {
+			whichrp = true
+		}
+	}
+	if sending > -1 {
+		if cyc & Cpp != 0 {
+			handshake(1, conspout[sending], resp)
+			consinff2[sending] = false
+			sending = -1
+		} else if cyc & Ninep != 0 {
+			n := 0
+			for i := uint(0); i < uint(10); i++ {
+				if cyc & digitcons[val[i]] != 0 {
+					n |= 1 << i
+				}
+			}
+			if sign == 1 {
+				n |= 1 << 10
+			}
+			if n != 0 {
+				handshake(n, consout, resp)
+			}
+		} else if cyc & Onepp != 0 && pos1pp >= 0 && sign == 1 {
+			handshake(1 << uint(pos1pp), consout, resp)
+		}
+	}
+}
+
+func makeconspulse() pulsefn {
+	resp := make(chan int)
+	return func(p pulse) {
+		conspulse(p, resp)
+	}
+}
+
+func consunit() {
+	consupdate = make(chan int)
+	go consunit2()
 }
 
 func consunit2() {
