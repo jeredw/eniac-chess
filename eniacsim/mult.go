@@ -406,8 +406,8 @@ func multpulse(c pulse, resp1, resp2, resp3, resp4 chan int) {
 			handshake(1 << uint(sigfig - 1), lhppI, resp1)
 		}
 	case c.val & Onep != 0 && stage >= 2 && stage < 12:
-		ier = accstat(8)
-		icand = accstat(9)
+		ier = accstat(8)[4:]
+		icand = accstat(9)[4:]
 		lhpp := 0
 		rhpp := 0
 		for i := 0; i < 10; i++ {

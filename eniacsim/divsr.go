@@ -390,7 +390,7 @@ func samesign() bool {
 }
 
 func overflow() bool {
-	s := accstat(2)
+	s := accstat(2)[4:]
 	return s[0] == 'P' && divsr.numrmin || s[0] == 'M' && divsr.numrplus
 }
 
@@ -534,11 +534,11 @@ func doGP(resp chan int) {
 			divsr.progring++
 		}
 	case 1: 		// Gate D6
-		s := accstat(2)
+		s := accstat(2)[4:]
 		if s[0] == 'M' {
 			divsr.numrplus, divsr.numrmin = divsr.numrmin, divsr.numrplus
 		}
-		s = accstat(4)
+		s = accstat(4)[4:]
 		if s[0] == 'M' {
 			divsr.denomff = true
 		}
