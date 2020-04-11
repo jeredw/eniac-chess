@@ -586,42 +586,44 @@ func doonepp(u *accumulator, unit int, resp chan int) {
 	}
 }
 
-func accunit(unit int, cyctrunk chan pulse) {
+func accpulse(u *accumulator, unit int, resp chan int, p pulse) {
+	cyc := p.val
+	switch {
+	case cyc & Cpp != 0:
+		docpp(u, resp, cyc)
+	case cyc & Ccg != 0:
+		doccg(u, unit, resp)
+	case cyc & Scg != 0:
+		if u.sc == 1 {
+			accclear(unit)
+		}
+	case cyc & Rp != 0:
+		dorp(u)
+	case cyc & Tenp != 0:
+		dotenp(u, unit)
+	case cyc & Ninep != 0:
+		doninep(u, unit, resp)
+	case cyc & Onepp != 0:
+		doonepp(u, unit, resp)
+	}
+}
+
+func accunit(unit int) {
 	u := &units[unit]
 	u.change = make(chan int)
 	u.sigfig = 10
 	u.lbuddy = unit
 	u.rbuddy = unit
 	go accunit2(unit)
-
-	resp := make(chan int)
-	for {
-		p :=<- cyctrunk
-		cyc := p.val
-		switch {
-		case cyc & Cpp != 0:
-			docpp(u, resp, cyc)
-		case cyc & Ccg != 0:
-			doccg(u, unit, resp)
-		case cyc & Scg != 0:
-			if u.sc == 1 {
-				accclear(unit)
-			}
-		case cyc & Rp != 0:
-			dorp(u)
-		case cyc & Tenp != 0:
-			dotenp(u, unit)
-		case cyc & Ninep != 0:
-			doninep(u, unit, resp)
-		case cyc & Onepp != 0:
-			doonepp(u, unit, resp)
-		}
-		if p.resp != nil {
-			p.resp <- 1
-		}
-	}
 }
 
+func makeaccpulse(unit int) pulsefn {
+	u := &units[unit]
+	resp := make(chan int)
+	return func(p pulse) {
+		accpulse(u, unit, resp, p)
+	}
+}
 
 func accunit2(unit int) {
 	var dat, prog pulse

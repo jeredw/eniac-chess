@@ -118,7 +118,7 @@ func cyclectl(cch chan [2]string) {
 	}
 }
 
-func cycleunit(cch chan pulse, bch chan int) {
+func cycleunit(cch chan pulse, fns []pulsefn, bch chan int) {
 	var p pulse
 
 	if *testcycles > 0 {
@@ -163,16 +163,19 @@ func cycleunit(cch chan pulse, bch chan int) {
 				p.val = Scg
 				cch <- p
 				<- p.resp
+				for _, f := range fns { f(p) }
 			} else if clocks[cyc] != 0 {
 				p.val = clocks[cyc]
 				cch <- p
 				<- p.resp
+				for _, f := range fns { f(p) }
 			}
 			cyc++
 			if clocks[cyc] != 0 {
 				p.val = clocks[cyc]
 				cch <- p
 				<- p.resp
+				for _, f := range fns { f(p) }
 			}
 			if wait_for_pulse {
 				cycbutdone <- 1

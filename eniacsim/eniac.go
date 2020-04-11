@@ -16,6 +16,8 @@ type pulse struct {
 	resp chan int
 }
 
+type pulsefn func(pulse)
+
 var initbut, cycbut chan int
 var initbutdone chan int
 var teststart chan int
@@ -607,7 +609,6 @@ func ctlstation() {
 }
 
 func main() {
-	var acccyc [20]chan pulse
 	var ftcyc [3]chan pulse
 
 	flag.Usage = func () {
@@ -650,10 +651,10 @@ func main() {
 	conscyc := make(chan pulse)
 	prsw = make(chan [2]string)
 	p := append(cyctrunk, initcyc, mpcyc, divcyc, multcyc, conscyc)
+	var f []pulsefn
 	for i := 0; i < 20; i++ {
 		accsw[i] = make(chan [2]string)
-		acccyc[i] = make(chan pulse)
-		p = append(p, acccyc[i])
+		f = append(f, makeaccpulse(i))
 	}
 	for i := 0; i < 3; i++ {
 		ftsw[i] = make(chan [2]string)
@@ -671,13 +672,13 @@ func main() {
 
 	go initiateunit(initcyc, initbut, initbutdone)
 	go mpunit(mpcyc)
-	go cycleunit(cycout, cycbut)
+	go cycleunit(cycout, f, cycbut)
 	go divunit(divcyc)
 	go multunit(multcyc)
 	go consunit(conscyc)
 	for i := 0; i < 20; i++ {
 		go accctl(i, accsw[i])
-		go accunit(i, acccyc[i])
+		go accunit(i)
 	}
 	for i := 0; i < 3; i++ {
 		go ftctl(i, ftsw[i])
