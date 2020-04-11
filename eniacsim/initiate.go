@@ -11,6 +11,7 @@ var initjack [18]chan pulse
 var initclrff [6]bool
 var initupdate chan int
 var prtacyc int
+var lastread int
 
 func initstat() string {
 	s := ""
@@ -80,115 +81,114 @@ func initplug(jack string, ch chan pulse) {
 	initupdate <- 1
 }
 
-func initiateunit(cyctrunk chan pulse, button chan int, butdone chan int) {
-	var lastread int
+func initiatepulse(p pulse, resp chan int) {
+	cyc := p.val
+	if cyc & Cpp != 0 {
+		if gate69 == 1 {
+			gate66 = 0
+			gate69 = 0
+			handshake(1, initjack[17], resp)
+		} else if gate66 == 1 {
+			gate69 = 1
+		}
+		cmodemu.Lock()
+		stepping := cmode == Add || cmode == Pulse
+		cmodemu.Unlock()
+		for i, ff := range initclrff {
+			if ff {
+				if initjack[2*i+1] != nil {
+					initjack[2*i+1] <- pulse{1, resp}
+					<- resp
+				}
+				initclrff[i] = false
+			}
+		}
+		if rdsync {
+			handshake(1, initjack[14], resp)
+			rdff = false
+			rdilock = false
+			rdsync = false
+			rdfinish = false
+		}
+		acycmu.Lock()
+		sinceread := acyc - lastread
+		acycmu.Unlock()
+		if rdff && (stepping || sinceread > mstoacyc(375)) {
+			if cardscanner != nil {
+				if cardscanner.Scan() {
+					card := cardscanner.Text()
+					proccard(card)
+					acycmu.Lock()
+					lastread = acyc
+					acycmu.Unlock()
+					rdfinish = true
+				} else {
+					cardscanner = nil
+				}
+			}
+		}
+		if rdfinish && rdilock {
+			rdsync = true
+		}
+		acycmu.Lock()
+		sinceprint := acyc - prtacyc
+		acycmu.Unlock()
+		if printphase1 && (stepping || sinceprint > mstoacyc(150)) {
+			s := doprint()
+			if punchwriter != nil {
+				punchwriter.WriteString(s)
+				punchwriter.WriteByte('\n')
+			} else {
+				fmt.Println(s)
+			}
+			if ppunch != nil {
+				ppunch <- s
+			}
+			handshake(1, initjack[16], resp)
+			acycmu.Lock()
+			prtacyc = acyc
+			acycmu.Unlock()
+			printphase1 = false
+			printphase2 = true
+			prff = false
+		}
+		if printphase2 && (stepping || sinceprint > mstoacyc(450)) {
+			if prff {
+				acycmu.Lock()
+				prtacyc = acyc
+				acycmu.Unlock()
+				printphase1 = true
+			}
+			printphase2 = false
+		}
+	}
+}
 
+func makeinitiatepulse() pulsefn {
 	resp := make(chan int)
+	return func(p pulse) {
+		initiatepulse(p, resp)
+	}
+}
+
+func initiateunit(button chan int, butdone chan int) {
 	go initiateunit2()
 	for {
-		select {
-		case p :=<- cyctrunk:
-			cyc := p.val
-			if cyc & Cpp != 0 {
-				if gate69 == 1 {
-					gate66 = 0
-					gate69 = 0
-					handshake(1, initjack[17], resp)
-				} else if gate66 == 1 {
-					gate69 = 1
-				}
-				cmodemu.Lock()
-				stepping := cmode == Add || cmode == Pulse
-				cmodemu.Unlock()
-				for i, ff := range initclrff {
-					if ff {
-						if initjack[2*i+1] != nil {
-							initjack[2*i+1] <- pulse{1, resp}
-							<- resp
-						}
-						initclrff[i] = false
-					}
-				}
-				if rdsync {
-					handshake(1, initjack[14], resp)
-					rdff = false
-					rdilock = false
-					rdsync = false
-					rdfinish = false
-				}
-				acycmu.Lock()
-				sinceread := acyc - lastread
-				acycmu.Unlock()
-				if rdff && (stepping || sinceread > mstoacyc(375)) {
-					if cardscanner != nil {
-						if cardscanner.Scan() {
-							card := cardscanner.Text()
-							proccard(card)
-							acycmu.Lock()
-							lastread = acyc
-							acycmu.Unlock()
-							rdfinish = true
-						} else {
-							cardscanner = nil
-						}
-					}
-				}
-				if rdfinish && rdilock {
-					rdsync = true
-				}
-				acycmu.Lock()
-				sinceprint := acyc - prtacyc
-				acycmu.Unlock()
-				if printphase1 && (stepping || sinceprint > mstoacyc(150)) {
-					s := doprint()
-					if punchwriter != nil {
-						punchwriter.WriteString(s)
-						punchwriter.WriteByte('\n')
-					} else {
-						fmt.Println(s)
-					}
-					if ppunch != nil {
-						ppunch <- s
-					}
-					handshake(1, initjack[16], resp)
-					acycmu.Lock()
-					prtacyc = acyc
-					acycmu.Unlock()
-					printphase1 = false
-					printphase2 = true
-					prff = false
-				}
-				if printphase2 && (stepping || sinceprint > mstoacyc(450)) {
-					if prff {
-						acycmu.Lock()
-						prtacyc = acyc
-						acycmu.Unlock()
-						printphase1 = true
-					}
-					printphase2 = false
-				}
+		switch <-button {
+		case 4:
+			gate66 = 1
+		case 5:
+			mpclear()
+			for i := 0; i < 20; i++ {
+				accclear(i)
 			}
-			if p.resp != nil {
-				p.resp <- 1
-			}
-		case bu :=<- button:
-			switch bu {
-			//caes 3:
-			case 4:
-				gate66 = 1
-			case 5:
-				mpclear()
-				for i := 0; i < 20; i++ {
-					accclear(i)
-				}
-				divclear()
-				multclear()
-			case 3:
-				rdff = true
-				rdilock = true
-			}
-			butdone <- 1
+			divclear()
+			multclear()
+		case 3:
+			rdff = true
+			rdilock = true
 		}
+		butdone <- 1
 	}
 }
 
