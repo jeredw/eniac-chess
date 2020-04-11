@@ -20,6 +20,9 @@ var reset1ff, reset3ff bool
 var Multl, Multr bool
 var buffer61, f44 bool
 var multupdate chan int
+var ier, icand string
+var sigfig int
+
 
 var table10 [10][10]pulseset = [10][10]pulseset{{},
 	{},
@@ -307,79 +310,18 @@ func shiftprod(lhpp, rhpp int, resp1, resp2, resp3, resp4 chan int) {
 	}
 }
 
-func multunit(cyctrunk chan pulse) {
-	var ier, icand string
-	var sigfig int
-
-	multupdate = make(chan int)
-	resp1 := make(chan int)
-	resp2 := make(chan int)
-	resp3 := make(chan int)
-	resp4 := make(chan int)
-	go multunit2()
-	for {
-		c :=<- cyctrunk
-		switch {
-		case c.val & Cpp != 0:
-			if f44 {
-				stage = 1
-				f44 = false
-			} else if stage == 12 {
-				reset1ff = true
-				reset3ff = true
-				handshake(1, F, resp1)
-				stage++
-			} else if stage == 13 {
-				which := -1
-				for i, f := range multff {
-					if f {
-						which = i
-						break
-					}
-				}
-				if which != -1 {
-					handshake(1, multout[which], resp1)
-					multff[which] = false
-					switch prodsw[which] {
-					case 0:
-						handshake(1, A, resp1)
-					case 1:
-						handshake(1, S, resp1)
-					case 2:
-						handshake(1, AS, resp1)
-					case 4:
-						handshake(1, AC, resp1)
-					case 5:
-						handshake(1, SC, resp1)
-					case 6:
-						handshake(1, ASC, resp1)
-					}
-				}
-				reset1ff = false
-				reset3ff = false
-				stage = 0
-			} else if stage != 0 {
-				minplace := 10
-				for i := 0; i < 24; i++ {
-					if multff[i] && placsw[i] + 2 < minplace {
-						minplace = placsw[i] + 2
-					}
-				}
-				if stage == minplace + 1 {
-					if ier[0] == 'M' {
-						handshake(1, DS, resp1)
-					}
-					if icand[0] == 'M' {
-						handshake(1, RS, resp1)
-					}
-					Multl = false
-					Multr = false
-					stage = 12
-				} else {
-					stage++
-				}
-			}
-		case c.val & Ccg != 0 && stage == 13:
+func multpulse(c pulse, resp1, resp2, resp3, resp4 chan int) {
+	switch {
+	case c.val & Cpp != 0:
+		if f44 {
+			stage = 1
+			f44 = false
+		} else if stage == 12 {
+			reset1ff = true
+			reset3ff = true
+			handshake(1, F, resp1)
+			stage++
+		} else if stage == 13 {
 			which := -1
 			for i, f := range multff {
 				if f {
@@ -387,108 +329,169 @@ func multunit(cyctrunk chan pulse) {
 					break
 				}
 			}
-			if iercl[which] == 1 {
-				accclear(8)
-			}
-			if icandcl[which] == 1 {
-				accclear(9)
-			}
-		case c.val & Onep != 0 && stage == 1:
-			Multl = true
-			Multr = true
-			sigfig = -1
-			for i := 0; i < 24; i++ {
-				if multff[i] {
-					sigfig = sigsw[i]
+			if which != -1 {
+				handshake(1, multout[which], resp1)
+				multff[which] = false
+				switch prodsw[which] {
+				case 0:
+					handshake(1, A, resp1)
+				case 1:
+					handshake(1, S, resp1)
+				case 2:
+					handshake(1, AS, resp1)
+				case 4:
+					handshake(1, AC, resp1)
+				case 5:
+					handshake(1, SC, resp1)
+				case 6:
+					handshake(1, ASC, resp1)
 				}
 			}
-			if sigfig == 0 && lhppII != nil {
-				handshake(1 << 10, lhppII, resp1)
-			} else if sigfig > 0 && sigfig < 9 && lhppI != nil {
-				handshake(1 << uint(sigfig - 1), lhppI, resp1)
-			}
-		case c.val & Fourp != 0 && stage == 1:
-			if sigfig == 0 && lhppII != nil {
-				handshake(1 << 10, lhppII, resp1)
-			} else if sigfig > 0 && sigfig < 9 && lhppI != nil {
-				handshake(1 << uint(sigfig - 1), lhppI, resp1)
-			}
-		case c.val & Onep != 0 && stage >= 2 && stage < 12:
-			ier = accstat(8)
-			icand = accstat(9)
-			lhpp := 0
-			rhpp := 0
-			for i := 0; i < 10; i++ {
-				ps10 := table10[ier[stage]-'0'][icand[i+2]-'0']
-				ps1 := table1[ier[stage]-'0'][icand[i+2]-'0']
-				if ps10.one == 1 {
-					lhpp |= 1 << uint(9 - i)
-				}
-				if ps1.one == 1 {
-					rhpp |= 1 << uint(9 - i)
-				}
-			}
-			shiftprod(lhpp, rhpp, resp1, resp2, resp3, resp4)
-		case c.val & Twop != 0 && stage >= 2 && stage < 12:
-			lhpp := 0
-			rhpp := 0
-			for i := 0; i < 10; i++ {
-				ps10 := table10[ier[stage]-'0'][icand[i+2]-'0']
-				ps1 := table1[ier[stage]-'0'][icand[i+2]-'0']
-				if ps10.two == 1 {
-					lhpp |= 1 << uint(9 - i)
-				}
-				if ps1.two == 1 {
-					rhpp |= 1 << uint(9 - i)
-				}
-			}
-			shiftprod(lhpp, rhpp, resp1, resp2, resp3, resp4)
-		case c.val & Twopp != 0 && stage >= 2 && stage < 12:
-			lhpp := 0
-			rhpp := 0
-			for i := 0; i < 10; i++ {
-				ps10 := table10[ier[stage]-'0'][icand[i+2]-'0']
-				ps1 := table1[ier[stage]-'0'][icand[i+2]-'0']
-				if ps10.twop == 1 {
-					lhpp |= 1 << uint(9 - i)
-				}
-				if ps1.twop == 1 {
-					rhpp |= 1 << uint(9 - i)
-				}
-			}
-			shiftprod(lhpp, rhpp, resp1, resp2, resp3, resp4)
-		case c.val & Fourp != 0 && stage >= 2 && stage < 12:
-			lhpp := 0
-			rhpp := 0
-			for i := 0; i < 10; i++ {
-				ps10 := table10[ier[stage]-'0'][icand[i+2]-'0']
-				ps1 := table1[ier[stage]-'0'][icand[i+2]-'0']
-				if ps10.four == 1 {
-					lhpp |= 1 << uint(9 - i)
-				}
-				if ps1.four == 1 {
-					rhpp |= 1 << uint(9 - i)
-				}
-			}
-			shiftprod(lhpp, rhpp, resp1, resp2, resp3, resp4)
-		case c.val & Onepp != 0 && stage >= 2 && stage < 12:
+			reset1ff = false
+			reset3ff = false
+			stage = 0
+		} else if stage != 0 {
 			minplace := 10
 			for i := 0; i < 24; i++ {
 				if multff[i] && placsw[i] + 2 < minplace {
 					minplace = placsw[i] + 2
 				}
 			}
-			if stage == minplace + 1 && ier[0] == 'M' && icand[0] == 'M' {
-				handshake(1 << 10, rhppI, resp1)
+			if stage == minplace + 1 {
+				if ier[0] == 'M' {
+					handshake(1, DS, resp1)
+				}
+				if icand[0] == 'M' {
+					handshake(1, RS, resp1)
+				}
+				Multl = false
+				Multr = false
+				stage = 12
+			} else {
+				stage++
 			}
-		case c.val & Rp != 0 && buffer61:
-			buffer61 = false
-			f44 = true
 		}
-		if c.resp != nil {
-			c.resp <- 1
+	case c.val & Ccg != 0 && stage == 13:
+		which := -1
+		for i, f := range multff {
+			if f {
+				which = i
+				break
+			}
 		}
+		if iercl[which] == 1 {
+			accclear(8)
+		}
+		if icandcl[which] == 1 {
+			accclear(9)
+		}
+	case c.val & Onep != 0 && stage == 1:
+		Multl = true
+		Multr = true
+		sigfig = -1
+		for i := 0; i < 24; i++ {
+			if multff[i] {
+				sigfig = sigsw[i]
+			}
+		}
+		if sigfig == 0 && lhppII != nil {
+			handshake(1 << 10, lhppII, resp1)
+		} else if sigfig > 0 && sigfig < 9 && lhppI != nil {
+			handshake(1 << uint(sigfig - 1), lhppI, resp1)
+		}
+	case c.val & Fourp != 0 && stage == 1:
+		if sigfig == 0 && lhppII != nil {
+			handshake(1 << 10, lhppII, resp1)
+		} else if sigfig > 0 && sigfig < 9 && lhppI != nil {
+			handshake(1 << uint(sigfig - 1), lhppI, resp1)
+		}
+	case c.val & Onep != 0 && stage >= 2 && stage < 12:
+		ier = accstat(8)
+		icand = accstat(9)
+		lhpp := 0
+		rhpp := 0
+		for i := 0; i < 10; i++ {
+			ps10 := table10[ier[stage]-'0'][icand[i+2]-'0']
+			ps1 := table1[ier[stage]-'0'][icand[i+2]-'0']
+			if ps10.one == 1 {
+				lhpp |= 1 << uint(9 - i)
+			}
+			if ps1.one == 1 {
+				rhpp |= 1 << uint(9 - i)
+			}
+		}
+		shiftprod(lhpp, rhpp, resp1, resp2, resp3, resp4)
+	case c.val & Twop != 0 && stage >= 2 && stage < 12:
+		lhpp := 0
+		rhpp := 0
+		for i := 0; i < 10; i++ {
+			ps10 := table10[ier[stage]-'0'][icand[i+2]-'0']
+			ps1 := table1[ier[stage]-'0'][icand[i+2]-'0']
+			if ps10.two == 1 {
+				lhpp |= 1 << uint(9 - i)
+			}
+			if ps1.two == 1 {
+				rhpp |= 1 << uint(9 - i)
+			}
+		}
+		shiftprod(lhpp, rhpp, resp1, resp2, resp3, resp4)
+	case c.val & Twopp != 0 && stage >= 2 && stage < 12:
+		lhpp := 0
+		rhpp := 0
+		for i := 0; i < 10; i++ {
+			ps10 := table10[ier[stage]-'0'][icand[i+2]-'0']
+			ps1 := table1[ier[stage]-'0'][icand[i+2]-'0']
+			if ps10.twop == 1 {
+				lhpp |= 1 << uint(9 - i)
+			}
+			if ps1.twop == 1 {
+				rhpp |= 1 << uint(9 - i)
+			}
+		}
+		shiftprod(lhpp, rhpp, resp1, resp2, resp3, resp4)
+	case c.val & Fourp != 0 && stage >= 2 && stage < 12:
+		lhpp := 0
+		rhpp := 0
+		for i := 0; i < 10; i++ {
+			ps10 := table10[ier[stage]-'0'][icand[i+2]-'0']
+			ps1 := table1[ier[stage]-'0'][icand[i+2]-'0']
+			if ps10.four == 1 {
+				lhpp |= 1 << uint(9 - i)
+			}
+			if ps1.four == 1 {
+				rhpp |= 1 << uint(9 - i)
+			}
+		}
+		shiftprod(lhpp, rhpp, resp1, resp2, resp3, resp4)
+	case c.val & Onepp != 0 && stage >= 2 && stage < 12:
+		minplace := 10
+		for i := 0; i < 24; i++ {
+			if multff[i] && placsw[i] + 2 < minplace {
+				minplace = placsw[i] + 2
+			}
+		}
+		if stage == minplace + 1 && ier[0] == 'M' && icand[0] == 'M' {
+			handshake(1 << 10, rhppI, resp1)
+		}
+	case c.val & Rp != 0 && buffer61:
+		buffer61 = false
+		f44 = true
 	}
+}
+
+func makemultpulse() pulsefn {
+	resp1 := make(chan int)
+	resp2 := make(chan int)
+	resp3 := make(chan int)
+	resp4 := make(chan int)
+  return func(p pulse) {
+    multpulse(p, resp1, resp2, resp3, resp4)
+  }
+}
+
+func multunit() {
+	multupdate = make(chan int)
+	go multunit2()
 }
 
 func multunit2() {

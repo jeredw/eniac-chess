@@ -648,10 +648,10 @@ func main() {
 	f = append(f, makeinitiatepulse())
   f = append(f, makemppulse())
   f = append(f, makedivpulse())
-	multcyc := make(chan pulse)
+  f = append(f, makemultpulse())
 	conscyc := make(chan pulse)
 	prsw = make(chan [2]string)
-	p := append(cyctrunk, multcyc, conscyc)
+	p := append(cyctrunk, conscyc)
 	for i := 0; i < 20; i++ {
 		accsw[i] = make(chan [2]string)
 		f = append(f, makeaccpulse(i))
@@ -674,7 +674,7 @@ func main() {
 	go mpunit()
 	go cycleunit(cycout, f, cycbut)
 	go divunit()
-	go multunit(multcyc)
+	go multunit()
 	go consunit(conscyc)
 	for i := 0; i < 20; i++ {
 		go accctl(i, accsw[i])
