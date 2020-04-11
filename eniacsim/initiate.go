@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"time"
 	"strconv"
 )
 
@@ -11,7 +10,7 @@ var prff, printphase1, printphase2, rdff, rdilock, rdsync, rdfinish bool
 var initjack [18]chan pulse
 var initclrff [6]bool
 var initupdate chan int
-var prttmr time.Time
+var prtacyc int
 
 func initstat() string {
 	s := ""
@@ -82,7 +81,7 @@ func initplug(jack string, ch chan pulse) {
 }
 
 func initiateunit(cyctrunk chan pulse, button chan int, butdone chan int) {
-	var lastread time.Time
+	var lastread int
 
 	resp := make(chan int)
 	go initiateunit2()
@@ -114,12 +113,17 @@ func initiateunit(cyctrunk chan pulse, button chan int, butdone chan int) {
 					rdsync = false
 					rdfinish = false
 				}
-				if rdff && time.Since(lastread) > 375 * time.Millisecond {
+				acycmu.Lock()
+				sinceread := acyc - lastread
+				acycmu.Unlock()
+				if rdff && sinceread > mstoacyc(375) {
 					if cardscanner != nil {
 						if cardscanner.Scan() {
 							card := cardscanner.Text()
 							proccard(card)
-							lastread = time.Now()
+							acycmu.Lock()
+							lastread = acyc
+							acycmu.Unlock()
 							rdfinish = true
 						} else {
 							cardscanner = nil
@@ -129,7 +133,10 @@ func initiateunit(cyctrunk chan pulse, button chan int, butdone chan int) {
 				if rdfinish && rdilock {
 					rdsync = true
 				}
-				if printphase1 && time.Since(prttmr) > 150 * time.Millisecond {
+				acycmu.Lock()
+				sinceprint := acyc - prtacyc
+				acycmu.Unlock()
+				if printphase1 && sinceprint > mstoacyc(150) {
 					s := doprint()
 					if punchwriter != nil {
 						punchwriter.WriteString(s)
@@ -141,14 +148,18 @@ func initiateunit(cyctrunk chan pulse, button chan int, butdone chan int) {
 						ppunch <- s
 					}
 					handshake(1, initjack[16], resp)
-					prttmr = time.Now()
+					acycmu.Lock()
+					prtacyc = acyc
+					acycmu.Unlock()
 					printphase1 = false
 					printphase2 = true
 					prff = false
 				}
-				if printphase2 && time.Since(prttmr) > 450 * time.Millisecond {
+				if printphase2 && sinceprint > mstoacyc(450) {
 					if prff {
-						prttmr = time.Now()
+						acycmu.Lock()
+						prtacyc = acyc
+						acycmu.Unlock()
 						printphase1 = true
 					}
 					printphase2 = false
@@ -198,7 +209,9 @@ func initiateunit2() {
 				prff = true
 				if !printphase2 {
 					printphase1 = true
-					prttmr = time.Now()
+					acycmu.Lock()
+					prtacyc = acyc
+					acycmu.Unlock()
 				}
 			}
 			if p.resp != nil {
@@ -236,4 +249,8 @@ func initiateunit2() {
 			}
 		}
 	}
+}
+
+func mstoacyc(ms int) int {
+	return ms * 5000 / 1000
 }
