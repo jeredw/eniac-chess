@@ -26,6 +26,7 @@ type ft struct {
 	resp chan int
 	whichrp bool
 	px4119 bool
+	prog int
 }
 
 var ftable [3]ft
@@ -485,131 +486,133 @@ func subtrlookup(f *ft, c int) {
 	}
 }
 
-func ftunit(unit int, cyctrunk chan pulse) {
-	var prog int
+func ftpulse(f *ft, p pulse) {
+	if f.px4119 {
+		if p.val & Cpp != 0 {
+			p.val |= Ninep
+		} else {
+			p.val &= ^Ninep
+		}
+	}
+	c := p.val
+	if f.gatee42 {
+		sw := f.opsw[f.prog]
+		if c & Onep != 0 && (sw == 1 || sw == 3 || sw == 6 || sw == 8) {
+			f.arg++
+		}
+		if c & Twop != 0 && (sw == 2 || sw == 3 || sw == 6 || sw == 7) {
+			f.arg++
+		}
+		if c & Fourp != 0 && (sw == 4 || sw == 5) {
+			f.arg++
+		}
+	}
+	if f.add {
+		if f.arg >= 0 && f.arg < 104 {
+			addlookup(f, c)
+		} else {
+			fmt.Println("Invalid function table argument", f.arg)
+		}
+	}
+	if f.subtr {
+		if f.arg >= 0 && f.arg < 104 {
+			subtrlookup(f, c)
+		} else {
+			fmt.Println("Invalid function table argument", f.arg)
+		}
+	}
+	if c & Cpp != 0 {
+		switch f.ring {
+		case 0:  	// Stage -3
+			for f.prog = 0; f.prog < 11 && !f.inff2[f.prog]; f.prog++ { }
+			if f.prog >= 11 {
+				break
+			}
+			switch f.argsw[f.prog] {
+			case 1:
+				if f.jack[3] != nil {
+					f.jack[3] <- pulse{1, f.resp}
+					<- f.resp
+				}
+			case 2:
+				if f.jack[4] != nil {
+					f.jack[4] <- pulse{1, f.resp}
+					<- f.resp
+				}
+			}
+			f.ring++		// Stage -2 begins
+			f.gateh42 = true
+		case 1:
+			f.ring++		// Stage -1 begins
+			f.gateh42 = false
+			f.gatee42 = true
+		case 2:
+			f.ring++		// Stage 0 begins
+			f.gatee42 = false
+/*
+			if f.opsw[f.prog] < 5 {
+				f.add = true
+			} else {
+				f.subtr = true
+			}
+*/
+		case 3: 	 // Stage 0
+			f.ring++		// Stage 1 begins
+			if f.opsw[f.prog] < 5 {
+				f.add = true
+			} else {
+				f.subtr = true
+			}
+		default:  // Stages 1-9
+			if f.rptsw[f.prog] == f.ring - 4 {
+				if f.jack[f.prog*2+6] != nil {
+					f.jack[f.prog*2+6] <- pulse{1, f.resp}
+					<- f.resp
+				}
+				f.arg = 0
+				f.add = false
+				f.subtr = false
+				f.inff2[f.prog] = false
+				f.argsetup = false
+				f.ring = 0
+			} else {
+				f.ring++
+			}
+		}
+	}
+	if c & Ccg != 0 {
+		f.whichrp = false
+	}
+	if c & Rp != 0 {
+		if f.whichrp {
+			for i, _ := range(f.inff1) {
+				if f.inff1[i] {
+					f.inff1[i] = false
+					f.inff2[i] = true
+				}
+			}
+			f.whichrp = false
+		} else {
+			f. whichrp = true
+		}
+	}
+	if f.ring == 2 && c & Onepp != 0 {
+		f.argsetup = true
+	}
+}
 
+func makeftpulse(unit int) pulsefn {
+	f := &ftable[unit]
+	return func(p pulse) {
+		ftpulse(f, p)
+	}
+}
+
+func ftunit(unit int) {
 	f := &ftable[unit]
 	f.update = make(chan int)
 	go ftunit2(f)
 	f.resp = make(chan int)
-	for {
-		p :=<- cyctrunk
-		if f.px4119 {
-			if p.val & Cpp != 0 {
-				p.val |= Ninep
-			} else {
-				p.val &= ^Ninep
-			}
-		}
-		c := p.val
-		if f.gatee42 {
-			sw := f.opsw[prog]
-			if c & Onep != 0 && (sw == 1 || sw == 3 || sw == 6 || sw == 8) {
-				f.arg++
-			}
-			if c & Twop != 0 && (sw == 2 || sw == 3 || sw == 6 || sw == 7) {
-				f.arg++
-			}
-			if c & Fourp != 0 && (sw == 4 || sw == 5) {
-				f.arg++
-			}
-		}
-		if f.add {
-			if f.arg >= 0 && f.arg < 104 {
-				addlookup(f, c)
-			} else {
-				fmt.Println("Invalid function table argument", f.arg)
-			}
-		}
-		if f.subtr {
-			if f.arg >= 0 && f.arg < 104 {
-				subtrlookup(f, c)
-			} else {
-				fmt.Println("Invalid function table argument", f.arg)
-			}
-		}
-		if c & Cpp != 0 {
-			switch f.ring {
-			case 0:  	// Stage -3
-				for prog = 0; prog < 11 && !f.inff2[prog]; prog++ { }
-				if prog >= 11 {
-					break
-				}
-				switch f.argsw[prog] {
-				case 1:
-					if f.jack[3] != nil {
-						f.jack[3] <- pulse{1, f.resp}
-						<- f.resp
-					}
-				case 2:
-					if f.jack[4] != nil {
-						f.jack[4] <- pulse{1, f.resp}
-						<- f.resp
-					}
-				}
-				f.ring++		// Stage -2 begins
-				f.gateh42 = true
-			case 1:
-				f.ring++		// Stage -1 begins
-				f.gateh42 = false
-				f.gatee42 = true
-			case 2:
-				f.ring++		// Stage 0 begins
-				f.gatee42 = false
-/*
-				if f.opsw[prog] < 5 {
-					f.add = true
-				} else {
-					f.subtr = true
-				}
-*/
-			case 3: 	 // Stage 0
-				f.ring++		// Stage 1 begins
-				if f.opsw[prog] < 5 {
-					f.add = true
-				} else {
-					f.subtr = true
-				}
-			default:  // Stages 1-9
-				if f.rptsw[prog] == f.ring - 4 {
-					if f.jack[prog*2+6] != nil {
-						f.jack[prog*2+6] <- pulse{1, f.resp}
-						<- f.resp
-					}
-					f.arg = 0
-					f.add = false
-					f.subtr = false
-					f.inff2[prog] = false
-					f.argsetup = false
-					f.ring = 0
-				} else {
-					f.ring++
-				}
-			}
-		}
-		if c & Ccg != 0 {
-			f.whichrp = false
-		}
-		if c & Rp != 0 {
-			if f.whichrp {
-				for i, _ := range(f.inff1) {
-					if f.inff1[i] {
-						f.inff1[i] = false
-						f.inff2[i] = true
-					}
-				}
-				f.whichrp = false
-			} else {
-				f. whichrp = true
-			}
-		}
-		if f.ring == 2 && c & Onepp != 0 {
-			f.argsetup = true
-		}
-		if p.resp != nil {
-			p.resp <- 1
-		}
-	}
 }
 
 func ftunit2(f *ft) {

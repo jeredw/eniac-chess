@@ -39,35 +39,6 @@ func b2is(b bool) string {
 	return "0"
 }
 
-func fanout(in chan pulse, out []chan pulse) {
-	var q pulse
-
-	q.resp = make(chan int)
-	for {
-		p :=<- in
-		nresp := 0
-		if p.val != 0 {
-			q.val = p.val
-			for _,c := range out {
-foo:
-				for {
-					select {
-					case c <- q:
-						break foo
-					case <- q.resp:
-						nresp++
-					}
-				}
-			}
-		}
-		for nresp < len(out) {
-			<- q.resp
-			nresp++
-		}
-		p.resp <- 1
-	}
-}
-
 func tee(a, b chan pulse) chan pulse {
 	var t = make(chan pulse)
 	go func() {
@@ -609,8 +580,6 @@ func ctlstation() {
 }
 
 func main() {
-	var ftcyc [3]chan pulse
-
 	flag.Usage = func () {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] [configuration file]\n", os.Args[0])
 		flag.PrintDefaults()
@@ -642,26 +611,22 @@ func main() {
 	divsw = make(chan [2]string)
 	multsw = make(chan [2]string)
 	conssw = make(chan [2]string)
-	cycout := make(chan pulse)
-	cyctrunk := make([]chan pulse, 0, 40)
-	var f []pulsefn
-	f = append(f, makeinitiatepulse())
-	f = append(f, makemppulse())
-	f = append(f, makedivpulse())
-	f = append(f, makemultpulse())
-	f = append(f, makeconspulse())
+	f := []pulsefn{
+		makeinitiatepulse(),
+		makemppulse(),
+		makedivpulse(),
+		makemultpulse(),
+		makeconspulse(),
+	}
 	prsw = make(chan [2]string)
-	p := cyctrunk
 	for i := 0; i < 20; i++ {
 		accsw[i] = make(chan [2]string)
 		f = append(f, makeaccpulse(i))
 	}
 	for i := 0; i < 3; i++ {
 		ftsw[i] = make(chan [2]string)
-		ftcyc[i] = make(chan pulse)
-		p = append(p, ftcyc[i])
+		f = append(f, makeftpulse(i))
 	}
-	go fanout(cycout, p)
 
 	go consctl(conssw)
 	go mpctl(mpsw)
@@ -672,7 +637,7 @@ func main() {
 
 	go initiateunit(initbut, initbutdone)
 	go mpunit()
-	go cycleunit(cycout, f, cycbut)
+	go cycleunit(f, cycbut)
 	go divunit()
 	go multunit()
 	go consunit()
@@ -682,7 +647,7 @@ func main() {
 	}
 	for i := 0; i < 3; i++ {
 		go ftctl(i, ftsw[i])
-		go ftunit(i, ftcyc[i])
+		go ftunit(i)
 	}
 
 	if flag.NArg() >= 1 {
