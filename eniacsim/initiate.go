@@ -97,6 +97,9 @@ func initiateunit(cyctrunk chan pulse, button chan int, butdone chan int) {
 				} else if gate66 == 1 {
 					gate69 = 1
 				}
+				cmodemu.Lock()
+				stepping := cmode == Add || cmode == Pulse
+				cmodemu.Unlock()
 				for i, ff := range initclrff {
 					if ff {
 						if initjack[2*i+1] != nil {
@@ -116,7 +119,7 @@ func initiateunit(cyctrunk chan pulse, button chan int, butdone chan int) {
 				acycmu.Lock()
 				sinceread := acyc - lastread
 				acycmu.Unlock()
-				if rdff && sinceread > mstoacyc(375) {
+				if rdff && (stepping || sinceread > mstoacyc(375)) {
 					if cardscanner != nil {
 						if cardscanner.Scan() {
 							card := cardscanner.Text()
@@ -136,7 +139,7 @@ func initiateunit(cyctrunk chan pulse, button chan int, butdone chan int) {
 				acycmu.Lock()
 				sinceprint := acyc - prtacyc
 				acycmu.Unlock()
-				if printphase1 && sinceprint > mstoacyc(150) {
+				if printphase1 && (stepping || sinceprint > mstoacyc(150)) {
 					s := doprint()
 					if punchwriter != nil {
 						punchwriter.WriteString(s)
@@ -155,7 +158,7 @@ func initiateunit(cyctrunk chan pulse, button chan int, butdone chan int) {
 					printphase2 = true
 					prff = false
 				}
-				if printphase2 && sinceprint > mstoacyc(450) {
+				if printphase2 && (stepping || sinceprint > mstoacyc(450)) {
 					if prff {
 						acycmu.Lock()
 						prtacyc = acyc
