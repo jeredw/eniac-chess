@@ -263,8 +263,8 @@ s f3.B2d D
 s f3.B3d D
 s f3.B4d D
 
-l legrange
-l cosine
+l tests/legrange
+l tests/cosine
 
 # load the argument x into Acc 18
 p c.o 1
