@@ -17,6 +17,9 @@ type pulse struct {
 }
 
 var initbut, cycbut chan int
+var initbutdone chan int
+var teststart chan int
+var testdone chan int
 var ppunch chan string
 var mpsw, conssw, cycsw, multsw, divsw, prsw chan [2]string
 var accsw [20]chan [2]string
@@ -25,6 +28,7 @@ var width, height int
 var cardscanner *bufio.Scanner
 var punchwriter *bufio.Writer
 var demomode, tkkludge, usecontrol *bool
+var testcycles *int
 
 func b2is(b bool) string {
 	if b {
@@ -98,6 +102,26 @@ func tee(a, b chan pulse) chan pulse {
 	return t
 }
 
+func dumpall() {
+	fmt.Println()
+	fmt.Println(initstat())
+	fmt.Println(mpstat())
+	acchdr := "      9876543210 9876543210 r 123456789012"
+	fmt.Printf("%s   %s\n", acchdr, acchdr)
+	for i := 0; i < 20; i += 2 {
+		fmt.Print(accstat(i))
+		fmt.Print("   ")
+		fmt.Println(accstat(i+1))
+	}
+	fmt.Println(divsrstat2())
+	fmt.Println(multstat())
+	for i := 0; i < 3; i++ {
+		fmt.Println(ftstat(i))
+	}
+	fmt.Println(consstat())
+	fmt.Println()
+}
+
 func proccmd(cmd string) int {
 	f := strings.Fields(cmd)
 	for i, s := range f {
@@ -118,14 +142,21 @@ func proccmd(cmd string) int {
 		switch f[1] {
 		case "c":
 			initbut <- 5
+			<- initbutdone
 		case "i":
 			initbut <- 4
+			<- initbutdone
 		case "p":
 			cycbut <- 1
 			<- cycbutdone
 		case "r":
 			initbut <- 3
+			<- initbutdone
 		}
+	case "n":
+		cycbut <- 1
+		<- cycbutdone
+		dumpall()
 	case "d":
 		if len(f) != 2 {
 			fmt.Println("Status syntax: d unit")
@@ -151,28 +182,8 @@ func proccmd(cmd string) int {
 		case 'p':
 			fmt.Println(mpstat())
 		}
-	case "n":
-		cycbut <- 1
-		<- cycbutdone
-		fallthrough
 	case "D":
-		fmt.Println()
-		fmt.Println(initstat())
-		fmt.Println(mpstat())
-		acchdr := "      9876543210 9876543210 r 123456789012"
-		fmt.Printf("%s   %s\n", acchdr, acchdr)
-		for i := 0; i < 20; i += 2 {
-			fmt.Print(accstat(i))
-			fmt.Print("   ")
-			fmt.Println(accstat(i+1))
-		}
-		fmt.Println(divsrstat2())
-		fmt.Println(multstat())
-		for i := 0; i < 3; i++ {
-			fmt.Println(ftstat(i))
-		}
-		fmt.Println(consstat())
-		fmt.Println()
+		dumpall()
 	case "f":
 		if len(f) != 3 {
 			fmt.Println("file syntax: f (r|p) filename")
@@ -608,6 +619,7 @@ func main() {
 	nogui := flag.Bool("g", false, "run without GUI")
 	tkkludge = flag.Bool("K", false, "work around wish memory leaks")
 	wp := flag.Int("w", 0, "`width` of the simulation window in pixels")
+	testcycles = flag.Int("t", 0, "run for n add cycles and dump state")
 	flag.Parse()
 	width = *wp
 	if !*nogui {
@@ -619,9 +631,12 @@ func main() {
 	}
 
 	initbut = make(chan int)
+	initbutdone = make(chan int)
 	cycsw = make(chan [2]string)
 	cycbut = make(chan int)
 	cycbutdone = make(chan int)
+	teststart = make(chan int)
+	testdone = make(chan int)
 	mpsw = make(chan [2]string)
 	divsw = make(chan [2]string)
 	multsw = make(chan [2]string)
@@ -654,7 +669,7 @@ func main() {
 	go multctl(multsw)
 	go prctl(prsw)
 
-	go initiateunit(initcyc, initbut)
+	go initiateunit(initcyc, initbut, initbutdone)
 	go mpunit(mpcyc)
 	go cycleunit(cycout, cycbut)
 	go divunit(divcyc)
@@ -673,6 +688,13 @@ func main() {
 		// Seriously ugly hack to give other goprocs time to get initialized
 		time.Sleep(100*time.Millisecond)
 		proccmd("l " + flag.Arg(0))
+	}
+
+	if *testcycles > 0 {
+		teststart <- 1
+		<- testdone
+		dumpall()
+		return
 	}
 
 	sc := bufio.NewScanner(os.Stdin)

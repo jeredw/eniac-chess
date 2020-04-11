@@ -68,6 +68,9 @@ func cycstat() string {
 }
 
 func cycsetmode(newmode int) {
+	if *testcycles > 0 && newmode != Cont {
+		return
+	}
 	cmodemu.Lock()
 	waiting_for_button := intbch != nil && (cmode == Add || cmode == Pulse)
 	cmode = newmode
@@ -117,6 +120,10 @@ func cyclectl(cch chan [2]string) {
 
 func cycleunit(cch chan pulse, bch chan int) {
 	var p pulse
+
+	if *testcycles > 0 {
+		<- teststart
+	}
 
 	intbch = make(chan int)
 	go func () {
@@ -173,6 +180,11 @@ func cycleunit(cch chan pulse, bch chan int) {
 		}
 		acycmu.Lock()
 		acyc++
+		if *testcycles > 0 && acyc >= *testcycles {
+			acycmu.Unlock()
+			testdone <- 1
+			break
+		}
 		acycmu.Unlock()
 		if wait_for_add {
 			cycbutdone <- 1

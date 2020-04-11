@@ -81,7 +81,7 @@ func initplug(jack string, ch chan pulse) {
 	initupdate <- 1
 }
 
-func initiateunit(cyctrunk chan pulse, button chan int) {
+func initiateunit(cyctrunk chan pulse, button chan int, butdone chan int) {
 	var lastread time.Time
 
 	resp := make(chan int)
@@ -173,6 +173,7 @@ func initiateunit(cyctrunk chan pulse, button chan int) {
 				rdff = true
 				rdilock = true
 			}
+			butdone <- 1
 		}
 	}
 }
