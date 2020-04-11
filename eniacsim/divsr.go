@@ -639,67 +639,70 @@ func doIIIP() {
 	divsr.progring++
 }
 
-func divunit(cyctrunk chan pulse) {
+func divpulse(p pulse, resp chan int) {
+	switch {
+	case p.val & Cpp != 0:
+		if divsr.progring == 0 {
+			divsr.ans1 = false
+			divsr.ans2 = false
+			divsr.ans3 = false
+			divsr.ans4 = false
+			divsr.su2 &^= su2qA | su2qS | su2qCLR
+			divsr.su3 &^= su3A | su3S | su3CLR
+		}
+		if divsr.curprog >= 0 {
+			if divsr.psrcff == false {			// Gate F4
+				doGP(resp)
+			} else {						// Gate F5
+				doIIIP()
+			}
+		}
+	case p.val & Rp != 0:
+		/*
+		 * Ugly hack to avoid races
+		 */
+		for i := 0; i < 8; i++ {
+			if divsr.preff[i] {
+				divsr.preff[i] = false
+				divsr.progff[i] = true
+				divsr.curprog = i
+			}
+		}
+	case p.val & Onep != 0 && divsr.p1 || p.val & Twop != 0 && divsr.p2:
+		if divsr.placering < 9 {
+			handshake(1 << uint(8 - divsr.placering), divsr.answer, resp)
+		}
+	case p.val & Onep != 0 && divsr.m2 || p.val & Twopp != 0 && divsr.m1:
+		handshake(0x7ff, divsr.answer, resp)
+	case p.val & Onep != 0 && divsr.m1 || p.val & Twopp != 0 && divsr.m2:
+		if divsr.placering < 9 {
+			handshake(0x7ff ^ (1 << uint(8 - divsr.placering)), divsr.answer, resp)
+		} else {
+			handshake(0x7ff, divsr.answer, resp)
+		}
+	case (p.val & Fourp != 0 || p.val & Twop != 0) && (divsr.m1 || divsr.m2):
+		handshake(0x7ff, divsr.answer, resp)
+	case p.val & Onepp != 0:
+		if divsr.m1 || divsr.m2 {
+			handshake(1, divsr.answer, resp)
+		}
+		if divsr.psrcff == false && divsr.sα {		// Gate L45
+			divsr.placering++
+		}
+	}
+}
+
+func makedivpulse() pulsefn {
 	resp := make(chan int)
+	return func(p pulse) {
+		divpulse(p, resp)
+	}
+}
+
+func divunit() {
 	divsr.divupdate = make(chan int)
 	go divunit2()
 	divintclear()
-	for {
-		p :=<- cyctrunk
-		switch {
-		case p.val & Cpp != 0:
-			if divsr.progring == 0 {
-				divsr.ans1 = false
-				divsr.ans2 = false
-				divsr.ans3 = false
-				divsr.ans4 = false
-				divsr.su2 &^= su2qA | su2qS | su2qCLR
-				divsr.su3 &^= su3A | su3S | su3CLR
-			}
-			if divsr.curprog >= 0 {
-				if divsr.psrcff == false {			// Gate F4
-					doGP(resp)
-				} else {						// Gate F5
-					doIIIP()
-				}
-			}
-		case p.val & Rp != 0:
-			/*
-			 * Ugly hack to avoid races
-			 */
-			for i := 0; i < 8; i++ {
-				if divsr.preff[i] {
-					divsr.preff[i] = false
-					divsr.progff[i] = true
-					divsr.curprog = i
-				}
-			}
-		case p.val & Onep != 0 && divsr.p1 || p.val & Twop != 0 && divsr.p2:
-			if divsr.placering < 9 {
-				handshake(1 << uint(8 - divsr.placering), divsr.answer, resp)
-			}
-		case p.val & Onep != 0 && divsr.m2 || p.val & Twopp != 0 && divsr.m1:
-			handshake(0x7ff, divsr.answer, resp)
-		case p.val & Onep != 0 && divsr.m1 || p.val & Twopp != 0 && divsr.m2:
-			if divsr.placering < 9 {
-				handshake(0x7ff ^ (1 << uint(8 - divsr.placering)), divsr.answer, resp)
-			} else {
-				handshake(0x7ff, divsr.answer, resp)
-			}
-		case (p.val & Fourp != 0 || p.val & Twop != 0) && (divsr.m1 || divsr.m2):
-			handshake(0x7ff, divsr.answer, resp)
-		case p.val & Onepp != 0:
-			if divsr.m1 || divsr.m2 {
-				handshake(1, divsr.answer, resp)
-			}
-			if divsr.psrcff == false && divsr.sα {		// Gate L45
-				divsr.placering++
-			}
-		}
-		if p.resp != nil {
-			p.resp <- 1
-		}
-	}
 }
 
 func divunit2() {
