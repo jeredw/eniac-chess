@@ -532,47 +532,48 @@ func incdecset(st int) {
 	}
 }
 
-func mpunit(cyctrunk chan pulse) {
-	var p pulse
-
-	mpupdate = make(chan int)
-	go mpunit2()
-	resp := make(chan int)
-	for {
-		p =<- cyctrunk
-		cyc := p.val
-		if cyc & Cpp != 0 {
-			for i, s := range step {
-				if cycgate(i) {
-					clrdecset(i)
-					incstep(i)
-				}
-				// Unclear what this should be: probably > 3 and < 12
-				if s.inff >= 6 {
-					incdecset(i)
-					step[i].inff = 0
-					if s.o[s.stage] != nil {
-						s.o[s.stage] <- pulse{1, resp}
-						<- resp
-					}
-				}
-			}
-		} else if cyc & Tenp != 0 {
-			for i := 0; i < len(step); i++ {
-				step[i].kludge = false
-			}
-		}
-		if p.resp != nil {
-			p.resp <- 1
-		}
-		// Simulate "flip-flop...time constant approximately equal to that
-		// of the slow buffer output of a transceiver."  Huskey TM II, Ch X
+func mppulse(p pulse, resp chan int) {
+	cyc := p.val
+	if cyc & Cpp != 0 {
 		for i, s := range step {
-			if s.inff > 0 {
-				step[i].inff++
+			if cycgate(i) {
+				clrdecset(i)
+				incstep(i)
 			}
+			// Unclear what this should be: probably > 3 and < 12
+			if s.inff >= 6 {
+				incdecset(i)
+				step[i].inff = 0
+				if s.o[s.stage] != nil {
+					s.o[s.stage] <- pulse{1, resp}
+					<- resp
+				}
+			}
+		}
+	} else if cyc & Tenp != 0 {
+		for i := 0; i < len(step); i++ {
+			step[i].kludge = false
 		}
 	}
+	// Simulate "flip-flop...time constant approximately equal to that
+	// of the slow buffer output of a transceiver."  Huskey TM II, Ch X
+	for i, s := range step {
+		if s.inff > 0 {
+			step[i].inff++
+		}
+	}
+}
+
+func makemppulse() pulsefn {
+  resp := make(chan int)
+  return func(p pulse) {
+    mppulse(p, resp)
+  }
+}
+
+func mpunit() {
+	mpupdate = make(chan int)
+	go mpunit2()
 }
 
 func mpunit2() {
