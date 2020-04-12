@@ -26,9 +26,8 @@ Doing this involves multiple layers of tools and cross-validation.
 | `model/`       | High level models for the chess engine, written in Python to test tiny chess algorithms |
 | `chester.asm`  | Chess program written in VM assembly |
 | `chester.e`    | Chess for the ENIAC. Result of concatenating `chessvm.e` (VM patch settings) with output of `chasm` on `chester.asm` (code in function tables) |
-| `eniacsim/`    | Brian L. Stuart's ENIAC simulator (modified) |
 
-We then run `chester.e` on an ENIAC simulator -- we use Brian Stuart's [pulse-level simulation](https://www.cs.drexel.edu/~bls96/eniac/) as it supports the adapters we need to permute digit trunks, and it seems to be the gold standard of historical fidelity.
+We then run `chester.e` on an [ENIAC simulator](https://www.github.com/jeredw/eniacsim).
 
 # Playing with SCID
 
