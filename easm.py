@@ -361,11 +361,13 @@ class Assembler(object):
     if len(args) != len(macro.args):
       raise SyntaxError(f'macro argument count mismatch')
 
+    # comment macro invocation and output it
+    outlines = '# ' + line + '\n'
+
     # map from argument names to values
     arg_values = dict(zip(macro.args, args))
 
     # output macro lines with appropriate substitutions
-    outlines = ''
     for line in macro.lines:
       for name, value in arg_values.items():
         line = line.replace(f'${name}', value)

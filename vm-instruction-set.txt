@@ -1,12 +1,4 @@
 
-ACCUMULATOR LAYOUT 
-
-1 - registers  +/- AA BB CC DD EE 
-2 - PC         CCC BBB AAAA
-3 - IR         I6 I5 I4 I3 I2
-4 - execute    XX XX XX XX I1
-5 - load/store FF GG HH II JJ
-6 - 20 = memory addresses 00-74
 
 
 51 ORDER CODE (v4, extended registers)
@@ -16,7 +8,7 @@ ACCUMULATOR LAYOUT
 02 - swap A,C
 03 - swap A,D
 04 - swap A,E
-05 - swap A,F
+05 - swap A,F     ? imeplementable??
 
 10 - loadacc A    ; acc A -> FGHIJ
 11 - storeacc A   ; FGHIJ -> acc A
@@ -37,13 +29,13 @@ ACCUMULATOR LAYOUT
 32 - mov A,J
 33 - 
 34 - indexswap    ; next instruction = G%5
-35 - 
+35 - clr A
 
 40 - mov A,#XX
 41 - mov D,#XX   
-42 - mov A,[#XX]  ; mov B,#XX; jsr LOAD
-43 - mov A,[B]    ; jsr LOAD
-44 - mov [#XX],A  ; mov B,#XX; jsr STORE
+42 - mov A,[#XX]
+43 - mov A,[B]
+44 - mov [#XX],A
 45 - indexacc     ; A = 2*B2 + B1>4
 
 50 - inc A
@@ -73,86 +65,370 @@ ACCUMULATOR LAYOUT
 
 
 
+ACCUMULATOR LAYOUT 
+------------------
+Typical contents, plus wiring for inputs and outputs
 
 
-Extended accumulator plan
--------------------------
+PC:
+Current program counter VVVV and return address WWWW, plus a temp UU
+layout: UU WWWW VVVV
+
+A - mp steppers, main minus top 2 to clear opcode
+S - mp steppers
+a - from exA
+b - loadim2-irS: IR xx xx xx xx I1 -> 00 00 00 00 I1, used for JN/JZ/JIL
+g - shiftl4-exA, used for JSR
+d - from FT, first instruction only
+e - shiftl8-irS: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
 
 
-1 - RF
-Register file
-+/- AA BB CC DD EE 
-No sends
+IR:
+Up to five next instructions, stored as complement so 99 fills in from the left
+P0 if empty, otherwise M 99-I6 99-I5 99-I4 99-I3 100-I2
 
-2 - PC         
-Program counter
-CCC BBB AAAA
-Send S A4,A3 to ft3,ft2 program inputs to fetch
+A - d-irA, I6 I5 I4 I3 I2 I1 -> I1 I6 I5 I4 I3 I2, used in control cycle
+S - d-irS
+a - from FT
+b - fill99exA: replace top 2 digits with 99, requires ex.PM = M
+d - fill99exS: replace top 2 digits with 99, requires ex.PM = P
+AS - fetch discriminate
 
-3 - IR
-Instruction register
-I6 I5 I4 I3 I2
-discriminate on PM to detect fetch needed
-  P only for regular use via A
+EX:
+General purpose execture register, also used to disc opcode >53
+typically: 100-I1 XX XX XX XX 
 
-4 - EX
-execute    
-XX XX XX XX I1
-discriminate on PM to detect opcode <= 53
-  P only for regular use via A
+A - d-exA
+S - d-exS
+AS - op discriminate
+a - main: main load -- drop sign?
+b - clearA from main: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
+g - clearPC2: from main/PC, XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
+g - clearPC4: from main/PC, XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
+e - shiftl4: from main/PC, XX YY YY 43 32 -> XX 43 21 00 00, used for JSR
 
-5 - LS
-load/store. Make this a13 for card printing?
-ZZ XX XX XX XX  
+RF:
+Main register file - use a13 to print?
+layout: P/M AA BB CC DD EE
+
+A - main
+S - main
+a - main
+b - movAB from exA.
+g - movAC from exA. 
+d - movAD from exA, preserve PM too for ADD,SUB
+e - clearA from main: PM XX XX XX XX XX -> P 00 XX XX XX XX
 
 
-6 - MEM6
-Discriminate PM to LOADACC
-P only for regular use via A
+LS:
+Secondary register file / load/store accumulator 
+layout: FF GG HH II JJ
 
-7 - MEM7
-Send S to load 0-9
+A - main
+S - select A to RF
+a-e select?
 
-8 - MEM8
+
+MEM6:
+Discriminate PM for LOADACC
+a - main
+b - onlyPM: ad.d.x.0, used to restore PM after disc
+
+MEM7:
+load 0-9 / far jump
+A - main
+S - load 0-9
+a - main
+b - exA
+g - loadim4-irS:  XX XX XX I2 I1 -> 00 00 00 I1 I2
+
+MEM8:
 Send S to load 10-14
 
-9 - MEM9
-Discriminate PM to STOREACC
-P only for regular use via A
+MEM9:
+Discriminate PM for STOREACC
+a - main
+b - onlyPM: ad.d.x.0, used to restore PM after disc
 
-10 - MEM10
+MEM10:
 Send S to store 0-9
 
-11 - MEM11
+MEM11:
 Send S to store 10-14
 
+MEM12:
+a - main
+b-e - swap A,x, always zero the sign
+
+no MEM13 because RF=a13 so it can be printed
+
+14/15/16 used for MOV A,[FGHIJ]
+
+MEM14:
+S - delete 1-8, PM XX XX XX XX XX -> PM XX 00 00 00 00
+a - main 
+b - exA 
+g - zeroA: XX XX XX XX XX -> 00 XX XX XX XX
+d - selAF: select A/F - select A/F, XX XX XX XX XX -> XX 00 00 00 00
+e - selBG: select B/G - select B/G, XX XX XX XX XX -> 00 XX 00 00 00 
+
+MEM15:
+a - main 
+b - exA 
+g - zeroA: XX XX XX XX XX -> 00 XX XX XX XX
+d - selCH: select C/H, XX XX XX XX XX -> 00 00 XX 00 00
+e - selDI:  select D/I, PM XX XX XX XX XX -> PM 00 00 00 XX 00, preserve sign for SUB
+
+MEM16:
+a - main 
+b - exA 
+g - zeroA: XX XX XX XX XX -> 00 XX XX XX XX
+d - selEJ: select E/J, XX XX XX XX XX -> 00 00 00 00 XX
+e - movAE: AA BB CC DD EE -> EE BB CC DD EE
+
+MEM17:
+Discriminate the JN conditional jump
+A - main, disc JN
+S - main, disc JN
+a - main
+
+MEM18: 
+Discriminate the JZ conditional jump, part 1
+A - main, disc JZ1A
+S - main, disc JZ1B
+a - main
+b - exA
+
+MEM19:
+Discriminate the JZ conditional jump, part 2
+A - main, disc JZ2A
+S - main, disc JZ2B
+a - main
+b - exA
+
+MEM20:
+Discriminate the JIL conditional
 
 
-INSTRUCTION IMPLEMENTATIONS
----------------------------
+CONTROL CYCLE
+-------------
+
+1. clear EX
+2. IR -> EX, IR-S-shiftl8->PC, disriminate IR   
+  (IR < 0)
+  3. EX += 53
+  4. EX -fill99exA-> IR, IR+=1, disc EX, clear EX, clear master programmer
+    (EX>=0, op<=53)
+    5. PC -clearA-> EX, PC-A->master programmer, IR += 99 00 00 00 00 
+    6. EX -> PC, PC +=1
+    7. operation begins in this add time
+  else
+    (EX<0, op>53)
+    5. PC += offset<<8
+    6. PC-S-clearA->EX, PC-S->master programmer 
+    7. EX-S->PC, clear EX, PC +=1
+    8. operation begins in this add time
+else
+  3. stim FT
+  4. PC->FT
+  5. PC += 01 << 8
+  6.
+  7. FT -> IR,PC,EX
+  8. EX += 53
+  9. clear mp, IR+=1, clear EX, disc EX (goto 5)
+
+
+OPCODE MICROPROGRAMS
+--------------------
+
+MOV A,[BCD]
+1. RF -x-> EX
+2. EX -> RF, ADD A,D
+1. MEM15 -> EX, clear
+2. RF -selDI-> MEM15
+3. MEM15 -movAD-> RF, clear
+4. EX->MEM15, clearclear EX
+
+
+MOV A,E
+1. MEM16 -> EX, clear
+2. RF -movAE-> MEM16, clear
+3. MEM16 -> RF, clear
+4. EX -> MEM16, clear
+
+
+SWAP A,[BCDE]
+1. MEM12 -> EX, clear
+2. RF -x-> MEM12, clear
+3. MEM12 -> RF, clear
+4. EX->MEM12, clear
+
+
+MOV A,[FGHIJ]
+1. MEM14/15/16 -> EX
+2. RF -clearA-> MEM14/15/16, clear
+3. LS ->selX-> MEM14/15/16
+4. MEM14/15/16 -> RF, clear
+5. EX -> MEM14/15/16, clear
+
+
+SWAP A,F
+??
+M -> EX, clear
+LS -sel A-> PC, LS -mask A-> M, clear  ?? PC sel A?
+M -> LS, clear
+RF -mask A-> M, RF -sel A->LS, clear
+M -> RF, PC ->sel A-> RF ?? PC sel A?
+EX->M, clear
+
+
+MOV A,#X
+1. RF -clearA-> EX, clear   
+2. EX -> RF, clear
+3. IR -S-> EX, clear      # assumes IR<0 so disc is not triggered
+4. EX -S-> RF, EX -S-fill99-> IR, clear   
+
+The +1 from EX->S both advances 99-I2 to 100-I2 in IR, and converts 100-I1 to I1 in RF
+MOV A,#0 will fail because it will overflow a +1 to I2 on previous fetch cycle (100-0 = 100)
+
+
+CLR A
+1. RF -clearA-> EX, clear   
+2. EX -> RF, clear
+
+
+INC A
+CT sends P 01 00 00 00 00 -> RF
+
+
+INC B
+?? works unless B=99, then changes sign on A!
+1. MEM12 -> EX, clear
+2. RF -swapB-> MEM12, clear
+3. MEM12 += CT P 01 00 00 00 00
+4. MEM12 -> RF, clear
+2. RF -swapB-> MEM12, clear
+4. MEM12 -> RF, clear
+1. EX->MEM12, clear
+
+
+DEC A
+CT sends M 99 00 00 00 00 -> RF
+
+
+ADD A,D
+1. MEM15 -> EX, clear
+2. RF -selDI-> MEM15
+3. MEM15 -movAD-> RF, clear   # movAD must preserve sign!
+4. EX->MEM15, clear
+
+
+SUB A,D
+1. MEM15 -> EX, clear
+2. RF -S-selDI-> MEM15        # selDI must preserve sign!
+3. MEM15 -movAD-> RF, clear   # movAD must preserve sign!
+4. EX->MEM15, clear
+
+
+NEG A
+1. MEM14 -> EX, clear
+2. RF -> MEM14, clear
+3. MEM14 -clearA-> RF         # clearA must clear sign
+4. MEM14 -S-> RF, clear
+5. EX->MEM14, clear
+
+
+JMP XXXX 
+1. PC ->clearPC4-> EX, clear    # zero current FT,PC
+2. EX -exA-> PC, clear
+3. MEM7 -> EX, clear
+4. IR -S-loadim4-> MEM7         # load next PC
+5. MEM7 -> PC, clear
+6. EX -> MEM7, clear
+goto fetchline
+
+
+JN XX
+1. MEM17->EX, clear
+2. RF->MEM17
+3. disc MEM17, clear
+  (A>=0)
+  4. EX->MEM17, clear
+  (A<0)
+  4. EX->MEM17, clear
+  5. PC ->clearPC2-> EX         # zero current PC
+  6. EX -exA-> PC
+  7. IR -S-loadim2-irS-> PC     # load next PC
+     goto fetchline
+
+
+JZ XX
+1. MEM18 -> EX, clear
+2. RF -> MEM18
+3. disc MEM18, clear
+  (X<0)
+  goto fetch
+  (X>0)
+  4. EX -> MEM18, clear
+  5. MEM19 -> EX, clear
+  6. RF -S-> MEM19
+  7  MEM19 += P 01 00 00 00 00
+  8. disc MEM19, clear
+    (X<0)
+    goto fetch
+    (x>=0)
+    9. EX->MEM19, clear
+    10. PC ->clearPC2-> EX      # zero current PC
+    11. EX -exA-> PC
+    12. IR -S-loadim2-irS-> PC  # load next PC
+    goto fetchline
+
+
+JSR XXXX
+1. PC ->shiftl4 -> EX, clear    # save current PC
+2. EX -> PC, clear
+3. MEM7 -> EX, clear
+4. IR -S-loadim4-> MEM7         # load next PC
+5. MEM7 -> PC, clear
+6. EX -> MEM7, clear
+goto fetchline
+
+RET
+PC -> EX    
+EX -shiftr4-> PC      # restore prev PC
+goto fetchline
+
+
+
+
+
+NEXTLINE
+goto fetchline
+
+
+
 
 LOADACC A
 ---------
 # accumulator index in A, store result in LS
 
 # start the FT lookup on A1 immediately, setup condition on A2
-1 - ping FT3, send A2 to MEM9 PM, clear LS
 
-2 - send A1 to ft3, discriminate MEM9
-
-# case MEM9 PM=M, meaning A>=10. Control via MEM7
-if A2>0 
-  3 - add M0 to MEM9 to restore PM=P, EX=MEM7, clear MEM7
-  5 - receive A,B into MEM7
-  6 - transmit MEM7 via S, clear MEM7
-  7 - listen on LS, MEM7=EX
-
-# case MEM9 PM=P, meaning A<10. Control via MEM6
-else 
-  3 - EX=MEM6, clear MEM6
-  5 - receive A,B into MEM6
-  6 - transmit MEM6 via S
-  7 - listen on LS, MEM6=EX
+1. stim FT3, send A2 to MEM9 PM, clear LS
+2. send A1 to FT3, discriminate MEM9
+  (PM=M, meaning A>=10)
+  3. add M0 to MEM9 to restore PM=P, MEM7 -> EX, clear MEM7
+  4.
+  5. receive A,B into MEM7
+  6. transmit MEM7 via S, clear MEM7
+  7  main -> LS, EX -> MEM7 via ex-A, clear EX
+or 
+  (PM=P, meaning A<10)
+  3. MEM6 -> EX, clear MEM6
+  4.
+  5. receive A,B into MEM6
+  6. transmit MEM6 via S, clear MEM6
+  7. main -> LS, EX -> MEM7 via ex-A, clear EX
 
 
 
@@ -182,33 +458,6 @@ else
 
 
 
-
-
-JMP XXXX
---------
-XX XX to PC 4,3,2,1
-
-
-JSR XXXX
---------
-# Shift PC and write XXXX
-# 000 CCC BBBB -> CCC BBB XXXX
-# Use FT entries for four to three digit address conversion
-# i.e. two digit prefix [00,09,90] to one digit prefix[0, 1, 2]
-PC to EX, clear EX, ping FT3
-EX43 to FT3, EX7,6,5,2,1 to PC10,9,8,6,5   ; shift PC left by one address, leave a gap for the encoded digit
-XX XX to PC 4,3,2,1
-FT3.B1 to PC7
-
-
-RET
----
-# CCC BBB AAAA -> 000 CCC BBBB
-# Use FT entires for 3->4 digit address conversion
-PC to EX, clear X, ping FT3
-EX to FT3, EX7,6,5,2,1 to PC10,9,8,6,5   ; shift PC right by one address, leave 2 digit gap for the decoded digit
-EX7 to FT3, EX10,9,8,6,5 to PC7,6,5,2,1
-FT3.B4,3 to PC4,3
 
 
 
