@@ -24,10 +24,10 @@ the id's are unique within the setup (you re-use them to do a wired-or, see belo
 So ad.s.1.2 is an adapter with id 1 that shifts it input 2 to the right. 
 Simplest use is a patch directly between units, like this:
 
-p a1.A ad.s.1.2     # shift two digits right
+p a1.A ad.s.1.2     # shift two digits left
 p ad.s.1.2 a2.a 
 
-p a1.A ad.s.1.-2    # shift two digits left
+p a1.A ad.s.1.-2    # shift two digits right
 p ad.s.1.-2 a2.b 
 
 

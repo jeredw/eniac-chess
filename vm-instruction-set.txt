@@ -56,7 +56,7 @@
 84 - jsr XXXX     ; always far
 85 - ret
 
-90 - jnz XX       ; jump if A!=0
+90 - 
 91 - read AB
 92 - print AB
 93 - 
@@ -71,13 +71,13 @@ Typical contents, plus wiring for inputs and outputs
 
 
 PC:
-Current program counter VVVV and return address WWWW, plus a temp UU
-layout: UU WWWW VVVV
+Current program counter PPPP and return address RRRR, plus a temp SS
+layout: SS RRRR PPPP
 
 A - mp steppers, main minus top 2 to clear opcode
 S - mp steppers
 a - from exA
-b - loadim2-irS: IR xx xx xx xx I1 -> 00 00 00 00 I1, used for JN/JZ/JIL
+b - loadim2-irS: I1 XX XX XX XX -> 00 00 00 00 I1, used for JN/JZ/JIL
 g - shiftl4-exA, used for JSR
 d - from FT, first instruction only
 e - shiftl8-irS: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
@@ -88,36 +88,38 @@ Up to five next instructions, stored as complement so 99 fills in from the left
 P0 if empty, otherwise M 99-I6 99-I5 99-I4 99-I3 100-I2
 
 A - d-irA, I6 I5 I4 I3 I2 I1 -> I1 I6 I5 I4 I3 I2, used in control cycle
-S - d-irS
-a - from FT
-b - fill99exA: replace top 2 digits with 99, requires ex.PM = M
-d - fill99exS: replace top 2 digits with 99, requires ex.PM = P
+S - d-irS, I6 I5 I4 I3 I2 I1 -> I1 I6 I5 I4 I3 I2, used in control cycle
 AS - fetch discriminate
+a - from FT
+b - fill99exA: replace top 2 digits with 99, requires EX.PM = M
+d - fill99exS: replace top 2 digits with 99, requires EX.PM = P
+
 
 EX:
 General purpose execture register, also used to disc opcode >53
 typically: 100-I1 XX XX XX XX 
 
-A - d-exA
-S - d-exS
+A - main
+S - exS
 AS - op discriminate
-a - main: main load -- drop sign?
-b - clearA from main: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
-g - clearPC2: from main/PC, XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
-g - clearPC4: from main/PC, XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
-e - shiftl4: from main/PC, XX YY YY 43 32 -> XX 43 21 00 00, used for JSR
+a - nop
+b - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
+g - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
+g - clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
+e - shiftl4:  XX YY YY 43 32 -> XX 43 21 00 00, used for JSR
+
 
 RF:
-Main register file - use a13 to print?
-layout: P/M AA BB CC DD EE
+Main register file - use a13 so we can print
+layout: PM AA BB CC DD EE
 
 A - main
 S - main
-a - main
-b - movAB from exA.
-g - movAC from exA. 
-d - movAD from exA, preserve PM too for ADD,SUB
-e - clearA from main: PM XX XX XX XX XX -> P 00 XX XX XX XX
+a - nop
+b - movAB 
+g - movAC 
+d - movAD
+e - clearA: PM XX XX XX XX XX -> P 00 XX XX XX XX, for NEG A
 
 
 LS:
@@ -125,14 +127,15 @@ Secondary register file / load/store accumulator
 layout: FF GG HH II JJ
 
 A - main
-S - select A to RF
+S - select A
 a-e select?
 
 
 MEM6:
-Discriminate PM for LOADACC
-a - main
-b - onlyPM: ad.d.x.0, used to restore PM after disc
+Discriminate LOADACC
+A - main
+a - nop
+b - A2toPM: move digit 10 into sign, all others zero
 
 MEM7:
 load 0-9 / far jump
@@ -140,74 +143,94 @@ A - main
 S - load 0-9
 a - main
 b - exA
-g - loadim4-irS:  XX XX XX I2 I1 -> 00 00 00 I1 I2
+g - loadim4-irS:  I1 XX XX XX I2 -> 00 00 00 I1 I2
 
 MEM8:
-Send S to load 10-14
+DISCJN:
+A = disc JN
+S = disc JN
+S1-S5 load acc 10-14
+a = nop
 
 MEM9:
-Discriminate PM for STOREACC
+Discriminate STOREACC
 a - main
-b - onlyPM: ad.d.x.0, used to restore PM after disc
+b - A2toPM: move digit 10 into sign, all others zero
 
 MEM10:
-Send S to store 0-9
+SWAPAX:
+A - main
+S - store 0-9
+a - nop
+b-e - SWAP A,x. Always sets PM=P
 
 MEM11:
-Send S to store 10-14
+DISCJZ1
+A - main, disc JZ1
+S - disc JZ1
+S1 - S5 to store 10-14
+a - nop
+* additional inputs available here 
 
 MEM12:
+DISCJZ2:
+A - main, disc JZ2
+S - disc JZ2
 a - main
-b-e - swap A,x, always zero the sign
+b - selA (preserve sign)
 
 no MEM13 because RF=a13 so it can be printed
 
 14/15/16 used for MOV A,[FGHIJ]
 
 MEM14:
-S - delete 1-8, PM XX XX XX XX XX -> PM XX 00 00 00 00
-a - main 
-b - exA 
-g - zeroA: XX XX XX XX XX -> 00 XX XX XX XX
-d - selAF: select A/F - select A/F, XX XX XX XX XX -> XX 00 00 00 00
-e - selBG: select B/G - select B/G, XX XX XX XX XX -> 00 XX 00 00 00 
+A - main
+S - main, selA, XX XX XX XX XX -> XX 00 00 00 00, used for NEG A
+a - nop 
+b - clearA: XX XX XX XX XX -> 00 XX XX XX XX
+g - selAF: select A/F - select A/F, AA BB CC DD EE -> AA 00 00 00 00
+d - selBG: select B/G - select B/G, AA BB CC DD EE -> BB 00 00 00 00
 
 MEM15:
-a - main 
-b - exA 
-g - zeroA: XX XX XX XX XX -> 00 XX XX XX XX
-d - selCH: select C/H, XX XX XX XX XX -> 00 00 XX 00 00
-e - selDI:  select D/I, PM XX XX XX XX XX -> PM 00 00 00 XX 00, preserve sign for SUB
+* could discriminate
+a - nop
+b - clearA: XX XX XX XX XX -> 00 XX XX XX XX
+g - selCH: select C/H, AA BB CC DD EE -> CC 00 00 00 00
+d - selDI: select D/I, AA BB CC DD EE -> DD 00 00 00 00
+
 
 MEM16:
+* could discriminate
 a - main 
-b - exA 
-g - zeroA: XX XX XX XX XX -> 00 XX XX XX XX
-d - selEJ: select E/J, XX XX XX XX XX -> 00 00 00 00 XX
-e - movAE: AA BB CC DD EE -> EE BB CC DD EE
+b - clearA: XX XX XX XX XX -> 00 XX XX XX XX
+g - selEJ: select E/J, AA BB CC DD EE -> EE 00 00 00 00
+d - movAE: AA BB CC DD EE -> EE BB CC DD EE
+
 
 MEM17:
-Discriminate the JN conditional jump
-A - main, disc JN
-S - main, disc JN
+DISCJIL1:
+A - main, disc JIL1
+S - main, disc JIL1
 a - main
 
 MEM18: 
-Discriminate the JZ conditional jump, part 1
-A - main, disc JZ1A
-S - main, disc JZ1B
+DISCJIL2:
+A - main, disc JIL2
+S - main, disc JIL2
 a - main
 b - exA
 
 MEM19:
-Discriminate the JZ conditional jump, part 2
-A - main, disc JZ2A
-S - main, disc JZ2B
+DISCJIL3:
+A - main, disc JIL3
+S - main, disc JIL3
 a - main
 b - exA
 
 MEM20:
-Discriminate the JIL conditional
+DISCJIL4:
+A - main, disc JIL4
+S - main, disc JIL4
 
 
 CONTROL CYCLE
@@ -243,12 +266,7 @@ OPCODE MICROPROGRAMS
 
 MOV A,[BCD]
 1. RF -x-> EX
-2. EX -> RF, ADD A,D
-1. MEM15 -> EX, clear
-2. RF -selDI-> MEM15
-3. MEM15 -movAD-> RF, clear
-4. EX->MEM15, clearclear EX
-
+2. EX -> RF
 
 MOV A,E
 1. MEM16 -> EX, clear
@@ -258,10 +276,10 @@ MOV A,E
 
 
 SWAP A,[BCDE]
-1. MEM12 -> EX, clear
-2. RF -x-> MEM12, clear
-3. MEM12 -> RF, clear
-4. EX->MEM12, clear
+1. SWAPAX -> EX, clear
+2. RF -x-> SWAPAX, clear
+3. SWAPAX -> RF, clear
+4. EX->SWAPAX, clear
 
 
 MOV A,[FGHIJ]
@@ -283,10 +301,11 @@ EX->M, clear
 
 
 MOV A,#X
+?? need selA input on RF
 1. RF -clearA-> EX, clear   
 2. EX -> RF, clear
 3. IR -S-> EX, clear      # assumes IR<0 so disc is not triggered
-4. EX -S-> RF, EX -S-fill99-> IR, clear   
+4. EX -S-selA-> RF, EX -S-fill99exS-> IR, clear   
 
 The +1 from EX->S both advances 99-I2 to 100-I2 in IR, and converts 100-I1 to I1 in RF
 MOV A,#0 will fail because it will overflow a +1 to I2 on previous fetch cycle (100-0 = 100)
@@ -302,7 +321,7 @@ CT sends P 01 00 00 00 00 -> RF
 
 
 INC B
-?? works unless B=99, then changes sign on A!
+?? works unless B=99, then changes sign of A!
 1. MEM12 -> EX, clear
 2. RF -swapB-> MEM12, clear
 3. MEM12 += CT P 01 00 00 00 00
@@ -319,28 +338,36 @@ CT sends M 99 00 00 00 00 -> RF
 ADD A,D
 1. MEM15 -> EX, clear
 2. RF -selDI-> MEM15
-3. MEM15 -movAD-> RF, clear   # movAD must preserve sign!
+3. MEM15 -> RF, clear
 4. EX->MEM15, clear
 
 
 SUB A,D
 1. MEM15 -> EX, clear
-2. RF -S-selDI-> MEM15        # selDI must preserve sign!
-3. MEM15 -movAD-> RF, clear   # movAD must preserve sign!
-4. EX->MEM15, clear
+2. RF -S-selDI-> MEM15
+3. constant M 01 00 00 00 00 -> MEM15
+4. MEM15 -> RF, clear   # movAD must preserve sign!
+5. EX->MEM15, clear
+
+{p-subad1}={p-op72}
+$tc subad1  mem15  A   nop    ex      subad2
+$tc subad2  rf     S   selDI  mem15   subad3
+constant M 01 00 00 00 00 -> MEM15, subad4
+$tc subad4  mem15  A   nop    rf      subad5
+$tc subad5  ex     A   nop    mem15   fetch
 
 
 NEG A
 1. MEM14 -> EX, clear
 2. RF -> MEM14, clear
 3. MEM14 -clearA-> RF         # clearA must clear sign
-4. MEM14 -S-> RF, clear
-5. EX->MEM14, clear
+4. MEM14 -S-> RF, clear       # S keeps only A and sign
+5. RF += P 01 00 00 00 00, EX->MEM14, clear
 
 
 JMP XXXX 
 1. PC ->clearPC4-> EX, clear    # zero current FT,PC
-2. EX -exA-> PC, clear
+2. EX -> PC, clear
 3. MEM7 -> EX, clear
 4. IR -S-loadim4-> MEM7         # load next PC
 5. MEM7 -> PC, clear
@@ -348,40 +375,102 @@ JMP XXXX
 goto fetchline
 
 
-JN XX
-1. MEM17->EX, clear
-2. RF->MEM17
-3. disc MEM17, clear
-  (A>=0)
-  4. EX->MEM17, clear
-  (A<0)
-  4. EX->MEM17, clear
-  5. PC ->clearPC2-> EX         # zero current PC
-  6. EX -exA-> PC
-  7. IR -S-loadim2-irS-> PC     # load next PC
-     goto fetchline
+JMP XX
+nearjump:                    # maybe an opcode, used as subprogram for conditionals
+1. PC -clearPC2-> EX         # zero current PC
+2. EX -> PC, clear
+3. IR -S-loadim2-irS-> PC    # load next PC
+   goto fetchline
 
+
+JN XX
+1. DISCJN->EX, clear
+2. RF->DISCJN
+3. disc DISCJN, clear
+  (A>=0)
+  4. EX->DISCJN, clear
+  4. IR -S-> EX, clear      # consume operand; assumes IR<0 so disc not triggered
+  6. EX -S-fill99exS-> IR, clear 
+  (A<0)
+  4. EX->DISCJN, clear
+     goto nearjump
 
 JZ XX
-1. MEM18 -> EX, clear
-2. RF -> MEM18
-3. disc MEM18, clear
+1. DISCJZ1 -> EX, clear
+2. RF -> DISCJZ1
+3. disc DISCJZ1, clear
   (X<0)
+  4. EX -> DISCJZ1, clear
   goto fetch
   (X>0)
-  4. EX -> MEM18, clear
-  5. MEM19 -> EX, clear
-  6. RF -S-> MEM19
-  7  MEM19 += P 01 00 00 00 00
-  8. disc MEM19, clear
+  4. EX -> DISCJZ1, clear
+  5. DISCJZ2 -> EX, clear
+  6. RF -S-selA-> DISCJZ2
+  7  DISCJZ2 += P 01 00 00 00 00
+  8. disc DISCJZ2, clear
     (X<0)
+    9. EX->DISCJZ2, clear
     goto fetch
     (x>=0)
-    9. EX->MEM19, clear
-    10. PC ->clearPC2-> EX      # zero current PC
-    11. EX -exA-> PC
-    12. IR -S-loadim2-irS-> PC  # load next PC
-    goto fetchline
+    9. EX->DISCJZ2, clear
+    goto nearjump
+
+
+JNZ for unsigned values
+negate
+jump if negative - use subprogram
+
+
+JIL XX
+# Basic idea: both digits need to be not 0 and not 9
+# In other words they both need to send a pulse both normally and complemented
+# Simplest implementation is to use four discriminate stages, on four accs
+
+1. jump if A1=0 = set PM to P, 9-complement, inc, jump if N
+  0 -> 9 -> M0
+  1..8 -> 9..2
+  9 -> 0 -> 1
+
+2. jump if A1=9 = set PM to M, inc, then jump if P
+  0 -> M0 -> M1
+  1..8 -> M1..M8 -> M2..M9
+  9 -> M9 -> 0
+
+1. JIL1 -> EX
+2. RF -S-extendA2Right-inc-> JIL1   ; check A2=0: set PM to P, 9-complement, inc, jump if M
+3. discriminate JIL1, clear
+  (JIL1<0)
+  4. EX -> JIL1, clear
+     goto localjmp
+(JIL1>=0)
+4. EX -> JIL1
+5. JIL2 -> EX
+6. RF -extendA2Right -> JIL2   ; check A2=9: set PM to M, inc, jump if P
+7. constant M0100000000 -> JIL2
+8. discriminate JIL2, clear
+  (JIL2>=0)
+  9. EX -> JIL2, clear
+  goto localjmp
+(JIL2<0)
+10. EX -> JIL2, clear
+11. JIL3 -> EX, clear
+12. RF -S-extendA1Right-inc-> JIL3   ; check A1=0: set PM to P, 9-complement, inc, jump if M
+13. discriminate JIL3, clear
+  (JIL3<0)
+  14. EX -> JIL3, clear
+     goto localjmp
+(JIL3>=0)
+14. EX -> JIL3, clear
+15. JIL4 -> EX , clear
+16. RF -extendA1Right -> JIL4   ; check A1=9: set PM to M, inc, jump if P
+17. constant M0100000000 -> JIL4
+18. discriminate JIL4, clear
+  (JIL2>=0)
+  19. EX -> JIL4, clear
+  goto localjmp
+(JIL2<0)
+19. EX -> JIL4, clear
+goto fetch
 
 
 JSR XXXX
@@ -393,6 +482,7 @@ JSR XXXX
 6. EX -> MEM7, clear
 goto fetchline
 
+
 RET
 PC -> EX    
 EX -shiftr4-> PC      # restore prev PC
@@ -400,12 +490,8 @@ goto fetchline
 
 
 
-
-
 NEXTLINE
 goto fetchline
-
-
 
 
 LOADACC A
