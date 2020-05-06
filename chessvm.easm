@@ -1,3 +1,8 @@
+s cy.op 1a
+set a1 -9293949597
+b i
+
+
 # ENIAC-VM for playing chess
 # created 2020-3-30 by Jonathan Stray
 # This file assembles with easm to a .e file suitable for use with the ENIAC simulator,
@@ -55,17 +60,49 @@
 #      - PC += 1
 #      - goto execute
 
-# define a macro "clear" to clear accumulator acc,
-# triggered on inp and emitting outp when done (via transceiver t)
-defmacro clear inp acc t outp
-  p {$inp} {$acc}.{$t}i
-  s {$acc}.op{$t} 0
-  s {$acc}.cc{$t} C
-  p {$acc}.{$t}o {$outp}
+# $listen - add a particular input to the specified accumulator 
+# uses a recieive program, so no program pulse output
+defmacro listen inprog acc r indata input
+  p $inp $acc.$ri
+  p $indata $acc.$input
+  s $acc.op$ro $input
 endmacro
 
+# $listen_t - like listen but uses a transciever, also sends outp
+defmacro listen_t inprog acc t indata input outprog
+  p $inprog $acc.$ti
+  p $indata $acc.$input
+  s $acc.op$t $input
+  p $acc.$to $outprog
+endmacro
 
-# dummy program definition, with a given delay
+# $talk - send A output to given destination, don't clear
+defmacro talk inp acc t outdata outp
+  p $inp $acc.$ti
+  s $acc.op$t A
+  p $acc.A $outdata
+  p $acc.$to outp
+endmacro
+
+# $talk2 - options for clear after send, A or S
+defmacro talk2 inp acc t op cc outdata outp
+  p $inp $acc.$ti
+  s $acc.op$t $op
+  s {$acc}.cc$t $cc
+  p $acc.A $outdata
+  p $acc.$to outp
+endmacro
+
+# $clear accumulator acc,
+# triggered on inp and emitting outp when done (via transceiver t)
+defmacro clear inp acc t outp
+  p $inp $acc.$ti
+  s $acc.op$t 0
+  s $acc.cc$t C
+  p $acc.$to $outp
+endmacro
+
+# $dummy program definition, with a given delay
 defmacro dummy inp acc t delay outp
   p {$inp} $acc.{$t}i
   s $acc.op{$t} 0
@@ -73,8 +110,7 @@ defmacro dummy inp acc t delay outp
   p $acc.{$t}o {$outp}
 endmacro
 
-
-# Discrimination
+# $discriminate
 #   inp   - input program line
 #   acc   - accumulator to wire for discrimination
 #   dummy - accumulator to use for dummy programs
@@ -86,18 +122,19 @@ defmacro discriminate inp acc dummy name da ds outp outm
 
   p $inp $acc.{t-$name}i
   s $acc.op{t-$name} AS               
-  s $acc.cc{t-$name} C   # clear IR after transmission
   p $acc.A $da
   p $acc.S $ds
 
   # acc >= 0 -> outp
   p $ds ad.dp.{ad-disc-$name-S}.11
   p ad.dp.{ad-disc-$name-S}.11 $dummy.{t-$name-S}i
+  s $dummy.op{t-$name-S} 0
   p $dummy.{t-$name-S}o $outp
 
   # acc < 0 -> outm
   p $da ad.dp.{ad-disc-$name-A}.11
   p ad.dp.{ad-disc-$name-A}.11 $dummy.{t-$name-A}i
+  s $dummy.op{t-$name-A} 0
   p $dummy.{t-$name-A}o $outm
 
 endmacro
@@ -112,9 +149,13 @@ p i.io {p-fetch}
 $clear {p-fetch} {a-ex} {t-fetch} {p-fetchcheck}
 
 # -- p-fetchcheck: discriminate on IR: M to nofetch, P to fetchline
-# During this cycle we both discriminate and read out the contents of IR into EX
+# During this cycle, we:
+#  - discriminate, to decide whether to fetch new instructions
+#  - read out the contents of IR into EX
+#  - send complement of next instruction (I1) to PC
 
 $discriminate {p-fetchcheck} {a-ir} a20 fetchcheck {d-irA} {d-irS} {p-fetchline} {p-nofetch}
+s {a-ir}.cc{t-fetchcheck} C   # clear IR after transmission
 
 # EX = IR permuted, I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, assembled on d-ir-to-ex
 # This puts the next instruction in the left of EX, ready to discriminate
@@ -130,12 +171,20 @@ p {d-irA} ad.s.{ad-ir-to-ex2}.-2
 p ad.s.{ad-ir-to-ex2}.-2 ad.d.{ad-ir-to-ex3}.-2 
 p ad.d.{ad-ir-to-ex3}.-2 {d-ir-to-ex}
 
+# also send complement of first instruction to top of PC
+# note: doesn't add usual 1 (10s complement) as adapter drops digit 1 line
+p {p-fetchcheck} {a-pc}.{r-fetchcheck}i
+s {a-pc}.op{r-fetchcheck} {i-fetchcheck}
+p {d-irS} ad.d.{ad-top2-to-pc}.2                # d-irS = take complement 
+p ad.d.{ad-top2-to-pc}.2 {a-pc}.{i-fetchcheck}
+
 p {d-ir-to-ex} {a-ex}.{i-ir-to-ex}
 
 
 # -- {p-nofetch} no fetch needed, begin instruction decode
 # EX is now 100-I1 99-I5 99-I4 99-I3 99-I2
 # Begin decode by adding 53 to EX, from constant transmitter
+# $$$ add 0100000000 to PC to go from I1-1 to I1
 
 # Send 53 from CT to d-main
 p {p-nofetch} c.26i 
@@ -155,38 +204,38 @@ p {a-ex}.{t-nofetch}o {p-disc-op}
 # EX is now 153-I1 99-I5 99-I4 99-I3 99-I2
 # Also store shifted instructions back to IR, this deletes just-dispatched opcode
 
-p {p-disc-op} {a-ex}.{t-disc-op}i
-s {a-ex}.op{t-disc-op} AS
-p {a-ex}.A {d-exA}
-p {a-ex}.S {d-exS}
-# no use of transciever output atm
+p {p-disc-op} debug.bp7
 
-# < 0  -> {p-opgt53}
-p {d-exA} ad.dp.{ad-exA}.11
-p ad.dp.{ad-exA}.11 a20.{t-exA}i
-p a20.{t-exA}o {p-opgt53}
+$discriminate {p-disc-op} {a-ex} a20 disc-op {d-exA} {d-exS} {p-ople53} {p-opgt53}
 
-# > 0 -> {p-ople53} via dummy program on a20
-p {d-exS} ad.dp.{ad-exS}.11
-p ad.dp.{ad-exS}.11 a20.{t-exS}i
-p a20.{t-exS}o {p-ople53}
+p {p-ople53} debug.bp8
+p {p-opgt53} debug.bp9
 
 # meanwhile, store EX back into IR, without the instruction we are now decoding
-p {p-disc-op} {a-ir}.{r-disc-op}i   
-s {a-ir}.op{r-disc-op} {i-disc-op}
-
 # Delete first two digits by shifting EX left 2 then right 2
 # This gives M99 if EX<0 at this point, P00 otherwise
-p {d-exA} ad.s.{ad-disc-op1}.2   
-p ad.s.{ad-disc-op1}.2 ad.s.{ad-disc-op2}.-2 
+
+p {p-disc-op} {a-ir}.{r-disc-op}i   
+s {a-ir}.op{r-disc-op} {i-disc-op}
+p {d-exA} ad.s.{ad-disc-op1}.2                 # shift left 2 
+p ad.s.{ad-disc-op1}.2 ad.s.{ad-disc-op2}.-2   # shift right 2
 p ad.s.{ad-disc-op2}.-2 {a-ir}.{i-disc-op}
 
+# clear master programmer steppers in anticipation of decode
+p {p-disc-op} p.Acdi
+p {p-disc-op} p.Bcdi
+p {p-disc-op} p.Ccdi
+p {p-disc-op} p.Dcdi
+p {p-disc-op} p.Ecdi
+p {p-disc-op} p.Fcdi
+p {p-disc-op} p.Gcdi
 
-# -- p-ople53 - decode opcode which is <= 53
+# -- p-ople53 - begin decode of opcode which is <= 53
 # EX = P 153-I1 ...
 # Leftmost opcode in IR now P00
 # Add M9900000001 so it resets to M but then overflows to P if no more opcodes
 
+# M9900000001 -> d-main
 p {p-ople53} c.27i 
 s c.s27 Jlr
 s c.jl M
@@ -194,12 +243,69 @@ s c.j10 9
 s c.j9  9 
 s c.j1  1
 
-p {p-ople53} {a-ir}.{t-plusM99}i
-s {a-ir}.op{t-plusM99} {i-plusM99}
-p {d-main} {a-ir}.{i-plusM99}
+# a-ir += d-main
+$listen_t {p-ople53} {a-ir} {t-plusM99} {d-main} {i-plusM99} {p-ople53-2}
 
-# PLACEHOLDER: send to printer
-p {a-ir}.{t-plusM99}o {p-printex}
+
+
+# -- p-ople53-2 - send tens digit of opcode to stepper A, ones digit to B-G
+# also clear EX, to prepare for execution 
+
+# send EX on S and clear
+p {p-ople53-2} {a-ex}.{t-ople53-2}i
+s {a-ex}.op{t-ople53-2} S
+s {a-ex}.cc{t-ople53-2} C
+
+# wire EX.S to master programmer
+p {d-exS} ad.dp.{ad-ople53-tens}.10   # 10s digit of opcode
+p ad.dp.{ad-ople53-tens}.10 p.Adi
+p {d-exS} ad.dp.{ad-ople53-ones}.9    # 1s digit of opcode
+p ad.dp.{ad-ople53-ones}.9 p.Bdi
+p ad.dp.{ad-ople53-ones}.9 p.Cdi
+p ad.dp.{ad-ople53-ones}.9 p.Ddi
+p ad.dp.{ad-ople53-ones}.9 p.Edi
+p ad.dp.{ad-ople53-ones}.9 p.Fdi
+p ad.dp.{ad-ople53-ones}.9 p.Gdi
+
+# wire A stepper outputs to inputs of B-G
+p p.A1o p.Bi
+p p.A2o p.Ci
+p p.A3o p.Di
+p p.A4o p.Ei
+p p.A5o p.Fi
+p p.A6o p.Gi
+
+# send initiating pulse on next cycle
+p {a-ex}.{t-ople53-2}o {p-ople53-3}
+
+
+# -- p-ople53-3 - send input pulse to master programmer
+
+p {p-ople53-3} p.Ai
+
+# Now we have to wire the outputs to individual opcode programs
+defmacro op-lines stepper tens
+  p p.$stepper1o {p-op$tens0}
+  p p.$stepper2o {p-op$tens1}
+  p p.$stepper3o {p-op$tens2}
+  p p.$stepper4o {p-op$tens3}
+  p p.$stepper5o {p-op$tens4}
+  p p.$stepper6o {p-op$tens5}
+endmacro
+
+$op-lines B 0
+$op-lines C 1
+$op-lines D 2
+$op-lines E 3
+$op-lines F 4
+$op-lines G 5
+
+p {p-op00} debug.bp0
+p {p-op11} debug.bp1
+p {p-op22} debug.bp2
+p {p-op33} debug.bp3
+p {p-op44} debug.bp4
+p {p-op50} debug.bp5
 
 
 # -- p-opgt53 - decode opcode which is > 53
@@ -219,7 +325,7 @@ $dummy {p-opgt53} a20 {t-opgt53-printex} 1 {p-flipex-printex}
 # - stimulate FT, goto {p-fetcharg} for argument
 # - delay 4 then goto {p-fetchread}
 
-# - clear IR (not needed? already zero here from overflow?) and delay 4
+main main main main # - clear IR (needed only on jumps, otherwise already zero here from overflow) and delay 4
 $clear {p-fetchline} {a-ir} {t-fetchline} {p-fetchread}
 s {a-ir}.rp{t-fetchline} 4    # repeat 4 to wait for FT result
 
