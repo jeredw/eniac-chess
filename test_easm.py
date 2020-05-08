@@ -77,15 +77,15 @@ class TestAssembler(unittest.TestCase):
       self.assertEqual(
         a.assemble_line('{p-name}=5-5'), '# {p-name}=5-5')
       self.assertEqual(
-        a.assemble_line('p {p-name} a3.5i'), format_comment('p 5-5 a3.5i','# p-name=5-5'))
+        a.assemble_line('p {p-name} a3.5i'), format_comment('p 5-5 a3.5i','# 5-5=p-name'))
       self.assertEqual(
         a.assemble_line('{d-name}=5'), '# {d-name}=5')
       self.assertEqual(
-        a.assemble_line('p {d-name} a3.g'), format_comment('p 5 a3.g','# d-name=5'))
+        a.assemble_line('p {d-name} a3.g'), format_comment('p 5 a3.g','# 5=d-name'))
       self.assertEqual(
         a.assemble_line('{a-name}=a13'), '# {a-name}=a13')
       self.assertEqual(
-        a.assemble_line('p 1 {a-name}.d'), format_comment('p 1 a13.d','# a-name=a13'))
+        a.assemble_line('p 1 {a-name}.d'), format_comment('p 1 a13.d','# a13=a-name'))
 
   # test several things for each type of resource:
   #  - intitial allocation of the first resource on the machine (e.g. 1-1)
@@ -103,101 +103,121 @@ class TestAssembler(unittest.TestCase):
   def test_program_line(self):
     a = Assembler()
     self.assertEqual(
-      a.assemble_line('p {p-name} a3.5i'), format_comment('p 1-1 a3.5i','# p-name=1-1'))
+      a.assemble_line('p {p-name} a3.5i'), format_comment('p 1-1 a3.5i','# 1-1=p-name'))
     self.assertEqual(
-      a.assemble_line('p {p-name} a4.1i'), format_comment('p 1-1 a4.1i','# p-name=1-1'))
+      a.assemble_line('p {p-name} a4.1i'), format_comment('p 1-1 a4.1i','# 1-1=p-name'))
     self.assertEqual(
-      a.assemble_line('p a13.5o {p-other-name}'), format_comment('p a13.5o 1-2','# p-other-name=1-2'))
+      a.assemble_line('p a13.5o {p-other-name}'), format_comment('p a13.5o 1-2','# 1-2=p-other-name'))
     self.assertEqual(
-      a.assemble_line('p i.io {p-other-name}'), format_comment('p i.io 1-2','# p-other-name=1-2'))
+      a.assemble_line('p i.io {p-other-name}'), format_comment('p i.io 1-2','# 1-2=p-other-name'))
     self.run_out(a, 'p {p-', '} a1.1i', 119)
 
   def test_data_trunk(self):
     a = Assembler()
     self.assertEqual(
-      a.assemble_line('p {d-name} a3.a'), format_comment('p 1 a3.a','# d-name=1')) 
+      a.assemble_line('p {d-name} a3.a'), format_comment('p 1 a3.a','# 1=d-name')) 
     self.assertEqual(
-      a.assemble_line('p a4.S {d-name}'),format_comment('p a4.S 1','# d-name=1')) 
+      a.assemble_line('p a4.S {d-name}'),format_comment('p a4.S 1','# 1=d-name')) 
     self.assertEqual(
-      a.assemble_line('p a16.A {d-other-name} '),format_comment('p a16.A 2','# d-other-name=2'))
+      a.assemble_line('p a16.A {d-other-name} '),format_comment('p a16.A 2','# 2=d-other-name'))
     self.run_out(a, 'p {d-', '} a1.a', 7)
 
   def test_shift_adapter(self):
     a = Assembler()
     self.assertEqual(
-      a.assemble_line('p a20.A ad.s.{ad-name}.3'), format_comment('p a20.A ad.s.1.3','# ad-name=1'))
+      a.assemble_line('p a20.A ad.s.{ad-name}.3'), format_comment('p a20.A ad.s.1.3','# 1=ad-name'))
     self.assertEqual(
-      a.assemble_line('p ad.s.{ad-other-name}.3 a11.g'), format_comment('p ad.s.2.3 a11.g','# ad-other-name=2'))
+      a.assemble_line('p ad.s.{ad-other-name}.3 a11.g'), format_comment('p ad.s.2.3 a11.g','# 2=ad-other-name'))
     self.assertEqual(
-      a.assemble_line('p 2 ad.s.{ad-other-name}.4'), format_comment('p 2 ad.s.2.4','# ad-other-name=2'))
+      a.assemble_line('p 2 ad.s.{ad-other-name}.4'), format_comment('p 2 ad.s.2.4','# 2=ad-other-name'))
     self.run_out(a, 'p ad.s.{ad-', '}.1 a1.a', 38)
 
   def test_deleter_adapter(self):
     a = Assembler()
     self.assertEqual(
-      a.assemble_line('p a20.A ad.d.{ad-name}.3'), format_comment('p a20.A ad.d.1.3','# ad-name=1'))
+      a.assemble_line('p a20.A ad.d.{ad-name}.3'), format_comment('p a20.A ad.d.1.3','# 1=ad-name'))
     self.assertEqual(
-      a.assemble_line('p ad.d.{ad-other-name}.3 a11.g'), format_comment('p ad.d.2.3 a11.g','# ad-other-name=2'))
+      a.assemble_line('p ad.d.{ad-other-name}.3 a11.g'), format_comment('p ad.d.2.3 a11.g','# 2=ad-other-name'))
     self.assertEqual(
-      a.assemble_line('p 3 ad.d.{ad-other-name}.3 '), format_comment('p 3 ad.d.2.3','# ad-other-name=2'))
+      a.assemble_line('p 3 ad.d.{ad-other-name}.3 '), format_comment('p 3 ad.d.2.3','# 2=ad-other-name'))
     self.run_out(a, 'p ad.d.{ad-', '}.1 a1.a', 38)
 
   def test_digit_pulse_adapter(self):
     a = Assembler()
     self.assertEqual(
-      a.assemble_line('p a20.A ad.dp.{ad-name}.11'), format_comment('p a20.A ad.dp.1.11','# ad-name=1'))
+      a.assemble_line('p a20.A ad.dp.{ad-name}.11'), format_comment('p a20.A ad.dp.1.11','# 1=ad-name'))
     self.assertEqual(
-      a.assemble_line('p a20.A ad.dp.{ad-other-name}.11'), format_comment('p a20.A ad.dp.2.11','# ad-other-name=2'))
+      a.assemble_line('p a20.A ad.dp.{ad-other-name}.11'), format_comment('p a20.A ad.dp.2.11','# 2=ad-other-name'))
     self.assertEqual(
-      a.assemble_line('p ad.dp.{ad-other-name}.11 5-5'), format_comment('p ad.dp.2.11 5-5','# ad-other-name=2'))
+      a.assemble_line('p ad.dp.{ad-other-name}.11 5-5'), format_comment('p ad.dp.2.11 5-5','# 2=ad-other-name'))
     self.run_out(a, 'p ad.dp.{ad-', '}.11 5-5', 38)
 
   def test_special_digit_adapter(self):
     a = Assembler()
     self.assertEqual(
-      a.assemble_line('p a20.A ad.sd.{ad-name}.8'), format_comment('p a20.A ad.sd.1.8','# ad-name=1'))
+      a.assemble_line('p a20.A ad.sd.{ad-name}.8'), format_comment('p a20.A ad.sd.1.8','# 1=ad-name'))
     self.assertEqual(
-      a.assemble_line('p a20.A ad.sd.{ad-other-name}.8'), format_comment('p a20.A ad.sd.2.8','# ad-other-name=2'))
+      a.assemble_line('p a20.A ad.sd.{ad-other-name}.8'), format_comment('p a20.A ad.sd.2.8','# 2=ad-other-name'))
     self.assertEqual(
-      a.assemble_line('p ad.sd.{ad-other-name}.8 4'), format_comment('p ad.sd.2.8 4','# ad-other-name=2'))
+      a.assemble_line('p ad.sd.{ad-other-name}.8 4'), format_comment('p ad.sd.2.8 4','# 2=ad-other-name'))
     self.run_out(a, 'p ad.sd.{ad-', '}.8 1', 38)
+
+  def test_permute_adapter(self):
+    a = Assembler()
+    self.assertEqual(
+      a.assemble_line('p a20.A ad.permute.10'), 'p a20.A ad.permute.10')
+    self.assertEqual(
+      a.assemble_line('s ad.permute.10 11.1.2.3.4.5.6.7.8.9.10'), 's ad.permute.10 11.1.2.3.4.5.6.7.8.9.10')
+    
+    self.assertEqual(
+      a.assemble_line('p a20.A ad.permute.{ad-name}'), format_comment('p a20.A ad.permute.1','# 1=ad-name'))
+    self.assertEqual(
+      a.assemble_line('p a20.A ad.permute.{ad-other-name}'), format_comment('p a20.A ad.permute.2','# 2=ad-other-name'))
+    self.assertEqual(
+      a.assemble_line('p ad.permute.{ad-other-name} 4'), format_comment('p ad.permute.2 4','# 2=ad-other-name'))
+    
+    self.assertEqual(
+      a.assemble_line('s ad.permute.{ad-name} 11.1.2.3.4.5.6.7.8.9.10'), format_comment('s ad.permute.1 11.1.2.3.4.5.6.7.8.9.10','# 1=ad-name'))
+
+    self.run_out(a, 'p ad.permute.{ad-', '} 1', 38)
+
 
   def test_ftable(self):
     # we don't currently track resources on ftables but we should be able to patch to named lines
     a = Assembler()
     self.assertEqual(
-      a.assemble_line('p {p-name} f1.1i'), format_comment('p 1-1 f1.1i','# p-name=1-1'))
+      a.assemble_line('p {p-name} f1.1i'), format_comment('p 1-1 f1.1i','# 1-1=p-name'))
     self.assertEqual(
-      a.assemble_line('p f1.C {p-other-name}'), format_comment('p f1.C 1-2','# p-other-name=1-2'))
+      a.assemble_line('p f1.C {p-other-name}'), format_comment('p f1.C 1-2','# 1-2=p-other-name'))
     self.assertEqual(
-      a.assemble_line('p {d-name} f1.arg'), format_comment('p 1 f1.arg','# d-name=1'))
+      a.assemble_line('p {d-name} f1.arg'), format_comment('p 1 f1.arg','# 1=d-name'))
     self.assertEqual(
-      a.assemble_line('p f1.A {d-other-name}'), format_comment('p f1.A 2','# d-other-name=2'))
+      a.assemble_line('p f1.A {d-other-name}'), format_comment('p f1.A 2','# 2=d-other-name'))
 
   def test_accumulator_lookup(self):
     a = Assembler()
     self.assertEqual(
-      a.assemble_line('p {a-name}.A 8'), format_comment('p a1.A 8','# a-name=a1'))
+      a.assemble_line('p {a-name}.A 8'), format_comment('p a1.A 8','# a1=a-name'))
     self.assertEqual(
-      a.assemble_line('p {a-other-name}.A 8'), format_comment('p a2.A 8','# a-other-name=a2'))
+      a.assemble_line('p {a-other-name}.A 8'), format_comment('p a2.A 8','# a2=a-other-name'))
     self.assertEqual(
-      a.assemble_line('p 8 {a-other-name}.a'), format_comment('p 8 a2.a','# a-other-name=a2'))
+      a.assemble_line('p 8 {a-other-name}.a'), format_comment('p 8 a2.a','# a2=a-other-name'))
     self.run_out(a, 'p {a-', '}.A 1', 18)
 
   def test_accumulator_reciever(self):
     a = Assembler()
     self.assertEqual(
-      a.assemble_line('p 1-1 a1.{r-name}i'), format_comment('p 1-1 a1.1i','# r-name=1i'))
+      a.assemble_line('p 1-1 a1.{r-name}i'), format_comment('p 1-1 a1.1i','# 1i=r-name'))
     self.assertEqual(
-      a.assemble_line('p 1-1 a20.{t-name}i'),format_comment('p 1-1 a20.5i','# t-name=5i'))
+      a.assemble_line('p 1-1 a20.{t-name}i'),format_comment('p 1-1 a20.5i','# 5i=t-name'))
     self.assertEqual(
-      a.assemble_line('p 1-1 a1.{r-other-name}i'), format_comment('p 1-1 a1.2i','# r-other-name=2i'))
+      a.assemble_line('p 1-1 a1.{r-other-name}i'), format_comment('p 1-1 a1.2i','# 2i=r-other-name'))
     self.assertEqual(
-      a.assemble_line('p a1.{r-other-name}i 2-2'), format_comment('p a1.2i 2-2','# r-other-name=2i'))
+      a.assemble_line('p a1.{r-other-name}i 2-2'), format_comment('p a1.2i 2-2','# 2i=r-other-name'))
     self.assertEqual(
-      a.assemble_line('p {p-name} a1.{r-other-name}i'), format_comment('p 1-1 a1.2i','# p-name=1-1, r-other-name=2i'))
+      a.assemble_line('p {p-name} a1.{r-other-name}i'), format_comment('p 1-1 a1.2i','# 1-1=p-name, 2i=r-other-name'))
     self.assertEqual(
-      a.assemble_line('p {p-name} {a-name}.{r-other-name}i'), format_comment('p 1-1 a1.2i','# p-name=1-1, a-name=a1, r-other-name=2i'))
+      a.assemble_line('p {p-name} {a-name}.{r-other-name}i'), format_comment('p 1-1 a1.2i','# 1-1=p-name, a1=a-name, 2i=r-other-name'))
     self.run_out(a, 'p 1-1 a1.{r-', '}i', 2)
 
     # we've run out of recievers on a1, but should still be plenty on a2
@@ -206,11 +226,11 @@ class TestAssembler(unittest.TestCase):
   def test_accumulator_transciever(self):
     a = Assembler()
     self.assertEqual(
-      a.assemble_line('p 1-1 a1.{t-name}i'), format_comment('p 1-1 a1.5i','# t-name=5i'))
+      a.assemble_line('p 1-1 a1.{t-name}i'), format_comment('p 1-1 a1.5i','# 5i=t-name'))
     self.assertEqual(
-      a.assemble_line('p 1-1 a1.{t-other-name}i'), format_comment('p 1-1 a1.6i','# t-other-name=6i'))
+      a.assemble_line('p 1-1 a1.{t-other-name}i'), format_comment('p 1-1 a1.6i','# 6i=t-other-name'))
     self.assertEqual(
-      a.assemble_line('p a1.{t-other-name}o 2-2'), format_comment('p a1.6o 2-2','# t-other-name=6o'))
+      a.assemble_line('p a1.{t-other-name}o 2-2'), format_comment('p a1.6o 2-2','# 6o=t-other-name'))
     self.run_out(a, 'p 1-1 a1.{t-', '}i', 6)
 
     # we've run out of transcievers on a1, but should still be plenty on a2
@@ -219,11 +239,11 @@ class TestAssembler(unittest.TestCase):
   def test_accumulator_inputs(self):
     a = Assembler()
     self.assertEqual(
-      a.assemble_line('p 4 a1.{i-name}'), format_comment('p 4 a1.a','# i-name=a'))
+      a.assemble_line('p 4 a1.{i-name}'), format_comment('p 4 a1.a','# a=i-name'))
     self.assertEqual(
-      a.assemble_line('p 4 a1.{i-other-name}'), format_comment('p 4 a1.b','# i-other-name=b'))
+      a.assemble_line('p 4 a1.{i-other-name}'), format_comment('p 4 a1.b','# b=i-other-name'))
     self.assertEqual(
-      a.assemble_line('p 4 a1.{i-other-other-name}'), format_comment('p 4 a1.g','# i-other-other-name=g'))
+      a.assemble_line('p 4 a1.{i-other-other-name}'), format_comment('p 4 a1.g','# g=i-other-other-name'))
     self.run_out(a, 'p 4 a1.{i-', '}', 2)
 
     # we've run out of inputs on a1, but should still be plenty on a2
@@ -251,13 +271,13 @@ class TestAssembler(unittest.TestCase):
 
   def test_switch_accumulator(self):
     a = Assembler()
-    self.assertEqual(a.assemble_line('s {a-name}.op5 a'), format_comment('s a1.op5 a','# a-name=a1'))
-    self.assertEqual(a.assemble_line('s {a-other-name}.op5 a'), format_comment('s a2.op5 a','# a-other-name=a2'))
-    self.assertEqual(a.assemble_line('s a1.op{r-name} a'), format_comment('s a1.op1 a','# r-name=op1'))
-    self.assertEqual(a.assemble_line('s a1.op{t-name} a'), format_comment('s a1.op5 a','# t-name=op5'))
-    self.assertEqual(a.assemble_line('s a1.op1 {i-name}'), format_comment('s a1.op1 a','# i-name=a'))
-    self.assertEqual(a.assemble_line('s a1.op2 {i-other-name}'), format_comment('s a1.op2 b','# i-other-name=b'))
-    self.assertEqual(a.assemble_line('s {a-name}.op{t-name} {i-other-name}'), format_comment('s a1.op5 b','# a-name=a1, t-name=op5, i-other-name=b'))
+    self.assertEqual(a.assemble_line('s {a-name}.op5 a'), format_comment('s a1.op5 a','# a1=a-name'))
+    self.assertEqual(a.assemble_line('s {a-other-name}.op5 a'), format_comment('s a2.op5 a','# a2=a-other-name'))
+    self.assertEqual(a.assemble_line('s a1.op{r-name} a'), format_comment('s a1.op1 a','# op1=r-name'))
+    self.assertEqual(a.assemble_line('s a1.op{t-name} a'), format_comment('s a1.op5 a','# op5=t-name'))
+    self.assertEqual(a.assemble_line('s a1.op1 {i-name}'), format_comment('s a1.op1 a','# a=i-name'))
+    self.assertEqual(a.assemble_line('s a1.op2 {i-other-name}'), format_comment('s a1.op2 b','# b=i-other-name'))
+    self.assertEqual(a.assemble_line('s {a-name}.op{t-name} {i-other-name}'), format_comment('s a1.op5 b','# a1=a-name, op5=t-name, b=i-other-name'))
 
   def test_non_accumulator_switch_input(self):
     a = Assembler()
@@ -274,6 +294,7 @@ class TestAssembler(unittest.TestCase):
     out = a.assemble(program)
     self.assertEqual(out.splitlines(),
                      ["# (elided 'test' macro definition)",
+                      '# $test A {B}',
                       'expansion A {B}'])
 
   def test_defmacro_missing_name(self):

@@ -72,7 +72,8 @@ class SymbolTable:
       'ad.s':   Resource('shift adapters', 40, {}),
       'ad.d':   Resource('deleter adapters', 40, {}),
       'ad.dp':  Resource('digit pulse adapters', 40, {}),
-      'ad.sd':  Resource('special digit adapters', 40, {})
+      'ad.sd':  Resource('special digit adapters', 40, {}),
+      'ad.permute':  Resource('permutation adapters', 40, {})
     }
     # per accumulator
     self.sym_acc = [ 
@@ -149,7 +150,7 @@ class Assembler(object):
 
 
   def patch_adapter(self, arg):
-    m = re.match(r'(?P<type>ad\.(s|d|dp|sd))\.(?P<name>(\d\d?|{ad-[A-Za-z0-9-]+}))\.(?P<param>-?\d\d?)', arg)
+    m = re.match(r'(?P<type>ad\.(s|d|dp|sd|permute))\.(?P<name>(\d\d?|{ad-[A-Za-z0-9-]+}))(?P<param>\.-?\d\d?)?', arg)
     if not m:
       raise SyntaxError('bad adapter syntax')
 
@@ -158,7 +159,10 @@ class Assembler(object):
       name = name[1:-1] # strip off curly braces       
       adtype = m.group('type')
       n = self.symbols.lookup(adtype, name)
-      text = f"{adtype}.{n+1}.{m.group('param')}"
+      if adtype != 'ad.permute':
+        text = f"{adtype}.{n+1}{m.group('param')}"  # param includes leading '.'
+      else:
+        text = f"{adtype}.{n+1}"  # permute adapters have no params, set by "switch" instead
       return text, {name: str(n+1)}
     else:
       # literal adapter number
@@ -278,33 +282,61 @@ class Assembler(object):
     return format_comment(leading_ws + ' ' + text1 + ' ' + text2, comment)
   
 
-  def line_s(self, line): 
-    m = re.match(r'(\s*s)\s+([^\s]+)\s+([^\s]+)\s*(#.*)?', line)
-    leading_ws, arg1, arg2, comment = m.groups()
+  # e.g. s {a-name}.op{t-name} {i-name}
+  def line_s_accum(self, leading_ws, arg1, arg2, comment):
 
-    # accumulator switches are the only place we currently replace
+    # do we need to lookup accumulator name?
     accumtext = None
-    m = re.match('(?P<accum>(a\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<prog>.+)',arg1)
-    if m: 
-      accumtext, symbols1 = self.lookup_accum(m.group('accum'))
-      progtext, symbols2 = self.lookup_accum_arg(accumtext, m.group('prog'))
-      symbols1.update(symbols2)
-      arg1 = accumtext + '.' + progtext
-    else:
-      # it's not an accumulator, no replacement
-      symbols1 = {}
+    m = re.match(r'(?P<accum>(a\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<prog>.+)',arg1)
+    if not m: 
+      raise SyntaxError('bad accumulator switch setting') # probably can't get here due to match in caller
 
-    # arg2 may be an input name e.g. {i-name}
+    accumtext, symbols1 = self.lookup_accum(m.group('accum'))
+    progtext, symbols2 = self.lookup_accum_arg(accumtext, m.group('prog'))
+    symbols1.update(symbols2)
+    arg1 = accumtext + '.' + progtext
+
+    # do we need to look up an acc input name? e.g. {i-name}
     if '{i-' in arg2:
       name = arg2[1:-1]  # strip braces
-      if not accumtext:
-        raise SyntaxError('switch cannot be set to an accumulator input')
       arg2, symbols2 = self.lookup_accum_arg(accumtext, arg2)
     else:
       symbols2 = {}
 
     comment = self.symbols_to_comment(symbols1, symbols2, comment)
     return format_comment(leading_ws + ' ' + arg1 + ' ' + arg2, comment)
+
+
+  # e.g. s ad.permute.{ad-my-permuter} 11.10.9.8.7.6.5.4.3.2.1
+  def line_s_permute(self, leading_ws, arg1, arg2, comment):
+    m = re.match(r'ad.permute.{(?P<name>ad-[A-Za-z0-9-]+)}',arg1)
+    if not m: 
+      raise SyntaxError('bad permute switch setting') # probably can't get here due to match in caller
+
+    name = m.group('name')
+    n = self.symbols.lookup('ad.permute', name)
+    symbols = {name: str(n+1)}
+    arg1 = 'ad.permute.' + str(n+1)
+
+    comment = self.symbols_to_comment(symbols, {}, comment)
+    return format_comment(leading_ws + ' ' + arg1 + ' ' + arg2, comment)
+
+
+  # for switch settings, we can lookup accumuators and permute adapters
+  def line_s(self, line): 
+    m = re.match(r'(\s*s)\s+([^\s]+)\s+([^\s]+)\s*(#.*)?', line)
+    leading_ws, arg1, arg2, comment = m.groups()
+
+    if re.match(r'a\d\d?|{a-[A-Za-z0-9-]+}',arg1):
+      return self.line_s_accum(leading_ws, arg1, arg2, comment)
+
+    if re.match(r'ad\.permute\.{ad-[0-9a-zA-Z-]+}',arg1):
+      return self.line_s_permute(leading_ws, arg1, arg2, comment)
+      
+    if re.search(r'{[a-zA-z]+-.+}', arg1+arg2):
+      raise SyntaxError('bad switch setting')
+
+    return self.line_literal(line)
 
 
   # Handles symbol definitions e.g. {p-foo}=3-1

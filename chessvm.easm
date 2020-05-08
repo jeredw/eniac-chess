@@ -5,95 +5,63 @@ b i
 
 # ENIAC-VM for playing chess
 # created 2020-3-30 by Jonathan Stray
+#
+# This is the setup that turns the ENIAC into a CPU: fetch, decode, execute,
+# and implements all the opcodes. The control cycle design is adapted from 
+# "Central Control for ENIAC", Adele Goldstine, 1947
+#
 # This file assembles with easm to a .e file suitable for use with the ENIAC simulator,
 # after appending the function table switch settings which contain the chess code.
 
-# Accumulator layout
 
-{a-pc}=a1
-#    Program counter. A three level stack of 3 digit addresses, current PC on right. 
+# -- MACROS --
+# These define a basic language we use to specify program steps
+# Program in the ENIAC sense of pulse-triggered operations, akin to microcode for the VM
 
-{a-ir}=a2
-#    Instruction register. Holds up to 5 instructions queued to execute after
-#    loading from a function table line. Rightmost instruction is next.
-#    Instructions are stored in 9's complement form, to make it easy to detect
-#    when the register is empty (adding 1 to 9999999999 flips the sign)
-
-{a-ex}=a3
-#   "Execution" register. Holds instruction to be executed and sends to decode.
-#   Cleared before instruction execute starts, can be used as temp for instruction
-
-{a-reg}=a13
-#   (Register File) Registers A-E of the virtual machine. Use a13 so we can print it.
-
-{a-ls}=a4
-#   (Load/Store) Registers F-J of the virtual machine.
-
-# Main data bus, used for most transfers
-{d-main}=1
-
-# Control cycle
-# -------------
-# This is the setup that turns the ENIAC into a CPU: fetch, decode, execute. 
-# The basic pattern is from "Central Control for ENIAC", Adele Goldstine, 1947
-# Control lines as follows:
-#
-# {p-fetch} begin fetch cycle
-#      - clear EX
-# {p-fetchcheck} do we need to fetch?
-#      - discriminate on IR: M to nofetch, P to fetchline
-#      - EX = IR
-# {p-nofetch} no fetch needed, consume instruction
-#      - IR(a2) = EX(a3)>>2 + 1
-#      - goto 2-1
-# {p-fetchline} no more instructons in IR, load new line from ft
-#      - stimulate FT
-#      - clear IR (should already be, but we may go to 1-4 after loading PC in jump instructions )
-#      - clear EX
-#      - delay 4 then goto {p-fetchread}
-# {p-fetcharg} ft argument request
-#      - FT <- bottom two digits of PC
-# {p-fetchread} read ft line of instructions
-#      FT sends complement of A and B
-#      - IR = M I6 I5 I4 I3 I2+1 = B2B1 B4B3 B6B5 A2A1 A4A3+1
-#      - EX = M I1+1 99 99 99 99 = A6A5+1 99 99 99 99?
-#      - PC += 1
-#      - goto execute
-
-# $listen - add a particular input to the specified accumulator 
-# uses a recieive program, so no program pulse output
-defmacro listen inprog acc r indata input
-  p $inp $acc.$ri
-  p $indata $acc.$input
-  s $acc.op$ro $input
+# RECeive on given input
+defmacro rec inpr acc program input outpr
+  p $inpr $acc.$programi
+  s $acc.op$program $input
+  p $acc.$programo outpr
 endmacro
 
-# $listen_t - like listen but uses a transciever, also sends outp
-defmacro listen_t inprog acc t indata input outprog
-  p $inprog $acc.$ti
-  p $indata $acc.$input
-  s $acc.op$t $input
-  p $acc.$to $outprog
+# RECeive and do not (X) emit an output program pulse
+defmacro recx inpr acc program input
+  p $inpr $acc.$programi
+  s $acc.op$program $input
 endmacro
 
-# $talk - send A output to given destination, don't clear
-defmacro talk inp acc t outdata outp
-  p $inp $acc.$ti
-  s $acc.op$t A
-  p $acc.A $outdata
-  p $acc.$to outp
+# RECeive and INCrement
+defmacro recinc inpr acc program input outpr
+  p $inpr $acc.$programi
+  s $acc.op$program $input
+  s $acc.cc$program C
+  p $acc.$programo outpr
 endmacro
 
-# $talk2 - options for clear after send, A or S
-defmacro talk2 inp acc t op cc outdata outp
-  p $inp $acc.$ti
-  s $acc.op$t $op
-  s {$acc}.cc$t $cc
-  p $acc.A $outdata
-  p $acc.$to outp
+# RECeive and INCrement and do not (X) emit an output program pulse
+defmacro recincx inpr acc program input
+  p $inpr $acc.$programi
+  s $acc.op$program $input
+  s $acc.cc$program C
 endmacro
 
-# $clear accumulator acc,
+# SEND and Clear
+defmacro sendc inpr acc program AS outpr
+  p $inpr $acc.$programi
+  s $acc.op$program $AS
+  s $acc.cc$program C
+  p $acc.$programo outpr
+endmacro
+
+# SEND and Clear and do not (X) emit an output program pulse
+defmacro sendcx inpr acc program AorS 
+  p $inpr $acc.$programi
+  s $acc.op$program $AorS
+  s $acc.cc$program C
+endmacro
+
+# $clear accumulator
 # triggered on inp and emitting outp when done (via transceiver t)
 defmacro clear inp acc t outp
   p $inp $acc.$ti
@@ -118,21 +86,19 @@ endmacro
 #   da,ds - data busses to use for acc.A acc.S
 #   outp  - program line for acc>=0
 #   outm  - program line for acc<0
-defmacro discriminate inp acc dummy name da ds outp outm
+defmacro discriminate inp acc dummy name outp outm
 
   p $inp $acc.{t-$name}i
   s $acc.op{t-$name} AS               
-  p $acc.A $da
-  p $acc.S $ds
 
   # acc >= 0 -> outp
-  p $ds ad.dp.{ad-disc-$name-S}.11
+  p $acc.S ad.dp.{ad-disc-$name-S}.11
   p ad.dp.{ad-disc-$name-S}.11 $dummy.{t-$name-S}i
   s $dummy.op{t-$name-S} 0
   p $dummy.{t-$name-S}o $outp
 
   # acc < 0 -> outm
-  p $da ad.dp.{ad-disc-$name-A}.11
+  p $acc.A ad.dp.{ad-disc-$name-A}.11
   p ad.dp.{ad-disc-$name-A}.11 $dummy.{t-$name-A}i
   s $dummy.op{t-$name-A} 0
   p $dummy.{t-$name-A}o $outm
@@ -140,86 +106,171 @@ defmacro discriminate inp acc dummy name da ds outp outm
 endmacro
 
 
-# -- {p-fetch} begin fetch cycle
+# -- ACCUMULATOR LAYOUT --
+# Defines all accumulators and patches to and from data trunks
+# That patching encodes the possible permutations on acc inputs and outputs,
+# as well as digit-to-program triggers for discrimination and 1-of-N decoding.
+# Listed centrally here to make it easier to track allocation.
+
+# Main data bus, used for most transfers
+{d-main}=1
+
+# - Program counter -
+# Layout: SS RRRR PPPP
+# Current program counter PPPP and return address RRRR, plus a temp SS
+# Four digit address is FFLL: FF = which ft (00=ft1, 90=ft2, 99=ft3), LL = ft line
+
+{a-pc}=a1
+
+p {a-pc}.A {d-main}
+# A - mp steppers, op<=53
+# S - mp steppers, op>53
+
+# main input
+p {d-main} {a-pc}.{i-main}i
+
+# shiftl8-irS input: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
+p {d-irS} ad.s.{ad-pc-shiftl8-irS}.8
+p ad.s.{ad-pc-shiftl8-irs}.8 {a-pc}.{i-shiftl8-irS}i
+
+# "no connection" input, used for incrementing PC
+p {d-nothing} {a-pc}.{i-nothing} # d-nothing is a workaround, I'd prefer "{a-pc}.{i-nothing}=a"
+
+# b - loadim2-irS: I1 XX XX XX XX -> 00 00 00 00 I1, used for JN/JZ/JIL
+# g - shiftl4-exA, used for JSR
+# d - from FT, in control cycle to load first instruction
+
+
+# - Instruction Register -
+# Layout: M 99-I6 99-I5 99-I4 99-I3 100-I2
+# Holds up to 5 instructions queued to execute after loading from a function
+# table line. Fills in 99 from the left as instructions are executed. When empty, 
+# this will be 9999999999 and then +1 flips to P0, easy to detect
+# So we also have a "need to fetch a line" discrimination on IR
+
+{a-ir}=a2
+
+# A output of IR is permuted for use in the control cycle
+# I6 I5 I4 I3 I2 I1 -> I1 I6 I5 I4 I3 I2
+p {a-ir}.A ad.permute.{ad-irA}
+s ad.permute.{ad-irA} 0,2,1,10,9,8,7,6,5,4,3
+p ad.permute.{ad-irA} {d-main}
+
+# S output is unchanged, to its own bus
+p {a-ir}.S {d-irS}
+
+# AS - fetch discriminate
+
+# fetch input: from d-fetch, used for loading new line of instructions permuted from function table
+p {d-fetch} {a-ir}.{i-fetch}
+
+# fill99 input: replace top 2 digits with 99 (copy PM, so needs EX.PM = M)
+p {d-main} ad.permute.{ad-fill99}
+s ad.permute.{ad-fill99} 11,11,11,8,7,6,5,4,3,2,1
+p ad.permute.{ad-fill99} {a-ir}.{i-fill99}
+
+# g - fill99exS: replace top 2 digits with 99, requires EX.PM = P
+
+
+# - Execution Resgister -
+# Empty at the beginning of every opcode program
+# Typically the only temp space in the machine, so used extensively to save
+# contents of other accumulators while they are used functionally
+# Also used to disc opcode >53
+
+{a-ex}=a3
+
+# A - main
+p {a-ex}.A {d-main}
+
+# S - exS
+p {a-ex}.S {d-exS}
+
+# AS - op discriminate
+
+# main
+p {d-main} {a-ex}.{i-main}i
+
+# b - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
+# g - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
+# g - clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
+# e - shiftl4:  XX YY YY 43 32 -> XX 43 21 00 00, used for JSR
+
+
+# - Register File -
+# Registers A-E of the virtual machine. Use a13 so we can print it.
+{a-reg}=a13
+
+
+# - Load/Store -
+# Registers F-J of the virtual machine. 
+{a-ls}=a4
+
+
+
+# -- CONTROL CYCLE --
 
 # initiate button
-p i.io {p-fetch}
+p i.io {p-clearex-fetch}
 
-# - clear a-ex
-$clear {p-fetch} {a-ex} {t-fetch} {p-fetchcheck}
+# - A program line to jump to if ex has something in it
+$clear {p-clearex-fetch} {a-ex} {t-clearex-fetch} {p-fetch}
 
-# -- p-fetchcheck: discriminate on IR: M to nofetch, P to fetchline
-# During this cycle, we:
+
+# -- p-fetch: begin next instruction
+# During this cycle:
 #  - discriminate, to decide whether to fetch new instructions
 #  - read out the contents of IR into EX
 #  - send complement of next instruction (I1) to PC
 
-$discriminate {p-fetchcheck} {a-ir} a20 fetchcheck {d-irA} {d-irS} {p-fetchline} {p-nofetch}
-s {a-ir}.cc{t-fetchcheck} C   # clear IR after transmission
+$discriminate {p-fetch} {a-ir} a20 fetch {p-fetchline} {p-nofetch}
+s {a-ir}.cc{t-fetch} C   # clear IR after transmission
 
-# EX = IR permuted, I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, assembled on d-ir-to-ex
+# IR -> EX 
+# IR permutes on A output, I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, and drops sign
 # This puts the next instruction in the left of EX, ready to discriminate
-p {p-fetchcheck} {a-ex}.{r-ir-to-ex}i   
-s {a-ex}.op{r-ir-to-ex} {i-ir-to-ex}
+$recx {p-fetch} {a-ex} {r-fetch} {i-main}
 
-# extract IR2,1 and shift to far left. 
-p {d-irA} ad.s.{ad-ir-to-ex1}.8
-p ad.s.{ad-ir-to-ex1}.8 {d-ir-to-ex}
+# IR -S-shiftl8-irS-> PC
+# Also send first opcode to top of PC
+# We use the S output to undo the existing complement when we loaded IR
+$recx {p-fetch} {a-pc} {r-fetch} {i-shiftl8-irS}
 
-# Shift the rest right, then drop the first two digits so the sign extend doesn't give 99
-p {d-irA} ad.s.{ad-ir-to-ex2}.-2
-p ad.s.{ad-ir-to-ex2}.-2 ad.d.{ad-ir-to-ex3}.-2 
-p ad.d.{ad-ir-to-ex3}.-2 {d-ir-to-ex}
-
-# also send complement of first instruction to top of PC
-# note: doesn't add usual 1 (10s complement) as adapter drops digit 1 line
-p {p-fetchcheck} {a-pc}.{r-fetchcheck}i
-s {a-pc}.op{r-fetchcheck} {i-fetchcheck}
-p {d-irS} ad.d.{ad-top2-to-pc}.2                # d-irS = take complement 
-p ad.d.{ad-top2-to-pc}.2 {a-pc}.{i-fetchcheck}
-
-p {d-ir-to-ex} {a-ex}.{i-ir-to-ex}
 
 
 # -- {p-nofetch} no fetch needed, begin instruction decode
-# EX is now 100-I1 99-I5 99-I4 99-I3 99-I2
+# EX starts P 100-I1 99-I5 99-I4 99-I3 99-I2
 # Begin decode by adding 53 to EX, from constant transmitter
-# $$$ add 0100000000 to PC to go from I1-1 to I1
 
 # Send 53 from CT to d-main
 p {p-nofetch} c.26i 
-s c.s26 Klr
+s c.s26 Kl
 s c.k10 5
 s c.k9  3 
 p c.o {d-main} 
 
 # EX += d-main
-p {p-nofetch} {a-ex}.{t-nofetch}i
-s {a-ex}.op{t-nofetch} {i-nofetch}
-p {d-main} {a-ex}.{i-nofetch}
-p {a-ex}.{t-nofetch}o {p-disc-op}
+$rec {p-nofetch} {a-ex} {t-nofetch} {i-main} {p-disc-op}
 
 
 # -- {p-disc-op} discriminate opcode I1>53, to switch between two decode pathways
-# EX is now 153-I1 99-I5 99-I4 99-I3 99-I2
+# EX starts 153-I1 99-I5 99-I4 99-I3 99-I2
 # Also store shifted instructions back to IR, this deletes just-dispatched opcode
 
 p {p-disc-op} debug.bp7
 
-$discriminate {p-disc-op} {a-ex} a20 disc-op {d-exA} {d-exS} {p-ople53} {p-opgt53}
+$discriminate {p-disc-op} {a-ex} a20 disc-op {p-ople53} {p-opgt53}
+s {a-ex}.cc{t-disc-op} C  # clear EX
 
 p {p-ople53} debug.bp8
 p {p-opgt53} debug.bp9
 
 # meanwhile, store EX back into IR, without the instruction we are now decoding
-# Delete first two digits by shifting EX left 2 then right 2
-# This gives M99 if EX<0 at this point, P00 otherwise
+# Replace first two digits with PM; gives M99 if EX<0 at this point, P00 otherwise
+$recx {p-disc-op} {a-ir} {r-disc-op} {i-fill99}
 
-p {p-disc-op} {a-ir}.{r-disc-op}i   
-s {a-ir}.op{r-disc-op} {i-disc-op}
-p {d-exA} ad.s.{ad-disc-op1}.2                 # shift left 2 
-p ad.s.{ad-disc-op1}.2 ad.s.{ad-disc-op2}.-2   # shift right 2
-p ad.s.{ad-disc-op2}.-2 {a-ir}.{i-disc-op}
+# IR += 1 to turn 99-I2 into 100-I2, prepare for next cycle
+s {a-ir}.cc{r-disc-op} C
 
 # clear master programmer steppers in anticipation of decode
 p {p-disc-op} p.Acdi
@@ -229,6 +280,7 @@ p {p-disc-op} p.Dcdi
 p {p-disc-op} p.Ecdi
 p {p-disc-op} p.Fcdi
 p {p-disc-op} p.Gcdi
+
 
 # -- p-ople53 - begin decode of opcode which is <= 53
 # EX = P 153-I1 ...
@@ -244,17 +296,14 @@ s c.j9  9
 s c.j1  1
 
 # a-ir += d-main
-$listen_t {p-ople53} {a-ir} {t-plusM99} {d-main} {i-plusM99} {p-ople53-2}
-
+$rec {p-ople53} {a-ir} {t-ople53} {i_main} {p-ople53-2}
 
 
 # -- p-ople53-2 - send tens digit of opcode to stepper A, ones digit to B-G
 # also clear EX, to prepare for execution 
 
 # send EX on S and clear
-p {p-ople53-2} {a-ex}.{t-ople53-2}i
-s {a-ex}.op{t-ople53-2} S
-s {a-ex}.cc{t-ople53-2} C
+$sendc {p-ople53-2} {a-ex} {t-ople53-2} S {p-ople53-3}
 
 # wire EX.S to master programmer
 p {d-exS} ad.dp.{ad-ople53-tens}.10   # 10s digit of opcode
@@ -274,9 +323,6 @@ p p.A3o p.Di
 p p.A4o p.Ei
 p p.A5o p.Fi
 p p.A6o p.Gi
-
-# send initiating pulse on next cycle
-p {a-ex}.{t-ople53-2}o {p-ople53-3}
 
 
 # -- p-ople53-3 - send input pulse to master programmer
@@ -314,7 +360,7 @@ p {p-op50} debug.bp5
 # Add 1 to cause overflow if no more opcodes (roll 9's over to 0)
 
 p {p-opgt53} {a-ir}.{r-plusone}i 
-s {a-ir}.op{r-plusone} {i-plusone} # not connected
+s {a-ir}.op{r-plusone} {i-plusone} # not connected to anything
 s {a-ir}.cc{r-plusone} C
 
 # PLACEHOLDER: flip sign and send to printer
@@ -325,7 +371,7 @@ $dummy {p-opgt53} a20 {t-opgt53-printex} 1 {p-flipex-printex}
 # - stimulate FT, goto {p-fetcharg} for argument
 # - delay 4 then goto {p-fetchread}
 
-main main main main # - clear IR (needed only on jumps, otherwise already zero here from overflow) and delay 4
+# - clear IR (needed only on jumps, otherwise already zero here from overflow) and delay 4
 $clear {p-fetchline} {a-ir} {t-fetchline} {p-fetchread}
 s {a-ir}.rp{t-fetchline} 4    # repeat 4 to wait for FT result
 
@@ -359,54 +405,30 @@ p ad.sd.{ad-fetcharg}.0 f1.arg
 #  - PC += 1
 #  - goto p-decode
 
-p f1.A {d-f1A}
-p f1.B {d-f1B}
-
-# build up the re-ordered IR on d-main
-# use deleters to prevent sign extension of 9s when isolating opcodes
-# Simulator makes this a lot harder than it needs to be... in reality, 
-# all this would be a single adapter with the pins soldered in permuted order.
-
-p {d-f1A} ad.d.{ad-fr1}.-6          # A4A3
-p ad.d.{ad-fr1}.-6 ad.s.{ad-fr2}.-2
-p ad.s.{ad-fr2}.-2 {d-main}
-
-p {d-f1A} ad.d.{ad-fr3}.-8          # A2A1
-p ad.d.{ad-fr3}.-8 ad.s.{ad-fr4}.2 
-p ad.s.{ad-fr4}.2 {d-main}
-
-p {d-f1B} ad.d.{ad-fr5}.-4          # B6B5 digits don't move but must delete other digits
-p ad.d.{ad-fr5}.-4 ad.s.{ad-fr6}.-4
-p ad.s.{ad-fr6}.-4 ad.s.{ad-fr7}.4
-p ad.s.{ad-fr7}.4 {d-main}
-
-p {d-f1B} ad.d.{ad-fr8}.-6          # B4B3
-p ad.d.{ad-fr8}.-6 ad.s.{ad-fr9}.-2
-p ad.s.{ad-fr9}.-2 ad.s.{ad-fr10}.6
-p ad.s.{ad-fr10}.6 {d-main}
-
-p {d-f1B} ad.s.{ad-fr11}.8          # B2B1, don't need to delete left digits b/c we want M sign
-p ad.s.{ad-fr11}.8 {d-main}
-
 # B2B1 B4B3 B6B5 A2A1 A4A3+1 -> IR
-p {p-fetchread} {a-ir}.{t-fetchread}i   
-p {d-main} {a-ir}.{i-fetchread}     
-s {a-ir}.op{t-fetchread} {i-fetchread}
-s {a-ir}.cc{t-fetchread} C    # +1
-p {a-ir}.{t-fetchread}o {p-flipex-printex} # should be: goto decode
+# NYI: should goto decode opcode in EX, not printex
+p f1.A ad.permute.{ad-fetchA}
+s ad.permute.{ad-fetchA} 0,0,0,0,0,0,0,2,1,4,3
+p ad.permute.{ad-fetchA} {d-fetch}
+
+p f1.B ad.permute.{ad-fetchB}
+s ad.permute.{ad-fetchB} 11,2,1,4,3,6,5,0,0,0,0
+p ad.permute.{ad-fetchB} {d-fetch}
+
+$recinc {p-fetchread} {a-ir} {t-fetchread} {i-fetch} {p-flipex-printex} 
+
 
 # A6A5+1 00 00 00 00  -> EX
-p {p-fetchread} {a-ex}.{r-fetchread}i   
-p {d-f1A} ad.s.{ad-fr12}.-4              # A>>4 to select first instruction
-p ad.s.{ad-fr12}.-4 ad.s.{ad-fr13}.8     # then <<8
-p ad.s.{ad-fr13}.8 {a-ex}.{i-fetchread}
-s {a-ex}.op{r-fetchread} {i-fetchread}
-s {a-ex}.cc{r-fetchread} C    # +1
+p f1.A ad.permute.{ad-fetch-ex}
+s ad.permute.{ad-fetch-ex} 0,6,5,0,0,0,0,0,0,0,0
+p ad.permute.{ad-fetch-ex} {d-main}
+
+$recincx {p-fetchread} {a-ex} {r-fetchread} {i-main} 
+
 
 # PC += 1
-p {p-fetchread} {a-pc}.{r-increment}i
-s {a-pc}.op{r-increment} {i-nothing}    # nothing connected
-s {a-pc}.cc{r-increment} C    # +1
+$recincx {p-fetchread} {a-pc} {r-fetchread} {i-nothing}
+
 
 
 

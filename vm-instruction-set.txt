@@ -261,14 +261,16 @@ CONTROL CYCLE
   3. EX += 53
   4. EX -fill99exA-> IR, IR+=1, disc EX, clear EX, clear master programmer
     (EX>=0, op<=53)
-    5. PC -clearA-> EX, PC-A->master programmer, IR += 99 00 00 00 00 
-    6. EX -> PC, PC +=1
+    5. IR += 99 00 00 00 01 because fill99 will fill with zeros instead, and we need +1 to overflow
+    5. PC -clearA-> EX, PC-A->master programmer, 
+    6. EX -> PC, IR +=1
     7. operation begins in this add time
   else
     (EX<0, op>53)
-    5. PC += offset<<8
+    5. IR +=1
+    5. PC += offset<<8 # setup decode for 2nd bank
     6. PC-S-clearA->EX, PC-S->master programmer 
-    7. EX-S->PC, clear EX, PC +=1
+    7. EX-S->PC, clear EX
     8. operation begins in this add time
 else
   3. stim FT
