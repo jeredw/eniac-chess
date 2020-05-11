@@ -1,7 +1,6 @@
 s cy.op 1a
-set a1 -9293949597
+set a1 0
 b i
-
 
 # ENIAC-VM for playing chess
 # created 2020-3-30 by Jonathan Stray
@@ -22,7 +21,7 @@ b i
 defmacro rec inpr acc program input outpr
   p $inpr $acc.$programi
   s $acc.op$program $input
-  p $acc.$programo outpr
+  p $acc.$programo $outpr
 endmacro
 
 # RECeive and do not (X) emit an output program pulse
@@ -36,7 +35,7 @@ defmacro recinc inpr acc program input outpr
   p $inpr $acc.$programi
   s $acc.op$program $input
   s $acc.cc$program C
-  p $acc.$programo outpr
+  p $acc.$programo $outpr
 endmacro
 
 # RECeive and INCrement and do not (X) emit an output program pulse
@@ -46,12 +45,18 @@ defmacro recincx inpr acc program input
   s $acc.cc$program C
 endmacro
 
+# SEND and do not (X) emit an output program pulse
+defmacro sendx inpr acc program AorS 
+  p $inpr $acc.$programi
+  s $acc.op$program $AorS
+endmacro
+
 # SEND and Clear
 defmacro sendc inpr acc program AS outpr
   p $inpr $acc.$programi
   s $acc.op$program $AS
   s $acc.cc$program C
-  p $acc.$programo outpr
+  p $acc.$programo $outpr
 endmacro
 
 # SEND and Clear and do not (X) emit an output program pulse
@@ -61,21 +66,28 @@ defmacro sendcx inpr acc program AorS
   s $acc.cc$program C
 endmacro
 
-# $clear accumulator
+# CLEAR accumulator
 # triggered on inp and emitting outp when done (via transceiver t)
-defmacro clear inp acc t outp
-  p $inp $acc.$ti
+defmacro clear inpr acc t outpr
+  p $inpr $acc.$ti
   s $acc.op$t 0
   s $acc.cc$t C
-  p $acc.$to $outp
+  p $acc.$to $outpr
+endmacro
+
+# CLEAR accumulator and do not (X) emit an output program pulse
+defmacro clearx inpr acc t
+  p $inpr $acc.$ti
+  s $acc.op$t 0
+  s $acc.cc$t C
 endmacro
 
 # $dummy program definition, with a given delay
-defmacro dummy inp acc t delay outp
-  p {$inp} $acc.{$t}i
+defmacro dummy inpr acc t delay outpr
+  p {$inpr} $acc.{$t}i
   s $acc.op{$t} 0
   s $acc.rp{$t} $delay
-  p $acc.{$t}o {$outp}
+  p $acc.{$t}o {$outpr}
 endmacro
 
 # $discriminate
@@ -83,22 +95,22 @@ endmacro
 #   acc   - accumulator to wire for discrimination
 #   dummy - accumulator to use for dummy programs
 #   name  - base for transciever names on acc and dummy
-#   da,ds - data busses to use for acc.A acc.S
+#   dA,dS - data busses to use for acc.A acc.S
 #   outp  - program line for acc>=0
 #   outm  - program line for acc<0
-defmacro discriminate inp acc dummy name outp outm
+defmacro discriminate inp acc dummy name dA dS outp outm
 
   p $inp $acc.{t-$name}i
   s $acc.op{t-$name} AS               
 
   # acc >= 0 -> outp
-  p $acc.S ad.dp.{ad-disc-$name-S}.11
+  p $dS ad.dp.{ad-disc-$name-S}.11
   p ad.dp.{ad-disc-$name-S}.11 $dummy.{t-$name-S}i
   s $dummy.op{t-$name-S} 0
   p $dummy.{t-$name-S}o $outp
 
   # acc < 0 -> outm
-  p $acc.A ad.dp.{ad-disc-$name-A}.11
+  p $dA ad.dp.{ad-disc-$name-A}.11
   p ad.dp.{ad-disc-$name-A}.11 $dummy.{t-$name-A}i
   s $dummy.op{t-$name-A} 0
   p $dummy.{t-$name-A}o $outm
@@ -150,13 +162,17 @@ p {d-nothing} {a-pc}.{i-nothing} # d-nothing is a workaround, I'd prefer "{a-pc}
 
 {a-ir}=a2
 
-# A output of IR is permuted for use in the control cycle
+# A output of IR goes to main, is also permuted for use in the control cycle
+p {a-ir}.A {d-irA}
+p {d-irA} {d-main}
+
 # I6 I5 I4 I3 I2 I1 -> I1 I6 I5 I4 I3 I2
-p {a-ir}.A ad.permute.{ad-irA}
+# Shift the instructions right, then we execute and clear I1, removing one from the queue
+p {d-irA} ad.permute.{ad-irA}
 s ad.permute.{ad-irA} 0,2,1,10,9,8,7,6,5,4,3
 p ad.permute.{ad-irA} {d-main}
 
-# S output is unchanged, to its own bus
+# S output to its own bus, unpermuted
 p {a-ir}.S {d-irS}
 
 # AS - fetch discriminate
@@ -172,7 +188,7 @@ p ad.permute.{ad-fill99} {a-ir}.{i-fill99}
 # g - fill99exS: replace top 2 digits with 99, requires EX.PM = P
 
 
-# - Execution Resgister -
+# - Execution Register -
 # Empty at the beginning of every opcode program
 # Typically the only temp space in the machine, so used extensively to save
 # contents of other accumulators while they are used functionally
@@ -181,12 +197,11 @@ p ad.permute.{ad-fill99} {a-ir}.{i-fill99}
 {a-ex}=a3
 
 # A - main
-p {a-ex}.A {d-main}
+p {a-ex}.A {d-exA}   # can't patch directly to d-main because we also discriminate
+p {d-exA} {d-main}
 
 # S - exS
 p {a-ex}.S {d-exS}
-
-# AS - op discriminate
 
 # main
 p {d-main} {a-ex}.{i-main}i
@@ -223,7 +238,7 @@ $clear {p-clearex-fetch} {a-ex} {t-clearex-fetch} {p-fetch}
 #  - read out the contents of IR into EX
 #  - send complement of next instruction (I1) to PC
 
-$discriminate {p-fetch} {a-ir} a20 fetch {p-fetchline} {p-nofetch}
+$discriminate {p-fetch} {a-ir} a20 fetch {d-irA} {d-irS} {p-fetchline} {p-nofetch}
 s {a-ir}.cc{t-fetch} C   # clear IR after transmission
 
 # IR -> EX 
@@ -259,7 +274,7 @@ $rec {p-nofetch} {a-ex} {t-nofetch} {i-main} {p-disc-op}
 
 p {p-disc-op} debug.bp7
 
-$discriminate {p-disc-op} {a-ex} a20 disc-op {p-ople53} {p-opgt53}
+$discriminate {p-disc-op} {a-ex} a20 disc-op {d-exA} {d-exS} {p-ople53} {p-opgt53}
 s {a-ex}.cc{t-disc-op} C  # clear EX
 
 p {p-ople53} debug.bp8
@@ -296,7 +311,7 @@ s c.j9  9
 s c.j1  1
 
 # a-ir += d-main
-$rec {p-ople53} {a-ir} {t-ople53} {i_main} {p-ople53-2}
+$rec {p-ople53} {a-ir} {t-ople53} {i-main} {p-ople53-2}
 
 
 # -- p-ople53-2 - send tens digit of opcode to stepper A, ones digit to B-G
@@ -376,11 +391,10 @@ $clear {p-fetchline} {a-ir} {t-fetchline} {p-fetchread}
 s {a-ir}.rp{t-fetchline} 4    # repeat 4 to wait for FT result
 
 # - clear EX as well, it will also receive from FT
-p {p-fetchline} {a-ex}.{t-fetchline}i  
-s {a-ex}.op{t-fetchline} 0
-s {a-ex}.cc{t-fetchline} C
+$clearx {p-fetchline} {a-ex} {t-fetchline}
 
-p {p-fetchline} f1.1i         # trigger ft
+# - trigger ft
+p {p-fetchline} f1.1i         
 s f1.rp1 1                    # 1 repeat (neccessary?)
 s f1.op1 S0                   # send complement, don't offset argument
 s f1.cl1 C                    # pulse on C when done
@@ -390,11 +404,9 @@ p f1.C {p-fetcharg}           # goto when ready for argument
 # -- {p-fetcharg} ft argument request
 # - FT <- bottom two digits of PC (a1)
 
-# PC -> d2
-p {p-fetcharg} {a-pc}.{t-fetcharg}i   
-s {a-pc}.op{t-fetcharg} A
-p {a-pc}.A 2                  # use d2 not mainbus because we're going through adapter (needed?)
-p 2 ad.sd.{ad-fetcharg}.0     # bottom two digits of d2
+$sendx {p-fetcharg} {a-pc} {t-fetcharg} A
+
+p {d-main} ad.sd.{ad-fetcharg}.0     # bottom two digits of main -- needed or does FT ignore others?
 p ad.sd.{ad-fetcharg}.0 f1.arg
 
 
@@ -407,7 +419,8 @@ p ad.sd.{ad-fetcharg}.0 f1.arg
 
 # B2B1 B4B3 B6B5 A2A1 A4A3+1 -> IR
 # NYI: should goto decode opcode in EX, not printex
-p f1.A ad.permute.{ad-fetchA}
+p f1.A {d-f1A}                      # FIXME in the sim, need output T-s to avoid using extra digit tray
+p {d-f1A} ad.permute.{ad-fetchA}
 s ad.permute.{ad-fetchA} 0,0,0,0,0,0,0,2,1,4,3
 p ad.permute.{ad-fetchA} {d-fetch}
 
@@ -419,7 +432,7 @@ $recinc {p-fetchread} {a-ir} {t-fetchread} {i-fetch} {p-flipex-printex}
 
 
 # A6A5+1 00 00 00 00  -> EX
-p f1.A ad.permute.{ad-fetch-ex}
+p {d-f1A} ad.permute.{ad-fetch-ex}
 s ad.permute.{ad-fetch-ex} 0,6,5,0,0,0,0,0,0,0,0
 p ad.permute.{ad-fetch-ex} {d-main}
 
