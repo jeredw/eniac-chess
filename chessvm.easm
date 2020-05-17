@@ -14,8 +14,8 @@ b i
 
 
 # -- MACROS --
-# These define a basic language we use to specify program steps
-# Program in the ENIAC sense of pulse-triggered operations, akin to microcode for the VM
+# These define a basic language we use to specify "program" steps, 
+# in the ENIAC sense of pulse-triggered operations, akin to microcode for the VM.
 
 # RECeive on given input
 defmacro rec inpr acc program input outpr
@@ -52,9 +52,9 @@ defmacro sendx inpr acc program AorS
 endmacro
 
 # SEND and Clear
-defmacro sendc inpr acc program AS outpr
+defmacro sendc inpr acc program AorS outpr
   p $inpr $acc.$programi
-  s $acc.op$program $AS
+  s $acc.op$program $AorS
   s $acc.cc$program C
   p $acc.$programo $outpr
 endmacro
@@ -67,12 +67,12 @@ defmacro sendcx inpr acc program AorS
 endmacro
 
 # CLEAR accumulator
-# triggered on inp and emitting outp when done (via transceiver t)
-defmacro clear inpr acc t outpr
-  p $inpr $acc.$ti
-  s $acc.op$t 0
-  s $acc.cc$t C
-  p $acc.$to $outpr
+# triggered on inpr and emitting outpr when done (via transceiver t)
+defmacro clear inpr acc program outpr
+  p $inpr $acc.$programi
+  s $acc.op$program 0
+  s $acc.cc$program C
+  p $acc.$programo $outpr
 endmacro
 
 # CLEAR accumulator and do not (X) emit an output program pulse
@@ -243,11 +243,11 @@ s {a-ir}.cc{t-fetch} C   # clear IR after transmission
 
 # IR -> EX 
 # IR permutes on A output, I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, and drops sign
-# This puts the next instruction in the left of EX, ready to discriminate
+# which puts the next instruction in the left (first two digits) of EX
 $recx {p-fetch} {a-ex} {r-fetch} {i-main}
 
 # IR -S-shiftl8-irS-> PC
-# Also send first opcode to top of PC
+# Also send first opcode to left of PC
 # We use the S output to undo the existing complement when we loaded IR
 $recx {p-fetch} {a-pc} {r-fetch} {i-shiftl8-irS}
 
