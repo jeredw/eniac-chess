@@ -91,6 +91,14 @@ defmacro dummy inpr acc t delay outpr
 endmacro
 
 # $discriminate
+#
+# Triggers outp if acc>=0 and outm if acc<0. Works by sending additively and
+# subtractively on acc, with S(11) wired to outp and A(11) wired to outm.
+#
+# Note: any other programs on acc which send additively will trigger outm if
+# A(11) is set, so care must be taken that acc is never negative during such
+# programs to avoid mistriggering part of the discriminate sequence.
+#
 #   inp   - input program line
 #   acc   - accumulator to wire for discrimination
 #   dummy - accumulator to use for dummy programs
