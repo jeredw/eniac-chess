@@ -147,11 +147,11 @@ p {a-pc}.A {d-main}
 # S - mp steppers, op>53
 
 # main input
-p {d-main} {a-pc}.{i-main}i
+p {d-main} {a-pc}.{i-main}
 
 # shiftl8-irS input: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
 p {d-irS} ad.s.{ad-pc-shiftl8-irS}.8
-p ad.s.{ad-pc-shiftl8-irs}.8 {a-pc}.{i-shiftl8-irS}i
+p ad.s.{ad-pc-shiftl8-irS}.8 {a-pc}.{i-shiftl8-irS}
 
 # "no connection" input, used for incrementing PC
 p {d-nothing} {a-pc}.{i-nothing} # d-nothing is a workaround, I'd prefer "{a-pc}.{i-nothing}=a"
@@ -178,7 +178,7 @@ p {d-irA} {d-main}
 # Shift the instructions right, then we execute and clear I1, removing one from the queue
 p {d-irA} ad.permute.{ad-irA}
 s ad.permute.{ad-irA} 0,2,1,10,9,8,7,6,5,4,3
-p ad.permute.{ad-irA} {d-main}
+p ad.permute.{ad-irA} {d-rotate-irA}
 
 # S output to its own bus, unpermuted
 p {a-ir}.S {d-irS}
@@ -212,7 +212,9 @@ p {d-exA} {d-main}
 p {a-ex}.S {d-exS}
 
 # main
-p {d-main} {a-ex}.{i-main}i
+p {d-main} {a-ex}.{i-main}
+# TODO: replan inputs on EX to allow this input?
+p {d-rotate-irA} {a-ex}.{i-rotate-irA}
 
 # b - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
 # g - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
@@ -252,11 +254,12 @@ s {a-ir}.cc{t-fetch} C   # clear IR after transmission
 # IR -> EX 
 # IR permutes on A output, I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, and drops sign
 # which puts the next instruction in the left (first two digits) of EX
-$recx {p-fetch} {a-ex} {r-fetch} {i-main}
+$recx {p-fetch} {a-ex} {r-fetch} {i-rotate-irA}
 
 # IR -S-shiftl8-irS-> PC
-# Also send first opcode to left of PC
-# We use the S output to undo the existing complement when we loaded IR
+# Also send first opcode to left of PC (using the S output to undo the existing
+# complement when we loaded IR). This copy of the instruction will later be
+# sent to MP steppers for decoding.
 $recx {p-fetch} {a-pc} {r-fetch} {i-shiftl8-irS}
 
 
@@ -277,8 +280,8 @@ $rec {p-nofetch} {a-ex} {t-nofetch} {i-main} {p-disc-op}
 
 
 # -- {p-disc-op} discriminate opcode I1>53, to switch between two decode pathways
-# EX starts 153-I1 99-I5 99-I4 99-I3 99-I2
-# Also store shifted instructions back to IR, this deletes just-dispatched opcode
+# EX starts 153-I1 99-I5 99-I4 99-I3 99-I2 and ends cleared
+# Also store shifted instructions back to IR, deleting just-dispatched opcode
 
 p {p-disc-op} debug.bp7
 
@@ -413,9 +416,7 @@ p f1.C {p-fetcharg}           # goto when ready for argument
 # - FT <- bottom two digits of PC (a1)
 
 $sendx {p-fetcharg} {a-pc} {t-fetcharg} A
-
-p {d-main} ad.sd.{ad-fetcharg}.0     # bottom two digits of main -- needed or does FT ignore others?
-p ad.sd.{ad-fetcharg}.0 f1.arg
+p {d-main} f1.arg  # only bottom two digit lines connect so no deleter is required
 
 
 # -- {p-fetchread} read ft line of instructions
