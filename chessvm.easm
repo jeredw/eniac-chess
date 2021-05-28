@@ -283,13 +283,13 @@ $rec {p-nofetch} {a-ex} {t-nofetch} {i-main} {p-disc-op}
 # EX starts 153-I1 99-I5 99-I4 99-I3 99-I2 and ends cleared
 # Also store shifted instructions back to IR, deleting just-dispatched opcode
 
-p {p-disc-op} debug.bp7
+p {p-disc-op} debug.bp.7
 
 $discriminate {p-disc-op} {a-ex} a20 disc-op {d-exA} {d-exS} {p-ople53} {p-opgt53}
 s {a-ex}.cc{t-disc-op} C  # clear EX
 
-p {p-ople53} debug.bp8
-p {p-opgt53} debug.bp9
+p {p-ople53} debug.bp.8
+p {p-opgt53} debug.bp.9
 
 # meanwhile, store EX back into IR, without the instruction we are now decoding
 # Replace first two digits with PM; gives M99 if EX<0 at this point, P00 otherwise
@@ -372,12 +372,12 @@ $op-lines E 3
 $op-lines F 4
 $op-lines G 5
 
-p {p-op00} debug.bp0
-p {p-op11} debug.bp1
-p {p-op22} debug.bp2
-p {p-op33} debug.bp3
-p {p-op44} debug.bp4
-p {p-op50} debug.bp5
+p {p-op00} debug.bp.1
+p {p-op11} debug.bp.2
+p {p-op22} debug.bp.3
+p {p-op33} debug.bp.4
+p {p-op44} debug.bp.5
+p {p-op50} debug.bp.6
 
 
 # -- p-opgt53 - decode opcode which is > 53
