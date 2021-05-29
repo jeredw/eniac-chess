@@ -1,7 +1,7 @@
 s cy.op 1a
 set a1 0
 # XXX test p-nofetch
-set a2 -9394959689
+set a2 -9394959694
 b i
 
 # ENIAC-VM for playing chess
@@ -246,7 +246,7 @@ p {d-clearA} {a-ex}.{i-clearA}
 {a-ls}=a4
 
 
-# Setup MP switches for decoding.
+# - Setup MP as an opcode decoder -
 # Steppers use all 6 positions.
 s p.cA 6
 s p.cB 6
@@ -258,28 +258,21 @@ s p.cG 6
 s p.cH 6
 s p.cJ 6
 s p.cK 6
-# Set decade switches to nonzero values so that steppers don't cycle in between
-# cdi and the decode cycle.
-s p.d1s1 1
-s p.d2s1 1
-s p.d3s1 1
-s p.d4s1 1
-s p.d5s1 1
-s p.d6s1 1
-s p.d7s1 1
-s p.d8s1 1
-s p.d9s1 1
-s p.d10s1 1
-s p.d11s1 1
-s p.d12s1 1
-s p.d13s1 1
-s p.d14s1 1
-s p.d15s1 1
-s p.d16s1 1
-s p.d17s1 1
-s p.d18s1 1
-s p.d19s1 1
-s p.d20s1 1
+
+# This switch setting makes eniacsim disable/disassociate MP decade counters.
+#
+# Decade counters are a problem for decoding because they trigger a spurious
+# extra step whenever they overflow, and they count in a data-dependent way on
+# each program input (e.g. p.Ai, p.Bi, ...). Possibly some scheme could be
+# devised to guarantee decade counters are safe before p.Ai for decode - they
+# don't have an explicit clear control, but do clear on overflow.  But it's far
+# simpler just to unplug the things.
+#
+# Associator switches on the MP front panel don't permit disconnecting decade
+# counters, but the operating manual notes "To disassociate a decade from its
+# stepper pull out gate tube 63 in the stepper plug-in unit. See block diagram
+# PX-8-304."
+s p.gate63 unplug
 
 # Shared program used to clear master programmer steppers in anticipation of
 # decode.  Triggered via pulse amplifier because it is necessary for this to
@@ -389,7 +382,15 @@ $rec {p-ople53} {a-ir} {t-ople53} {i-main} {p-ople53-2}
 
 # Clear MP via pulse amplifier.
 # TODO add pulse amplifier reservations to easm.py
-p pa.1.sa.1 {p-ople53}
+# FIXME Steppers should logically be cleared "during p-ople53", but
+# 1) Clearing isn't synchronous in eniacsim, so this really happens during the
+#    Cpp of cycle p-ople53 when p-ople53-2 is asserted just prior to decode in
+#    that cycle.
+# 2) The operating manual mentions that "If a clearing pulse and a stepping
+#    pulse arrive at the same time, the stepper will be cleared, not stepped";
+#    so it ought to be ok to do this in p-ople53 anyway, but the effect of that
+#    in eniacsim would be to clear and then decode M99...1
+p pa.1.sa.1 {p-ople53-2}
 p pa.1.sb.1 {p-clear-mp}
 
 
