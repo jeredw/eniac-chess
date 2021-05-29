@@ -66,7 +66,7 @@ class SymbolTable:
   def __init__(self):
     # shared across entire machine
     self.sym_global = {
-      'd':      Resource('digit trunks', 9, {}),
+      'd':      Resource('digit trunks', 20, {}),
       'p':      Resource('program lines', 121, {}),
       'a':      Resource('accumulators', 20, {}),
       'ad.s':   Resource('shift adapters', 40, {}),
@@ -322,6 +322,20 @@ class Assembler(object):
     return format_comment(leading_ws + ' ' + arg1 + ' ' + arg2, comment)
 
 
+  # e.g. s debug.assert.1 {a-ex}~Mxxxxxxxxxx
+  def line_s_debug(self, leading_ws, arg1, arg2, comment):
+    accumtext = None
+    m = re.match(r'(?P<accum>(a\d\d?|{a-[A-Za-z0-9-]+}))(?P<pattern>~.+)?', arg2)
+    if not m:
+      raise SyntaxError('bad debug switch setting')
+
+    accumtext, symbols = self.lookup_accum(m.group('accum'))
+    arg2 = accumtext + (m.group('pattern') or '')
+
+    comment = self.symbols_to_comment(symbols, {}, comment)
+    return format_comment(leading_ws + ' ' + arg1 + ' ' + arg2, comment)
+
+
   # for switch settings, we can lookup accumuators and permute adapters
   def line_s(self, line): 
     m = re.match(r'(\s*s)\s+([^\s]+)\s+([^\s]+)\s*(#.*)?', line)
@@ -333,6 +347,9 @@ class Assembler(object):
     if re.match(r'ad\.permute\.{ad-[0-9a-zA-Z-]+}',arg1):
       return self.line_s_permute(leading_ws, arg1, arg2, comment)
       
+    if re.match(r'debug.(assert|dump)', arg1):
+      return self.line_s_debug(leading_ws, arg1, arg2, comment)
+
     if re.search(r'{[a-zA-z]+-.+}', arg1+arg2):
       raise SyntaxError('bad switch setting')
 
