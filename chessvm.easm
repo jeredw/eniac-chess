@@ -1,5 +1,7 @@
 s cy.op 1a
 set a1 0
+# XXX test p-nofetch
+set a2 -9394959689
 b i
 
 # ENIAC-VM for playing chess
@@ -170,11 +172,13 @@ p {d-nothing} {a-pc}.{i-nothing} # d-nothing is a workaround, I'd prefer "{a-pc}
 
 {a-ir}=a2
 
-# A output of IR goes to main, is also permuted for use in the control cycle
+# A(11) - discrimination, A(10-1) main
 p {a-ir}.A {d-irA}
-p {d-irA} {d-main}
+p {d-irA} ad.permute.{ad-drop-IR-sign}
+s ad.permute.{ad-drop-IR-sign} 0,10,9,8,7,6,5,4,3,2,1
+p ad.permute.{ad-drop-IR-sign} {d-main}
 
-# I6 I5 I4 I3 I2 I1 -> I1 I6 I5 I4 I3 I2
+# I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2
 # Shift the instructions right, then we execute and clear I1, removing one from the queue
 p {d-irA} ad.permute.{ad-irA}
 s ad.permute.{ad-irA} 0,2,1,10,9,8,7,6,5,4,3
@@ -193,7 +197,8 @@ p {d-main} ad.permute.{ad-fill99}
 s ad.permute.{ad-fill99} 11,11,11,8,7,6,5,4,3,2,1
 p ad.permute.{ad-fill99} {a-ir}.{i-fill99}
 
-# g - fill99exS: replace top 2 digits with 99, requires EX.PM = P
+# d-main input: used to restore top digits to 99 in p-ople53
+p {d-main} {a-ir}.{i-main}
 
 
 # - Execution Register -
@@ -204,19 +209,28 @@ p ad.permute.{ad-fill99} {a-ir}.{i-fill99}
 
 {a-ex}=a3
 
-# A - main
-p {a-ex}.A {d-exA}   # can't patch directly to d-main because we also discriminate
-p {d-exA} {d-main}
+# A(11) - discrimination, A(10-1) main
+p {a-ex}.A {d-exA}
+p {d-exA} ad.permute.{ad-drop-EX-sign}
+s ad.permute.{ad-drop-EX-sign} 0,10,9,8,7,6,5,4,3,2,1
+p ad.permute.{ad-drop-EX-sign} {d-main}
 
 # S - exS
 p {a-ex}.S {d-exS}
+
+# clear A field of main
+# XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
+p {d-main} ad.permute.{ad-clearA}
+s ad.permute.{ad-clearA} 11,0,0,8,7,6,5,4,3,2,1
+p ad.permute.{ad-clearA} {d-clearA}
 
 # main
 p {d-main} {a-ex}.{i-main}
 # TODO: replan inputs on EX to allow this input?
 p {d-rotate-irA} {a-ex}.{i-rotate-irA}
+# d - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
+p {d-clearA} {a-ex}.{i-clearA}
 
-# b - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
 # g - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
 # g - clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
 # e - shiftl4:  XX YY YY 43 32 -> XX 43 21 00 00, used for JSR
@@ -232,6 +246,52 @@ p {d-rotate-irA} {a-ex}.{i-rotate-irA}
 {a-ls}=a4
 
 
+# Setup MP switches for decoding.
+# Steppers use all 6 positions.
+s p.cA 6
+s p.cB 6
+s p.cC 6
+s p.cD 6
+s p.cE 6
+s p.cF 6
+s p.cG 6
+s p.cH 6
+s p.cJ 6
+s p.cK 6
+# Set decade switches to nonzero values so that steppers don't cycle in between
+# cdi and the decode cycle.
+s p.d1s1 1
+s p.d2s1 1
+s p.d3s1 1
+s p.d4s1 1
+s p.d5s1 1
+s p.d6s1 1
+s p.d7s1 1
+s p.d8s1 1
+s p.d9s1 1
+s p.d10s1 1
+s p.d11s1 1
+s p.d12s1 1
+s p.d13s1 1
+s p.d14s1 1
+s p.d15s1 1
+s p.d16s1 1
+s p.d17s1 1
+s p.d18s1 1
+s p.d19s1 1
+s p.d20s1 1
+
+# Shared program used to clear master programmer steppers in anticipation of
+# decode.  Triggered via pulse amplifier because it is necessary for this to
+# happen directly in the cycle prior to decode, which may occur in a few
+# different places in the fetch sequence.
+p {p-clear-mp} p.Acdi
+p {p-clear-mp} p.Bcdi
+p {p-clear-mp} p.Ccdi
+p {p-clear-mp} p.Dcdi
+p {p-clear-mp} p.Ecdi
+p {p-clear-mp} p.Fcdi
+p {p-clear-mp} p.Gcdi
 
 # -- CONTROL CYCLE --
 
@@ -246,14 +306,21 @@ $clear {p-clearex-fetch} {a-ex} {t-clearex-fetch} {p-fetch}
 # During this cycle:
 #  - discriminate, to decide whether to fetch new instructions
 #  - read out the contents of IR into EX
-#  - send complement of next instruction (I1) to PC
+#  - send next instruction (I1) to PC (assume PC.SS is 0)
+p {p-fetch} debug.assert.1
+p {p-fetch} debug.assert.2
+s debug.assert.1 {a-ex}~x0000000000
+s debug.assert.2 {a-pc}~x00xxxxxxxx
 
+# If more instructions are needed, IR is P 0, and control proceeds to p-fetchline.
+# Otherwise, IR is M 99-I5 99-I4 99-I3 99-I2 100-I1 and we trigger p-nofetch.
 $discriminate {p-fetch} {a-ir} a20 fetch {d-irA} {d-irS} {p-fetchline} {p-nofetch}
 s {a-ir}.cc{t-fetch} C   # clear IR after transmission
 
 # IR -> EX 
-# IR permutes on A output, I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, and drops sign
-# which puts the next instruction in the left (first two digits) of EX
+# $discriminate sends IR on d-main, and EX receives it permuted without sign
+# I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2. This puts the next instruction in the left
+# (first two digits) of EX.
 $recx {p-fetch} {a-ex} {r-fetch} {i-rotate-irA}
 
 # IR -S-shiftl8-irS-> PC
@@ -266,52 +333,48 @@ $recx {p-fetch} {a-pc} {r-fetch} {i-shiftl8-irS}
 
 # -- {p-nofetch} no fetch needed, begin instruction decode
 # EX starts P 100-I1 99-I5 99-I4 99-I3 99-I2
+p {p-nofetch} debug.assert.3
+s debug.assert.3 {a-ex}~Pxxxxxxxxxx
+
 # Begin decode by adding 53 to EX, from constant transmitter
 
-# Send 53 from CT to d-main
+# Send 53 from CT on d-main
 p {p-nofetch} c.26i 
 s c.s26 Kl
 s c.k10 5
 s c.k9  3 
 p c.o {d-main} 
 
-# EX += d-main
+# EX += d-main (53) for discrimination next cycle.  For example,
+# - If I1 is 01, EX will contain P (100-01) = P 99...
+#   Adding 53 to 99 will wrap and set EX to M 52...
+# - If I1 is 54, EX will contain P (100-54) = P 46...
+#   Adding 53 to 46 will set EX to P 99...
 $rec {p-nofetch} {a-ex} {t-nofetch} {i-main} {p-disc-op}
 
 
 # -- {p-disc-op} discriminate opcode I1>53, to switch between two decode pathways
-# EX starts 153-I1 99-I5 99-I4 99-I3 99-I2 and ends cleared
-# Also store shifted instructions back to IR, deleting just-dispatched opcode
+# EX starts P/M 153-I1 99-I5 99-I4 99-I3 99-I2 and ends clear.
+# Also store shifted instructions back to IR, deleting just-dispatched opcode.
+p {p-disc-op} debug.assert.4
+s debug.assert.4 {a-ir}~P0000000000
 
-p {p-disc-op} debug.bp.7
-
-$discriminate {p-disc-op} {a-ex} a20 disc-op {d-exA} {d-exS} {p-ople53} {p-opgt53}
+# Discriminate based on sign of EX, already set based on whether I1 > 53.
+$discriminate {p-disc-op} {a-ex} a20 disc-op {d-exA} {d-exS} {p-opgt53} {p-ople53}
 s {a-ex}.cc{t-disc-op} C  # clear EX
 
-p {p-ople53} debug.bp.8
-p {p-opgt53} debug.bp.9
-
-# meanwhile, store EX back into IR, without the instruction we are now decoding
-# Replace first two digits with PM; gives M99 if EX<0 at this point, P00 otherwise
+# Meanwhile, store EX back into IR without the instruction we are now decoding.
+# Replace first two digits with PM; gives M99 if EX<0 at this point, P00
+# otherwise which is fixed in p-ople53.
 $recx {p-disc-op} {a-ir} {r-disc-op} {i-fill99}
-
-# IR += 1 to turn 99-I2 into 100-I2, prepare for next cycle
-s {a-ir}.cc{r-disc-op} C
-
-# clear master programmer steppers in anticipation of decode
-p {p-disc-op} p.Acdi
-p {p-disc-op} p.Bcdi
-p {p-disc-op} p.Ccdi
-p {p-disc-op} p.Dcdi
-p {p-disc-op} p.Ecdi
-p {p-disc-op} p.Fcdi
-p {p-disc-op} p.Gcdi
 
 
 # -- p-ople53 - begin decode of opcode which is <= 53
-# EX = P 153-I1 ...
-# Leftmost opcode in IR now P00
-# Add M9900000001 so it resets to M but then overflows to P if no more opcodes
+# IR is now P 00...
+# Add M 9900000001 so it resets to M but then overflows to P if no more opcodes
+# This also turns 99-I2 into 100-I2 at the right of IR.
+p {p-ople53} debug.assert.5
+s debug.assert.5 {a-ir}~P00xxxxxxxx
 
 # M9900000001 -> d-main
 p {p-ople53} c.27i 
@@ -324,17 +387,27 @@ s c.j1  1
 # a-ir += d-main
 $rec {p-ople53} {a-ir} {t-ople53} {i-main} {p-ople53-2}
 
+# Clear MP via pulse amplifier.
+# TODO add pulse amplifier reservations to easm.py
+p pa.1.sa.1 {p-ople53}
+p pa.1.sb.1 {p-clear-mp}
+
 
 # -- p-ople53-2 - send tens digit of opcode to stepper A, ones digit to B-G
-# also clear EX, to prepare for execution 
+p {p-ople53-2} debug.assert.6
+p {p-ople53-2} debug.assert.7
+# sign of PC must be P to avoid misfiring conditional jump
+s debug.assert.6 {a-pc}~Pxxxxxxxxxx
+s debug.assert.7 {a-ex}~P0000000000
 
-# send EX on S and clear
-$sendc {p-ople53-2} {a-ex} {t-ople53-2} S {p-ople53-3}
+# Send PC on main and receive in EX with SS (opcode field) clear.
+$sendc {p-ople53-2} {a-pc} {t-ople53-2} A {p-ople53-3}
+$recx {p-ople53-2} {a-ex} {t-ople53-2} {i-clearA}
 
-# wire EX.S to master programmer
-p {d-exS} ad.dp.{ad-ople53-tens}.10   # 10s digit of opcode
+# Receive opcode at master programmer stepper direct inputs
+p {d-main} ad.dp.{ad-ople53-tens}.10   # 10s digit of opcode
 p ad.dp.{ad-ople53-tens}.10 p.Adi
-p {d-exS} ad.dp.{ad-ople53-ones}.9    # 1s digit of opcode
+p {d-main} ad.dp.{ad-ople53-ones}.9    # 1s digit of opcode
 p ad.dp.{ad-ople53-ones}.9 p.Bdi
 p ad.dp.{ad-ople53-ones}.9 p.Cdi
 p ad.dp.{ad-ople53-ones}.9 p.Ddi
@@ -352,7 +425,17 @@ p p.A6o p.Gi
 
 
 # -- p-ople53-3 - send input pulse to master programmer
+p {p-ople53-3} debug.assert.8
+p {p-ople53-3} debug.assert.9
+# sign of EX must be P to avoid misfiring p-ople53
+s debug.assert.8 {a-ex}~P00xxxxxxxx
+s debug.assert.9 {a-pc}~P0000000000
 
+# Reset PC opcode field and clear EX to prep for instruction.
+$sendcx {p-ople53-3} {a-ex} {t-ople53-3} A
+$recx {p-ople53-3} {a-pc} {t-ople53-3} {i-main}
+
+# Trigger master programmer
 p {p-ople53-3} p.Ai
 
 # Now we have to wire the outputs to individual opcode programs
@@ -373,11 +456,11 @@ $op-lines F 4
 $op-lines G 5
 
 p {p-op00} debug.bp.1
-p {p-op11} debug.bp.2
-p {p-op22} debug.bp.3
-p {p-op33} debug.bp.4
-p {p-op44} debug.bp.5
-p {p-op50} debug.bp.6
+p {p-op01} debug.bp.2
+p {p-op02} debug.bp.3
+p {p-op03} debug.bp.4
+p {p-op04} debug.bp.5
+p {p-op05} debug.bp.6
 
 
 # -- p-opgt53 - decode opcode which is > 53
@@ -390,7 +473,7 @@ s {a-ir}.op{r-plusone} {i-plusone} # not connected to anything
 s {a-ir}.cc{r-plusone} C
 
 # PLACEHOLDER: flip sign and send to printer
-$dummy {p-opgt53} a20 {t-opgt53-printex} 1 {p-flipex-printex}
+#$dummy {p-opgt53} a20 {t-opgt53-printex} 1 {p-flipex-printex}
 
 
 # -- {p-fetchline} no more instructons in IR, load new line from ft
@@ -437,7 +520,7 @@ p f1.B ad.permute.{ad-fetchB}
 s ad.permute.{ad-fetchB} 11,2,1,4,3,6,5,0,0,0,0
 p ad.permute.{ad-fetchB} {d-fetch}
 
-$recinc {p-fetchread} {a-ir} {t-fetchread} {i-fetch} {p-flipex-printex} 
+#$recinc {p-fetchread} {a-ir} {t-fetchread} {i-fetch} {p-flipex-printex} 
 
 
 # A6A5+1 00 00 00 00  -> EX
@@ -450,47 +533,6 @@ $recincx {p-fetchread} {a-ex} {r-fetchread} {i-main}
 
 # PC += 1
 $recincx {p-fetchread} {a-pc} {r-fetchread} {i-nothing}
-
-
-
-
-# -- {p-flipex-printex} - change sign of EX from M to P, then print
-# M9900000001 -> d-main, but we use an adapter to keep only the M
-p {p-flipex-printex} c.28i
-s c.s28 Jlr
-
-p {p-flipex-printex} {a-ex}.{t-flipex}i
-s {a-ex}.op{t-flipex} {i-flipex}
-p {d-main} ad.d.{ad-flipex}.0           # keep 0 digits, i.e. sign only
-p ad.d.{ad-flipex}.0 {a-ex}.{i-flipex}
-p {a-ex}.{t-flipex}o {p-printex} 
-
-
-# -- {p-printex} print EX and stop
-
-# clear register file
-$clear {p-printex} {a-reg} {t-decode} {p-printop}
-
-# EX -> d-exA
-p {p-printop} {a-ex}.{t-printop}i   
-s {a-ex}.op{t-printop} A
-p {a-ex}.{t-printop}o {p-printop2}
-
-# mainbus -> REG
-p {p-printop} {a-reg}.{r-printop}i
-s {a-reg}.op{r-printop} {i-printop}
-p {d-exA} ad.sd.{ad-printop}.8
-p ad.sd.{ad-printop}.8 {a-reg}.{i-printop}
-#p {d-exA} {a-reg}.a
-
-# print "decoded" instruction, it's in a13
-p {p-printop2} i.pi 
-s pr.2 P
-s pr.3 P
-
-
-
-
 
 # ------------ DATA --------------
 
