@@ -38,30 +38,33 @@
 44 - mov [#XX],A
 45 - indexacc     ; A = 2*B2 + B1>4
 
-50 - inc A
-51 - inc B
-52 - dec A
+50 - (reserved for 7x decode)
+51 - (reserved for 8x decode)
+52 - (reserved for 9x decode)
+53 - inc A
+54 - inc B
+55 - dec A
 
-70 - add A,D
-71 - neg A
-72 - sub A,D      ; aka compare
-73 - jmp XX       ; within current function table
-74 - jmp far XXXX ; to any function table
-75 - jmp +A
+74 - add A,D
+75 - neg A
+76 - sub A,D      ; aka compare
+77 - jmp XX       ; within current function table
+78 - jmp far XXXX ; to any function table
+79 - jmp +A
 
-80 - jn XX        ; jump if A<0 
-81 - jz XX        ; jump if A==0
-82 - jil XX       ; jump if A is an illegal board square: D2 or D1 is 0 or 9
-83 - loop XX      ; dec C; jump if C!=0
-84 - jsr XXXX     ; always far
-85 - ret
+84 - jn XX        ; jump if A<0 
+85 - jz XX        ; jump if A==0
+86 - jil XX       ; jump if A is an illegal board square: D2 or D1 is 0 or 9
+87 - loop XX      ; dec C; jump if C!=0
+88 - jsr XXXX     ; always far
+89 - ret
 
-90 - 
-91 - read AB
-92 - print AB
-93 - 
-94 - nextline     ; go immediately to line fetch
-95 - halt
+94 - 
+95 - read AB
+96 - print AB
+97 - 
+98 - nextline     ; go immediately to line fetch
+99 - halt
 
 
 
@@ -74,8 +77,8 @@ PC:
 Current program counter PPPP and return address RRRR, plus a temp SS
 layout: SS RRRR PPPP
 
-A - mp steppers, op<=53
-S - mp steppers, op>53
+A - mp steppers, op<=55
+S - mp steppers, op>55
 a - nop
 b - loadim2-irS: I1 XX XX XX XX -> 00 00 00 00 I1, used for JN/JZ/JIL
 g - shiftl4-exA, used for JSR
@@ -96,7 +99,7 @@ d - fill99exS: replace top 2 digits with 99, requires EX.PM = P
 
 
 EX:
-General purpose execture register, also used to disc opcode >53
+General purpose execture register, also used to disc opcode >55
 typically: 100-I1 XX XX XX XX 
 
 A - main
@@ -258,17 +261,16 @@ CONTROL CYCLE
 1. clear EX
 2. IR -> EX, IR-S-shiftl8->PC, disriminate IR   
   (IR < 0)
-  3. EX += 53
+  3. EX += 55
   4. EX -fill99exA-> IR, disc EX, clear EX, clear master programmer
-    (EX>=0, op<=53)
+    (EX>=0, op<=55)
     5. IR += 99 00 00 00 01 because fill99 will fill with zeros instead, and we need +1 to overflow
-    5. PC -clearA-> EX, PC-A->master programmer, 
-    6. EX -> PC
-    7. operation begins in this add time
+    6. PC -clearA-> EX, PC-A->master programmer
+    7. EX -> PC, clear EX
+    8. operation begins in this add time
   else
-    (EX<0, op>53)
-    5. IR += 1
-    5. PC += offset<<8 # setup decode for 2nd bank
+    (EX<0, op>55)
+    5. IR += 1  # XXX could probably save this cycle
     6. PC-S-clearA->EX, PC-S->master programmer 
     7. EX-S->PC, clear EX
     8. operation begins in this add time
@@ -278,7 +280,7 @@ else
   5. PC += 01 << 8
   6.
   7. FT -> IR,PC,EX
-  8. EX += 53
+  8. EX += 55
   9. clear mp, IR+=1, clear EX, disc EX (goto 5)
 
 
