@@ -3,8 +3,8 @@ set a1 0
 set a1 0012345678
 # XXX test p-nofetch
 #set a2 -9394959621  # op=79
-set a2 -9394959626  # op=74
-#set a2 -9394959697  # op=03
+#set a2 -9394959626  # op=74
+set a2 -9394959697  # op=03
 #set a2 -9394959646  # op=54
 b i
 
@@ -317,7 +317,7 @@ p ad.dp.{ad-opcode-9}.9 p.Ddi
 p ad.dp.{ad-opcode-9}.9 p.Edi
 p ad.dp.{ad-opcode-9}.9 p.Fdi
 p ad.dp.{ad-opcode-9}.9 p.Gdi        # opcode 1's digit (0x-5x) or 10's digit (7x-9x)
-p ad.dp.{ad-opcode-10}.10 p.Hdi      # opcode 10's digit (7x-9x)
+p ad.dp.{ad-opcode-10}.10 p.Hdi      # opcode 1's digit (7x-9x)
 p ad.dp.{ad-opcode-10}.10 p.Jdi
 p ad.dp.{ad-opcode-10}.10 p.Kdi
 
@@ -409,7 +409,7 @@ $clear {p-clearex-fetch} {a-ex} {t-clearex-fetch} {p-fetch}
 #  - send next instruction (I1) to PC (assume PC.SS is 0)
 p {p-fetch} debug.assert.1
 p {p-fetch} debug.assert.2
-s debug.assert.1 {a-ex}~x0000000000
+s debug.assert.1 {a-ex}~P0000000000
 s debug.assert.2 {a-pc}~x00xxxxxxxx
 
 # If more instructions are needed, IR is P 0, and control proceeds to p-fetchline.
@@ -442,7 +442,7 @@ s debug.assert.3 {a-ex}~Mxxxxxxxxxx
 p {p-nofetch} c.26i 
 s c.s26 Kl
 s c.k10 5
-s c.k9  3 
+s c.k9  5
 p c.o {d-main} 
 
 # EX += d-main (55) for discrimination next cycle.  For example,
@@ -500,10 +500,7 @@ p pa.1.sb.3 {p-clear-mp}
 
 
 # -- p-ople55-2 - send tens digit of opcode to stepper A, ones digit to B-G
-p {p-ople55-2} debug.assert.6
 p {p-ople55-2} debug.assert.7
-# sign of PC must be P to avoid misfiring conditional jump
-s debug.assert.6 {a-pc}~Pxxxxxxxxxx
 s debug.assert.7 {a-ex}~P0000000000
 
 # Send PC on main and receive in EX with SS (opcode field) clear.
@@ -519,6 +516,8 @@ s debug.assert.8 {a-ex}~P00xxxxxxxx
 s debug.assert.9 {a-pc}~P0000000000
 
 # Reset PC opcode field and clear EX to prep for instruction.
+# Note that this would trigger the MP steppers, but the opcode field contains
+# 00 here so this doesn't mess up decode.
 $sendcx {p-ople55-3} {a-ex} {t-ople55-3} A
 $recx {p-ople55-3} {a-pc} {t-ople55-3} {i-main}
 
