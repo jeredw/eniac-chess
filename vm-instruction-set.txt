@@ -259,29 +259,38 @@ CONTROL CYCLE
 -------------
 
 1. clear EX
-2. IR -> EX, IR-S-shiftl8->PC, disriminate IR   
-  (IR < 0)
-  3. EX += 55
-  4. EX -fill99exA-> IR, disc EX, clear EX, clear master programmer
-    (EX>=0, op<=55)
-    5. IR += 99 00 00 00 01 because fill99 will fill with zeros instead, and we need +1 to overflow
-    6. PC -clearA-> EX, PC-A->master programmer
-    7. EX -> PC, clear EX
+2. IR -> EX, IR-S-shiftl8->PC, discriminate IR (P->p-fetchline, M->p-nofetch-eat-op)
+  (IR < 0, p-nofetch-eat-op: triggers both p-nofetch and p-eat-op via pulse amps)
+  3. [p-nofetch] EX += 55                     [p-nofetch-eat-op] dummy triggers p-eat-op
+  4. [p-disc-op] disc EX,                     [p-eat-op] EX -fill99exA-> IR
+                 clear EX,                    
+                 clear mp                     
+    (EX>=0, op<=55)                           
+    5. [p-oplt55] M99000 -> d-main            [p-eat-op-2] IR += d-main + 1*
+    6. [p-oplt55-2] PC -clearA-> EX,
+                    PC-A->master programmer
+    7. [p-oplt55-3] EX -> PC,
+                    clear EX
     8. operation begins in this add time
   else
     (EX<0, op>55)
-    5. IR += 1  # XXX could probably save this cycle
-    6. PC-S-clearA->EX, PC-S->master programmer 
-    7. EX-S->PC, clear EX
+    5. [p-opgt55] - (d-main is 0)             [p-eat-op-2] IR += d-main + 1
+    6. [p-opgt55-2] PC-S-clearA->EX,
+                    PC-S->master programmer 
+    7. [p-opgt55-3] EX-S->PC,
+                    clear EX
     8. operation begins in this add time
 else
-  3. stim FT
+  3. [p-fetchline]  stim FT
   4. PC->FT
-  5. PC += 01 << 8
-  6.
-  7. FT -> IR,PC,EX
-  8. EX += 55
-  9. clear mp, IR+=1, clear EX, disc EX (goto 5)
+  5. -
+  6. -
+  7. [p-fetchread]   FT -> IR,EX
+  8. [p-fetchread-2] PC += -EX + 1
+                     trigger p-nofetch**
+
+* because fill99 will fill with zeros instead, and we need +1 to overflow
+** note this does not trigger p-eat-op so the top of IR is preserved.
 
 
 OPCODE MICROPROGRAMS
