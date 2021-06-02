@@ -336,7 +336,8 @@ p p.A3o p.Di
 p p.A4o p.Ei
 p p.A5o p.Fi
 p p.A6o {p-mp-5x}
-# Gi is triggered both by A6o when decoding 5x, and explicitly via a program
+
+# For opcodes>55, Gi is triggered both by A6o when decoding 5x, and explicitly via a program
 # control to decode the tens digit of 7x-9x.
 p pa.1.sa.1 {p-mp-5x}
 p pa.1.sb.1 p.Gi
@@ -451,6 +452,7 @@ p pa.1.sa.5 {p-nofetch-eat-op}
 p pa.1.sb.5 {p-nofetch}
 # PC has I1 at left
 # EX starts M 100-I1 99-I5 99-I4 99-I3 99-I2
+
 p {p-nofetch} debug.assert.3
 s debug.assert.3 {a-ex}~Mxxxxxxxxxx
 
@@ -470,7 +472,8 @@ p c.o {d-main}
 #   Adding 55 to 29 will set EX to M 84...
 $rec {p-nofetch} {a-ex} {t-nofetch} {i-main} {p-disc-op}
 
-# dummy program to delay eat-op program.
+# If we are eating an operand (removing it from IR) then we need to set
+# top top digits of IR to 99 after next instruction (delay 1 cycle)
 $dummy {p-nofetch-eat-op} a20 {t-eat-op} 1 {p-eat-op}
 
 
@@ -484,20 +487,25 @@ s debug.assert.4 {a-ir}~P0000000000
 $discriminate {p-disc-op} {a-ex} a20 disc-op {d-exA} {d-exS} {p-ople55} {p-opgt55}
 s {a-ex}.cc{t-disc-op} C  # clear EX
 
-# Meanwhile, store EX back into IR without the instruction we are now decoding.
+# If we are consuming from IR, store EX back into IR without the op we are now decoding.
 # Replace first two digits with PM; gives M99 if EX<0 at this point, P00
 # otherwise which is fixed in p-ople55.
 $rec {p-eat-op} {a-ir} {t-disc-op} {i-fill99} {p-eat-op-2}
 
 
 # -- p-ople55 - begin decode of opcode which is <= 55
-# IR is now P 00...
+# If we consuming from IR, IR is now P00xxxxxxxx
 # Add M 9900000001 so it resets to M but then overflows to P if no more opcodes
 # This also turns 99-I2 into 100-I2 at the right of IR.
 p {p-eat-op-2} debug.assert.5
 s debug.assert.5 {a-ir}~P00xxxxxxxx
 
+# a-ir += d-main
+$recincx {p-eat-op-2} {a-ir} {r-ople55} {i-main}
+
 # M99000 -> d-main
+# Always put this on the main bus at this step; it's just ignored if
+# we are not consuming from IR
 p {p-ople55} c.27i 
 s c.s27 Jl
 s c.jl M
@@ -505,8 +513,6 @@ s c.j10 9
 s c.j9  9 
 p c.27o {p-ople55-2}
 
-# a-ir += d-main
-$recincx {p-eat-op-2} {a-ir} {r-ople55} {i-main}
 
 # Clear MP via pulse amplifier.
 # FIXME Steppers should logically be cleared "during p-ople55", but
@@ -522,12 +528,13 @@ p pa.1.sb.3 {p-clear-mp}
 
 
 # -- p-ople55-2 - send tens digit of opcode to stepper A, ones digit to B-G
+# Also PC->EX to begin clearing SS 
 p {p-ople55-2} debug.assert.7
 s debug.assert.7 {a-ex}~P0000000000
 
 # Send PC on main and receive in EX with SS (opcode field) clear.
 $sendc {p-ople55-2} {a-pc} {t-ople55-2} A {p-ople55-3}
-$recx {p-ople55-2} {a-ex} {t-ople55-2} {i-clearA}
+$recx {p-ople55-2} {a-ex} {r-ople55-2} {i-clearA}
 
 
 # -- p-ople55-3 - send input pulse to master programmer
@@ -552,11 +559,11 @@ p {p-ople55-3} p.Ai
 p {p-opgt55} debug.assert.10
 s debug.assert.10 {a-ir}~M99xxxxxxxx
 
-# IR += 1 to cause overflow if no more opcodes (roll 9's over to 0)
+# If we consuming from IR, IR += 1 to cause overflow if no more opcodes (roll 9's over to 0)
 # This will add i-main and is configured in p-ople55.
 #$recinc {p-eat-op-2} {a-ir} {t-plusone} {i-nothing}
 
-# dummy program to delay p-opgt55 to next cycle
+# dummy program to pass programm pulse p-opgt55 to next cycle (nop here if not consuming)
 $dummy {p-opgt55} a20 {t-opgt55} 1 {p-opgt55-2}
 
 # Clear MP via pulse amplifier (see note in p-ople55).
@@ -574,13 +581,13 @@ $recx {p-opgt55-2} {a-ex} {t-opgt55-2} {i-main}
 
 
 # -- p-opgt55-3 - send input pulse to master programmer
-# Sign of EX must be M to avoid misfiring p-ople55
+# Sign of EX must be M to avoid misfiring p-ople55 (triggered from a-ex.S sign)
 p {p-opgt55-3} debug.assert.12
 s debug.assert.12 {a-ex}~Mxxxxxxxxxx
 
-# Reset PC opcode field and clear EX to prep for instruction.
-$sendcx {p-opgt55-3} {a-ex} {t-opgt55-3} S
-$recx {p-opgt55-3} {a-pc} {t-opgt55-3} {i-exS-clearA}
+# EX back to PC, with opcode field (SS) cleared
+$sendcx {p-opgt55-3} {a-ex} {r-opgt55-3} S
+$recx {p-opgt55-3} {a-pc} {r-opgt55-3} {i-exS-clearA}
 
 # Trigger master programmer.
 p {p-opgt55-3} {p-mp-789x}
@@ -618,7 +625,6 @@ p {d-main} f1.arg  # only bottom two digit lines connect so no deleter is requir
 #  - PC is unchanged
 
 # B2B1 B4B3 B6B5 A2A1 A4A3+1 -> IR
-# NYI: should goto decode opcode in EX, not printex
 p f1.A {d-f1A}                      # FIXME in the sim, need output T-s to avoid using extra digit tray
 p {d-f1A} ad.permute.{ad-fetchA}
 s ad.permute.{ad-fetchA} 0,0,0,0,0,0,0,2,1,4,3
@@ -641,11 +647,11 @@ $recx {p-fetchread} {a-ex} {r-fetchread} {i-main}
 
 
 
-# -- p-fetchread-2: Fix PC so that I1 is correct
+# -- p-fetchread-2: Move first opcode into top of PC to begin execution, inc PC
 #  - PC = P I1 xx xx xx pc+1
-# Send EX subtractively (to send I1)
-$sendx {p-fetchread-2} {a-ex} {r-fetchread-2} S
-# Receive in PC and go to nofetch.
+# Send EX subtractively, as the FT sent I1 subtractively
+# then go to p-nofetch to begin execution
+$sendx {p-fetchread-2} {a-ex} {t-fetchread-2} S  # t because out of r
 $recinc {p-fetchread-2} {a-pc} {t-fetchread-2} {i-sendi1} {p-nofetch}
 
 

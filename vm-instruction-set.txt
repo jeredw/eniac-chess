@@ -146,7 +146,7 @@ MEM7:
 LOAD09:
 load 0-9 / far jump
 A - main
-S - load 0-9
+S - load acc 0-9
 a - nop
 b - loadAB: read from FT output
 g - loadim4-irS:  I1 XX XX XX I2 -> 00 00 00 I1 I2
@@ -261,7 +261,7 @@ CONTROL CYCLE
 1. clear EX
 2. IR -> EX, IR-S-shiftl8->PC, discriminate IR (P->p-fetchline, M->p-nofetch-eat-op)
   (IR < 0, p-nofetch-eat-op: triggers both p-nofetch and p-eat-op via pulse amps)
-  3. [p-nofetch] EX += 55                     [p-nofetch-eat-op] dummy triggers p-eat-op
+  3. [p-nofetch] EX += 55                     [p-nofetch-eat-op] nop
   4. [p-disc-op] disc EX,                     [p-eat-op] EX -fill99exA-> IR
                  clear EX,                    
                  clear mp                     
@@ -270,7 +270,8 @@ CONTROL CYCLE
     6. [p-oplt55-2] PC -clearA-> EX,
                     PC-A->master programmer
     7. [p-oplt55-3] EX -> PC,
-                    clear EX
+                    clear EX,
+                    trigger master programmer
     8. operation begins in this add time
   else
     (EX<0, op>55)
@@ -278,16 +279,17 @@ CONTROL CYCLE
     6. [p-opgt55-2] PC-S-clearA->EX,
                     PC-S->master programmer 
     7. [p-opgt55-3] EX-S->PC,
-                    clear EX
+                    clear EX,
+                    trigger master programmer
     8. operation begins in this add time
 else
   3. [p-fetchline]  stim FT
   4. PC->FT
-  5. -
-  6. -
+  5. wait
+  6. wait
   7. [p-fetchread]   FT -> IR,EX
   8. [p-fetchread-2] PC += -EX + 1
-                     trigger p-nofetch**
+                     goto p-nofetch**
 
 * because fill99 will fill with zeros instead, and we need +1 to overflow
 ** note this does not trigger p-eat-op so the top of IR is preserved.
