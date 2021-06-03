@@ -77,13 +77,15 @@ PC:
 Current program counter PPPP and return address RRRR, plus a temp SS
 layout: SS RRRR PPPP
 
-A - mp steppers, op<=55
-S - mp steppers, op>55
-a - nop
-b - loadim2-irS: I1 XX XX XX XX -> 00 00 00 00 I1, used for JN/JZ/JIL
-g - shiftl4-exA, used for JSR
-d - from FT, first instruction only
-e - shiftl8-irS: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
+A - main (to mp steppers, op<=55)
+S - main (to mp steppers, op>55; SS field digits swapped)
+a - main
+b - shiftl8-irS: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
+c - clearA: XX RRRR PPPP -> 00 RRRR PPPP, wired to EX.S for control cycle
+d - sendi1: from FT, first instruction only
+
+? - loadim2-irS: I1 XX XX XX XX -> 00 00 00 00 I1, used for JN/JZ/JIL
+? - shiftl4-exA, used for JSR
 
 
 IR:
@@ -91,25 +93,28 @@ Up to five next instructions, stored as complement so 99 fills in from the left
 P0 if empty, otherwise M 99-I6 99-I5 99-I4 99-I3 100-I2
 
 A - d-irA, I6 I5 I4 I3 I2 I1 -> I1 I6 I5 I4 I3 I2, used in control cycle
+    also main (digits but not sign)
 S - d-irS, I6 I5 I4 I3 I2 I1 -> I1 I6 I5 I4 I3 I2, used in control cycle
 AS - fetch discriminate
 a - from FT
 b - fill99exA: replace top 2 digits with 99, requires EX.PM = M
-d - fill99exS: replace top 2 digits with 99, requires EX.PM = P
+c - main
 
 
 EX:
-General purpose execture register, also used to disc opcode >55
+General purpose execution register, also used to disc opcode >55
 typically: 100-I1 XX XX XX XX 
 
 A - main
 S - exS
 AS - op discriminate
-a - nop
-b - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
-g - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
-g - clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
-e - shiftl4:  XX YY YY 43 32 -> XX 43 21 00 00, used for JSR
+a - main
+b - rotate irA: I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, used in control cycle
+c - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
+
+? - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
+? - clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
+? - shiftl4:  XX YY YY 43 32 -> XX 43 21 00 00, used for JSR
 
 
 RF:

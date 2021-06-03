@@ -37,11 +37,14 @@ include macros.easm
 
 # A - mp steppers, op<=55
 p {a-pc}.A {d-main}
+
 # S - mp steppers, op>55
 # Decode needs the digits of the SS field to be swapped.
 p {a-pc}.S ad.permute.{ad-swap-pc-ss-digits}
 s ad.permute.{ad-swap-pc-ss-digits} 11,9,10,8,7,6,5,4,3,2,1
 p ad.permute.{ad-swap-pc-ss-digits} {d-main}
+
+# Note there is no discrimination on PC
 
 # main input
 p {d-main} {a-pc}.{i-main}
@@ -50,19 +53,16 @@ p {d-main} {a-pc}.{i-main}
 p {d-irS} ad.s.{ad-pc-shiftl8-irS}.8
 p ad.s.{ad-pc-shiftl8-irS}.8 {a-pc}.{i-shiftl8-irS}
 
-# "no connection" input, used for incrementing PC
-p {d-nothing} {a-pc}.{i-nothing} # d-nothing is a workaround, I'd prefer "{a-pc}.{i-nothing}=a"
-
-# XXX replan PC inputs so this fits somehow...
+# clear A input: XX RRRR PPPP -> 00 RRRR PPPP, wired to EX.S for control cycle
 p {d-exS} ad.permute.{ad-exS-clearA}
 s ad.permute.{ad-exS-clearA} 0,0,0,8,7,6,5,4,3,2,1
 p ad.permute.{ad-exS-clearA} {a-pc}.{i-exS-clearA}
 
-# d - from FT, in control cycle to load first instruction
+# sendi1 input: from FT, first instruction only
 p {d-exS} {a-pc}.{i-sendi1}
 
-# b - loadim2-irS: I1 XX XX XX XX -> 00 00 00 00 I1, used for JN/JZ/JIL
-# g - shiftl4-exA, used for JSR
+# loadim2-irS: I1 XX XX XX XX -> 00 00 00 00 I1, used for JN/JZ/JIL
+# shiftl4-exA, used for JSR
 
 
 # - Instruction Register -
@@ -79,12 +79,6 @@ p {a-ir}.A {d-irA}
 p {d-irA} ad.permute.{ad-drop-ir-sign}
 s ad.permute.{ad-drop-ir-sign} 0,10,9,8,7,6,5,4,3,2,1
 p ad.permute.{ad-drop-ir-sign} {d-main}
-
-# I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2
-# Shift the instructions right, then we execute and clear I1, removing one from the queue
-p {d-irA} ad.permute.{ad-irA}
-s ad.permute.{ad-irA} 11,2,1,10,9,8,7,6,5,4,3
-p ad.permute.{ad-irA} {d-rotate-irA}
 
 # S output to its own bus, unpermuted
 p {a-ir}.S {d-irS}
@@ -125,22 +119,25 @@ p ad.permute.{ad-drop-ex-sign} {d-main}
 # S - exS
 p {a-ex}.S {d-exS}
 
-# clear A field of main
-# XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
-p {d-main} ad.permute.{ad-clearA}
-s ad.permute.{ad-clearA} 11,0,0,8,7,6,5,4,3,2,1
-p ad.permute.{ad-clearA} {d-clearA}
+# AS - discriminate opcode > 55
 
 # main
 p {d-main} {a-ex}.{i-main}
-# TODO: replan inputs on EX to allow this input?
-p {d-rotate-irA} {a-ex}.{i-rotate-irA}
-# d - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
-p {d-clearA} {a-ex}.{i-clearA}
 
-# g - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
-# g - clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
-# e - shiftl4:  XX YY YY 43 32 -> XX 43 21 00 00, used for JSR
+# rotate-irA input: I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2 for control cycle
+# Shift the instructions right, then we execute and clear I1, removing one from the queue
+p {d-irA} ad.permute.{ad-irA}
+s ad.permute.{ad-irA} 11,2,1,10,9,8,7,6,5,4,3
+p ad.permute.{ad-irA} {a-ex}.{i-rotate-irA}
+
+# clearA input: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
+p {d-main} ad.permute.{ad-clearA}
+s ad.permute.{ad-clearA} 11,0,0,8,7,6,5,4,3,2,1
+p ad.permute.{ad-clearA} {a-ex}.{i-clearA}
+
+# clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
+# clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
+# shiftl4:  XX YY YY 43 32 -> XX 43 21 00 00, used for JSR
 
 
 # - Register File -
@@ -442,7 +439,7 @@ s debug.assert.10 {a-ir}~M99xxxxxxxx
 
 # If we consuming from IR, IR += 1 to cause overflow if no more opcodes (roll 9's over to 0)
 # This will add i-main and is configured in p-ople55.
-#$recinc {p-eat-op-2} {a-ir} {t-plusone} {i-nothing}
+#$recinc {p-eat-op-2} {a-ir} {t-plusone} {i-main}
 
 # dummy program to pass programm pulse p-opgt55 to next cycle (nop here if not consuming)
 $dummy {p-opgt55} a20 {t-opgt55} 1 {p-opgt55-2}
@@ -456,7 +453,8 @@ p pa.1.sb.4 {p-clear-mp}
 p {p-opgt55-2} debug.assert.11
 s debug.assert.11 {a-ex}~P0000000000
 
-# Send PC subtractively on main and receive in EX with SS (opcode field) clear.
+# Send PC subtractively on main and receive in EX.  Note that this doesn't
+# clear the SS field.  It is cleared at PC in the next cycle.
 $sendc {p-opgt55-2} {a-pc} {t-opgt55-2} S {p-opgt55-3}
 $recx {p-opgt55-2} {a-ex} {t-opgt55-2} {i-main}
 
@@ -467,6 +465,7 @@ p {p-opgt55-3} debug.assert.12
 s debug.assert.12 {a-ex}~Mxxxxxxxxxx
 
 # EX back to PC, with opcode field (SS) cleared
+# EX.S is not connected to main so this doesn't cause spurious MP inputs.
 $sendcx {p-opgt55-3} {a-ex} {r-opgt55-3} S
 $recx {p-opgt55-3} {a-pc} {r-opgt55-3} {i-exS-clearA}
 
