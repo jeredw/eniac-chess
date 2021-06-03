@@ -264,28 +264,28 @@ $op-lines-gt55 J 8
 $op-lines-gt55 K 7
 
 # XXX debug
-defmacro traceop opcode paline
+defmacro traceop opcode
   $pulseamp {p-op$opcode} {p-clearex-fetch}
-  $dump {p-op$opcode} $paline {a-pc}
+  $dump {p-op$opcode} {a-pc}
 endmacro
 
-$traceop 01 1
-$traceop 02 2
-$traceop 03 3
-$traceop 04 4
-$traceop 05 5
-$traceop 10 6
+$traceop 01
+$traceop 02
+$traceop 03
+$traceop 04
+$traceop 05
+$traceop 10
 
-p {p-op74} debug.bp.11
-p {p-op75} debug.bp.12
-p {p-op76} debug.bp.13
-p {p-op77} debug.bp.14
-p {p-op78} debug.bp.15
-p {p-op79} debug.bp.16
+$break {p-op74}
+$break {p-op75}
+$break {p-op76}
+$break {p-op77}
+$break {p-op78}
+$break {p-op79}
 
-p {p-op53} debug.bp.7
-p {p-op54} debug.bp.8
-p {p-op55} debug.bp.9
+$break {p-op53}
+$break {p-op54}
+$break {p-op55}
 
 
 # -- CONTROL CYCLE --
@@ -302,8 +302,8 @@ $clear {p-clearex-fetch} {a-ex} {t-clearex-fetch} {p-fetch}
 #  - discriminate, to decide whether to fetch new instructions
 #  - read out the contents of IR into EX
 #  - send next instruction (I1) to PC (assume PC.SS is 0)
-$assert {p-fetch} 1 {a-ex}~P0000000000
-$assert {p-fetch} 2 {a-pc}~x00xxxxxxxx
+$assert {p-fetch} {a-ex}~P0000000000
+$assert {p-fetch} {a-pc}~x00xxxxxxxx
 
 # If more instructions are needed, IR is P 0, and control proceeds to p-fetchline.
 # Otherwise, IR is M 99-I5 99-I4 99-I3 99-I2 100-I1 and we trigger p-nofetch-eat-op.
@@ -328,7 +328,7 @@ $recx {p-fetch} {a-pc} {r-fetch} {i-shiftl8-irS}
 $pulseamp {p-nofetch-eat-op} {p-nofetch}
 # PC has I1 at left
 # EX starts M 100-I1 99-I5 99-I4 99-I3 99-I2
-$assert {p-nofetch} 3 {a-ex}~Mxxxxxxxxxx
+$assert {p-nofetch} {a-ex}~Mxxxxxxxxxx
 
 # Begin decode by adding 55 to EX, from constant transmitter
 
@@ -353,7 +353,7 @@ $dummy {p-nofetch-eat-op} a20 {t-eat-op} 1 {p-eat-op}
 # -- {p-disc-op} discriminate opcode I1>55, to switch between two decode pathways
 # EX starts P/M 155-I1 99-I5 99-I4 99-I3 99-I2 and ends clear.
 # Also store shifted instructions back to IR, deleting just-dispatched opcode.
-$assert {p-eat-op} 4 {a-ir}~P0000000000
+$assert {p-eat-op} {a-ir}~P0000000000
 
 # Discriminate based on sign of EX, already set based on whether I1 > 55.
 $discriminate {p-disc-op} {a-ex} a20 disc-op {d-exA} {d-exS} {p-ople55} {p-opgt55}
@@ -369,7 +369,7 @@ $rec {p-eat-op} {a-ir} {t-disc-op} {i-fill99} {p-eat-op-2}
 # If we consuming from IR, IR is now P00xxxxxxxx
 # Add M 9900000001 so it resets to M but then overflows to P if no more opcodes
 # This also turns 99-I2 into 100-I2 at the right of IR.
-$assert {p-eat-op-2} 5 {a-ir}~P00xxxxxxxx
+$assert {p-eat-op-2} {a-ir}~P00xxxxxxxx
 
 # a-ir += d-main
 $recincx {p-eat-op-2} {a-ir} {r-ople55} {i-main}
@@ -399,7 +399,7 @@ $pulseamp {p-ople55-2} {p-clear-mp}
 
 # -- p-ople55-2 - send tens digit of opcode to stepper A, ones digit to B-G
 # Also PC->EX to begin clearing SS 
-$assert {p-ople55-2} 6 {a-ex}~P0000000000
+$assert {p-ople55-2} {a-ex}~P0000000000
 
 # Send PC on main and receive in EX with SS (opcode field) clear.
 $sendc {p-ople55-2} {a-pc} {t-ople55-2} A {p-ople55-3}
@@ -408,8 +408,8 @@ $recx {p-ople55-2} {a-ex} {r-ople55-2} {i-clearA}
 
 # -- p-ople55-3 - send input pulse to master programmer
 # sign of EX must be P to avoid misfiring p-ople55
-$assert {p-ople55-3} 7 {a-ex}~P00xxxxxxxx
-$assert {p-ople55-3} 8 {a-pc}~P0000000000
+$assert {p-ople55-3} {a-ex}~P00xxxxxxxx
+$assert {p-ople55-3} {a-pc}~P0000000000
 
 # Reset PC opcode field and clear EX to prep for instruction.
 # Note that this would trigger the MP steppers, but the opcode field contains
@@ -423,7 +423,7 @@ p {p-ople55-3} p.Ai
 
 # -- p-opgt55 - decode opcode which is > 55
 # Leftmost opcode in IR is now M99
-$assert {p-opgt55} 9 {a-ir}~M99xxxxxxxx
+$assert {p-opgt55} {a-ir}~M99xxxxxxxx
 
 # If we consuming from IR, IR += 1 to cause overflow if no more opcodes (roll 9's over to 0)
 # This will add i-main and is configured in p-ople55.
@@ -437,7 +437,7 @@ $pulseamp {p-opgt55-2} {p-clear-mp}
 
 
 # -- p-opgt55-2 - send tens digit to mp G stepper, ones digit to H-K
-$assert {p-opgt55-2} 10 {a-ex}~P0000000000
+$assert {p-opgt55-2} {a-ex}~P0000000000
 
 # Send PC subtractively on main and receive in EX.  Note that this doesn't
 # clear the SS field.  It is cleared at PC in the next cycle.
@@ -447,7 +447,7 @@ $recx {p-opgt55-2} {a-ex} {t-opgt55-2} {i-main}
 
 # -- p-opgt55-3 - send input pulse to master programmer
 # Sign of EX must be M to avoid misfiring p-ople55 (triggered from a-ex.S sign)
-$assert {p-opgt55-3} 11 {a-ex}~Mxxxxxxxxxx
+$assert {p-opgt55-3} {a-ex}~Mxxxxxxxxxx
 
 # EX back to PC, with opcode field (SS) cleared
 # EX.S is not connected to main so this doesn't cause spurious MP inputs.

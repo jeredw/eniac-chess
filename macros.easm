@@ -118,26 +118,30 @@ endmacro
 
 # Convenience helper for making debug assertions
 #   inp   - input program line
-#   num   - assertion# that will be reported on failure
 #   test  - an expression like {a-foo}~M00xxxxxxxx
-defmacro assert inp num test
-  p $inp debug.assert.$num
-  s debug.assert.$num $test
+defmacro assert inp test
+  p $inp debug.assert.{%num}
+  s debug.assert.{%num} $test
+endmacro
+
+# Convenience helper for making debug breakpoints
+#   inp   - input program line
+defmacro break inp
+  p $inp debug.bp.{%num}
 endmacro
 
 # Convenience helper for dumping values for debugging
 #   inp   - input program line
-#   num   - number of this dump
 #   acc   - {a-foo}
-defmacro dump inp num acc
-  p $inp debug.dump.$num
-  s debug.dump.$num $acc
+defmacro dump inp acc
+  p $inp debug.dump.{%num}
+  s debug.dump.{%num} $acc
 endmacro
 
 # Connect two program lines via a pulse amplifier
 #   inp   - input program line
 #   outp  - output program line
 defmacro pulseamp inp outp
-  p {pa-a-$inp-$outp} $inp
-  p {pa-b-$inp-$outp} $outp
+  p {pa-a-%name} $inp
+  p {pa-b-%name} $outp
 endmacro
