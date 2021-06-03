@@ -115,3 +115,21 @@ defmacro discriminate inp acc dummy name dA dS outp outm
   p $dummy.{t-$name-A}o $outm
 
 endmacro
+
+# Convenience helper for making debug assertions
+#   inp   - input program line
+#   num   - assertion# that will be reported on failure
+#   test  - an expression like {a-foo}~M00xxxxxxxx
+defmacro assert inp num test
+  p $inp debug.assert.$num
+  s debug.assert.$num $test
+endmacro
+
+# Convenience helper for dumping values for debugging
+#   inp   - input program line
+#   num   - number of this dump
+#   acc   - {a-foo}
+defmacro dump inp num acc
+  p $inp debug.dump.$num
+  s debug.dump.$num $acc
+endmacro
