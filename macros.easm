@@ -1,0 +1,117 @@
+# These define a basic language we use to specify "program" steps, 
+# in the ENIAC sense of pulse-triggered operations, akin to microcode for the VM.
+
+# RECeive on given input
+defmacro rec inpr acc program input outpr
+  p $inpr $acc.$programi
+  s $acc.op$program $input
+  p $acc.$programo $outpr
+endmacro
+
+# RECeive and do not (X) emit an output program pulse
+defmacro recx inpr acc program input
+  p $inpr $acc.$programi
+  s $acc.op$program $input
+endmacro
+
+# RECeive and INCrement
+defmacro recinc inpr acc program input outpr
+  p $inpr $acc.$programi
+  s $acc.op$program $input
+  s $acc.cc$program C
+  p $acc.$programo $outpr
+endmacro
+
+# RECeive and INCrement and do not (X) emit an output program pulse
+defmacro recincx inpr acc program input
+  p $inpr $acc.$programi
+  s $acc.op$program $input
+  s $acc.cc$program C
+endmacro
+
+# SEND and emit an output program pulse
+defmacro send inpr acc program AorS outpr
+  p $inpr $acc.$programi
+  s $acc.op$program $AorS
+  p $acc.$programo $outpr
+endmacro
+
+# SEND and do not (X) emit an output program pulse
+defmacro sendx inpr acc program AorS 
+  p $inpr $acc.$programi
+  s $acc.op$program $AorS
+endmacro
+
+# SEND and Clear
+defmacro sendc inpr acc program AorS outpr
+  p $inpr $acc.$programi
+  s $acc.op$program $AorS
+  s $acc.cc$program C
+  p $acc.$programo $outpr
+endmacro
+
+# SEND and Clear and do not (X) emit an output program pulse
+defmacro sendcx inpr acc program AorS 
+  p $inpr $acc.$programi
+  s $acc.op$program $AorS
+  s $acc.cc$program C
+endmacro
+
+# CLEAR accumulator
+# triggered on inpr and emitting outpr when done (via transceiver t)
+defmacro clear inpr acc program outpr
+  p $inpr $acc.$programi
+  s $acc.op$program 0
+  s $acc.cc$program C
+  p $acc.$programo $outpr
+endmacro
+
+# CLEAR accumulator and do not (X) emit an output program pulse
+defmacro clearx inpr acc t
+  p $inpr $acc.$ti
+  s $acc.op$t 0
+  s $acc.cc$t C
+endmacro
+
+# $dummy program definition, with a given delay
+defmacro dummy inpr acc t delay outpr
+  p {$inpr} $acc.{$t}i
+  s $acc.op{$t} 0
+  s $acc.rp{$t} $delay
+  p $acc.{$t}o {$outpr}
+endmacro
+
+# $discriminate
+#
+# Triggers outp if acc>=0 and outm if acc<0. Works by sending additively and
+# subtractively on acc, with S(11) wired to outp and A(11) wired to outm.
+#
+# Note: any other programs on acc which send additively will trigger outm if
+# A(11) is set, so care must be taken that acc is never negative during such
+# programs to avoid mistriggering part of the discriminate sequence.
+#
+#   inp   - input program line
+#   acc   - accumulator to wire for discrimination
+#   dummy - accumulator to use for dummy programs
+#   name  - base for transciever names on acc and dummy
+#   dA,dS - data busses to use for acc.A acc.S
+#   outp  - program line for acc>=0
+#   outm  - program line for acc<0
+defmacro discriminate inp acc dummy name dA dS outp outm
+
+  p $inp $acc.{t-$name}i
+  s $acc.op{t-$name} AS               
+
+  # acc >= 0 -> outp
+  p $dS ad.dp.{ad-disc-$name-S}.11
+  p ad.dp.{ad-disc-$name-S}.11 $dummy.{t-$name-S}i
+  s $dummy.op{t-$name-S} 0
+  p $dummy.{t-$name-S}o $outp
+
+  # acc < 0 -> outm
+  p $dA ad.dp.{ad-disc-$name-A}.11
+  p ad.dp.{ad-disc-$name-A}.11 $dummy.{t-$name-A}i
+  s $dummy.op{t-$name-A} 0
+  p $dummy.{t-$name-A}o $outm
+
+endmacro

@@ -436,6 +436,17 @@ class Assembler(object):
     self.defmacro.lines.append(line)
 
 
+  def line_include(self, line):
+    # include another source file
+    m = re.match(r'\s*include\s+(?P<path>.*)(#.*)?', line)
+    if not m:
+      raise SyntaxError('bad include directive')
+    path = m.group('path')
+    text = open(path).read()
+    outlines = self._scan(path, text)
+    return f'# begin {path}\n{outlines}\n# end {path}\n'
+
+
   def assemble_line(self,line):
     # The types of lines we understand
     line_dispatch = {
@@ -444,6 +455,7 @@ class Assembler(object):
       re.compile(r'\s*{[apd]-[A-Za-z0-9-]+}\s*=.+'):      self.line_define,
       re.compile(r'\s*defmacro.*'):                       self.line_defmacro,
       re.compile(r'\s*\$([^\s]+).*'):                     self.line_domacro,
+      re.compile(r'\s*include.*'):                        self.line_include,
       re.compile(r'.*'):                                  self.line_literal
     }
 
@@ -453,7 +465,7 @@ class Assembler(object):
         break
 
 
-  def _scan(self, text):
+  def _scan(self, filename, text):
     out = ''
     for line_number, line in enumerate(text.splitlines()):
       try:
@@ -463,7 +475,7 @@ class Assembler(object):
           outlines = self.assemble_line(line)
       except Exception as e:
         print(line)
-        print(str(e) + ' at line ' + str(line_number+1) )
+        print(f'{filename}:{line_number+1}: {str(e)}')
         return None
       if outlines != None:
         out += outlines + '\n'
@@ -473,8 +485,8 @@ class Assembler(object):
     return out
 
 
-  def assemble(self, intext):
-    return self._scan(intext)
+  def assemble(self, filename, intext):
+    return self._scan(filename, intext)
 
 
 def main():
@@ -482,10 +494,11 @@ def main():
     usage()
     sys.exit(1)
 
-  intext = open(sys.argv[1]).read()
+  filename = sys.argv[1]
+  intext = open(filename).read()
 
   a = Assembler()
-  outtext = a.assemble(intext)
+  outtext = a.assemble(filename, intext)
 
   if outtext:
     open(sys.argv[2], 'w+').write(outtext)
