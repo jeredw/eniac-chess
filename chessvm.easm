@@ -486,7 +486,7 @@ $clearx {p-fetchline} {a-ex} {t-fetchline}
 
 # - trigger ft
 p {p-fetchline} f1.1i         
-s f1.rp1 1                    # send twice to assemble all the regs
+s f1.rp1 1                    # send once in r-fetchread
 s f1.op1 S0                   # send complement, don't offset argument
 s f1.cl1 C                    # pulse on C when done
 p f1.C {p-fetcharg}           # goto when ready for argument
