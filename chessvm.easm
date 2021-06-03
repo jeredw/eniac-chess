@@ -150,6 +150,11 @@ p ad.permute.{ad-clearA} {a-ex}.{i-clearA}
 {a-ls}=a4
 
 
+# - Constant transmitter -
+# Sends on d-main.
+p c.o {d-main}
+
+
 # - Setup MP as an opcode decoder -
 # Steppers use all 6 positions.
 s p.cA 6
@@ -217,10 +222,8 @@ p p.A6o {p-mp-5x}
 
 # For opcodes>55, Gi is triggered both by A6o when decoding 5x, and explicitly via a program
 # control to decode the tens digit of 7x-9x.
-p pa.1.sa.1 {p-mp-5x}
-p pa.1.sb.1 p.Gi
-p pa.1.sa.2 {p-mp-789x}
-p pa.1.sb.2 p.Gi
+$pulseamp {p-mp-5x} p.Gi
+$pulseamp {p-mp-789x} p.Gi
 
 # Trigger the appropriate ones digit for opcodes >= 70.
 p p.G1o p.Hi
@@ -262,8 +265,7 @@ $op-lines-gt55 K 7
 
 # XXX debug
 defmacro traceop opcode paline
-  p pa.2.sa.$paline {p-op$opcode}
-  p pa.2.sb.$paline {p-clearex-fetch}
+  $pulseamp {p-op$opcode} {p-clearex-fetch}
   $dump {p-op$opcode} $paline {a-pc}
 endmacro
 
@@ -323,8 +325,7 @@ $recx {p-fetch} {a-pc} {r-fetch} {i-shiftl8-irS}
 
 
 # -- {p-nofetch} no fetch needed, begin instruction decode
-p pa.1.sa.5 {p-nofetch-eat-op}
-p pa.1.sb.5 {p-nofetch}
+$pulseamp {p-nofetch-eat-op} {p-nofetch}
 # PC has I1 at left
 # EX starts M 100-I1 99-I5 99-I4 99-I3 99-I2
 $assert {p-nofetch} 3 {a-ex}~Mxxxxxxxxxx
@@ -336,7 +337,6 @@ p {p-nofetch} c.26i
 s c.s26 Kl
 s c.k10 5
 s c.k9  5
-p c.o {d-main} 
 
 # EX += d-main (55) for discrimination next cycle.  For example,
 # - If I1 is 01, EX will contain M (100-01) = M 99...
@@ -394,8 +394,7 @@ p c.27o {p-ople55-2}
 #    pulse arrive at the same time, the stepper will be cleared, not stepped";
 #    so it ought to be ok to do this in p-ople55 anyway, but the effect of that
 #    in eniacsim would be to clear and then decode M99...1
-p pa.1.sa.3 {p-ople55-2}
-p pa.1.sb.3 {p-clear-mp}
+$pulseamp {p-ople55-2} {p-clear-mp}
 
 
 # -- p-ople55-2 - send tens digit of opcode to stepper A, ones digit to B-G
@@ -434,8 +433,7 @@ $assert {p-opgt55} 9 {a-ir}~M99xxxxxxxx
 $dummy {p-opgt55} a20 {t-opgt55} 1 {p-opgt55-2}
 
 # Clear MP via pulse amplifier (see note in p-ople55).
-p pa.1.sa.4 {p-opgt55-2}
-p pa.1.sb.4 {p-clear-mp}
+$pulseamp {p-opgt55-2} {p-clear-mp}
 
 
 # -- p-opgt55-2 - send tens digit to mp G stepper, ones digit to H-K

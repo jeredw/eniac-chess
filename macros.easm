@@ -133,3 +133,11 @@ defmacro dump inp num acc
   p $inp debug.dump.$num
   s debug.dump.$num $acc
 endmacro
+
+# Connect two program lines via a pulse amplifier
+#   inp   - input program line
+#   outp  - output program line
+defmacro pulseamp inp outp
+  p {pa-a-$inp-$outp} $inp
+  p {pa-b-$inp-$outp} $outp
+endmacro
