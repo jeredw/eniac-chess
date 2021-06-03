@@ -3,4 +3,5 @@ chsim_test
 *.pyc
 images/
 perft
+chessvm.e
 __pycache__
