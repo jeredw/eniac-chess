@@ -118,7 +118,7 @@ c - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes
 
 
 RF:
-Main register file - use a13 so we can print
+Main register file
 layout: PM AA BB CC DD EE
 
 A - main
@@ -200,7 +200,9 @@ a - main
 b - selA (preserve sign)
 
 
-no MEM13 because RF=a13 so it can be printed
+MEM13:
+a - main
+b - printAB: AA BB CC DD EE -> 0A AB B 0 00 00 for printing AB with leading 0
 
 
 MEM14:

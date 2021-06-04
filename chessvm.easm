@@ -1,5 +1,6 @@
 s cy.op 1a
-set a13 0123456789
+set a4 2575000000  # A=25, B=75
+set a13 1234567890 # memory value, check that print saves and restores
 b i
 
 # ENIAC-VM for playing chess
@@ -134,15 +135,42 @@ p ad.permute.{ad-clearA} {a-ex}.{i-clearA}
 # clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
 # shiftl4:  XX YY YY 43 32 -> XX 43 21 00 00, used for JSR
 
+# predefine programs that load ex from and store ex to main -- we use these everywhere
+# go through pulseamps so other uses don't flow backwards
+defmacro loadex prog
+  p $prog {pa-a-%name} 
+  p {pa-b-%name} {a-ex}.{r-loadex}i
+endmacro
+s {a-ex}.op{r-loadex} {i-main}
+
+# sends EX to main and clears
+defmacro storeex prog
+  p $prog {pa-a-%name} 
+  p {pa-b-%name} {a-ex}.{t-storeex}i
+endmacro
+s {a-ex}.op{t-storeex} A
+s {a-ex}.cc{t-storeex} C
+
 
 # - Register File -
 # Registers A-E of the virtual machine. Use a13 so we can print it.
-{a-reg}=a13
-
+{a-rf}=a4
+p {a-rf}.A {d-main}
 
 # - Load/Store -
 # Registers F-J of the virtual machine. 
-{a-ls}=a4
+{a-ls}=a5
+
+# - M13 - 
+# M13 is used for printing, has an input that shifts AB into printing position
+{a-mem13}=a13
+p {a-mem13}.A {d-main}
+
+p {d-main} {a-mem13}.{i-main}
+
+p {d-main} ad.permute.{ad-printAB}
+s ad.permute.{ad-printAB} 11,0,10,9,8,7,0,0,0,0,0
+p ad.permute.{ad-printAB} {a-mem13}.{i-printAB}
 
 
 # - Constant transmitter -
@@ -383,7 +411,7 @@ $recx {p-ople55-2} {a-ex} {r-ople55-2} {i-clearA}
 $assert {p-ople55-3} {a-ex}~P00xxxxxxxx
 $assert {p-ople55-3} {a-pc}~P0000000000
 
-# Reset PC opcode field and clear EX to prep for instruction.
+# Send EX back to PC with opcode field clear to prep for instruction.
 # Note that this would trigger the MP steppers, but the opcode field contains
 # 00 here so this doesn't mess up decode.
 $sendcx {p-ople55-3} {a-ex} {t-ople55-3} A
@@ -413,7 +441,7 @@ $assert {p-opgt55-2} {a-ex}~P0000000000
 
 # Send PC subtractively on main, stepping the MP, and receiving in EX.  
 $sendc {p-opgt55-2} {a-pc} {t-opgt55-2} S {p-opgt55-3}
-$recx {p-opgt55-2} {a-ex} {t-opgt55-2} {i-main}
+$loadex {p-opgt55-2}
 
 
 # -- p-opgt55-3 - send input pulse to master programmer
@@ -479,8 +507,7 @@ s ad.permute.{ad-fetch-ex} 11,6,5,0,0,0,0,0,0,0,0
 p ad.permute.{ad-fetch-ex} {d-main}
 
 # XXX not adding 01 to I1 in left of EX, have to do this in the assembler
-$recx {p-fetchread} {a-ex} {r-fetchread} {i-main}
-
+$loadex {p-fetchread}
 
 
 # -- p-fetchread-2: Move first opcode into top of PC to begin execution, inc PC
@@ -503,10 +530,27 @@ endmacro
 $break {p-op96}
 
 # PRINT
-# The regiser file (RF) is already a13, so this is pretty easy
-p {p-op96} i.pi     # trigger printing
-s pr.2 P            # prints high half accumulator 13 
-p i.po {p-fetch}
+# Save MEM13, RF-printAB->MEM13, restore
+
+# MEM13->EX, clear
+$sendc {p-op96} {a-mem13} {t-op96} A {p-op96-2}
+$loadex {p-op96}
+
+# RF-printAB-MEM13. Puts AB in lower 4 digits of upper half of accumulator
+$sendx {p-op96-2} {a-rf} {t-op96-2} A    
+$rec {p-op96-2} {a-mem13} {t-printAB} {i-printAB} i.pi # trigger print
+
+# prints high half accumulator 13 
+s pr.2 P            
+p i.po {p-op96-3}
+
+# restore contents of MEM13
+$clear {p-op96-3} {a-mem13} {t-mem13} {p-op96-4}
+
+$storeex {p-op96-4}
+$rec {p-op96-4} {a-mem13} {t-op96-4} {i-main} {p-fetch}
+
+
 
 # -- CURRENT PROGRAM --
 include ftdata.easm
