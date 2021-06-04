@@ -526,11 +526,12 @@ defmacro traceop opcode
   $dump {p-op$opcode} {a-pc}
 endmacro
 
-
 $break {p-op96}
 
-# PRINT
+# - PRINT - 
 # Save MEM13, RF-printAB->MEM13, restore
+# Really the only trick here is that we can only print from a13,
+# and during the transfer we shift RF right so we print 0AABB not AABBC
 
 # MEM13->EX, clear
 $sendc {p-op96} {a-mem13} {t-op96} A {p-op96-2}
