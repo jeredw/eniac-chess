@@ -1,6 +1,6 @@
 # function table values
-s f1.RA0L6 0
-s f1.RA0L5 0  # NB this is -1 because... reasons
+s f1.RA0L6 9
+s f1.RA0L5 5  # NB this is -1 because... reasons
 s f1.RA0L4 0
 s f1.RA0L3 2
 s f1.RA0L2 0
