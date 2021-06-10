@@ -496,11 +496,8 @@ p f1.C {p-fetcharg}           # goto when ready for argument
 
 # -- {p-fetcharg} ft argument request
 # - FT <- bottom two digits of PC (a1)
-$sendx {p-fetcharg} {a-pc} {t-fetcharg} A
+$send {p-fetcharg} {a-pc} {t-fetcharg} A {p-preinc-ex}
 p {d-main} f1.arg  # only bottom two digit lines connect so no deleter is required
-
-# So we can use the main bus next cycle
-$dummy {p-fetcharg} a20 {t-fetcharg} 1 {p-preinc-ex}
 
 
 # -- {p-preinc-ex} preincrement left field of EX
