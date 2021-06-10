@@ -291,8 +291,8 @@ CONTROL CYCLE
     8. operation begins in this add time
 else
   3. [p-fetchline]  stim FT
-  4. PC->FT
-  5. wait
+  4. [p-fetcharg]   PC->FT
+  5. [p-preinc-ex]  EX += P01000
   6. wait
   7. [p-fetchread]   FT -> IR,EX
   8. [p-fetchread-2] PC += -EX + 1

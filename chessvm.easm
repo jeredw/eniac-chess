@@ -174,8 +174,33 @@ p ad.permute.{ad-printAB} {a-mem13}.{i-printAB}
 
 
 # - Constant transmitter -
-# Sends on d-main.
-p c.o {d-main}
+# So that we can use all the constant switches, connect both the left and the
+# right 5 constant digits to the leftmost wires of d-main where they're needed.
+# This is perhaps electrically questionable, but should work?  Provided the
+# right constants are positive, there should be no bus conflicts - if they were
+# negative, the constant transmitter would also drive 9s onto the same wires
+# for sign extension.
+p c.o ad.permute.{ad-constant-left}
+s ad.permute.{ad-constant-left} 11,10,9,8,7,6,0,0,0,0,0
+p ad.permute.{ad-constant-left} {d-main}
+p c.o ad.permute.{ad-constant-right}
+s ad.permute.{ad-constant-right} 11,5,4,3,2,1,0,0,0,0,0
+p ad.permute.{ad-constant-right} {d-main}
+
+# M99000 used in control cycle
+s c.jl  M
+s c.j10 9
+s c.j9  9
+
+# P55000 used in control cycle
+s c.kl  P
+s c.k10 5
+s c.k9  5
+
+# P01000 used in control cycle
+s c.jr P
+s c.j5 0
+s c.j4 1
 
 
 # - Setup MP as an opcode decoder -
@@ -335,8 +360,6 @@ $assert {p-nofetch} {a-ex}~Mxxxxxxxxxx
 # Send 55 from CT on d-main
 p {p-nofetch} c.26i 
 s c.s26 Kl
-s c.k10 5
-s c.k9  5
 
 # EX += d-main (55) for discrimination next cycle.  For example,
 # - If I1 is 01, EX will contain M (100-01) = M 99...
@@ -379,9 +402,6 @@ $recincx {p-eat-op-2} {a-ir} {r-ople55} {i-main}
 # we are not consuming from IR
 p {p-ople55} c.27i 
 s c.s27 Jl
-s c.jl M
-s c.j10 9
-s c.j9  9 
 p c.27o {p-ople55-2}
 
 
@@ -481,6 +501,19 @@ p f1.C {p-fetcharg}           # goto when ready for argument
 $sendx {p-fetcharg} {a-pc} {t-fetcharg} A
 p {d-main} f1.arg  # only bottom two digit lines connect so no deleter is required
 
+# So we can use the main bus next cycle
+$dummy {p-fetcharg} a20 {t-fetcharg} 1 {p-preinc-ex}
+
+
+# -- {p-preinc-ex} preincrement left field of EX
+# Send P01000 from the constant transmitter
+p {p-preinc-ex} c.28i
+s c.s28 Jr
+
+# Preload P01 into EX so that when the FT sends 99-I1, EX will receive 100-I1
+# instead which is the precondition in p-nofetch.
+$loadex {p-preinc-ex}
+
 
 # -- {p-fetchread} read ft line of instructions
 #  - FT sends complement of A and B
@@ -501,12 +534,12 @@ p ad.permute.{ad-fetchB} {d-fetch}
 # Increment IR to make the rightmost instruction 100-I2 instead of 99-I2.
 $recinc {p-fetchread} {a-ir} {t-fetchread} {i-fetch} {p-fetchread-2}
 
-# A6A5+1 00 00 00 00  -> EX
+# A6A5 00 00 00 00  -> EX
 p {d-f1A} ad.permute.{ad-fetch-ex}
 s ad.permute.{ad-fetch-ex} 11,6,5,0,0,0,0,0,0,0,0
 p ad.permute.{ad-fetch-ex} {d-main}
 
-# XXX not adding 01 to I1 in left of EX, have to do this in the assembler
+# Get 100-I1 in the top of EX.
 $loadex {p-fetchread}
 
 
