@@ -392,7 +392,6 @@ $rec {p-eat-op} {a-ir} {t-disc-op} {i-fill99} {p-eat-op-2}
 # If we consuming from IR, IR is now P00xxxxxxxx
 # Add M 9900000001 so it resets to M but then overflows to P if no more opcodes
 # This also turns 99-I2 into 100-I2 at the right of IR.
-$assert {p-eat-op-2} {a-ir}~P00xxxxxxxx
 
 # a-ir += d-main
 $recincx {p-eat-op-2} {a-ir} {r-ople55} {i-main}
@@ -442,8 +441,7 @@ p {p-ople55-3} p.Ai
 
 
 # -- p-opgt55 - decode opcode which is > 55
-# Leftmost opcode in IR is now M99 (unless not consuming from IR)
-$assert {p-opgt55} {a-ir}~M99xxxxxxxx
+# Leftmost opcode in IR is now M99 if consuming from IR
 
 # If we consuming from IR, IR += 1 to cause overflow if no more opcodes (roll 9's over to 0)
 # This will add i-main and is configured in p-ople55.
