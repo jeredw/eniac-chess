@@ -179,6 +179,8 @@ class Assembler(object):
 
 
   def patch_debug(self, arg):
+    if arg == 'debug.quit':
+      return arg, {}
     m = re.match(r'debug\.(?P<kind>(assert|bp|dump))\.(?P<name>(\d+|{[A-Za-z0-9-]+}))', arg)
     if not m:
       raise SyntaxError('bad debug syntax')

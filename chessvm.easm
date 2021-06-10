@@ -1,7 +1,6 @@
-s cy.op 1a
+#s cy.op 1a
 set a4 0075000000  # A=00, B=75
 set a13 1234567890 # memory value, check that print saves and restores
-b i
 
 
 # ENIAC-VM for playing chess
@@ -15,7 +14,6 @@ b i
 # after appending the function table switch settings which contain the chess code.
 
 include macros.easm
-$break {p-fetch}
 
 # -- ACCUMULATOR LAYOUT --
 # Defines all accumulators and patches to and from data trunks
@@ -565,7 +563,11 @@ defmacro traceop opcode
   $dump {p-op$opcode} {a-pc}
 endmacro
 
-$break {p-op35}
+
+# - HALT -
+# Wire halt to quit the simulator so we can run programs and exit when they're
+# done.
+p {p-op99} debug.quit
 
 # - CLR A -
 # RF -> EX
@@ -624,3 +626,6 @@ $rec {p-op96-4} {a-mem13} {t-op96-4} {i-main} {p-fetch}
 
 # -- CURRENT PROGRAM --
 include ftdata.easm
+
+# Start the machine
+b i
