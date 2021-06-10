@@ -400,24 +400,24 @@ class V4(PrimitiveParsing):
       "ftlookup": self._ftlookup,
       "mov": self._mov,
       "indexswap": self.bind(opcode=34),
+      "clr": self.bind(want_arg=r"A", opcode=35),
       "indexacc": self.bind(opcode=45),
       "inc": self._inc,
-      "dec": self.bind(want_arg=r"A", opcode=52),
-      "add": self.bind(want_arg=r"A,\s*D", opcode=70),
-      "neg": self.bind(want_arg=r"A", opcode=71),
-      "sub": self.bind(want_arg=r"A,\s*D", opcode=72),
+      "dec": self.bind(want_arg=r"A", opcode=55),
+      "add": self.bind(want_arg=r"A,\s*D", opcode=74),
+      "neg": self.bind(want_arg=r"A", opcode=75),
+      "sub": self.bind(want_arg=r"A,\s*D", opcode=76),
       "jmp": self._jmp,
       "jn": self._jn,
       "jz": self._jz,
       "jil": self._jil,
       "loop": self._loop,
       "jsr": self._jsr,
-      "ret": self.bind(opcode=85),
-      "jnz": self._jnz,
-      "read": self.bind(want_arg=r"AB", opcode=91),
-      "print": self.bind(want_arg=r"AB", opcode=92),
-      "nextline": self.bind(opcode=94),
-      "halt": self.bind(opcode=95),
+      "ret": self.bind(opcode=89),
+      "read": self.bind(want_arg=r"AB", opcode=95),
+      "print": self.bind(want_arg=r"AB", opcode=96),
+      "nextline": self.bind(opcode=98),
+      "halt": self.bind(opcode=99),
     }
 
   def dispatch(self, label, op, arg):
@@ -491,48 +491,44 @@ class V4(PrimitiveParsing):
 
   def _inc(self, label, op, arg):
     if arg == "A":
-      self.out.emit(50)
+      self.out.emit(53)
     elif arg == "B":
-      self.out.emit(51)
+      self.out.emit(54)
     else:
       self.out.error("invalid inc argument '{}'".format(arg))
 
   def _jmp(self, label, op, arg):
     if arg == "+A":
-      self.out.emit(75)
+      self.out.emit(79)
     elif arg.startswith("far "):
       # There is a separate "jmp far" menmonic so that we always know the size
       # of instructions, so we can unambiguously compute label targets on the
       # first pass.  arg[4:] strips off the leading "far ".
       address = self._address_or_label(arg[4:], far=True)
-      self.out.emit(74, address % 100, address // 100)
+      self.out.emit(78, address % 100, address // 100)
     else:
       address = self._address_or_label(arg, far=False)
-      self.out.emit(73, address % 100)
+      self.out.emit(77, address % 100)
 
   def _jn(self, label, op, arg):
     address = self._address_or_label(arg, far=False)
-    self.out.emit(80, address % 100)
+    self.out.emit(84, address % 100)
 
   def _jz(self, label, op, arg):
     address = self._address_or_label(arg, far=False)
-    self.out.emit(81, address % 100)
+    self.out.emit(85, address % 100)
 
   def _jil(self, label, op, arg):
     address = self._address_or_label(arg, far=False)
-    self.out.emit(82, address % 100)
+    self.out.emit(86, address % 100)
 
   def _loop(self, label, op, arg):
     address = self._address_or_label(arg, far=False)
-    self.out.emit(83, address % 100)
+    self.out.emit(87, address % 100)
 
   def _jsr(self, label, op, arg):
     address = self._address_or_label(arg, far=True)
-    self.out.emit(84, address % 100, address // 100)
-
-  def _jnz(self, label, op, arg):
-    address = self._address_or_label(arg, far=False)
-    self.out.emit(90, address % 100)
+    self.out.emit(88, address % 100, address // 100)
 
 def main():
   if len(sys.argv) == 1:

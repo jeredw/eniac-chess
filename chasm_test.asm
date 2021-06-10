@@ -58,6 +58,7 @@ flub .equ king
   mov A, I
   mov A, J
   indexswap
+  clr A
   mov A, 10
   mov A, king
   mov D, 10
@@ -83,7 +84,7 @@ flub .equ king
   loop target
   jsr faraway
   ret
-  jnz target
+  ;jnz target
   read AB
   print AB
   nextline
