@@ -532,7 +532,7 @@ INC B
 
 
 DEC A
-CT sends M 99 00 00 00 00
+CT sends M 99 00 00 00 00 -> RF
 
 
 ADD A,D
