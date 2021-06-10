@@ -157,6 +157,9 @@ s {a-ex}.cc{t-storeex} C
 {a-rf}=a4
 p {a-rf}.A {d-main}
 
+p {d-main} {a-rf}.{i-main}
+
+
 # - Load/Store -
 # Registers F-J of the virtual machine. 
 {a-ls}=a5
@@ -554,7 +557,17 @@ defmacro traceop opcode
   $dump {p-op$opcode} {a-pc}
 endmacro
 
-$break {p-op96}
+$break {p-op53}
+#$break {p-op96}
+
+# - INC -
+# Send P01000 on d-main
+p {p-op53} c.29i
+s c.s29 Jr
+
+# Increment A field of RF
+$rec {p-op53} {a-rf} {t-op53} {i-main} {p-fetch}
+
 
 # - PRINT - 
 # Save MEM13, RF-printAB->MEM13, restore
