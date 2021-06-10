@@ -127,7 +127,7 @@ a - nop
 b - movAB 
 g - movAC 
 d - movAD
-e - clearA: PM XX XX XX XX XX -> P 00 XX XX XX XX, for NEG A
+e - clearA: PM XX XX XX XX XX -> P 00 XX XX XX XX, for CLR A, NEG A
 
 
 LS:

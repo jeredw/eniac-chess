@@ -3,6 +3,7 @@ set a4 0075000000  # A=00, B=75
 set a13 1234567890 # memory value, check that print saves and restores
 b i
 
+
 # ENIAC-VM for playing chess
 # created 2020-3-30 by Jonathan Stray
 #
@@ -14,6 +15,7 @@ b i
 # after appending the function table switch settings which contain the chess code.
 
 include macros.easm
+$break {p-fetch}
 
 # -- ACCUMULATOR LAYOUT --
 # Defines all accumulators and patches to and from data trunks
@@ -135,6 +137,8 @@ p ad.permute.{ad-clearA} {a-ex}.{i-clearA}
 # clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
 # shiftl4:  XX YY YY 43 32 -> XX 43 21 00 00, used for JSR
 
+
+
 # predefine programs that load ex from and store ex to main -- we use these everywhere
 # go through pulseamps so other uses don't flow backwards
 defmacro loadex prog
@@ -159,6 +163,9 @@ p {a-rf}.A {d-main}
 
 p {d-main} {a-rf}.{i-main}
 
+# clearA
+p {d-main} ad.d.{ad-rf-clearA}.-2
+p ad.d.{ad-rf-clearA}.-2 {a-rf}.{i-clearA}
 
 # - Load/Store -
 # Registers F-J of the virtual machine. 
@@ -558,8 +565,17 @@ defmacro traceop opcode
   $dump {p-op$opcode} {a-pc}
 endmacro
 
-$break {p-op53}
-#$break {p-op96}
+$break {p-op35}
+
+# - CLR A -
+# RF -> EX
+$sendc {p-op35} {a-rf} {t-op35} A {p-op35-2}
+$loadex {p-op35}
+
+# EX -clearA-> RF
+$storeex {p-op35-2}
+$rec {p-op35-2} {a-rf} {t-op35-2} {i-clearA} {p-fetch}
+
 
 # - INC -
 # Send P01000 on d-main
