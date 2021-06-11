@@ -1,5 +1,10 @@
-#s cy.op 1a
-set a4 0075000000  # A=00, B=75
+s cy.op 1a
+# ftsg fields of PC are 99 (ft1), 09 (ft2), or 90 (ft3), and must be nonzero
+# for correct operation
+# TODO figure out how to reset this way
+set a1 0099009900
+#set a2 -9999999904
+set a4  0075000000  # A=00, B=75
 set a13 1234567890 # memory value, check that print saves and restores
 
 
@@ -84,18 +89,11 @@ p {a-ir}.S {d-irS}
 # fetch input: from d-fetch, used for loading new line of instructions permuted from function table
 p {d-fetch} {a-ir}.{i-fetch}
 
-# fill99 input: replace top 2 digits with 99 (copy EX.PM, so needs EX.PM = M)
-# wiring shenanigans because EX.M is not transmitted on d-main, in practice
-# this would just be a special input adapter
-p {d-main} ad.permute.{ad-fill99-main-8to1}
-p {d-exA} ad.permute.{ad-fill99-exA-sign}
-s ad.permute.{ad-fill99-main-8to1} 0,0,0,8,7,6,5,4,3,2,1
-s ad.permute.{ad-fill99-exA-sign} 11,11,11,0,0,0,0,0,0,0,0
-p ad.permute.{ad-fill99-main-8to1} {a-ir}.{i-fill99}
-p ad.permute.{ad-fill99-exA-sign} {a-ir}.{i-fill99}
-
-# d-main input: used to restore top digits to 99 in p-ople55
-p {d-main} {a-ir}.{i-main}
+# fill99 input: replace top 2 digits of IR with 99
+# the 99 comes from a constant M00000, the rest from EX sent on main
+p {d-main} ad.permute.{ad-fill99-main}
+s ad.permute.{ad-fill99-main} 11,11,11,8,7,6,5,4,3,2,1
+p ad.permute.{ad-fill99-main} {a-ir}.{i-fill99}
 
 
 # - Execution Register -
@@ -200,6 +198,11 @@ p ad.permute.{ad-constant-right} {d-main}
 s c.jl  M
 s c.j10 9
 s c.j9  9
+
+# M00000 used in control cycle
+s c.kl  M
+s c.k10 0
+s c.k9  0
 
 # P55000 used in control cycle
 s c.kr P
@@ -392,96 +395,73 @@ $discriminate {p-disc-op} {a-ex} a20 disc-op {d-exA} {d-exS} {p-ople55} {p-opgt5
 s {a-ex}.cc{t-disc-op} C  # clear EX
 
 # If we are consuming from IR, store EX back into IR without the op we are now decoding.
-# Replace first two digits with PM; gives M99 if EX<0 at this point, P00
-# otherwise which is fixed in p-ople55.
-$rec {p-eat-op} {a-ir} {t-disc-op} {i-fill99} {p-eat-op-2}
-
-
-# -- p-ople55 - begin decode of opcode which is <= 55
-# If we consuming from IR, IR is now P00xxxxxxxx
-# Add M 9900000001 so it resets to M but then overflows to P if no more opcodes
+# Replace the sign and first two digits with M from a constant, so the top of IR is
+# M99. Finally, increment so that an empty IR, M9999999999, wraps to P0000000000.
 # This also turns 99-I2 into 100-I2 at the right of IR.
+$recincx {p-eat-op} {a-ir} {t-disc-op} {i-fill99}
+# Send M00000 from the constant transmitter to fix IR.  EX doesn't send a sign
+# on d-main so there's no bus conflict.
+p {p-eat-op} c.25i
+s c.s25 Kl
 
-# a-ir += d-main
-$recincx {p-eat-op-2} {a-ir} {r-ople55} {i-main}
-
-# M99000 -> d-main
-# Always put this on the main bus at this step; it's just ignored if
-# we are not consuming from IR
-p {p-ople55} c.27i 
-s c.s27 Jl
-p c.27o {p-ople55-2}
-
-
-# Clear MP via pulse amplifier.
-# FIXME Steppers should logically be cleared "during p-ople55", but
-# 1) Clearing isn't synchronous in eniacsim, so this really happens during the
-#    Cpp of cycle p-ople55 when p-ople55-2 is asserted just prior to decode in
-#    that cycle.
-# 2) The operating manual mentions that "If a clearing pulse and a stepping
-#    pulse arrive at the same time, the stepper will be cleared, not stepped";
-#    so it ought to be ok to do this in p-ople55 anyway, but the effect of that
-#    in eniacsim would be to clear and then decode M99...1
-$pulseamp {p-ople55-2} {p-clear-mp}
+# Clear MP prior to decode.  Clearing isn't synchronous, so this needs to
+# happen "next cycle" i.e. during pulse 17 of p-disc-op.
+$dummy {p-disc-op} a20 {t-disc-op} 1 {p-clear-mp}
 
 
-# -- p-ople55-2 - send tens digit of opcode to stepper A, ones digit to B-G
+# -- p-ople55 - send tens digit of opcode to stepper A, ones digit to B-G
 # Also PC->EX to begin clearing SS 
-$assert {p-ople55-2} {a-ex}~P0000000000
+$assert {p-ople55} {a-ex}~P0000000000
 
 # Send PC on main and receive in EX with SS (opcode field) clear.
-$sendc {p-ople55-2} {a-pc} {t-ople55-2} A {p-ople55-3}
-$recx {p-ople55-2} {a-ex} {r-ople55-2} {i-clearA}
+$sendc {p-ople55} {a-pc} {t-ople55} A {p-ople55-2}
+$recx {p-ople55} {a-ex} {r-ople55} {i-clearA}
 
 
-# -- p-ople55-3 - send input pulse to master programmer
+# -- p-ople55-2 - send input pulse to master programmer
 # sign of EX must be P to avoid misfiring p-ople55
-$assert {p-ople55-3} {a-ex}~P00xxxxxxxx
-$assert {p-ople55-3} {a-pc}~P0000000000
+$assert {p-ople55-2} {a-ex}~P00xxxxxxxx
+$assert {p-ople55-2} {a-pc}~P0000000000
 
 # Send EX back to PC with opcode field clear to prep for instruction.
 # Note that this would trigger the MP steppers, but the opcode field contains
 # 00 here so this doesn't mess up decode.
-$sendcx {p-ople55-3} {a-ex} {t-ople55-3} A
-$recx {p-ople55-3} {a-pc} {t-ople55-3} {i-main}
+$sendcx {p-ople55-2} {a-ex} {t-ople55-2} A
+$recx {p-ople55-2} {a-pc} {t-ople55-2} {i-main}
 
 # Trigger master programmer
-p {p-ople55-3} p.Ai
+p {p-ople55-2} p.Ai
 
 
-# -- p-opgt55 - decode opcode which is > 55
-# Leftmost opcode in IR is now M99 if consuming from IR
+# -- p-opgt55 - send tens digit to mp G stepper, ones digit to H-K
+$assert {p-opgt55} {a-ex}~P0000000000
 
-# If we consuming from IR, IR += 1 to cause overflow if no more opcodes (roll 9's over to 0)
-# This will add i-main and is configured in p-ople55.
-#$recinc {p-eat-op-2} {a-ir} {t-plusone} {i-main}
-
-# dummy program to pass programm pulse p-opgt55 to next cycle (nop here if not consuming)
-$dummy {p-opgt55} a20 {t-opgt55} 1 {p-opgt55-2}
-
-# Clear MP via pulse amplifier (see note in p-ople55).
-$pulseamp {p-opgt55-2} {p-clear-mp}
+# Send PC subtractively on main, stepping the MP, and receiving in EX.
+# Note that EX receives the 10's complement of PC, so will include an extra +1
+# from the 1pp. This is undone when sending EX back to PC subtractively next
+# cycle.
+$sendc {p-opgt55} {a-pc} {t-opgt55} S {p-opgt55-2}
+$loadex {p-opgt55}
 
 
-# -- p-opgt55-2 - send tens digit to mp G stepper, ones digit to H-K
-$assert {p-opgt55-2} {a-ex}~P0000000000
-
-# Send PC subtractively on main, stepping the MP, and receiving in EX.  
-$sendc {p-opgt55-2} {a-pc} {t-opgt55-2} S {p-opgt55-3}
-$loadex {p-opgt55-2}
-
-
-# -- p-opgt55-3 - send input pulse to master programmer
+# -- p-opgt55-2 - send input pulse to master programmer
 # Sign of EX must be M to avoid misfiring p-ople55 (triggered from a-ex.S sign)
-$assert {p-opgt55-3} {a-ex}~Mxxxxxxxxxx
+$assert {p-opgt55-2} {a-ex}~Mxxxxxxxxxx
 
 # EX back to PC, with opcode field (SS) cleared
-# EX.S is not connected to main so this doesn't cause spurious MP inputs.
-$sendcx {p-opgt55-3} {a-ex} {r-opgt55-3} S
-$recx {p-opgt55-3} {a-pc} {r-opgt55-3} {i-exS-clearA}
+# Note #1: This is arithmetically incorrect. PC receives the 9's complement of
+# EX with 0s in the opcode field, then an extra +1 from the 1pp. If PC were
+# Pxx00000000, this would give P0099999999 and the 1pp would cause a carry into
+# the opcode field leaving it P01... instead of P00. That can't happen because
+# PC.RRRR always begins with 09, 90, or 99, so there's no possibility of a
+# carry into digit 9.
+# Note #2: EX.S is not connected to d-main. If it were, this would cause
+# spurious MP inputs.
+$sendcx {p-opgt55-2} {a-ex} {r-opgt55-2} S
+$recx {p-opgt55-2} {a-pc} {r-opgt55-2} {i-exS-clearA}
 
 # Trigger master programmer.
-p {p-opgt55-3} {p-mp-789x}
+p {p-opgt55-2} {p-mp-789x}
 
 
 # -- {p-fetchline} no more instructons in IR, load new line from ft
