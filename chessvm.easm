@@ -480,23 +480,14 @@ p {p-fetchline} f1.1i
 s f1.rp1 1                    # send once in r-fetchread
 s f1.op1 S0                   # send complement, don't offset argument
 s f1.cl1 C                    # pulse on C when done
+s f1.A6s S                    # transmit extra +1 on A5 to get 100-I1
 p f1.C {p-fetcharg}           # goto when ready for argument
 
 
 # -- {p-fetcharg} ft argument request
 # - FT <- bottom two digits of PC (a1)
-$send {p-fetcharg} {a-pc} {t-fetcharg} A {p-preinc-ex}
+$sendx {p-fetcharg} {a-pc} {r-fetcharg} A
 p {d-main} f1.arg  # only bottom two digit lines connect so no deleter is required
-
-
-# -- {p-preinc-ex} preincrement left field of EX
-# Send P01000 from the constant transmitter
-p {p-preinc-ex} c.28i
-s c.s28 Jr
-
-# Preload P01 into EX so that when the FT sends 99-I1, EX will receive 100-I1
-# instead which is the precondition in p-nofetch.
-$loadex {p-preinc-ex}
 
 
 # -- {p-fetchread} read ft line of instructions
