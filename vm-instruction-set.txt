@@ -38,33 +38,33 @@
 44 - mov [#XX],A
 45 - indexacc     ; A = 2*B2 + B1>4
 
-50 - (reserved for 7x decode)
+50 - (reserved for 9x decode)
 51 - (reserved for 8x decode)
-52 - (reserved for 9x decode)
-53 - inc A
+52 - inc A
+53 - dec A
 54 - inc B
-55 - dec A
+55 - (reserved for 7x decode)
 
-74 - add A,D
-75 - neg A
-76 - sub A,D      ; aka compare
-77 - jmp XX       ; within current function table
-78 - jmp far XXXX ; to any function table
-79 - jmp +A
+70 - add A,D
+71 - neg A
+72 - sub A,D      ; aka compare
+73 - jmp XX       ; within current function table
+74 - jmp far XXXX ; to any function table
+75 - jmp +A
 
-84 - jn XX        ; jump if A<0 
-85 - jz XX        ; jump if A==0
-86 - jil XX       ; jump if A is an illegal board square: D2 or D1 is 0 or 9
-87 - loop XX      ; dec C; jump if C!=0
-88 - jsr XXXX     ; always far
-89 - ret
+80 - jn XX        ; jump if A<0 
+81 - jz XX        ; jump if A==0
+82 - jil XX       ; jump if A is an illegal board square: D2 or D1 is 0 or 9
+83 - loop XX      ; dec C; jump if C!=0
+84 - jsr XXXX     ; always far
+85 - ret
 
-94 - 
-95 - read AB
-96 - print AB
-97 - 
-98 - nextline     ; go immediately to line fetch
-99 - halt
+90 - 
+91 - read AB
+92 - print AB
+93 - 
+94 - nextline     ; go immediately to line fetch
+95 - halt
 
 
 
@@ -265,7 +265,7 @@ CONTROL CYCLE
 -------------
 
 1. clear EX
-2. IR -> EX, IR-S-shiftl8->PC, discriminate IR (P->p-fetchline, M->p-nofetch-eat-op)
+2. IR -> EX, IR-shiftl8->PC, discriminate IR (P->p-fetchline, M->p-nofetch-eat-op)
   (IR < 0, p-nofetch-eat-op: triggers both p-nofetch and p-eat-op via pulse amps)
   3. [p-nofetch] EX += 55                     [p-nofetch-eat-op] nop
   4. [p-disc-op] disc EX,                     [p-eat-op] M00000 -fill99-> IR,
@@ -292,7 +292,7 @@ else
   3. [p-fetchline]  MEM17-S->dummy, MEM18-S->dummy, MEM19-S->dummy
   4. [p-fetchtrig]  stim FT
   5. [p-fetcharg]   PC->FT
-  6. wait
+  6. [p-preinc-fetch]  EX += P01, PC += P01
   7. wait
   8. [p-fetchread]   FT -> IR,EX
   9. [p-fetchread-2] PC += -EX + 1
