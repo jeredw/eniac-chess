@@ -611,25 +611,35 @@ class TestV4(unittest.TestCase):
     self.assertEqual(self.out.errors, ["file:1: unrecognized label 'label'"])
 
   def testJmpLabel_ErrorFar(self):
-    self.context.labels = {"label": 399}
+    self.context.labels = {"label": 342}
     self.isa.dispatch("", "jmp", "label")
     self.assertEqual(self.out.errors, ["file:1: expecting address in current function table"])
 
-  def testJmpFar(self):
-    self.isa.dispatch("", "jmp", "far 399")
+  def testJmpFarFt1(self):
+    self.isa.dispatch("", "jmp", "far 142")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 74, (100, 1): 99, (100, 2): 3})
+    self.assertEqual(self.out.output, {(100, 0): 74, (100, 1): 42, (100, 2): 9})
+
+  def testJmpFarFt2(self):
+    self.isa.dispatch("", "jmp", "far 242")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 74, (100, 1): 42, (100, 2): 90})
+
+  def testJmpFarFt3(self):
+    self.isa.dispatch("", "jmp", "far 342")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.output, {(100, 0): 74, (100, 1): 42, (100, 2): 99})
 
   def testJmpFarWithNearTarget(self):
-    self.isa.dispatch("", "jmp", "far 99")
+    self.isa.dispatch("", "jmp", "far 42")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 74, (100, 1): 99, (100, 2): 1})
+    self.assertEqual(self.out.output, {(100, 0): 74, (100, 1): 42, (100, 2): 9})
 
   def testJmpFarLabel(self):
-    self.context.labels = {"label": 399}
+    self.context.labels = {"label": 342}
     self.isa.dispatch("", "jmp", "far label")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 74, (100, 1): 99, (100, 2): 3})
+    self.assertEqual(self.out.output, {(100, 0): 74, (100, 1): 42, (100, 2): 99})
 
   def testJmpFarLabel_ErrorUnrecognized(self):
     self.isa.dispatch("", "jmp", "far label")
@@ -721,15 +731,15 @@ class TestV4(unittest.TestCase):
     self.assertEqual(self.out.errors, ["file:1: expecting address in current function table"])
 
   def testJsr(self):
-    self.isa.dispatch("", "jsr", "399")
+    self.isa.dispatch("", "jsr", "342")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 84, (100, 1): 99, (100, 2): 3})
+    self.assertEqual(self.out.output, {(100, 0): 84, (100, 1): 42, (100, 2): 99})
 
   def testJsrLabel(self):
-    self.context.labels = {"label": 199}
+    self.context.labels = {"label": 142}
     self.isa.dispatch("", "jsr", "label")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 84, (100, 1): 99, (100, 2): 1})
+    self.assertEqual(self.out.output, {(100, 0): 84, (100, 1): 42, (100, 2): 9})
 
   def testJsr_ErrorUnrecognizedLabel(self):
     self.isa.dispatch("", "jsr", "bogus")

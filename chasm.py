@@ -427,6 +427,13 @@ class V4(PrimitiveParsing):
     except KeyError:
       self.out.error("unrecognized opcode '{}' (using isa v4)".format(op))
 
+  def _encode_ft_number(self, ft):
+    if ft == 1: return 9
+    if ft == 2: return 90
+    if ft == 3: return 99
+    # Can happen for an unrecognized label, e.g. during the first pass
+    return 0
+
   def _mov(self, label, op, arg):
     # Try each of these regexes in order and assemble the first that matches
     # arg.  Note that [label] would also match [B] so order is important.
@@ -505,7 +512,7 @@ class V4(PrimitiveParsing):
       # of instructions, so we can unambiguously compute label targets on the
       # first pass.  arg[4:] strips off the leading "far ".
       address = self._address_or_label(arg[4:], far=True)
-      self.out.emit(74, address % 100, address // 100)
+      self.out.emit(74, address % 100, self._encode_ft_number(address // 100))
     else:
       address = self._address_or_label(arg, far=False)
       self.out.emit(73, address % 100)
@@ -528,7 +535,7 @@ class V4(PrimitiveParsing):
 
   def _jsr(self, label, op, arg):
     address = self._address_or_label(arg, far=True)
-    self.out.emit(84, address % 100, address // 100)
+    self.out.emit(84, address % 100, self._encode_ft_number(address // 100))
 
 def main():
   if len(sys.argv) == 1:
