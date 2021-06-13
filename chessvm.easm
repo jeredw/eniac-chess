@@ -1,8 +1,6 @@
 s cy.op 1a
 # ftsg fields of PC are 09 (ft1), 90 (ft2), or 99 (ft3), and must be nonzero
 # for correct operation
-# TODO figure out how to reset this way
-set a1 0000000900  # initial PC, ftsg can't be zero
 
 set a4  0075000000  # A=00, B=75
 set a13 1234567890 # memory value, check that print saves and restores
@@ -63,6 +61,11 @@ p ad.permute.{ad-exS-clearA} {a-pc}.{i-exS-clearA}
 
 # sendi1 input: from FT, first instruction only
 p {d-exA} {a-pc}.{i-sendi1}   # XXX needed? I think we can use main here
+
+# reset input: takes M0 from bus, sets initial PC to 0900
+p {d-main} ad.permute.{ad-pc-reset}
+s ad.permute.{ad-pc-reset} 0,0,0,0,0,0,0,0,11,0,0
+p ad.permute.{ad-pc-reset} {a-pc}.{i-reset}
 
 # loadim2-irS: I1 XX XX XX XX -> 00 00 00 00 I1, used for JN/JZ/JIL
 # shiftl4-exA, used for JSR
@@ -370,14 +373,20 @@ $op-lines-gt55 K 7
 # -- RESET --
 p i.io {p-reset}
 
-# Reset ft selector accumulators and IR to M00...
+# Reset PC, IR, and initial ft selector accumulators
 # Send M00000
 p {p-reset} c.27i
 s c.s27 Kl
+
 # Set mem18/mem19 signs to M so that ft1 is selected via mem17.PM = P
 $rec {p-reset} {a-mem18} {t-reset} {i-main} {p-fetch}
 $recx {p-reset} {a-mem19} {r-reset} {i-main}
+
+# IR to M0 so we trigger a fetch
 $recx {p-reset} {a-ir} {r-reset} {i-main}
+
+# PC = 0900
+$recx {p-reset} {a-pc} {r-reset} {i-reset}
 
 
 # -- CONTROL CYCLE --
