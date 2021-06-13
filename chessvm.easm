@@ -2,7 +2,7 @@ s cy.op 1a
 # ftsg fields of PC are 09 (ft1), 90 (ft2), or 99 (ft3), and must be nonzero
 # for correct operation
 
-set a4  0075000000  # A=00, B=75
+set a4  2075000000  # A=00, B=75
 set a13 1234567890 # memory value, check that print saves and restores
 
 
@@ -167,9 +167,14 @@ p {a-rf}.A {d-main}
 
 p {d-main} {a-rf}.{i-main}
 
-# clearA
+# i-clearA, for CLR A
 p {d-main} ad.d.{ad-rf-clearA}.-2
 p ad.d.{ad-rf-clearA}.-2 {a-rf}.{i-clearA}
+
+# i-shiftl8, for getting operands into A for MOV #XX,A 
+p {d-main} ad.s.{ad-rf-shiftl8}.8
+p ad.s.{ad-rf-shiftl8}.8 {a-rf}.{i-shiftl8}
+
 
 # - Load/Store -
 # Registers F-J of the virtual machine. 
@@ -247,6 +252,12 @@ s c.j9  9
 s c.kl  M
 s c.k10 0
 s c.k9  0
+
+# whenever you need a 9 on the bus, go through a pulseamp 
+defmacro sendM0 prog
+  p $prog {pa-a-%name} 
+  p {pa-b-%name} c.25i
+endmacro
 
 # P43000 used in control cycle, to test opcode > 55. 43 = 99-55-1
 s c.kr P
@@ -462,8 +473,7 @@ s {a-ex}.cc{t-disc-op} C  # clear EX
 $recincx {p-eat-op} {a-ir} {t-disc-op} {i-fill99}
 # Send M00000 from the constant transmitter to fix IR.  EX doesn't send a sign
 # on d-main so there's no bus conflict.
-p {p-eat-op} c.25i
-s c.s25 Kl
+$sendM0 {p-eat-op}
 
 # Clear MP prior to decode.  Clearing isn't synchronous, so this needs to
 # happen "next cycle" i.e. during pulse 17 of p-disc-op.
@@ -619,10 +629,17 @@ $recinc {p-fetchread-2} {a-pc} {t-fetchread-2} {i-sendi1} {p-nofetch}
 # -- OPCODE IMPLEMENTATIONS --
 
 
+
+$break {p-op40}
+$break {p-op52}
+$break {p-op53}
+$break {p-op92}
+
+
 # - HALT -
 # Wire halt to quit the simulator so we can run programs and exit when they're
 # done.
-#p {p-op95} debug.quit
+# p {p-op95} debug.quit
 
 
 # - CLR A -
@@ -636,28 +653,33 @@ $rec {p-op35-2} {a-rf} {t-op35-2} {i-clearA} {p-fetch}
 
 
 # - MOV #XX,A -
+$assert {p-op40} {a-ir}~Pxxxxxxxxxx  # so fetch/nofetch discrim does not trigger
 
-# original idea:
-# CLR A
-# IR-rotate->EX,IR-selA->RF     IR<0 so how not trigger disc program on A?
-# EX-fill99->IR                 EX<0 so how not trigger disc program on A?
-# ends with A=100-XX, store constants complemented?
+# First clear A
+# RF -> EX
+$sendc {p-op40} {a-rf} {t-op40} A {p-op40-2}
+$loadex {p-op40}
 
-# another approach:
-# CLR A
-# TMP->EX
-# IR-S-rotate->TMP,IR-S-loadimm->RF  IR<0 so will not trigger disc program on S
-# TMP-S-fill99->IR                   TMP>0 here so cannot use S for disc, but convenient M99
-# EX->TMP
+# EX -clearA-> RF
+$storeex {p-op40-2}
+$rec {p-op40-2} {a-rf} {t-op40-2} {i-clearA} {p-op40-3}
 
-# RF -clearA-> EX
-# IR-S-rotate->TMP,IR-S-loadimm->EX
-# EX->RF
+# Now consume the next word in IR, saving it into A
+
+# IR -rotate-ir-> EX, RF 
+$sendc {p-op40-3} {a-ir} {t-op40-3} A {p-op40-4}
+$recx {p-op40-3} {a-ex} {t-load} {i-rotate-ir}  # out of recievers
+$recx {p-op40-3} {a-rf} {r-load} {i-shiftl8}    # save lowest word into A
+
+# Finally, put shifted instructions back in IR, filling top with 99
+# and add +1 to detect IR empty
+$storeex {p-op40-4}
+$recinc {p-op40-4} {a-ir} {t-op40-4} {i-fill99} {p-fetch}
+
+# that fill99 requires an M0 on the bus
+$sendM0 {p-op40-4}
 
 
-$break {p-op52}
-$break {p-op53}
-$break {p-op92}
 
 # - INC -
 # Send P01000 on d-main
