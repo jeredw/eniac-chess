@@ -1,7 +1,4 @@
 s cy.op 1a
-# ftsg fields of PC are 09 (ft1), 90 (ft2), or 99 (ft3), and must be nonzero
-# for correct operation
-
 set a4  2075000000  # A=00, B=75
 set a13 1234567890 # memory value, check that print saves and restores
 
@@ -32,7 +29,7 @@ include macros.easm
 # - Program counter -
 # Layout: SS RRRR PPPP
 # Current program counter PPPP and return address RRRR, plus a temp SS used for op decode
-# Four digit address is FFLL: FF = which ft (00=ft1, 90=ft2, 99=ft3), LL = ft line
+# Four digit address is FFLL: FF = which ft (09=ft1, 90=ft2, 99=ft3), LL = ft line
 
 {a-pc}=a1
 
@@ -298,21 +295,6 @@ s p.cK 6
 # PX-8-304."
 s p.gate63 unplug
 
-# Shared program used to clear master programmer steppers in anticipation of
-# decode.  Triggered via pulse amplifier because it is necessary for this to
-# happen directly in the cycle prior to decode, which may occur in a few
-# different places in the fetch sequence.
-p {p-clear-mp} p.Acdi
-p {p-clear-mp} p.Bcdi
-p {p-clear-mp} p.Ccdi
-p {p-clear-mp} p.Dcdi
-p {p-clear-mp} p.Ecdi
-p {p-clear-mp} p.Fcdi
-p {p-clear-mp} p.Gcdi
-p {p-clear-mp} p.Hcdi
-p {p-clear-mp} p.Jcdi
-p {p-clear-mp} p.Kcdi
-
 # Receive opcode at master programmer stepper direct inputs
 p {d-main} ad.dp.{ad-opcode-10}.10   # opcode 10's digit (0x-5x)
 p ad.dp.{ad-opcode-10}.10 p.Adi
@@ -478,6 +460,16 @@ $sendM0 {p-eat-op}
 # Clear MP prior to decode.  Clearing isn't synchronous, so this needs to
 # happen "next cycle" i.e. during pulse 17 of p-disc-op.
 $dummy {p-disc-op} a20 {t-disc-op} 1 {p-clear-mp}
+p {p-clear-mp} p.Acdi
+p {p-clear-mp} p.Bcdi
+p {p-clear-mp} p.Ccdi
+p {p-clear-mp} p.Dcdi
+p {p-clear-mp} p.Ecdi
+p {p-clear-mp} p.Fcdi
+p {p-clear-mp} p.Gcdi
+p {p-clear-mp} p.Hcdi
+p {p-clear-mp} p.Jcdi
+p {p-clear-mp} p.Kcdi
 
 
 # -- p-ople55 - send tens digit of opcode to stepper A, ones digit to B-G
