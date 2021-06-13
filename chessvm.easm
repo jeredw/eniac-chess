@@ -3,7 +3,6 @@ s cy.op 1a
 # for correct operation
 # TODO figure out how to reset this way
 set a1 0000000900  # initial PC, ftsg can't be zero
-set a2 -9999999999  # initial empty IR (actually need M0 but can't write here)
 
 set a4  0075000000  # A=00, B=75
 set a13 1234567890 # memory value, check that print saves and restores
@@ -34,7 +33,7 @@ include macros.easm
 
 # - Program counter -
 # Layout: SS RRRR PPPP
-# Current program counter PPPP and return address RRRR, plus a temp SS
+# Current program counter PPPP and return address RRRR, plus a temp SS used for op decode
 # Four digit address is FFLL: FF = which ft (00=ft1, 90=ft2, 99=ft3), LL = ft line
 
 {a-pc}=a1
@@ -53,9 +52,9 @@ p ad.permute.{ad-swap-pc-ss-digits} {d-main}
 # main input
 p {d-main} {a-pc}.{i-main}
 
-# shiftl8-irA input: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
-p {d-irA} ad.s.{ad-pc-shiftl8-irA}.8
-p ad.s.{ad-pc-shiftl8-irA}.8 {a-pc}.{i-shiftl8-irA}
+# shiftl8-ir input: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
+p {d-main} ad.s.{ad-pc-shiftl8-ir}.8
+p ad.s.{ad-pc-shiftl8-ir}.8 {a-pc}.{i-shiftl8-ir}
 
 # clear A input: XX RRRR PPPP -> 00 RRRR PPPP, wired to EX.S for control cycle
 p {d-exS} ad.permute.{ad-exS-clearA}
@@ -70,16 +69,18 @@ p {d-exA} {a-pc}.{i-sendi1}   # XXX needed? I think we can use main here
 
 
 # - Instruction Register -
-# Layout: M 99-I6 99-I5 99-I4 99-I3 100-I2
+# Layout: P I6 I5 I4 I3 I2
 # Holds up to 5 instructions queued to execute after loading from a function
 # table line. Fills in 99 from the left as instructions are executed. When empty, 
-# this will be 9999999999 and then +1 flips to P0, easy to detect
-# So we also have a "need to fetch a line" discrimination on IR
+# this will be 9999999999 and then +1 flips to M0, easy to detect
+# So we use the sign of IR to decide whether we need to fetch (discriminate on IR)
 
 {a-ir}=a2
 
 # A(11) - discrimination, A(10-1) main
 p {a-ir}.A {d-irA}
+# Because our PM output lines trigger programs, we don't want to get
+# signals back on them from the main bus, so we don't connect sign to main
 p {d-irA} ad.permute.{ad-drop-ir-sign}
 s ad.permute.{ad-drop-ir-sign} 0,10,9,8,7,6,5,4,3,2,1
 p ad.permute.{ad-drop-ir-sign} {d-main}
@@ -87,7 +88,8 @@ p ad.permute.{ad-drop-ir-sign} {d-main}
 # S output to its own bus, unpermuted
 p {a-ir}.S {d-irS}
 
-# AS - fetch discriminate
+# main input
+p {d-main} {a-ir}.{i-main}
 
 # fetch input: from d-fetch, used for loading new line of instructions permuted from function table
 p {d-fetch} {a-ir}.{i-fetch}
@@ -121,11 +123,11 @@ p {a-ex}.S {d-exS}
 # main
 p {d-main} {a-ex}.{i-main}
 
-# rotate-irA input: I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2 for control cycle
+# rotate-ir input: I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2 for control cycle
 # Shift the instructions right, then we execute and clear I1, removing one from the queue
-p {d-irA} ad.permute.{ad-irA}
-s ad.permute.{ad-irA} 11,2,1,10,9,8,7,6,5,4,3
-p ad.permute.{ad-irA} {a-ex}.{i-rotate-irA}
+p {d-main} ad.permute.{ad-ir}
+s ad.permute.{ad-ir} 11,2,1,10,9,8,7,6,5,4,3
+p ad.permute.{ad-ir} {a-ex}.{i-rotate-ir}
 
 # clearA input: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
 p {d-main} ad.permute.{ad-clearA}
@@ -156,7 +158,7 @@ s {a-ex}.cc{t-storeex} C
 
 
 # - Register File -
-# Registers A-E of the virtual machine. Use a13 so we can print it.
+# Registers A-E of the virtual machine. A is our accumulator.
 {a-rf}=a4
 p {a-rf}.A {d-main}
 
@@ -233,22 +235,22 @@ p c.o ad.permute.{ad-constant-right}
 s ad.permute.{ad-constant-right} 0,5,4,3,2,1,0,0,0,0,0
 p ad.permute.{ad-constant-right} {d-main}
 
-# M99000 used in control cycle
+# M99000 used in control cycle, DEC
 s c.jl  M
 s c.j10 9
 s c.j9  9
 
-# M00000 used in control cycle
+# M00000 used in control cycle to fill consumed op with 99, machine reset
 s c.kl  M
 s c.k10 0
 s c.k9  0
 
-# P43000 used in control cycle
+# P43000 used in control cycle, to test opcode > 55. 43 = 99-55-1
 s c.kr P
 s c.k5 4
 s c.k4 3
 
-# P01000 used in control cycle
+# P01000 used in control cycle, INC
 s c.jr P
 s c.j5 0
 s c.j4 1
@@ -368,13 +370,14 @@ $op-lines-gt55 K 7
 # -- RESET --
 p i.io {p-reset}
 
-# Reset ft selector accumulators
+# Reset ft selector accumulators and IR to M00...
 # Send M00000
 p {p-reset} c.27i
 s c.s27 Kl
 # Set mem18/mem19 signs to M so that ft1 is selected via mem17.PM = P
-$rec {p-reset} {a-mem18} {t-reset} {i-main} {p-clearex-fetch}
-$rec {p-reset} {a-mem19} {t-reset} {i-main} {p-clearex-fetch}
+$rec {p-reset} {a-mem18} {t-reset} {i-main} {p-fetch}
+$recx {p-reset} {a-mem19} {r-reset} {i-main}
+$recx {p-reset} {a-ir} {r-reset} {i-main}
 
 
 # -- CONTROL CYCLE --
@@ -400,12 +403,12 @@ s {a-ir}.cc{t-fetch} C   # clear IR after transmission
 # $discriminate sends IR on d-main, and EX receives it permuted I5 I4 I3 I2 I1+1
 # -> I1+1 I5 I4 I3 I2.  This puts the next instruction in the left (first two
 # digits) of EX. 
-$recx {p-fetch} {a-ex} {r-fetch} {i-rotate-irA}
+$recx {p-fetch} {a-ex} {r-fetch} {i-rotate-ir}
 
-# IR -shiftl8-irA-> PC
-# Also send first opcode to left of PC.This copy of the instruction will later be
+# IR -shiftl8-ir-> PC
+# Also send first opcode to left of PC. This copy of the instruction will later be
 # sent to MP steppers for decoding.
-$recx {p-fetch} {a-pc} {r-fetch} {i-shiftl8-irA}
+$recx {p-fetch} {a-pc} {r-fetch} {i-shiftl8-ir}
 
 
 
@@ -553,9 +556,9 @@ $send {p-fetcharg} {a-pc} {t-fetcharg} A {p-preinc-fetch}
 p {d-main} f1.arg  # only bottom two digit lines connect so no deleter is required
 
 
-# -- {p-preinc-fetch} preincrement left field of EX, and PC
+# -- {p-preinc-fetch} preincrement left field of EX
 $assert {p-preinc-fetch} {a-ex}~P0000000000
-$assert {p-preinc-fetch} {a-pc}~M99xxxxxxxx   # M99 as IR was empty
+$assert {p-preinc-fetch} {a-pc}~P00xxxxxxxx
 # Send P01000 from the constant transmitter
 p {p-preinc-fetch} c.28i
 s c.s28 Jr
@@ -564,8 +567,6 @@ s c.s28 Jr
 # which is the precondition in p-nofetch.
 $loadex {p-preinc-fetch}
 
-# Also add P01 to PC to reset SS from 99 (loaded as IR was empty) to 00
-$recx {p-preinc-fetch} {a-pc} {r-preinc-fetch} {i-main}
 
 # -- {p-fetchread} read ft line of instructions
 #  - FT sends complement of A and B
@@ -608,21 +609,12 @@ $recinc {p-fetchread-2} {a-pc} {t-fetchread-2} {i-sendi1} {p-nofetch}
 
 # -- OPCODE IMPLEMENTATIONS --
 
-$break {p-op13}
-$pulseamp {p-op13} {p-fetch}
-$break {p-op52}
-$break {p-op54}
-$pulseamp {p-op54} {p-fetch}
-$break {p-op74}
-$pulseamp {p-op74} {p-fetch}
-$break {p-op90}
-$pulseamp {p-op90} {p-fetch}
-$break {p-op95}
 
 # - HALT -
 # Wire halt to quit the simulator so we can run programs and exit when they're
 # done.
-#p {p-op99} debug.quit
+#p {p-op95} debug.quit
+
 
 # - CLR A -
 # RF -> EX
@@ -654,6 +646,10 @@ $rec {p-op35-2} {a-rf} {t-op35-2} {i-clearA} {p-fetch}
 # EX->RF
 
 
+$break {p-op52}
+$break {p-op53}
+$break {p-op92}
+
 # - INC -
 # Send P01000 on d-main
 p {p-op52} c.29i
@@ -680,22 +676,22 @@ $rec {p-op53} {a-rf} {t-op53} {i-main} {p-fetch}
 # and during the transfer we shift RF right so we print 0AABB not AABBC
 
 # MEM13->EX, clear
-$sendc {p-op96} {a-mem13} {t-op96} A {p-op96-2}
-$loadex {p-op96}
+$sendc {p-op92} {a-mem13} {t-op96} A {p-op92-2}
+$loadex {p-op92}
 
 # RF-printAB-MEM13. Puts AB in lower 4 digits of upper half of accumulator
-$sendx {p-op96-2} {a-rf} {t-op96-2} A    
-$rec {p-op96-2} {a-mem13} {t-printAB} {i-printAB} i.pi # trigger print
+$sendx {p-op92-2} {a-rf} {t-op92-2} A    
+$rec {p-op92-2} {a-mem13} {t-printAB} {i-printAB} i.pi # trigger print
 
 # prints high half accumulator 13 
 s pr.2 P            
-p i.po {p-op96-3}
+p i.po {p-op92-3}
 
 # restore contents of MEM13
-$clear {p-op96-3} {a-mem13} {t-mem13} {p-op96-4}
+$clear {p-op92-3} {a-mem13} {t-mem13} {p-op92-4}
 
-$storeex {p-op96-4}
-$rec {p-op96-4} {a-mem13} {t-op96-4} {i-main} {p-fetch}
+$storeex {p-op92-4}
+$rec {p-op92-4} {a-mem13} {t-op92-4} {i-main} {p-fetch}
 
 
 
