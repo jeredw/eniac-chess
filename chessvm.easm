@@ -415,14 +415,12 @@ $recx {p-fetch} {a-pc} {r-fetch} {i-shiftl8-ir}
 
 
 # -- {p-nofetch} no fetch needed, begin instruction decode
-$break {p-nofetch}
-
 $pulseamp {p-nofetch-eat-op} {p-nofetch}
 # PC has I1+1 at left
-# EX is M I1+1 I5 I4 I3 I2
+# EX is P I1+1 I5 I4 I3 I2
 $assert {p-nofetch} {a-ex}~Pxxxxxxxxxx
 
-# Begin decode by adding 44 to EX, from constant transmitter
+# Begin decode by adding 43 to EX, from constant transmitter
 
 # Send 43 from CT on d-main
 p {p-nofetch} c.26i 
@@ -435,7 +433,7 @@ s c.s26 Kr
 $rec {p-nofetch} {a-ex} {t-nofetch} {i-main} {p-disc-op}
 
 # If we are eating an operand (removing it from IR) then we need to set
-# top top digits of IR to 99 after next instruction (delay 1 cycle)
+# the top digits of IR to 99 after next instruction (delay 1 cycle)
 $dummy {p-nofetch-eat-op} a20 {t-eat-op} 1 {p-eat-op}
 
 
@@ -538,8 +536,6 @@ $send {p-fetchline} {a-mem19} {t-fetchline} S {p-fetchtrig}
 # - stimulate FT, goto {p-fetcharg} for argument
 # - delay 4 then goto {p-fetchread}
 
-$break {p-fetchline}
-
 
 # - clear IR (needed only on jumps, otherwise already zero here from overflow) and delay 4
 $clear {p-fetchtrig} {a-ir} {t-fetchtrig} {p-fetchread}
@@ -552,7 +548,7 @@ $clearx {p-fetchtrig} {a-ex} {t-fetchtrig}
 defmacro triggerft num
   p {p-trigger-ft$num} f$num.1i
   s f$num.rp1 1                    # send once in r-fetchread
-  s f$num.op1 A0                   # send complement, don't offset argument
+  s f$num.op1 A0                   # send uncomplemented, don't offset argument
   s f$num.cl1 C                    # pulse on C when done
   p f$num.C {p-fetcharg}           # goto when ready for argument
 endmacro
@@ -580,12 +576,12 @@ $loadex {p-preinc-fetch}
 
 
 # -- {p-fetchread} read ft line of instructions
-#  - FT sends complement of A and B
-#  - IR = M I6 I5 I4 I3 I2+1 = B2B1 B4B3 B6B5 A2A1 A4A3+1
-#  - EX = M I1 00 00 00 00  = A6A5+1 00 00 00 00
+#  - FT sends uncomplemented instructions on A and B
+#  - IR = P I6 I5 I4 I3 I2+1 = B2B1 B4B3 B6B5 A2A1 A4A3+1
+#  - EX = P I1 00 00 00 00  = A6A5+1 00 00 00 00
 #  - PC is unchanged
 
-# B2B1 B4B3 B6B5 A2A1 A4A3+1 -> IR
+# B2B1 B4B3 B6B5 A2A1 A4A3 -> IR
 p f1.A {d-fA}
 p f2.A {d-fA}
 p f3.A {d-fA}
@@ -612,7 +608,7 @@ $loadex {p-fetchread}
 
 
 # -- p-fetchread-2: Move first opcode into top of PC to begin execution, inc PC
-#  - PC = P I1 xx xx xx PC+1
+#  - PC = P I1+1 xx xx xx PC+1
 # then go to p-nofetch to begin execution
 $sendx {p-fetchread-2} {a-ex} {t-fetchread-2} A  # t because ran out of r
 $recinc {p-fetchread-2} {a-pc} {t-fetchread-2} {i-sendi1} {p-nofetch}

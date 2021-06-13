@@ -89,15 +89,17 @@ d - sendi1: from FT, first instruction only
 
 
 IR:
-Up to five next instructions, stored as complement so 99 fills in from the left
-P0 if empty, otherwise M 99-I6 99-I5 99-I4 99-I3 100-I2
+Up to five next instructions. M0 if empty, otherwise P I6 I5 I4 I3 I2.
+99 fills in from the left as instructions are consumed so we can easily detect
+an empty IR by adding 1, giving P999... + 1 = M0.
 
 A - d-irA, I6 I5 I4 I3 I2 I1 -> I1 I6 I5 I4 I3 I2, used in control cycle
     also main (digits but not sign)
 S - d-irS, I6 I5 I4 I3 I2 I1 -> I1 I6 I5 I4 I3 I2, used in control cycle
 AS - fetch discriminate
-a - from FT
-b - fill99: replace top 2 digits with 99
+a - main
+b - from FT
+g - fill99: replace top 2 digits with 99
 
 
 EX:
@@ -266,8 +268,8 @@ CONTROL CYCLE
 
 1. clear EX
 2. IR -> EX, IR-shiftl8->PC, discriminate IR (P->p-fetchline, M->p-nofetch-eat-op)
-  (IR < 0, p-nofetch-eat-op: triggers both p-nofetch and p-eat-op via pulse amps)
-  3. [p-nofetch] EX += 55                     [p-nofetch-eat-op] nop
+  (IR>=0, p-nofetch-eat-op: triggers both p-nofetch and p-eat-op via pulse amps)
+  3. [p-nofetch] EX += 43                     [p-nofetch-eat-op] nop
   4. [p-disc-op] disc EX,                     [p-eat-op] M00000 -fill99-> IR,
                  clear EX,                               EX -fill99-> IR,
                  clear mp                                IR += 1
@@ -292,10 +294,10 @@ else
   3. [p-fetchline]  MEM17-S->dummy, MEM18-S->dummy, MEM19-S->dummy
   4. [p-fetchtrig]  stim FT
   5. [p-fetcharg]   PC->FT
-  6. [p-preinc-fetch]  EX += P01, PC += P01
+  6. [p-preinc-fetch]  EX += P01...
   7. wait
-  8. [p-fetchread]   FT -> IR,EX
-  9. [p-fetchread-2] PC += -EX + 1
+  8. [p-fetchread]   FT -> IR,EX, IR += 1
+  9. [p-fetchread-2] PC += EX + 1
                      goto p-nofetch*
 
 * note this does not trigger p-eat-op so the top of IR is preserved.
