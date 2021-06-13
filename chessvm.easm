@@ -56,9 +56,6 @@ p {d-exS} ad.permute.{ad-exS-clearA}
 s ad.permute.{ad-exS-clearA} 0,0,0,8,7,6,5,4,3,2,1
 p ad.permute.{ad-exS-clearA} {a-pc}.{i-exS-clearA}
 
-# sendi1 input: from FT, first instruction only
-p {d-exA} {a-pc}.{i-sendi1}   # XXX needed? I think we can use main here
-
 # reset input: takes M0 from bus, sets initial PC to 0900
 p {d-main} ad.permute.{ad-pc-reset}
 s ad.permute.{ad-pc-reset} 0,0,0,0,0,0,0,0,11,0,0
@@ -611,7 +608,7 @@ $loadex {p-fetchread}
 #  - PC = P I1+1 xx xx xx PC+1
 # then go to p-nofetch to begin execution
 $sendx {p-fetchread-2} {a-ex} {t-fetchread-2} A  # t because ran out of r
-$recinc {p-fetchread-2} {a-pc} {t-fetchread-2} {i-sendi1} {p-nofetch}
+$recinc {p-fetchread-2} {a-pc} {t-fetchread-2} {i-main} {p-nofetch}
 
 
 # -- OPCODE IMPLEMENTATIONS --

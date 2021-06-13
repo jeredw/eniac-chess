@@ -82,7 +82,6 @@ S - main (to mp steppers, op>55; SS field digits swapped)
 a - main
 b - shiftl8-irS: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
 c - clearA: XX RRRR PPPP -> 00 RRRR PPPP, wired to EX.S for control cycle
-d - sendi1: from FT, first instruction only
 
 ? - loadim2-irS: I1 XX XX XX XX -> 00 00 00 00 I1, used for JN/JZ/JIL
 ? - shiftl4-exA, used for JSR
