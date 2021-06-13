@@ -548,7 +548,7 @@ class TestV4(unittest.TestCase):
   def testIncA(self):
     self.isa.dispatch("", "inc", "A")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 53})
+    self.assertEqual(self.out.output, {(100, 0): 52})
 
   def testIncB(self):
     self.isa.dispatch("", "inc", "B")
@@ -562,7 +562,7 @@ class TestV4(unittest.TestCase):
   def testDecA(self):
     self.isa.dispatch("", "dec", "A")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 55})
+    self.assertEqual(self.out.output, {(100, 0): 53})
 
   def testDec_ErrorInvalidArgument(self):
     self.isa.dispatch("", "dec", "B")
@@ -571,7 +571,7 @@ class TestV4(unittest.TestCase):
   def testAddAD(self):
     self.isa.dispatch("", "add", "A, D")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 74})
+    self.assertEqual(self.out.output, {(100, 0): 70})
 
   def testAdd_ErrorInvalidArgument(self):
     self.isa.dispatch("", "add", "A, B")
@@ -580,7 +580,7 @@ class TestV4(unittest.TestCase):
   def testNeg(self):
     self.isa.dispatch("", "neg", "A")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 75})
+    self.assertEqual(self.out.output, {(100, 0): 71})
 
   def testNeg_ErrorInvalidArgument(self):
     self.isa.dispatch("", "neg", "bogus")
@@ -589,7 +589,7 @@ class TestV4(unittest.TestCase):
   def testSubAD(self):
     self.isa.dispatch("", "sub", "A, D")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 76})
+    self.assertEqual(self.out.output, {(100, 0): 72})
 
   def testSub_ErrorInvalidArgument(self):
     self.isa.dispatch("", "sub", "A, B")
@@ -598,13 +598,13 @@ class TestV4(unittest.TestCase):
   def testJmp(self):
     self.isa.dispatch("", "jmp", "99")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 77, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 73, (100, 1): 99})
 
   def testJmpLabel(self):
     self.context.labels = {"label": 199}
     self.isa.dispatch("", "jmp", "label")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 77, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 73, (100, 1): 99})
 
   def testJmpLabel_ErrorUnrecognized(self):
     self.isa.dispatch("", "jmp", "label")
@@ -618,18 +618,18 @@ class TestV4(unittest.TestCase):
   def testJmpFar(self):
     self.isa.dispatch("", "jmp", "far 399")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 78, (100, 1): 99, (100, 2): 3})
+    self.assertEqual(self.out.output, {(100, 0): 74, (100, 1): 99, (100, 2): 3})
 
   def testJmpFarWithNearTarget(self):
     self.isa.dispatch("", "jmp", "far 99")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 78, (100, 1): 99, (100, 2): 1})
+    self.assertEqual(self.out.output, {(100, 0): 74, (100, 1): 99, (100, 2): 1})
 
   def testJmpFarLabel(self):
     self.context.labels = {"label": 399}
     self.isa.dispatch("", "jmp", "far label")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 78, (100, 1): 99, (100, 2): 3})
+    self.assertEqual(self.out.output, {(100, 0): 74, (100, 1): 99, (100, 2): 3})
 
   def testJmpFarLabel_ErrorUnrecognized(self):
     self.isa.dispatch("", "jmp", "far label")
@@ -638,23 +638,23 @@ class TestV4(unittest.TestCase):
   def testJmpA(self):
     self.isa.dispatch("", "jmp", "+A")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 79})
+    self.assertEqual(self.out.output, {(100, 0): 75})
 
   def testJn(self):
     self.isa.dispatch("", "jn", "199")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 84, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 80, (100, 1): 99})
 
   def testJnRelative(self):
     self.isa.dispatch("", "jn", "99")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 84, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 80, (100, 1): 99})
 
   def testJnLabel(self):
     self.context.labels = {"label": 199}
     self.isa.dispatch("", "jn", "label")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 84, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 80, (100, 1): 99})
 
   def testJn_ErrorFar(self):
     self.isa.dispatch("", "jn", "299")
@@ -663,18 +663,18 @@ class TestV4(unittest.TestCase):
   def testJz(self):
     self.isa.dispatch("", "jz", "199")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 85, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 81, (100, 1): 99})
 
   def testJzRelative(self):
     self.isa.dispatch("", "jz", "99")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 85, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 81, (100, 1): 99})
 
   def testJzLabel(self):
     self.context.labels = {"label": 199}
     self.isa.dispatch("", "jz", "label")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 85, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 81, (100, 1): 99})
 
   def testJz_ErrorFar(self):
     self.isa.dispatch("", "jz", "299")
@@ -683,18 +683,18 @@ class TestV4(unittest.TestCase):
   def testJil(self):
     self.isa.dispatch("", "jil", "199")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 86, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 82, (100, 1): 99})
 
   def testJilRelative(self):
     self.isa.dispatch("", "jil", "99")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 86, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 82, (100, 1): 99})
 
   def testJilLabel(self):
     self.context.labels = {"label": 199}
     self.isa.dispatch("", "jil", "label")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 86, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 82, (100, 1): 99})
 
   def testJil_ErrorFar(self):
     self.isa.dispatch("", "jil", "299")
@@ -703,18 +703,18 @@ class TestV4(unittest.TestCase):
   def testLoop(self):
     self.isa.dispatch("", "loop", "199")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 87, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 83, (100, 1): 99})
 
   def testLoopRelative(self):
     self.isa.dispatch("", "loop", "99")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 87, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 83, (100, 1): 99})
 
   def testLoopLabel(self):
     self.context.labels = {"label": 199}
     self.isa.dispatch("", "loop", "label")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 87, (100, 1): 99})
+    self.assertEqual(self.out.output, {(100, 0): 83, (100, 1): 99})
 
   def testLoop_ErrorFar(self):
     self.isa.dispatch("", "loop", "299")
@@ -723,13 +723,13 @@ class TestV4(unittest.TestCase):
   def testJsr(self):
     self.isa.dispatch("", "jsr", "399")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 88, (100, 1): 99, (100, 2): 3})
+    self.assertEqual(self.out.output, {(100, 0): 84, (100, 1): 99, (100, 2): 3})
 
   def testJsrLabel(self):
     self.context.labels = {"label": 199}
     self.isa.dispatch("", "jsr", "label")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 88, (100, 1): 99, (100, 2): 1})
+    self.assertEqual(self.out.output, {(100, 0): 84, (100, 1): 99, (100, 2): 1})
 
   def testJsr_ErrorUnrecognizedLabel(self):
     self.isa.dispatch("", "jsr", "bogus")
@@ -738,7 +738,7 @@ class TestV4(unittest.TestCase):
   def testRet(self):
     self.isa.dispatch("", "ret", "")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 89})
+    self.assertEqual(self.out.output, {(100, 0): 85})
 
   def testRet_ErrorInvalidArgument(self):
     self.isa.dispatch("", "ret", "bogus")
@@ -747,7 +747,7 @@ class TestV4(unittest.TestCase):
   def testReadAB(self):
     self.isa.dispatch("", "read", "AB")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 95})
+    self.assertEqual(self.out.output, {(100, 0): 91})
 
   def testRead_ErrorInvalidArgument(self):
     self.isa.dispatch("", "read", "bogus")
@@ -756,7 +756,7 @@ class TestV4(unittest.TestCase):
   def testPrintAB(self):
     self.isa.dispatch("", "print", "AB")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 96})
+    self.assertEqual(self.out.output, {(100, 0): 92})
 
   def testPrint_ErrorInvalidArgument(self):
     self.isa.dispatch("", "print", "bogus")
@@ -765,7 +765,7 @@ class TestV4(unittest.TestCase):
   def testNextline(self):
     self.isa.dispatch("", "nextline", "")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 98})
+    self.assertEqual(self.out.output, {(100, 0): 94})
 
   def testNextline_ErrorInvalidArgument(self):
     self.isa.dispatch("", "nextline", "bogus")
@@ -774,7 +774,7 @@ class TestV4(unittest.TestCase):
   def testHalt(self):
     self.isa.dispatch("", "halt", "")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.out.output, {(100, 0): 99})
+    self.assertEqual(self.out.output, {(100, 0): 95})
 
   def testHalt_ErrorInvalidArgument(self):
     self.isa.dispatch("", "halt", "bogus")
