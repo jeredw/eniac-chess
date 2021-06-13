@@ -1,8 +1,9 @@
 s cy.op 1a
-# ftsg fields of PC are 99 (ft1), 09 (ft2), or 90 (ft3), and must be nonzero
+# ftsg fields of PC are 09 (ft1), 90 (ft2), or 99 (ft3), and must be nonzero
 # for correct operation
 # TODO figure out how to reset this way
-set a1 0099009900
+set a1 0009000900
+
 #set a2 -9999999904
 set a4  0075000000  # A=00, B=75
 set a13 1234567890 # memory value, check that print saves and restores
@@ -178,6 +179,42 @@ p {d-main} ad.permute.{ad-printAB}
 s ad.permute.{ad-printAB} 11,0,10,9,8,7,0,0,0,0,0
 p ad.permute.{ad-printAB} {a-mem13}.{i-printAB}
 
+# - M17,18,19 -
+# The PM digits of M17, M18, and M19 select the current function table for
+# instruction fetch. They also have programs to decode the FTSG field.
+defmacro ftdiscaccum name dummy ftnum
+  p {a-$name}.A {d-main}
+
+  # S.PM is wired to a dummy program to trigger an FT
+  p {a-$name}.S ad.dp.{ad-$name-discft$ftnum}.11
+  p ad.dp.{ad-$name-discft$ftnum}.11 {a-$dummy}.{t-$name-S}i
+  s {a-$dummy}.op{t-$name-S} 0
+  p {a-$dummy}.{t-$name-S}o {p-trigger-ft$ftnum}
+
+  # i-main from main bus
+  p {d-main} {a-$name}.{i-main}
+
+  # i-ftsg1 puts the ftsg1 digit in PM
+  p {d-main} ad.permute.{ad-$name-ftsg1}
+  s ad.permute.{ad-$name-ftsg1} 3,0,0,0,0,0,0,0,0,0,0
+  p ad.permute.{ad-$name-ftsg1} {a-$name}.{i-ftsg1}
+
+  # i-ftsg2 puts the ftsg2 digit in PM
+  p {d-main} ad.permute.{ad-$name-ftsg2}
+  s ad.permute.{ad-$name-ftsg2} 4,0,0,0,0,0,0,0,0,0,0
+  p ad.permute.{ad-$name-ftsg2} {a-$name}.{i-ftsg2}
+endmacro
+
+{a-mem17}=a17
+{a-mem18}=a18
+# Strictly speaking only a19 needs both i-ftsg1 and i-ftsg2 inputs but we are
+# not constrained on inputs for these accumulators.
+{a-mem19}=a19
+
+$ftdiscaccum mem17 mem18 1
+$ftdiscaccum mem18 mem19 2
+$ftdiscaccum mem19 mem17 3
+
 
 # - Constant transmitter -
 # So that we can use all the constant switches, connect both the left and the
@@ -323,12 +360,19 @@ $op-lines-gt55 H 9
 $op-lines-gt55 J 8
 $op-lines-gt55 K 7
 
+# -- RESET --
+p i.io {p-reset}
+
+# Reset ft selector accumulators
+# Send M00000
+p {p-reset} c.27i
+s c.s27 Kl
+# Set mem18/mem19 signs to M so that ft1 is selected via mem17.PM = P
+$rec {p-reset} {a-mem18} {t-reset} {i-main} {p-clearex-fetch}
+$rec {p-reset} {a-mem19} {t-reset} {i-main} {p-clearex-fetch}
 
 
 # -- CONTROL CYCLE --
-
-# initiate button
-p i.io {p-clearex-fetch}
 
 # - A program line to jump to if ex has something in it
 $clear {p-clearex-fetch} {a-ex} {t-clearex-fetch} {p-fetch}
@@ -465,23 +509,35 @@ p {p-opgt55-2} {p-mp-789x}
 
 
 # -- {p-fetchline} no more instructons in IR, load new line from ft
+# Trigger the currently selected FT to send
+$send {p-fetchline} {a-mem17} {t-fetchline} S {p-fetchtrig}
+$send {p-fetchline} {a-mem18} {t-fetchline} S {p-fetchtrig}
+$send {p-fetchline} {a-mem19} {t-fetchline} S {p-fetchtrig}
+
+
+# -- {p-fetchtrig}
 # - stimulate FT, goto {p-fetcharg} for argument
 # - delay 4 then goto {p-fetchread}
 
 # - clear IR (needed only on jumps, otherwise already zero here from overflow) and delay 4
-$clear {p-fetchline} {a-ir} {t-fetchline} {p-fetchread}
-s {a-ir}.rp{t-fetchline} 4    # repeat 4 to wait for FT result
+$clear {p-fetchtrig} {a-ir} {t-fetchtrig} {p-fetchread}
+s {a-ir}.rp{t-fetchtrig} 4    # repeat 4 to wait for FT result
 
 # - clear EX as well, it will also receive from FT
-$clearx {p-fetchline} {a-ex} {t-fetchline}
+$clearx {p-fetchtrig} {a-ex} {t-fetchtrig}
 
 # - trigger ft
-p {p-fetchline} f1.1i         
-s f1.rp1 1                    # send once in r-fetchread
-s f1.op1 S0                   # send complement, don't offset argument
-s f1.cl1 C                    # pulse on C when done
-s f1.A6s S                    # transmit extra +1 on A5 to get 100-I1
-p f1.C {p-fetcharg}           # goto when ready for argument
+defmacro triggerft num
+  p {p-trigger-ft$num} f$num.1i
+  s f$num.rp1 1                    # send once in r-fetchread
+  s f$num.op1 S0                   # send complement, don't offset argument
+  s f$num.cl1 C                    # pulse on C when done
+  s f$num.A6s S                    # transmit extra +1 on A5 to get 100-I1
+  p f$num.C {p-fetcharg}           # goto when ready for argument
+endmacro
+$triggerft 1
+$triggerft 2
+$triggerft 3
 
 
 # -- {p-fetcharg} ft argument request
@@ -497,12 +553,16 @@ p {d-main} f1.arg  # only bottom two digit lines connect so no deleter is requir
 #  - PC is unchanged
 
 # B2B1 B4B3 B6B5 A2A1 A4A3+1 -> IR
-p f1.A {d-f1A}                      # FIXME in the sim, need output T-s to avoid using extra digit tray
-p {d-f1A} ad.permute.{ad-fetchA}
+p f1.A {d-fA}
+p f2.A {d-fA}
+p f3.A {d-fA}
+p {d-fA} ad.permute.{ad-fetchA}
 s ad.permute.{ad-fetchA} 0,0,0,0,0,0,0,2,1,4,3
 p ad.permute.{ad-fetchA} {d-fetch}
 
 p f1.B ad.permute.{ad-fetchB}
+p f2.B ad.permute.{ad-fetchB}
+p f3.B ad.permute.{ad-fetchB}
 s ad.permute.{ad-fetchB} 11,2,1,4,3,6,5,0,0,0,0
 p ad.permute.{ad-fetchB} {d-fetch}
 
@@ -510,7 +570,7 @@ p ad.permute.{ad-fetchB} {d-fetch}
 $recinc {p-fetchread} {a-ir} {t-fetchread} {i-fetch} {p-fetchread-2}
 
 # A6A5 00 00 00 00  -> EX
-p {d-f1A} ad.permute.{ad-fetch-ex}
+p {d-fA} ad.permute.{ad-fetch-ex}
 s ad.permute.{ad-fetch-ex} 11,6,5,0,0,0,0,0,0,0,0
 p ad.permute.{ad-fetch-ex} {d-main}
 

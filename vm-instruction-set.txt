@@ -232,33 +232,33 @@ d - movAE: AA BB CC DD EE -> EE BB CC DD EE
 
 
 MEM17:
-DISCJIL1:
-A - main, disc JIL1
-S - main, disc JIL1
+A - main
+S - discft1
 a - main
+b -
+g - ftsg2: x xx xx xx Dx xx -> PM
+d - ftsg1: x xx xx xx xD xx -> PM
 
 
 MEM18: 
-DISCJIL2:
-A - main, disc JIL2
-S - main, disc JIL2
+A - main
+S - discft2
 a - main
 b - exA
+g - ftsg2: x xx xx xx Dx xx -> PM
+d - ftsg1: x xx xx xx xD xx -> PM
 
 
 MEM19:
-DISCJIL3:
-A - main, disc JIL3
-S - main, disc JIL3
-
+A - main
+S - discft3
 a - main
 b - exA
+g - ftsg2: x xx xx xx Dx xx -> PM
+d - ftsg1: x xx xx xx xD xx -> PM
 
 
 MEM20:
-DISCJIL4:
-A - main, disc JIL4
-S - main, disc JIL4
 
 
 CONTROL CYCLE
@@ -289,15 +289,38 @@ CONTROL CYCLE
     7. (decode)
     8. operation begins in this add time
 else
-  3. [p-fetchline]  stim FT
-  4. [p-fetcharg]   PC->FT
-  5. wait
+  3. [p-fetchline]  MEM17-S->dummy, MEM18-S->dummy, MEM19-S->dummy
+  4. [p-fetchtrig]  stim FT
+  5. [p-fetcharg]   PC->FT
   6. wait
-  7. [p-fetchread]   FT -> IR,EX
-  8. [p-fetchread-2] PC += -EX + 1
-                     goto p-nofetch**
+  7. wait
+  8. [p-fetchread]   FT -> IR,EX
+  9. [p-fetchread-2] PC += -EX + 1
+                     goto p-nofetch*
 
-** note this does not trigger p-eat-op so the top of IR is preserved.
+* note this does not trigger p-eat-op so the top of IR is preserved.
+
+
+CHANGE FT:
+
+The current ft for instruction fetch is selected by the signs of MEM17/18/19,
+where P means to fetch from the corresponding ft. Signs are decoded from PC
+ftsg only for instructions which may change it,
+
+MEM17.S = P+ftsg2 -> ft 1 (09)  # disable for 90 or 99
+MEM18.S = P+ftsg1 -> ft 2 (90)  # disable for 09 or 99
+MEM19.S = P+ftsg1+ftsg2 -> ft 3 (99)  # disable for 09 or 90
+
+[p-decode-ftsg]
+  1. PC-ftsg2->MEM17, PC-ftsg1->MEM18, PC-ftsg1->MEM19
+  2. PC-ftsg2->MEM19
+
+p-decode-ftsg relies on having signs at P initially, and will toggle signs for
+disabled fts. So the sequence for changing ft should be:
+
+  A. -> p-decode-ftsg  # (using old ftsg) reset all signs to P
+  B. set new ftsg
+  C. -> p-decode-ftsg  # select the new ftsg
 
 
 OPCODE MICROPROGRAMS
