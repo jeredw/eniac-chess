@@ -266,7 +266,7 @@ CONTROL CYCLE
 -------------
 
 1. clear EX
-2. IR -> EX, IR-shiftl8->PC, discriminate IR (P->p-fetchline, M->p-nofetch-eat-op)
+2. IR -> EX, IR-shiftl8->PC, discriminate IR (P->p-nofetch-eat-op, M->p-fetchline)
   (IR>=0, p-nofetch-eat-op: triggers both p-nofetch and p-eat-op via pulse amps)
   3. [p-nofetch] EX += 43                     [p-nofetch-eat-op] nop
   4. [p-disc-op] disc EX,                     [p-eat-op] M00000 -fill99-> IR,

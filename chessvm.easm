@@ -346,7 +346,9 @@ p p.G1o p.Hi
 p p.G2o p.Ji
 p p.G3o p.Ki
 
-# Rotated because we decode on PS.S for op>5, so this is 99-(OP+1) = 100-OP,
+# Rotated because we decode on PC.S for op>55, so this is 99-(OP+1) = 100-OP.
+# TODO Confirm MP steppers increment from 6 to 1 - we're assuming so here for
+# nicer opcode numbering.
 defmacro op-lines-gt55 stepper tens
   p p.$stepper1o {p-op$tens2}
   p p.$stepper2o {p-op$tens1}
