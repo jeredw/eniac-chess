@@ -247,11 +247,12 @@ s c.kl  M
 s c.k10 0
 s c.k9  0
 
-# whenever you need a 9 on the bus, go through a pulseamp 
+# whenever you need a 9 on the bus, call sendM0 (goes through a pulseamp)
 defmacro sendM0 prog
   p $prog {pa-a-%name} 
   p {pa-b-%name} c.25i
 endmacro
+s c.s25 Kl
 
 # P43000 used in control cycle, to test opcode > 55. 43 = 99-55-1
 s c.kr P
@@ -367,8 +368,7 @@ p i.io {p-reset}
 
 # Reset PC, IR, and initial ft selector accumulators
 # Send M00000
-p {p-reset} c.27i
-s c.s27 Kl
+$sendM0 {p-reset}
 
 # Set mem18/mem19 signs to M so that ft1 is selected via mem17.PM = P
 $rec {p-reset} {a-mem18} {t-reset} {i-main} {p-fetch}
@@ -527,23 +527,10 @@ p {p-opgt55-2} {p-mp-789x}
 # -- {p-fetchline} no more instructons in IR, load new line from ft
 # Trigger the currently selected FT to send
 $send {p-fetchline} {a-mem17} {t-fetchline} S {p-fetchtrig}
-$send {p-fetchline} {a-mem18} {t-fetchline} S {p-fetchtrig}
-$send {p-fetchline} {a-mem19} {t-fetchline} S {p-fetchtrig}
+$sendx {p-fetchline} {a-mem18} {r-fetchline} S 
+$sendx {p-fetchline} {a-mem19} {r-fetchline} S 
 
-
-# -- {p-fetchtrig}
-# - stimulate FT, goto {p-fetcharg} for argument
-# - delay 4 then goto {p-fetchread}
-
-
-# - clear IR (needed only on jumps, otherwise already zero here from overflow) and delay 4
-$clear {p-fetchtrig} {a-ir} {t-fetchtrig} {p-fetchread}
-s {a-ir}.rp{t-fetchtrig} 4    # repeat 4 to wait for FT result
-
-# - clear EX as well, it will also receive from FT
-$clearx {p-fetchtrig} {a-ex} {t-fetchtrig}
-
-# - trigger ft
+# FT settings
 defmacro triggerft num
   p {p-trigger-ft$num} f$num.1i
   s f$num.rp1 1                    # send once in r-fetchread
@@ -556,6 +543,16 @@ $triggerft 2
 $triggerft 3
 
 
+# -- {p-fetchtrig}
+# FT is "stimulated" in this cycle, from mem17-19 S output
+# It will trigger p-fetcharg next cycle to get line index
+# Meanwhile, clear IR (needed only on jumps, otherwise already zero here from overflow)
+# Also use this clear to trigger read from FT, 4 cycles from now
+
+$clear {p-fetchtrig} {a-ir} {t-fetchtrig} {p-fetchread}
+s {a-ir}.rp{t-fetchtrig} 4    # repeat 4 to wait for FT result
+
+
 # -- {p-fetcharg} ft argument request
 # - FT <- bottom two digits of PC (a1)
 $send {p-fetcharg} {a-pc} {t-fetcharg} A {p-preinc-fetch}
@@ -565,6 +562,7 @@ p {d-main} f1.arg  # only bottom two digit lines connect so no deleter is requir
 # -- {p-preinc-fetch} preincrement left field of EX
 $assert {p-preinc-fetch} {a-ex}~P0000000000
 $assert {p-preinc-fetch} {a-pc}~P00xxxxxxxx
+
 # Send P01000 from the constant transmitter
 p {p-preinc-fetch} c.28i
 s c.s28 Jr
@@ -617,10 +615,10 @@ $recinc {p-fetchread-2} {a-pc} {t-fetchread-2} {i-main} {p-nofetch}
 
 
 
-$break {p-op40}
-$break {p-op52}
-$break {p-op53}
-$break {p-op92}
+#$break {p-op40}
+#$break {p-op52}
+#$break {p-op53}
+#$break {p-op92}
 
 
 # - HALT -
