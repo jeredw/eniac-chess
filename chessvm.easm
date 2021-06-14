@@ -1,5 +1,5 @@
 s cy.op 1a
-set a4  0075000000  # A=00, B=75
+#set a4  0075000000  # A=00, B=75
 
 set a12 9876543210 # memory value, check that JN saves and restores
 set a13 1234567890 # memory value, check that PRINT saves and restores
@@ -711,7 +711,7 @@ $dummy {p-sub-jmp-3} {a-dummy} {t-sub-jmp-3} 2 {p-fetchline}
 #$break {p-op52}  # INC
 #$break {p-op53}  # DEC
 #$break {p-op73}  # JMP
-$break {p-op80}   # JN
+#$break {p-op80}  # JN
 #$break {p-op92}  # PRINT
 
 # - HALT -
@@ -719,6 +719,8 @@ $break {p-op80}   # JN
 # done.
 # p {p-op95} debug.quit
 
+# - NOP -
+p {p-op00} {p-fetch}
 
 # - CLR A -
 # RF -> EX
