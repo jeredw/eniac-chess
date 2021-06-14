@@ -182,7 +182,7 @@ flub .equ king
 target .org 99
 faraway .org 300
   .org 399
-  nop
+  inc A
   nop
   nop
   nop

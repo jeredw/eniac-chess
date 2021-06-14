@@ -17,6 +17,7 @@ language and available assembler directives.
 
 import sys
 import re
+from dataclasses import dataclass
 
 def usage():
   print("chasm.py infiles...")
@@ -108,6 +109,13 @@ class Context(object):
     self.labels = {}
 
 
+@dataclass
+class Value:
+  """An output value for the assembler"""
+  word: int
+  comment: str
+
+
 class Output(object):
   """Collects assembler output, both errors and code.
 
@@ -135,7 +143,7 @@ class Output(object):
     if self.print_errors:  # Disabled for unit tests to avoid spam
       print(message)
 
-  def emit(self, *values):
+  def emit(self, *values, comment=""):
     """Emit one or more opcode/argument words.
 
     If operands_in_same_row is true, all the given values must go on the same
@@ -173,23 +181,19 @@ class Output(object):
           self.context.had_fatal_error = True
           break
         else:
-          self.output[index] = v
+          self.output[index] = Value(v, comment)
+          comment = ""
       self.word_of_output_row += 1
       if self.word_of_output_row == 6:
         self.word_of_output_row = 0
         self.output_row += 1
 
-  def to_array(self):
-    """Dumps raw output function table contents as an array."""
-    result = []
-    for i in range(100, 400):
-      row = 0
-      for j in range(5, 0 - 1, -1):
-        row *= 100
-        if (i, j) in self.output:
-          row += self.output[(i, j)]
-      result.append(row)
-    return result
+  def get(self, ft, row, word):
+    """Lookup value at given offset."""
+    assert 1 <= ft <= 3
+    assert 0 <= row <= 99
+    assert 0 <= word <= 5
+    return self.output.get((100 * ft + row, word), Value(0, ""))
 
   def function_table(self):
     """Return the current function table."""
@@ -306,7 +310,7 @@ class PrimitiveParsing(object):
     elif arg:
       self.out.error("unexpected argument '{}'".format(arg))
       return
-    self.out.emit(opcode)
+    self.out.emit(opcode, comment=f"{op} {arg}")
 
 
 class Builtins(PrimitiveParsing):
@@ -348,7 +352,7 @@ class Builtins(PrimitiveParsing):
     for value in values:
       # emit only does anything on pass 1 which also requires label defined
       word = self._word_or_label(value)
-      self.out.emit(word % 100)
+      self.out.emit(word % 100, comment=f"{op} {word}")
 
   def _equ(self, label, op, arg):
     """Assigns a value to a label directly."""
@@ -427,7 +431,7 @@ class V4(PrimitiveParsing):
     except KeyError:
       self.out.error("unrecognized opcode '{}' (using isa v4)".format(op))
 
-  def _encode_ft_number(self, ft):
+  def encode_ft_number(self, ft):
     if ft == 1: return 9
     if ft == 2: return 90
     if ft == 3: return 99
@@ -458,13 +462,15 @@ class V4(PrimitiveParsing):
       m = re.match(regex, arg)
       if m:
         if not arg_type:
-          self.out.emit(opcode)
+          self.out.emit(opcode, comment=f"{op} {arg}")
         else:
-          word = self._word_or_label(m.group(1))
+          symbol = m.group(1)
+          word = self._word_or_label(symbol)
           # Check that arg is a valid direct address (valid memory locations
           # are 0-74).
           if arg_type != 'a' or 0 <= word <= 74:
-            self.out.emit(opcode, word % 100)
+            self.out.emit(opcode, word % 100,
+                          comment=self._comment(op, arg, symbol, word))
           else:
             self.out.error("address out of mov range '{}'".format(word))
         break
@@ -473,24 +479,25 @@ class V4(PrimitiveParsing):
 
   def _swap(self, label, op, arg):
     if re.match(r"B,\s*A|A,\s*B", arg):
-      self.out.emit(1)
+      self.out.emit(1, comment=f"{op} {arg}")
     elif re.match(r"C,\s*A|A,\s*C", arg):
-      self.out.emit(2)
+      self.out.emit(2, comment=f"{op} {arg}")
     elif re.match(r"D,\s*A|A,\s*D", arg):
-      self.out.emit(3)
+      self.out.emit(3, comment=f"{op} {arg}")
     elif re.match(r"E,\s*A|A,\s*E", arg):
-      self.out.emit(4)
+      self.out.emit(4, comment=f"{op} {arg}")
     elif re.match(r"F,\s*A|A,\s*F", arg):
-      self.out.emit(5)
+      self.out.emit(5, comment=f"{op} {arg}")
     else:
       self.out.error("invalid swap argument '{}'".format(arg))
 
   def _ftlookup(self, label, op, arg):
     m = re.match(r"A,\s*(.+)", arg)
     if m:
-      word = self._word_or_label(m.group(1))
+      symbol = m.group(1)
+      word = self._word_or_label(symbol)
       if 0 <= word <= 99:
-        self.out.emit(15, word)
+        self.out.emit(15, word, comment=self._comment(op, arg, symbol, word))
       else:
         self.out.error("ftlookup argument out of range '{}'".format(word))
     else:
@@ -498,44 +505,77 @@ class V4(PrimitiveParsing):
 
   def _inc(self, label, op, arg):
     if arg == "A":
-      self.out.emit(52)
+      self.out.emit(52, comment=f"{op} {arg}")
     elif arg == "B":
-      self.out.emit(54)
+      self.out.emit(54, comment=f"{op} {arg}")
     else:
       self.out.error("invalid inc argument '{}'".format(arg))
 
   def _jmp(self, label, op, arg):
     if arg == "+A":
-      self.out.emit(75)
+      self.out.emit(75, comment=f"{op} {arg}")
     elif arg.startswith("far "):
       # There is a separate "jmp far" menmonic so that we always know the size
       # of instructions, so we can unambiguously compute label targets on the
       # first pass.  arg[4:] strips off the leading "far ".
       address = self._address_or_label(arg[4:], far=True)
-      self.out.emit(74, address % 100, self._encode_ft_number(address // 100))
+      self.out.emit(74, address % 100, self.encode_ft_number(address // 100),
+                    comment=self._comment(op, arg, arg[4:], address))
     else:
       address = self._address_or_label(arg, far=False)
-      self.out.emit(73, address % 100)
+      self.out.emit(73, address % 100, comment=self._comment(op, arg, arg, address))
 
   def _jn(self, label, op, arg):
     address = self._address_or_label(arg, far=False)
-    self.out.emit(80, address % 100)
+    self.out.emit(80, address % 100, comment=self._comment(op, arg, arg, address))
 
   def _jz(self, label, op, arg):
     address = self._address_or_label(arg, far=False)
-    self.out.emit(81, address % 100)
+    self.out.emit(81, address % 100, comment=self._comment(op, arg, arg, address))
 
   def _jil(self, label, op, arg):
     address = self._address_or_label(arg, far=False)
-    self.out.emit(82, address % 100)
+    self.out.emit(82, address % 100, comment=self._comment(op, arg, arg, address))
 
   def _loop(self, label, op, arg):
     address = self._address_or_label(arg, far=False)
-    self.out.emit(83, address % 100)
+    self.out.emit(83, address % 100, comment=self._comment(op, arg, arg, address))
 
   def _jsr(self, label, op, arg):
     address = self._address_or_label(arg, far=True)
-    self.out.emit(84, address % 100, self._encode_ft_number(address // 100))
+    self.out.emit(84, address % 100, self.encode_ft_number(address // 100),
+                  comment=self._comment(op, arg, arg, address))
+
+  def _comment(self, op, arg, symbol, word):
+    # helper to symbolize comments
+    if symbol != str(word):
+      return f"{op} {arg} # {symbol}={word}"
+    return f"{op} {arg}"
+
+
+def print_easm(out):
+  print(f"# isa={out.context.isa_version}")
+  for ft in range(1, 3+1):
+    for row in range(100):
+      # omit rows which are all zero
+      if all(out.get(ft, row, i).word == 0 for i in range(6)):
+        continue
+      logical_address = 100 * ft + row
+      pc = 100 * out.context.isa.encode_ft_number(ft) + row
+      print(f"# address={logical_address}  PC={pc:04}")
+      for word_index in range(6):
+        value = out.get(ft, row, word_index)
+        bank = "A" if word_index < 3 else "B"
+        word = value.word
+        for digit in range(2):
+          line = 6 - (2 * (word_index%3) + digit)
+          s = f"s f{ft}.R{bank}{row}L{line} {(word//10)%10}"
+          word *= 10
+          if digit == 0 and value.comment:
+            s += f"  # {value.comment}"
+          print(s)
+      print()
+
 
 def main():
   if len(sys.argv) == 1:
@@ -547,9 +587,7 @@ def main():
       text = f.read()
     out = asm.assemble(filename, text)
   if not out.errors:
-    print("; isa={}".format(out.context.isa_version))
-    for i, row in enumerate(out.to_array()):
-      print("{:03d}: {:012d}".format(100 + i, row))
+    print_easm(out)
 
 if __name__ == "__main__":
   main()
