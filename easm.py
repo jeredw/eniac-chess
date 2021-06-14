@@ -398,7 +398,7 @@ class Assembler(object):
       return self.line_s_debug(leading_ws, arg1, arg2, comment)
 
     if re.search(r'{[a-zA-z]+-.+}', arg1+arg2):
-      raise SyntaxError('bad switch setting')
+      raise SyntaxError(f'bad switch setting {arg1+arg2}')
 
     return self.line_literal(line)
 
