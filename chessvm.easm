@@ -1,6 +1,8 @@
 s cy.op 1a
-set a4  2075000000  # A=00, B=75
-set a13 1234567890 # memory value, check that print saves and restores
+set a4  0075000000  # A=00, B=75
+
+set a12 9876543210 # memory value, check that JN saves and restores
+set a13 1234567890 # memory value, check that PRINT saves and restores
 
 
 # ENIAC-VM for playing chess
@@ -184,6 +186,27 @@ p ad.s.{ad-rf-shiftl8}.8 {a-rf}.{i-shiftl8}
 # Registers F-J of the virtual machine. 
 {a-ls}=a5
 
+
+# - M12 -
+# Used for JN
+{a-mem12}=a12
+{a-discjn}=a12
+
+# A to its own bus
+p {a-mem12}.A {d-discjnA}
+
+# Discriminator; need to delete sign when going from A to main
+p {d-discjnA} ad.permute.{ad-discjnA-sign}
+s ad.permute.{ad-discjnA-sign} 0,10,9,8,7,6,5,4,3,2,1
+p ad.permute.{ad-discjnA-sign} {d-main}
+
+# S to its own bus
+p {a-mem12}.S {d-discjnS}
+
+# main input
+p {d-main} {a-mem12}.{i-main}
+
+
 # - M13 - 
 # M13 is used for printing, has an input that shifts AB into printing position
 {a-mem13}=a13
@@ -195,7 +218,14 @@ p {d-main} ad.permute.{ad-printAB}
 s ad.permute.{ad-printAB} 11,0,10,9,8,7,0,0,0,0,0
 p ad.permute.{ad-printAB} {a-mem13}.{i-printAB}
 
+
 # - M17,18,19 -
+{a-mem17}=a17
+{a-mem18}=a18
+
+{a-mem19}=a19
+{a-dummy2}=a19
+
 # The PM digits of M17, M18, and M19 select the current function table for
 # instruction fetch. They also have programs to decode the FTSG field.
 defmacro ftdiscaccum name dummy ftnum
@@ -221,15 +251,13 @@ defmacro ftdiscaccum name dummy ftnum
   p ad.permute.{ad-$name-ftsg2} {a-$name}.{i-ftsg2}
 endmacro
 
-{a-mem17}=a17
-{a-mem18}=a18
+
 # Strictly speaking only a19 needs both i-ftsg1 and i-ftsg2 inputs but we are
 # not constrained on inputs for these accumulators.
-{a-mem19}=a19
-
 $ftdiscaccum mem17 mem18 1
 $ftdiscaccum mem18 mem19 2
 $ftdiscaccum mem19 mem17 3
+
 
 # - M20 - 
 # Used for dummy programs across the code
@@ -624,6 +652,7 @@ $recinc {p-fetchread} {a-pc} {t-fetchread} {i-main} {p-nofetch}
 # -- MICRO-SUBROUTINES --
 # Sequences shared between instructions, none of which retrigger the main cycle
 
+# - CONSUME-OP -
 # Consume opcode: used to read immediate operands
 # Sends IR on first cycle, I1 can be read off as needed
 # Rotates IR back to EX, shifts right, places 99 at left, adds 1
@@ -649,6 +678,31 @@ $recincx {p-sub-consume-op-2} {a-ir} {r-consume-op-2} {i-fill99}
 $sendM0 {p-sub-consume-op-2}
 
 
+# - JMP -
+# Short jump (2 digits, no FT switch) to immediate operand
+
+defmacro jmp prog
+  p $prog {pa-a-%name} 
+  p {pa-b-%name} {p-sub-jmp}
+endmacro
+
+# Clear lower digits of PC (not ftsg, this is a near jump)
+# PC -clearPC2-> EX
+$sendc {p-sub-jmp} {a-pc} {t-sub-jmp} A {p-sub-jmp-2}
+$recx {p-sub-jmp} {a-ex} {t-sub-jmp} {i-clearPC2} 
+
+# EX -> PC
+$storeex {p-sub-jmp-2}
+$rec {p-sub-jmp-2} {a-pc} {t-sub-jmp-2} {i-main} {p-sub-jmp-3}
+
+# Now consume the next word in IR, also saving it into PC
+$consume-op {p-sub-jmp-3}
+$recx {p-sub-jmp-3} {a-pc} {t-sub-jmp-3} {i-loadPC2}  # save operandinto PC (out of receivers)
+
+# wait for 2 cycles of consume-op, then next load new line
+$dummy {p-sub-jmp-3} {a-dummy} {t-sub-jmp-3} 2 {p-fetchline}
+
+
 
 # -- OPCODE IMPLEMENTATIONS --
 
@@ -657,6 +711,7 @@ $sendM0 {p-sub-consume-op-2}
 #$break {p-op52}  # INC
 #$break {p-op53}  # DEC
 #$break {p-op73}  # JMP
+$break {p-op80}   # JN
 #$break {p-op92}  # PRINT
 
 # - HALT -
@@ -716,23 +771,33 @@ $rec {p-op53} {a-rf} {t-op53} {i-main} {p-fetch}
 
 # - JMP XX -
 
+p {p-op73} {p-sub-jmp}
 
 
-# Clear lower digits of PC (not ftsg, this is a near jump)
-# PC -clearPC2-> EX
-$sendc {p-op73} {a-pc} {t-op73} A {p-op73-2}
-$recx {p-op73} {a-ex} {t-op73} {i-clearPC2} 
+# - JN XX -
 
-# EX -> PC
-$storeex {p-op73-2}
-$rec {p-op73-2} {a-pc} {t-op73-2} {i-main} {p-op73-3}
+# save DISCJN
+$sendc {p-op80} {a-discjn} {t-op80} A {p-opjn-2}
+$loadex {p-op80}
 
-# Now consume the next word in IR, also saving it into PC
-$consume-op {p-op73-3}
-$recx {p-op73-3} {a-pc} {t-op73-3} {i-loadPC2}    # save lowest word into PC (out of receivers)
+# RF->DISCJN, this puts sign of A into DISCJN PM
+$send {p-opjn-2} {a-rf} {t-opjn} A {p-opjn-3} # replace with RF send macro?
+$recx {p-opjn-2} {a-discjn} {t-opjn} {i-main}
 
-# wait for 2 cycles of consume-op, then next load new line
-$dummy {p-op73-3} {a-dummy} {t-op73-3} 2 {p-fetchline}
+# discriminate, and clear to ready for restored memory value
+$discriminate {p-opjn-3} {a-discjn} {a-dummy2} opjn-3 {d-discjnA} {d-discjnS} {p-opjn-pos} {p-opjn-neg}
+s {a-discjn}.cc{t-opjn-3} C
+
+# if positive, restore acc, consume and carry on
+$storeex {p-opjn-pos}
+$rec {p-opjn-pos} {a-discjn} {t-opjn-pos} {i-main} {p-opjn-eat}
+
+$consume-op {p-opjn-eat}
+$dummy {p-opjn-eat} {a-dummy2} {t-opjn-eat} 2 {p-fetch}
+
+# if negative, restore acc and jump
+$storeex {p-opjn-neg}
+$rec {p-opjn-neg} {a-discjn} {t-opjn-neg} {i-main} {p-sub-jmp}
 
 
 # - PRINT - 
