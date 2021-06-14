@@ -61,8 +61,10 @@ p {d-main} ad.permute.{ad-pc-reset}
 s ad.permute.{ad-pc-reset} 0,0,0,0,0,0,0,0,11,0,0
 p ad.permute.{ad-pc-reset} {a-pc}.{i-reset}
 
-# loadim2-irS: I1 XX XX XX XX -> 00 00 00 00 I1, used for JN/JZ/JIL
-# shiftl4-exA, used for JSR
+# loadPC2: SS RRRR PPPP -> 00 0000 00PP, used for JMP/JN/JZ/JIL
+p {d-main} ad.d.{ad-pc-loadPC2}.-8
+p ad.d.{ad-pc-loadPC2}.-8 {a-pc}.{i-loadPC2}
+
 
 # Several sequences will want to load pc from the main bus so share that
 # program via pulse amp
@@ -139,10 +141,10 @@ p {d-main} ad.permute.{ad-clearA}
 s ad.permute.{ad-clearA} 11,0,0,8,7,6,5,4,3,2,1
 p ad.permute.{ad-clearA} {a-ex}.{i-clearA}
 
-# clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
-# clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
-# shiftl4:  XX YY YY 43 32 -> XX 43 21 00 00, used for JSR
-
+# clearPC2: SS RRRR PPPP -> SS RRRR PP00, used for JMP/JN/JZ/JIL
+p {d-main} ad.permute.{ad-clearPC2}
+s ad.permute.{ad-clearPC2} 11,10,9,8,7,6,5,4,3,0,0
+p ad.permute.{ad-clearPC2} {a-ex}.{i-clearPC2}
 
 
 # predefine programs that load ex from and store ex to main -- we use these everywhere
@@ -632,22 +634,26 @@ defmacro consume-op prog
   p {pa-b-%name} {p-sub-consume-op}
 endmacro
 
+$assert {p-sub-consume-op} {a-ir}~Pxxxxxxxxxx  # so fetch/nofetch discrim does not trigger
+
+# IR -rotate-r-> EX
 $sendc {p-sub-consume-op} {a-ir} {t-consume-op} A {p-sub-consume-op-2}
 $recx {p-sub-consume-op} {a-ex} {t-consume-op} {i-rotate-ir}  # out of recievers
 
+# EX -fill99-> IR 
 # Put shifted instructions back in IR, filling top with 99, +1 to detect IR empty
 $storeex {p-sub-consume-op-2}
 $recincx {p-sub-consume-op-2} {a-ir} {r-consume-op-2} {i-fill99}
 
-# that fill99 requires an M0 on the bus
+# fill99 requires an M0 on the bus
 $sendM0 {p-sub-consume-op-2}
+
 
 
 # -- OPCODE IMPLEMENTATIONS --
 
 
-
-$break {p-op40}
+#$break {p-op40}
 #$break {p-op52}
 #$break {p-op53}
 #$break {p-op92}
@@ -670,7 +676,6 @@ $rec {p-op35-2} {a-rf} {t-op35-2} {i-clearA} {p-fetch}
 
 
 # - MOV #XX,A -
-$assert {p-op40} {a-ir}~Pxxxxxxxxxx  # so fetch/nofetch discrim does not trigger
 
 # First clear A
 # RF -> EX
@@ -707,6 +712,27 @@ s c.s30 Jl
 # Decrement A field of RF
 # XXX should probably use pulseamp
 $rec {p-op53} {a-rf} {t-op53} {i-main} {p-fetch}
+
+
+# - JMP XX -
+
+$break {p-op73}
+
+# Clear lower digits of PC (not ftsg, this is a near jump)
+# PC -clearPC2-> EX
+$sendc {p-op73} {a-pc} {t-op73} A {p-op73-2}
+$recx {p-op73} {a-ex} {t-op73} {i-clearPC2} 
+
+# EX -> PC
+$storeex {p-op73-2}
+$rec {p-op73-2} {a-pc} {t-op73-2} {i-main} {p-op73-3}
+
+# Now consume the next word in IR, also saving it into PC
+$consume-op {p-op73-3}
+$recx {p-op73-3} {a-pc} {r-op73-3} {i-loadPC2}    # save lowest word into PC
+
+# wait for 2 cycles of consume-op, then next load new line
+$dummy {p-op73-3} {a-dummy} {t-op73-3} 2 {p-fetchline}
 
 
 # - PRINT - 
