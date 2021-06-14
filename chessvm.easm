@@ -653,11 +653,11 @@ $sendM0 {p-sub-consume-op-2}
 # -- OPCODE IMPLEMENTATIONS --
 
 
-#$break {p-op40}
-#$break {p-op52}
-#$break {p-op53}
-#$break {p-op92}
-
+#$break {p-op40}  # CLR
+#$break {p-op52}  # INC
+#$break {p-op53}  # DEC
+#$break {p-op73}  # JMP
+#$break {p-op92}  # PRINT
 
 # - HALT -
 # Wire halt to quit the simulator so we can run programs and exit when they're
@@ -716,7 +716,7 @@ $rec {p-op53} {a-rf} {t-op53} {i-main} {p-fetch}
 
 # - JMP XX -
 
-$break {p-op73}
+
 
 # Clear lower digits of PC (not ftsg, this is a near jump)
 # PC -clearPC2-> EX
@@ -729,7 +729,7 @@ $rec {p-op73-2} {a-pc} {t-op73-2} {i-main} {p-op73-3}
 
 # Now consume the next word in IR, also saving it into PC
 $consume-op {p-op73-3}
-$recx {p-op73-3} {a-pc} {r-op73-3} {i-loadPC2}    # save lowest word into PC
+$recx {p-op73-3} {a-pc} {t-op73-3} {i-loadPC2}    # save lowest word into PC (out of receivers)
 
 # wait for 2 cycles of consume-op, then next load new line
 $dummy {p-op73-3} {a-dummy} {t-op73-3} 2 {p-fetchline}
