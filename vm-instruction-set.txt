@@ -122,9 +122,9 @@ layout: PM AA BB CC DD EE
 A - main
 S - main
 a - nop
-b - selA
-g - movAB 
-d - movAC
+b - shiftl8 for MOV XX,A 
+g - movBA
+d - movCA
 e - clearA: PM XX XX XX XX XX -> P 00 XX XX XX XX, for CLR A, NEG A
 
 

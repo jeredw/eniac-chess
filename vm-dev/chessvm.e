@@ -1,3 +1,8 @@
+# This file was a control cycle proof-of-concept, hand-writen before easm
+# or even simulator updates to support permuters. Based very closely on 
+# Adele Goldstine's 1947 design. Created by JS circa March 2020.
+# Each b i (initiate button) press fetches and "decodes" (prints) one opcode
+
 #s cy.op 1a
 
 # Read succesive instructions lines and "execute" individual instructions

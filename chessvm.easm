@@ -693,12 +693,9 @@ $recx {p-sub-jmp} {a-ex} {t-sub-jmp} {i-clearPC2}
 $storeex {p-sub-jmp-2}
 $rec {p-sub-jmp-2} {a-pc} {t-sub-jmp-2} {i-main} {p-sub-jmp-3}
 
-# Now consume the next word in IR, also saving it into PC
-$consume-op {p-sub-jmp-3}
-$recx {p-sub-jmp-3} {a-pc} {t-sub-jmp-3} {i-loadPC2}  # save operandinto PC (out of receivers)
-
-# wait for 2 cycles of consume-op, then next load new line
-$dummy {p-sub-jmp-3} {a-dummy} {t-sub-jmp-3} 2 {p-fetchline}
+# Copy next word in IR to PC, then fetchline. Because we jump, don't need to update IR
+$sendx {p-sub-jmp-3} {a-ir} {r-send} A
+$rec {p-sub-jmp-3} {a-pc} {t-sub-jmp-3} {i-loadPC2} {p-fetchline} 
 
 
 
