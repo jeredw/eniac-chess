@@ -32,16 +32,15 @@ LINE = re.compile(r"""^(?P<label>\w*)\s*  # optional label
 class Assembler(object):
   """Assembles one file at a time and collects the output.
 
-  operands_in_same_row controls whether instructions and their operands must be
-  packed into the same ENIAC function table row.
-  print_errors is to avoid spamming errors from unit tests.
+  - minus1_operands applies a -1 correction to operand words.
+  - print_errors is to avoid spamming errors from unit tests.
   """
   def __init__(self,
-               operands_in_same_row=True,
+               minus1_operands=True,
                print_errors=True):
     self.context = Context()
     self.out = Output(context=self.context,
-                      operands_in_same_row=operands_in_same_row,
+                      minus1_operands=minus1_operands,
                       print_errors=print_errors)
     self.builtins = Builtins(self.context, self.out)
 
@@ -54,8 +53,7 @@ class Assembler(object):
     self.context.filename = filename
     self.context.assembler_pass = 0
     # We don't know where in the function tables assembly will begin.
-    self.out.output_row = None
-    self.out.word_of_output_row = 0
+    self.out.org(None)
     self._scan(text)
     if not self.out.errors:
       self.context.assembler_pass = 1
@@ -124,14 +122,15 @@ class Output(object):
   """
   def __init__(self,
                context=None,
-               operands_in_same_row=True,
+               minus1_operands=True,
                print_errors=True):
-    self.operands_in_same_row = operands_in_same_row
+    self.minus1_operands = minus1_operands
     self.print_errors = print_errors
     self.errors = []
     self.output = {}
     self.output_row = None
     self.word_of_output_row = 0
+    self.operand_correction = 0
     self.context = context
 
   def error(self, what):
@@ -143,25 +142,30 @@ class Output(object):
     if self.print_errors:  # Disabled for unit tests to avoid spam
       print(message)
 
+  def org(self, output_row):
+    """Change output location."""
+    self.output_row = output_row
+    self.word_of_output_row = 0
+    self.operand_correction = 0
+
   def emit(self, *values, comment=""):
     """Emit one or more opcode/argument words.
 
-    If operands_in_same_row is true, all the given values must go on the same
-    function table row.  If necessary, pad out the current row with 0s (i.e.
-    nops) and move to a new row to guarantee this.
+    Assume all the given values must go on the same function table row.  If
+    necessary, pad out the current row with 0s (i.e. nops) and move to a new
+    row to guarantee this.
 
-    NB: Values that go on the same row need to be in the same emit() call.
+    NB: Also values that go on the same row need to be in the same emit() call.
     """
-    if self.operands_in_same_row:
-      assert len(values) <= 6
-      assert 0 <= self.word_of_output_row < 6
-      space_left_in_row = 6 - self.word_of_output_row
-      if len(values) > space_left_in_row:
-        # values don't all fit, pad row with 0s and move to new row.
-        while self.word_of_output_row != 0:
-          self.emit(0)
+    assert len(values) <= 6
+    assert 0 <= self.word_of_output_row < 6
+    space_left_in_row = 6 - self.word_of_output_row
+    if len(values) > space_left_in_row:
+      # values don't all fit, pad row with 99s and move to new row.
+      while self.word_of_output_row != 0:
+        self.emit(99)
 
-    for v in values:
+    for i, v in enumerate(values):
       assert 0 <= v <= 99
       if self.output_row is None:
         self.error(".org not set")
@@ -181,12 +185,24 @@ class Output(object):
           self.context.had_fatal_error = True
           break
         else:
-          self.output[index] = Value(v, comment)
-          comment = ""
+          word = (v + self.operand_correction) % 100
+          self.output[index] = Value(word, comment)
+          comment = ""  # comment applies to first word output
+          # Carry operand correction through 99s
+          # For example, for [41 00] [35], emit [41 99] [34] so that after
+          # consuming the 99 operand, we're left with 35.
+          # NB for e.g. xx xx xx 41 00 00, we'll emit 41 99 99 - but this is ok
+          # because nop at the end of a line and 99 are equivalent.
+          if self.operand_correction != 0 and word != 99:
+            self.operand_correction = 0
+          # If this emit() has operands, the next value emitted should be -1
+          if i == 0 and len(values) > 1 and self.minus1_operands:
+            self.operand_correction = 99
       self.word_of_output_row += 1
       if self.word_of_output_row == 6:
         self.word_of_output_row = 0
         self.output_row += 1
+        self.operand_correction = 0
 
   def get(self, ft, row, word):
     """Lookup value at given offset."""
@@ -384,8 +400,7 @@ class Builtins(PrimitiveParsing):
 
   def _org(self, label, op, arg):
     """Sets output position for the assembler."""
-    self.out.output_row = self._address(arg)
-    self.out.word_of_output_row = 0
+    self.out.org(self._address(arg))
     if label: self.context.labels[label] = self.out.output_row
 
 

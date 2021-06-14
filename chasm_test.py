@@ -16,7 +16,6 @@ class TestOutput(AssemblerTestCase):
     self.context = Context()
     self.context.filename = "file"
     self.out = Output(context=self.context,
-                      operands_in_same_row=True,
                       print_errors=False)
     self.out.output_row = 100
 
@@ -42,6 +41,7 @@ class TestOutput(AssemblerTestCase):
 
   def testEmit2(self):
     self.context.assembler_pass = 1
+    self.out.minus1_operands = False
     self.out.emit(42, 43)
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 42, (100, 1): 43})
@@ -50,15 +50,17 @@ class TestOutput(AssemblerTestCase):
 
   def testEmit2Pad1(self):
     self.context.assembler_pass = 1
+    self.out.minus1_operands = False
     self.out.word_of_output_row = 5
     self.out.emit(42, 43)
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 5): 0, (101, 0): 42, (101, 1): 43})
+    self.assertOutputValues({(100, 5): 99, (101, 0): 42, (101, 1): 43})
     self.assertEqual(self.out.output_row, 101)
     self.assertEqual(self.out.word_of_output_row, 2)
 
   def testEmit3(self):
     self.context.assembler_pass = 1
+    self.out.minus1_operands = False
     self.out.emit(42, 43, 44)
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 42, (100, 1): 43, (100, 2): 44})
@@ -67,21 +69,80 @@ class TestOutput(AssemblerTestCase):
 
   def testEmit3Pad1(self):
     self.context.assembler_pass = 1
+    self.out.minus1_operands = False
     self.out.word_of_output_row = 5
     self.out.emit(42, 43, 44)
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 5): 0, (101, 0): 42, (101, 1): 43, (101, 2): 44})
+    self.assertOutputValues({(100, 5): 99, (101, 0): 42, (101, 1): 43, (101, 2): 44})
     self.assertEqual(self.out.output_row, 101)
     self.assertEqual(self.out.word_of_output_row, 3)
 
   def testEmit3Pad2(self):
     self.context.assembler_pass = 1
+    self.out.minus1_operands = False
     self.out.word_of_output_row = 4
     self.out.emit(42, 43, 44)
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 4): 0, (100, 5): 0, (101, 0): 42, (101, 1): 43, (101, 2): 44})
+    self.assertOutputValues({(100, 4): 99, (100, 5): 99, (101, 0): 42, (101, 1): 43, (101, 2): 44})
     self.assertEqual(self.out.output_row, 101)
     self.assertEqual(self.out.word_of_output_row, 3)
+
+  def testEmitMinus1OperandsNoCarry(self):
+    self.context.assembler_pass = 1
+    self.out.minus1_operands = True
+    self.out.word_of_output_row = 0
+    self.out.emit(41, 20)
+    self.out.emit(35)
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 41, (100, 1): 19, (100, 2): 35})
+    self.assertEqual(self.out.output_row, 100)
+    self.assertEqual(self.out.word_of_output_row, 3)
+
+  def testEmitMinus1OperandsCarry(self):
+    self.context.assembler_pass = 1
+    self.out.minus1_operands = True
+    self.out.word_of_output_row = 0
+    self.out.emit(41, 0)
+    self.out.emit(35)
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 41, (100, 1): 99, (100, 2): 34})
+    self.assertEqual(self.out.output_row, 100)
+    self.assertEqual(self.out.word_of_output_row, 3)
+
+  def testEmitMinus1OperandsCarryNops(self):
+    self.context.assembler_pass = 1
+    self.out.minus1_operands = True
+    self.out.word_of_output_row = 0
+    self.out.emit(41, 0)
+    self.out.emit(0)
+    self.out.emit(0)
+    self.out.emit(35)
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 41, (100, 1): 99, (100, 2): 99, (100, 3): 99, (100, 4): 34})
+    self.assertEqual(self.out.output_row, 100)
+    self.assertEqual(self.out.word_of_output_row, 5)
+
+  def testEmitMinus1OperandsJmpFar(self):
+    self.context.assembler_pass = 1
+    self.out.minus1_operands = True
+    self.out.word_of_output_row = 0
+    self.out.emit(74, 0, 99)
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 74, (100, 1): 99, (100, 2): 98})
+    self.assertEqual(self.out.output_row, 100)
+    self.assertEqual(self.out.word_of_output_row, 3)
+
+  def testEmitMinus1OperandsCarry2(self):
+    self.context.assembler_pass = 1
+    self.out.minus1_operands = True
+    self.out.word_of_output_row = 0
+    self.out.emit(41, 0)
+    self.out.emit(0)
+    self.out.emit(0)
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 41, (100, 1): 99, (100, 2): 99, (100, 3): 99})
+    self.assertEqual(self.out.output_row, 100)
+    self.assertEqual(self.out.word_of_output_row, 4)
 
   def testEmit_ErrorNoOutputRow(self):
     self.context.assembler_pass = 1
@@ -109,6 +170,7 @@ class TestOutput(AssemblerTestCase):
     self.context.assembler_pass = 1
     for i in range(6 * 300):
       self.out.emit(i % 100)
+    self.assertFalse(self.out.errors)
     self.assertEqual(self.out.output_row, 400)
     self.assertEqual(self.out.word_of_output_row, 0)
     self.assertEqual(self.out.get(1, 42, 0), Value(word=52, comment=""))
@@ -402,13 +464,13 @@ class TestV4(AssemblerTestCase):
   def testFtlookup(self):
     self.isa.dispatch("", "ftlookup", "A, 99")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 15, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 15, (100, 1): 98})
 
   def testFtlookupLabel(self):
     self.context.labels = {"label": 99}
     self.isa.dispatch("", "ftlookup", "A, label")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 15, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 15, (100, 1): 98})
 
   def testFtlookupLabel_ErrorOutOfRange(self):
     self.context.labels = {"label": 199}
@@ -467,35 +529,35 @@ class TestV4(AssemblerTestCase):
   def testMovLoadAImmediate(self):
     self.isa.dispatch("", "mov", "A, 99")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 40, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 40, (100, 1): 98})
 
   def testMovLoadAImmediateLabel(self):
     self.context.labels = {"label": 99}
     self.isa.dispatch("", "mov", "A, label")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 40, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 40, (100, 1): 98})
 
   def testMovLoadDImmediate(self):
     self.isa.dispatch("", "mov", "D, 99")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 41, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 41, (100, 1): 98})
 
   def testMovLoadDImmediateLabel(self):
     self.context.labels = {"label": 99}
     self.isa.dispatch("", "mov", "D, label")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 41, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 41, (100, 1): 98})
 
   def testMovLoadDirect(self):
     self.isa.dispatch("", "mov", "A, [42]")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 42, (100, 1): 42})
+    self.assertOutputValues({(100, 0): 42, (100, 1): 41})
 
   def testMovLoadDirectLabel(self):
     self.context.labels = {"label": 42}
     self.isa.dispatch("", "mov", "A, [label]")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 42, (100, 1): 42})
+    self.assertOutputValues({(100, 0): 42, (100, 1): 41})
 
   def testMovLoadDirectLabel_ErrorOutOfRange(self):
     self.context.labels = {"label": 123}
@@ -505,13 +567,13 @@ class TestV4(AssemblerTestCase):
   def testMovStoreDirect(self):
     self.isa.dispatch("", "mov", "[42], A")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 44, (100, 1): 42})
+    self.assertOutputValues({(100, 0): 44, (100, 1): 41})
 
   def testMovStoreDirectLabel(self):
     self.context.labels = {"label": 42}
     self.isa.dispatch("", "mov", "[label], A")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 44, (100, 1): 42})
+    self.assertOutputValues({(100, 0): 44, (100, 1): 41})
 
   def testMovStoreDirectLabel_ErrorOutOfRange(self):
     self.context.labels = {"label": 123}
@@ -603,13 +665,13 @@ class TestV4(AssemblerTestCase):
   def testJmp(self):
     self.isa.dispatch("", "jmp", "99")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 73, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 73, (100, 1): 98})
 
   def testJmpLabel(self):
     self.context.labels = {"label": 199}
     self.isa.dispatch("", "jmp", "label")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 73, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 73, (100, 1): 98})
 
   def testJmpLabel_ErrorUnrecognized(self):
     self.isa.dispatch("", "jmp", "label")
@@ -623,28 +685,28 @@ class TestV4(AssemblerTestCase):
   def testJmpFarFt1(self):
     self.isa.dispatch("", "jmp", "far 142")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 74, (100, 1): 42, (100, 2): 9})
+    self.assertOutputValues({(100, 0): 74, (100, 1): 41, (100, 2): 9})
 
   def testJmpFarFt2(self):
     self.isa.dispatch("", "jmp", "far 242")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 74, (100, 1): 42, (100, 2): 90})
+    self.assertOutputValues({(100, 0): 74, (100, 1): 41, (100, 2): 90})
 
   def testJmpFarFt3(self):
     self.isa.dispatch("", "jmp", "far 342")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 74, (100, 1): 42, (100, 2): 99})
+    self.assertOutputValues({(100, 0): 74, (100, 1): 41, (100, 2): 99})
 
   def testJmpFarWithNearTarget(self):
     self.isa.dispatch("", "jmp", "far 42")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 74, (100, 1): 42, (100, 2): 9})
+    self.assertOutputValues({(100, 0): 74, (100, 1): 41, (100, 2): 9})
 
   def testJmpFarLabel(self):
     self.context.labels = {"label": 342}
     self.isa.dispatch("", "jmp", "far label")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 74, (100, 1): 42, (100, 2): 99})
+    self.assertOutputValues({(100, 0): 74, (100, 1): 41, (100, 2): 99})
 
   def testJmpFarLabel_ErrorUnrecognized(self):
     self.isa.dispatch("", "jmp", "far label")
@@ -658,18 +720,18 @@ class TestV4(AssemblerTestCase):
   def testJn(self):
     self.isa.dispatch("", "jn", "199")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 80, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 80, (100, 1): 98})
 
   def testJnRelative(self):
     self.isa.dispatch("", "jn", "99")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 80, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 80, (100, 1): 98})
 
   def testJnLabel(self):
     self.context.labels = {"label": 199}
     self.isa.dispatch("", "jn", "label")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 80, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 80, (100, 1): 98})
 
   def testJn_ErrorFar(self):
     self.isa.dispatch("", "jn", "299")
@@ -678,18 +740,18 @@ class TestV4(AssemblerTestCase):
   def testJz(self):
     self.isa.dispatch("", "jz", "199")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 81, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 81, (100, 1): 98})
 
   def testJzRelative(self):
     self.isa.dispatch("", "jz", "99")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 81, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 81, (100, 1): 98})
 
   def testJzLabel(self):
     self.context.labels = {"label": 199}
     self.isa.dispatch("", "jz", "label")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 81, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 81, (100, 1): 98})
 
   def testJz_ErrorFar(self):
     self.isa.dispatch("", "jz", "299")
@@ -698,18 +760,18 @@ class TestV4(AssemblerTestCase):
   def testJil(self):
     self.isa.dispatch("", "jil", "199")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 82, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 82, (100, 1): 98})
 
   def testJilRelative(self):
     self.isa.dispatch("", "jil", "99")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 82, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 82, (100, 1): 98})
 
   def testJilLabel(self):
     self.context.labels = {"label": 199}
     self.isa.dispatch("", "jil", "label")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 82, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 82, (100, 1): 98})
 
   def testJil_ErrorFar(self):
     self.isa.dispatch("", "jil", "299")
@@ -718,18 +780,18 @@ class TestV4(AssemblerTestCase):
   def testLoop(self):
     self.isa.dispatch("", "loop", "199")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 83, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 83, (100, 1): 98})
 
   def testLoopRelative(self):
     self.isa.dispatch("", "loop", "99")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 83, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 83, (100, 1): 98})
 
   def testLoopLabel(self):
     self.context.labels = {"label": 199}
     self.isa.dispatch("", "loop", "label")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 83, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 83, (100, 1): 98})
 
   def testLoop_ErrorFar(self):
     self.isa.dispatch("", "loop", "299")
@@ -738,13 +800,13 @@ class TestV4(AssemblerTestCase):
   def testJsr(self):
     self.isa.dispatch("", "jsr", "342")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 84, (100, 1): 42, (100, 2): 99})
+    self.assertOutputValues({(100, 0): 84, (100, 1): 41, (100, 2): 99})
 
   def testJsrLabel(self):
     self.context.labels = {"label": 142}
     self.isa.dispatch("", "jsr", "label")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 84, (100, 1): 42, (100, 2): 9})
+    self.assertOutputValues({(100, 0): 84, (100, 1): 41, (100, 2): 9})
 
   def testJsr_ErrorUnrecognizedLabel(self):
     self.isa.dispatch("", "jsr", "bogus")
