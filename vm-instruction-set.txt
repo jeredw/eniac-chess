@@ -293,10 +293,9 @@ else
   3. [p-fetchline]  MEM17-S->dummy, MEM18-S->dummy, MEM19-S->dummy
   4. [p-fetchtrig]  stim FT
   5. [p-fetcharg]   PC->FT
-  6. [p-preinc-fetch]  EX += P01...
+  6. [p-preinc-fetch]  EX += P01..., PC += P01...
   7. wait
-  8. [p-fetchread]   FT -> IR,EX, IR += 1
-  9. [p-fetchread-2] PC += EX + 1
+  8. [p-fetchread]   FT -> IR,EX,PC, IR += 1, PC += 1
                      goto p-nofetch*
 
 * note this does not trigger p-eat-op so the top of IR is preserved.

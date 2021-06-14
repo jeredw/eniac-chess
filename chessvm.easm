@@ -64,6 +64,14 @@ p ad.permute.{ad-pc-reset} {a-pc}.{i-reset}
 # loadim2-irS: I1 XX XX XX XX -> 00 00 00 00 I1, used for JN/JZ/JIL
 # shiftl4-exA, used for JSR
 
+# Several sequences will want to load pc from the main bus so share that
+# program via pulse amp
+defmacro loadpc prog
+  p $prog {pa-a-%name}
+  p {pa-b-%name} {a-pc}.{r-loadpc}i
+endmacro
+s {a-pc}.op{r-loadpc} {i-main}
+
 
 # - Instruction Register -
 # Layout: P I6 I5 I4 I3 I2
@@ -487,7 +495,7 @@ $assert {p-ople55-2} {a-ex}~P00xxxxxxxx
 # Note that this would trigger the MP steppers, but the opcode field contains
 # 00 here so this doesn't mess up decode.
 $sendcx {p-ople55-2} {a-ex} {t-ople55-2} A
-$recx {p-ople55-2} {a-pc} {t-ople55-2} {i-main}
+$loadpc {p-ople55-2}
 
 # Trigger master programmer
 p {p-ople55-2} p.Ai
@@ -559,7 +567,7 @@ $send {p-fetcharg} {a-pc} {t-fetcharg} A {p-preinc-fetch}
 p {d-main} f1.arg  # only bottom two digit lines connect so no deleter is required
 
 
-# -- {p-preinc-fetch} preincrement left field of EX
+# -- {p-preinc-fetch} preincrement left field of EX and PC
 $assert {p-preinc-fetch} {a-ex}~P0000000000
 $assert {p-preinc-fetch} {a-pc}~P00xxxxxxxx
 
@@ -567,16 +575,17 @@ $assert {p-preinc-fetch} {a-pc}~P00xxxxxxxx
 p {p-preinc-fetch} c.28i
 s c.s28 Jr
 
-# Preload P01 into EX so that when the FT sends I1, EX will end up I1+1
-# which is the precondition in p-nofetch.
+# Preload P01 into EX and PC so that when the FT sends I1, EX and PC will end
+# up I1+1 which is the precondition in p-nofetch.
 $loadex {p-preinc-fetch}
+$loadpc {p-preinc-fetch}
 
 
 # -- {p-fetchread} read ft line of instructions
 #  - FT sends uncomplemented instructions on A and B
 #  - IR = P I6 I5 I4 I3 I2+1 = B2B1 B4B3 B6B5 A2A1 A4A3+1
-#  - EX = P I1 00 00 00 00  = A6A5+1 00 00 00 00
-#  - PC is unchanged
+#  - EX = P I1+1 00 00 00 00 = A6A5+1 00 00 00 00
+#  - PC = P I1+1 xx xx xx PC+1
 
 # B2B1 B4B3 B6B5 A2A1 A4A3 -> IR
 p f1.A {d-fA}
@@ -593,22 +602,16 @@ s ad.permute.{ad-fetchB} 11,2,1,4,3,6,5,0,0,0,0
 p ad.permute.{ad-fetchB} {d-fetch}
 
 # Increment IR to make the rightmost instruction I2+1 instead of I2
-$recinc {p-fetchread} {a-ir} {t-fetchread} {i-fetch} {p-fetchread-2}
+$recincx {p-fetchread} {a-ir} {r-fetchread} {i-fetch}
 
-# A6A5 00 00 00 00  -> EX
+# A6A5 00 00 00 00 -> EX,PC
 p {d-fA} ad.permute.{ad-fetch-ex}
 s ad.permute.{ad-fetch-ex} 11,6,5,0,0,0,0,0,0,0,0
 p ad.permute.{ad-fetch-ex} {d-main}
 
-# Get I1+1 in the top of EX
+# Get I1+1 in the top of EX and PC, and increment PC
 $loadex {p-fetchread}
-
-
-# -- p-fetchread-2: Move first opcode into top of PC to begin execution, inc PC
-#  - PC = P I1+1 xx xx xx PC+1
-# then go to p-nofetch to begin execution
-$sendx {p-fetchread-2} {a-ex} {t-fetchread-2} A  # t because ran out of r
-$recinc {p-fetchread-2} {a-pc} {t-fetchread-2} {i-main} {p-nofetch}
+$recinc {p-fetchread} {a-pc} {t-fetchread} {i-main} {p-nofetch}
 
 
 # -- OPCODE IMPLEMENTATIONS --
