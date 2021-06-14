@@ -229,6 +229,11 @@ $ftdiscaccum mem17 mem18 1
 $ftdiscaccum mem18 mem19 2
 $ftdiscaccum mem19 mem17 3
 
+# - M20 - 
+# Used for dummy programs across the code
+{a-mem20}=a20
+{a-dummy}=a20
+
 
 # - Constant transmitter -
 # So that we can use all the constant switches, connect both the left and the
@@ -405,7 +410,7 @@ $assert {p-fetch} {a-pc}~x00xxxxxxxx
 
 # If more instructions are needed, IR is M0, and control proceeds to p-fetchline.
 # Otherwise, IR is P I5 I4 I3 I2 I1+1 and we trigger p-nofetch-eat-op.
-$discriminate {p-fetch} {a-ir} a20 fetch {d-irA} {d-irS} {p-nofetch-eat-op} {p-fetchline} 
+$discriminate {p-fetch} {a-ir} {a-dummy} fetch {d-irA} {d-irS} {p-nofetch-eat-op} {p-fetchline} 
 s {a-ir}.cc{t-fetch} C   # clear IR after transmission
 
 # IR -> EX 
@@ -441,7 +446,7 @@ $rec {p-nofetch} {a-ex} {t-nofetch} {i-main} {p-disc-op}
 
 # If we are eating an operand (removing it from IR) then we need to set
 # the top digits of IR to 99 after next instruction (delay 1 cycle)
-$dummy {p-nofetch-eat-op} a20 {t-eat-op} 1 {p-eat-op}
+$dummy {p-nofetch-eat-op} {a-dummy} {t-eat-op} 1 {p-eat-op}
 
 
 # -- {p-disc-op} discriminate opcode I1>55, to switch between two decode pathways
@@ -450,7 +455,7 @@ $dummy {p-nofetch-eat-op} a20 {t-eat-op} 1 {p-eat-op}
 $assert {p-eat-op} {a-ir}~P0000000000
 
 # Discriminate based on sign of EX, already set based on whether I1 > 55.
-$discriminate {p-disc-op} {a-ex} a20 disc-op {d-exA} {d-exS} {p-ople55} {p-opgt55}
+$discriminate {p-disc-op} {a-ex} {a-dummy} disc-op {d-exA} {d-exS} {p-ople55} {p-opgt55}
 s {a-ex}.cc{t-disc-op} C  # clear EX
 
 # If we are consuming from IR, store EX back into IR without the op we are now decoding.
@@ -464,7 +469,7 @@ $sendM0 {p-eat-op}
 
 # Clear MP prior to decode.  Clearing isn't synchronous, so this needs to
 # happen "next cycle" i.e. during pulse 17 of p-disc-op.
-$dummy {p-disc-op} a20 {t-disc-op} 1 {p-clear-mp}
+$dummy {p-disc-op} {a-dummy} {t-disc-op} 1 {p-clear-mp}
 p {p-clear-mp} p.Acdi
 p {p-clear-mp} p.Bcdi
 p {p-clear-mp} p.Ccdi
@@ -614,11 +619,35 @@ $loadex {p-fetchread}
 $recinc {p-fetchread} {a-pc} {t-fetchread} {i-main} {p-nofetch}
 
 
+# -- MICRO-SUBROUTINES --
+# Sequences shared between instructions, none of which retrigger the main cycle
+
+# Consume opcode: used to read immediate operands
+# Sends IR on first cycle, I1 can be read off as needed
+# Rotates IR back to EX, shifts right, places 99 at left, adds 1
+# This mimics how the control cycle works in microcosm
+
+defmacro consume-op prog
+  p $prog {pa-a-%name} 
+  p {pa-b-%name} {p-sub-consume-op}
+endmacro
+
+$sendc {p-sub-consume-op} {a-ir} {t-consume-op} A {p-sub-consume-op-2}
+$recx {p-sub-consume-op} {a-ex} {t-consume-op} {i-rotate-ir}  # out of recievers
+
+# Put shifted instructions back in IR, filling top with 99, +1 to detect IR empty
+$storeex {p-sub-consume-op-2}
+$recincx {p-sub-consume-op-2} {a-ir} {r-consume-op-2} {i-fill99}
+
+# that fill99 requires an M0 on the bus
+$sendM0 {p-sub-consume-op-2}
+
+
 # -- OPCODE IMPLEMENTATIONS --
 
 
 
-#$break {p-op40}
+$break {p-op40}
 #$break {p-op52}
 #$break {p-op53}
 #$break {p-op92}
@@ -653,20 +682,11 @@ $storeex {p-op40-2}
 $rec {p-op40-2} {a-rf} {t-op40-2} {i-clearA} {p-op40-3}
 
 # Now consume the next word in IR, saving it into A
-
-# IR -rotate-ir-> EX, RF 
-$sendc {p-op40-3} {a-ir} {t-op40-3} A {p-op40-4}
-$recx {p-op40-3} {a-ex} {t-load} {i-rotate-ir}  # out of recievers
+$consume-op {p-op40-3}
 $recx {p-op40-3} {a-rf} {r-load} {i-shiftl8}    # save lowest word into A
 
-# Finally, put shifted instructions back in IR, filling top with 99
-# and add +1 to detect IR empty
-$storeex {p-op40-4}
-$recinc {p-op40-4} {a-ir} {t-op40-4} {i-fill99} {p-fetch}
-
-# that fill99 requires an M0 on the bus
-$sendM0 {p-op40-4}
-
+# wait for 2 cycles of consume-op, then next op
+$dummy {p-op40-3} {a-dummy} {t-op40-3} 2 {p-fetch}
 
 
 # - INC -
