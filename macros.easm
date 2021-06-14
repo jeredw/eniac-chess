@@ -116,10 +116,9 @@ defmacro discriminate inp acc dummy name dA dS outp outm
 
 endmacro
 
-# XXX doesn't seem to work, easm says "bad switch setting"
 # Discriminate and clear
 defmacro discriminatec inp acc dummy name dA dS outp outm
-  $discriminate inp acc dummy name dA dS outp outm
+  $discriminate $inp $acc $dummy $name $dA $dS $outp $outm
   s $acc.cc{t-$name} C 
 endmacro
 

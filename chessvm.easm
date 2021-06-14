@@ -432,7 +432,7 @@ $clear {p-clearex-fetch} {a-ex} {t-clearex-fetch} {p-fetch}
 
 # -- p-fetch: begin next instruction
 # During this cycle:
-#  - discriminate, to decide whether to fetch new instructions
+#  - discriminate, to decide whether to fetch new instructions, clear IR
 #  - read out the contents of IR into EX
 #  - send next instruction (I1) to PC (assume PC.SS is 0)
 $assert {p-fetch} {a-ex}~P0000000000
@@ -440,8 +440,7 @@ $assert {p-fetch} {a-pc}~x00xxxxxxxx
 
 # If more instructions are needed, IR is M0, and control proceeds to p-fetchline.
 # Otherwise, IR is P I5 I4 I3 I2 I1+1 and we trigger p-nofetch-eat-op.
-$discriminate {p-fetch} {a-ir} {a-dummy} fetch {d-irA} {d-irS} {p-nofetch-eat-op} {p-fetchline} 
-s {a-ir}.cc{t-fetch} C   # clear IR after transmission
+$discriminatec {p-fetch} {a-ir} {a-dummy} fetch {d-irA} {d-irS} {p-nofetch-eat-op} {p-fetchline} 
 
 # IR -> EX 
 # $discriminate sends IR on d-main, and EX receives it permuted I5 I4 I3 I2 I1+1
@@ -484,9 +483,8 @@ $dummy {p-nofetch-eat-op} {a-dummy} {t-eat-op} 1 {p-eat-op}
 # Also store I5..I2 back to IR, replacing just-dispatched opcode with 99 if p-eat-op.
 $assert {p-eat-op} {a-ir}~P0000000000
 
-# Discriminate based on sign of EX, already set based on whether I1 > 55.
-$discriminate {p-disc-op} {a-ex} {a-dummy} disc-op {d-exA} {d-exS} {p-ople55} {p-opgt55}
-s {a-ex}.cc{t-disc-op} C  # clear EX
+# Discriminate based on sign of EX, already set based on whether I1 > 55. Clear EX.
+$discriminatec {p-disc-op} {a-ex} {a-dummy} disc-op {d-exA} {d-exS} {p-ople55} {p-opgt55}
 
 # If we are consuming from IR, store EX back into IR without the op we are now decoding.
 # Replace first two digits with M from a constant, so the top of IR is
@@ -786,9 +784,8 @@ $loadex {p-op80}
 $send {p-opjn-2} {a-rf} {t-opjn} A {p-opjn-3} # replace with RF send macro?
 $recx {p-opjn-2} {a-discjn} {t-opjn} {i-main}
 
-# discriminate, and clear to ready for restored memory value
-$discriminate {p-opjn-3} {a-discjn} {a-dummy2} opjn-3 {d-discjnA} {d-discjnS} {p-opjn-pos} {p-opjn-neg}
-s {a-discjn}.cc{t-opjn-3} C
+# discriminate, and clear to ready DISCJN for restored memory value
+$discriminatec {p-opjn-3} {a-discjn} {a-dummy2} opjn-3 {d-discjnA} {d-discjnS} {p-opjn-pos} {p-opjn-neg}
 
 # if positive, restore acc, consume and carry on
 $storeex {p-opjn-pos}
