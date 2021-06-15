@@ -81,9 +81,9 @@ A - main (to mp steppers, op<=55)
 S - main (to mp steppers, op>55; SS field digits swapped)
 a - main
 b - shiftl8-ir: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
-c - clearA: XX RRRR PPPP -> 00 RRRR PPPP, wired to EX.S for control cycle
-g - reset, used to load initial PC 
-e - loadPC2: SS RRRR PPPP -> 00 0000 00PP, used for JMP/JN/JZ/JIL
+g - clearA: XX RRRR PPPP -> 00 RRRR PPPP, wired to EX.S for control cycle
+d - loadPC2: SS RRRR PPPP -> 00 0000 00PP, used for JMP/JN/JZ/JIL
+e - loadPC4: SS RRRR PPPP -> 00 0000 PPPP, used for JMP FAR/JSR
 
 
 IR:
@@ -109,9 +109,9 @@ S - exS
 AS - op discriminate
 a - main
 b - rotate irA: I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, used in control cycle
-c - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
-g - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
-? - clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
+g - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
+d - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
+e - clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
 ? - shiftl4:  XX YY YY 43 32 -> XX 43 21 00 00, used for JSR
 
 
@@ -122,9 +122,9 @@ layout: PM AA BB CC DD EE
 A - main
 S - main
 a - nop
-b - shiftl8 for MOV XX,A 
-g - movBA
-d - movCA
+b - selA
+g - movAB 
+d - movAC
 e - clearA: PM XX XX XX XX XX -> P 00 XX XX XX XX, for CLR A, NEG A
 
 
@@ -231,15 +231,17 @@ d - movAE: AA BB CC DD EE -> EE BB CC DD EE
 
 
 MEM17:
+DISCFT1:
 A - main
 S - discft1
 a - main
-b -
+b - resetPC: sign digit to ftsg1, used to load initial PC
 g - ftsg2: x xx xx xx Dx xx -> PM
 d - ftsg1: x xx xx xx xD xx -> PM
 
 
 MEM18: 
+DISCFT2:
 A - main
 S - discft2
 a - main
@@ -249,6 +251,7 @@ d - ftsg1: x xx xx xx xD xx -> PM
 
 
 MEM19:
+DISCFT3:
 A - main
 S - discft3
 a - main

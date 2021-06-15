@@ -58,14 +58,13 @@ p {d-exS} ad.permute.{ad-exS-clearA}
 s ad.permute.{ad-exS-clearA} 0,0,0,8,7,6,5,4,3,2,1
 p ad.permute.{ad-exS-clearA} {a-pc}.{i-exS-clearA}
 
-# reset input: takes M0 from bus, sets initial PC to 0900
-p {d-main} ad.permute.{ad-pc-reset}
-s ad.permute.{ad-pc-reset} 0,0,0,0,0,0,0,0,11,0,0
-p ad.permute.{ad-pc-reset} {a-pc}.{i-reset}
-
 # loadPC2: SS RRRR PPPP -> 00 0000 00PP, used for JMP/JN/JZ/JIL
 p {d-main} ad.d.{ad-pc-loadPC2}.-8
 p ad.d.{ad-pc-loadPC2}.-8 {a-pc}.{i-loadPC2}
+
+# loadPC4: SS RRRR PPPP -> 00 0000 PPPP, used for JMP FAR/JSR
+p {d-main} ad.d.{ad-pc-loadPC4}.-6
+p ad.d.{ad-pc-loadPC4}.-6 {a-pc}.{i-loadPC4}
 
 
 # Several sequences will want to load pc from the main bus so share that
@@ -148,6 +147,11 @@ p {d-main} ad.permute.{ad-clearPC2}
 s ad.permute.{ad-clearPC2} 11,10,9,8,7,6,5,4,3,0,0
 p ad.permute.{ad-clearPC2} {a-ex}.{i-clearPC2}
 
+# clearPC4: SS RRRR PPPP -> SS RRRR 0000, used for JMP FAR/JSR
+p {d-main} ad.permute.{ad-clearPC4}
+s ad.permute.{ad-clearPC4} 11,10,9,8,7,6,0,0,0,0,0
+p ad.permute.{ad-clearPC4} {a-ex}.{i-clearPC4}
+
 
 # predefine programs that load ex from and store ex to main -- we use these everywhere
 # go through pulseamps so other uses don't flow backwards
@@ -222,13 +226,17 @@ p ad.permute.{ad-printAB} {a-mem13}.{i-printAB}
 # - M17,18,19 -
 {a-mem17}=a17
 {a-mem18}=a18
-
 {a-mem19}=a19
+
 {a-dummy2}=a19
+
+{a-discft1}=a17
+{a-discft2}=a18
+{a-discft3}=a19
 
 # The PM digits of M17, M18, and M19 select the current function table for
 # instruction fetch. They also have programs to decode the FTSG field.
-defmacro ftdiscaccum name dummy ftnum
+defmacro discftaccum name dummy ftnum
   p {a-$name}.A {d-main}
 
   # S.PM is wired to a dummy program to trigger an FT
@@ -252,11 +260,17 @@ defmacro ftdiscaccum name dummy ftnum
 endmacro
 
 
-# Strictly speaking only a19 needs both i-ftsg1 and i-ftsg2 inputs but we are
-# not constrained on inputs for these accumulators.
-$ftdiscaccum mem17 mem18 1
-$ftdiscaccum mem18 mem19 2
-$ftdiscaccum mem19 mem17 3
+# Strictly speaking only discft3 needs both i-ftsg1 and i-ftsg2 inputs but we
+# are not constrained on inputs for these accumulators.
+$discftaccum discft1 discft2 1
+$discftaccum discft2 discft3 2
+$discftaccum discft3 discft1 3
+
+# discft1 is also used to reset PC
+# resetPC input: takes M0 from bus, sets initial PC to 0900
+p {d-main} ad.permute.{ad-pc-reset}
+s ad.permute.{ad-pc-reset} 0,0,0,0,0,0,0,0,11,0,0
+p ad.permute.{ad-pc-reset} {a-discft1}.{i-resetPC}
 
 
 # - M20 - 
@@ -407,21 +421,25 @@ $op-lines-gt55 J 8
 $op-lines-gt55 K 7
 
 # -- RESET --
+# Builtin clearing should first set all accumulators to 0
 p i.io {p-reset}
 
 # Reset PC, IR, and initial ft selector accumulators
 # Send M00000
 $sendM0 {p-reset}
 
-# Set mem18/mem19 signs to M so that ft1 is selected via mem17.PM = P
-$rec {p-reset} {a-mem18} {t-reset} {i-main} {p-fetch}
-$recx {p-reset} {a-mem19} {r-reset} {i-main}
+# Set discft2/discft3 signs to M so that ft1 is selected via discft1.PM = P
+$rec {p-reset} {a-discft2} {t-reset} {i-main} {p-reset-2}
+$recx {p-reset} {a-discft3} {r-reset} {i-main}
+# Set discft1 to 0900 which is the initial PC
+$recx {p-reset} {a-discft1} {t-reset} {i-resetPC}
 
 # IR to M0 so we trigger a fetch
 $recx {p-reset} {a-ir} {r-reset} {i-main}
 
-# PC = 0900
-$recx {p-reset} {a-pc} {r-reset} {i-reset}
+# Reset PC from discft1 and clear discft1
+$sendc {p-reset-2} {a-discft1} {t-reset-2} A {p-fetch}
+$loadpc {p-reset-2}
 
 
 # -- CONTROL CYCLE --
@@ -567,9 +585,9 @@ p {p-opgt55-2} {p-mp-789x}
 
 # -- {p-fetchline} no more instructons in IR, load new line from ft
 # Trigger the currently selected FT to send
-$send {p-fetchline} {a-mem17} {t-fetchline} S {p-fetchtrig}
-$sendx {p-fetchline} {a-mem18} {r-fetchline} S 
-$sendx {p-fetchline} {a-mem19} {r-fetchline} S 
+$send {p-fetchline} {a-discft1} {t-fetchline} S {p-fetchtrig}
+$sendx {p-fetchline} {a-discft2} {r-fetchline} S
+$sendx {p-fetchline} {a-discft3} {r-fetchline} S
 
 # FT settings
 defmacro triggerft num
@@ -585,7 +603,7 @@ $triggerft 3
 
 
 # -- {p-fetchtrig}
-# FT is "stimulated" in this cycle, from mem17-19 S output
+# FT is "stimulated" in this cycle, from discft1-3 S output
 # It will trigger p-fetcharg next cycle to get line index
 # Meanwhile, clear IR (needed only on jumps, otherwise already zero here from overflow)
 # Also use this clear to trigger read from FT, 4 cycles from now
@@ -598,6 +616,8 @@ s {a-ir}.rp{t-fetchtrig} 4    # repeat 4 to wait for FT result
 # - FT <- bottom two digits of PC (a1)
 $send {p-fetcharg} {a-pc} {t-fetcharg} A {p-preinc-fetch}
 p {d-main} f1.arg  # only bottom two digit lines connect so no deleter is required
+p {d-main} f2.arg
+p {d-main} f3.arg
 
 
 # -- {p-preinc-fetch} preincrement left field of EX and PC
@@ -698,6 +718,21 @@ $sendx {p-sub-jmp-3} {a-ir} {r-send} A
 $rec {p-sub-jmp-3} {a-pc} {t-sub-jmp-3} {i-loadPC2} {p-fetchline} 
 
 
+# - DISCFT -
+# The common receive portion of the sequence to select ft from PC ftsg
+defmacro discft prog
+  p $prog {pa-a-%name}
+  p {pa-b-%name} {p-sub-discft}
+endmacro
+
+# Decode discft1 and discft2 signs
+$recx {p-sub-discft} {a-discft1} {r-sub-discft} {i-ftsg2}
+$rec {p-sub-discft} {a-discft2} {t-sub-discft} {i-ftsg1} {p-sub-discft-2}
+$recx {p-sub-discft} {a-discft3} {r-sub-discft} {i-ftsg1}
+
+# Finish decoding discft3 sign
+$recx {p-sub-discft-2} {a-discft3} {r-sub-discft-2} {i-ftsg2}
+
 
 # -- OPCODE IMPLEMENTATIONS --
 
@@ -770,6 +805,35 @@ $rec {p-op53} {a-rf} {t-op53} {i-main} {p-fetch}
 
 p {p-op73} {p-sub-jmp}
 
+
+# - JMP FAR -
+# TODO extract as a subroutine for JSR?
+
+$dummy {p-op74} {a-dummy} {t-op74} 1 {p-op74-2}  # not a-dummy2 because discft* in use
+$dummy {p-op74-3} {a-dummy2} {t-op74-3} 1 {p-op74-4}
+
+# Deselect current function table
+# Send PC twice for discft, and then clear to accept new PC
+$sendc {p-op74} {a-pc} {t-op74} A {p-op74-3}
+s {a-pc}.rp{t-op74} 2
+$discft {p-op74}
+
+# PC -clearPC4-> EX
+$recx {p-op74-2} {a-ex} {t-op74-2} {i-clearPC4}
+
+# EX -> PC
+$storeex {p-op74-3}
+$loadpc {p-op74-3}
+
+# Receive new FTSG+PC from IR
+# Send IR twice for discft to select new function table
+$assert {p-op74-4} {a-ir}~Pxxxxxxxxxx  # don't trigger IR discrimination
+$send {p-op74-4} {a-ir} {t-op74-4} A {p-fetchline}
+s {a-ir}.rp{t-op74-4} 2
+$discft {p-op74-4}
+
+# Load new FTSG+PC
+$recx {p-op74-4} {a-pc} {r-op74-4} {i-loadPC4}
 
 # - JN XX -
 
