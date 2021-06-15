@@ -17,16 +17,16 @@
 14 - ftload A     ; FGHIJ = ft3[A] first 10 digits
 15 - ftlookup A,#XX ; A <- ft3[A+XX] last 2 digits
 
-20 - mov A,B
-21 - mov A,C
-22 - mov A,D
-23 - mov A,E
-24 - mov A,F
-25 - mov A,G
+20 - mov B,A
+21 - mov C,A
+22 - mov D,A
+23 - mov E,A
+24 - mov F,A
+25 - mov G,A
 
-30 - mov A,H 
-31 - mov A,I
-32 - mov A,J
+30 - mov H,A 
+31 - mov I,A
+32 - mov J,A
 33 - 
 34 - indexswap    ; next instruction = G%5
 35 - clr A

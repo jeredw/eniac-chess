@@ -1,6 +1,10 @@
 s cy.op 1a
-#set a4  0075000000  # A=00, B=75
 
+set a4  0075000000  # A=00, B=75
+
+# memory values to check that various instructions save and restore
+set a10 1010101010
+set a12 9876543210 # memory value, check that JN saves and restores
 set a12 9876543210 # memory value, check that JN saves and restores
 set a13 1234567890 # memory value, check that PRINT saves and restores
 
@@ -181,13 +185,51 @@ p ad.d.{ad-rf-clearA}.-2 {a-rf}.{i-clearA}
 p {d-main} ad.s.{ad-rf-shiftl8}.8
 p ad.s.{ad-rf-shiftl8}.8 {a-rf}.{i-shiftl8}
 
+# load/store macros
+$recx {p-loadrf} {a-rf} {r-loadrf} {i-main}
+defmacro loadrf prog
+  $pulseamp $prog {p-loadrf}
+endmacro
+
+defmacro storerf prog
+  $pulseamp $prog {a-rf}.{r-storerf}i
+endmacro
+s {a-rf}.op{r-storerf} A
+s {a-rf}.cc{r-storerf} C
+
 
 # - Load/Store -
 # Registers F-J of the virtual machine. 
 {a-ls}=a5
 
 
-# - M12 -
+# - MEM10 -
+# Used for swap A,BCD and storeacc 0-9
+{a-mem10}=a10
+{a-swapBCD}=a10
+{a-store09}=a10
+
+p {a-mem10}.A {d-main}
+
+# patch S to trigger rec on accumulators 0-9
+# XXX
+
+p {d-main} {a-mem10}.{i-main}
+
+p {d-main} ad.permute.{ad-swapAB}
+s ad.permute.{ad-swapAB} 11,8,7,10,9,6,5,4,3,2,1
+p ad.permute.{ad-swapAB} {a-mem10}.{i-swapAB}
+
+p {d-main} ad.permute.{ad-swapAC}
+s ad.permute.{ad-swapAC} 11,6,5,8,7,10,9,4,3,2,1
+p ad.permute.{ad-swapAC} {a-mem10}.{i-swapAC}
+
+p {d-main} ad.permute.{ad-swapAD}
+s ad.permute.{ad-swapAD} 11,4,3,8,7,6,5,10,9,2,1
+p ad.permute.{ad-swapAD} {a-mem10}.{i-swapAD}
+
+
+# - MEM12 -
 # Used for JN
 {a-mem12}=a12
 {a-discjn}=a12
@@ -709,10 +751,7 @@ $rec {p-sub-jmp-3} {a-pc} {t-sub-jmp-3} {i-loadPC2} {p-fetchline}
 #$break {p-op80}  # JN
 #$break {p-op92}  # PRINT
 
-# - HALT -
-# Wire halt to quit the simulator so we can run programs and exit when they're
-# done.
-# p {p-op95} debug.quit
+
 
 # - NOP -
 p {p-op00} {p-fetch}
@@ -725,6 +764,27 @@ $loadex {p-op35}
 # EX -clearA-> RF
 $storeex {p-op35-2}
 $rec {p-op35-2} {a-rf} {t-op35-2} {i-clearA} {p-fetch}
+
+
+# - SWAP A,? -
+p {p-op01} {p-opswapab}
+
+# save swapBCD
+$sendc {p-opswapab} {a-swapBCD} {t-opswapab} A {p-opswapab-2}
+$loadex {p-opswapab}
+
+# RF->swapBCD, on swap input
+$storerf {p-opswapab-2}
+$rec {p-opswapab-2} {a-swapBCD} {t-opswapab-2} {i-swapAB} {p-opswapab-3}
+
+# swapBCD->RF
+$sendc {p-opswapab-3} {a-swapBCD} {t-opswapab-3} A {p-opswapab-4}
+$loadrf {p-opswapab-3}
+
+# restore swapBCD
+$storeex {p-opswapab-4}
+$rec {p-opswapab-4} {a-swapBCD} {t-opswapab-4} {i-main} {p-fetch}
+
 
 
 # - MOV #XX,A -
@@ -806,7 +866,7 @@ $sendc {p-op92} {a-mem13} {t-op96} A {p-op92-2}
 $loadex {p-op92}
 
 # RF-printAB-MEM13. Puts AB in lower 4 digits of upper half of accumulator
-$sendx {p-op92-2} {a-rf} {t-op92-2} A    
+$sendx {p-op92-2} {a-rf} {r-op92-2} A    
 $rec {p-op92-2} {a-mem13} {t-printAB} {i-printAB} i.pi # trigger print
 
 # prints high half accumulator 13 
@@ -819,6 +879,11 @@ $clear {p-op92-3} {a-mem13} {t-mem13} {p-op92-4}
 $storeex {p-op92-4}
 $rec {p-op92-4} {a-mem13} {t-op92-4} {i-main} {p-fetch}
 
+
+# - HALT -
+# Wire halt to quit the simulator so we can run programs and exit when they're
+# done.
+# p {p-op95} debug.quit
 
 
 # -- CURRENT PROGRAM --
