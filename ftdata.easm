@@ -8,19 +8,16 @@ s f1.RA0L1 8
 s f1.RB0L6 9  # SLED
 s f1.RB0L5 9
 s f1.RB0L4 9
-s f1.RB0L3 9
-s f1.RB0L2 9
-s f1.RB0L1 9
 
-s f3.RA0L6 4  # MOV 10,A
-s f3.RA0L5 0
-s f3.RA0L4 0
-s f3.RA0L3 9
-s f3.RA0L2 9  # SLED
-s f3.RA0L1 9
-s f3.RB0L6 9
-s f3.RB0L5 9
-s f3.RB0L4 9
+s f3.RA0L6 0  # SWAP A,B
+s f3.RA0L5 1
+s f3.RA0L4 0  # SWAP A,C
+s f3.RA0L3 2
+s f3.RA0L2 0  # SWAP A,D
+s f3.RA0L1 3
+s f3.RB0L6 4  # MOV 10,A
+s f3.RB0L5 0 
+s f3.RB0L4 0
 s f3.RB0L3 9
 s f3.RB0L2 9
 s f3.RB0L1 9
