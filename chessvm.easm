@@ -153,7 +153,7 @@ p ad.permute.{ad-clearPC2} {a-ex}.{i-clearPC2}
 
 # clearPC4: SS RRRR PPPP -> SS RRRR 0000, used for JMP FAR/JSR
 p {d-main} ad.permute.{ad-clearPC4}
-s ad.permute.{ad-clearPC4} 11,10,9,8,7,6,0,0,0,0,0
+s ad.permute.{ad-clearPC4} 11,10,9,8,7,6,5,0,0,0,0
 p ad.permute.{ad-clearPC4} {a-ex}.{i-clearPC4}
 
 
