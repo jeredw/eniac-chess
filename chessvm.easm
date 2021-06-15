@@ -1,6 +1,6 @@
 s cy.op 1a
 
-set a4  0075000000  # A=00, B=75
+set a4  2244668800  
 
 # memory values to check that various instructions save and restore
 set a10 1010101010
@@ -767,23 +767,44 @@ $rec {p-op35-2} {a-rf} {t-op35-2} {i-clearA} {p-fetch}
 
 
 # - SWAP A,? -
-p {p-op01} {p-opswapab}
+# Implemented as two shared "core" subprograms plus one per op
+# 1. core1: swapBCD->EX   op: dummy 1
+# 2.                      op: RF-swapa[bcd]->swapBCD, goto core2
+# 3. core2: swapBCD->RF
+# 3. core2: EX->swapBCD
+# This uses 9 programs total, rather than 12 if we do all sequences separately
 
-# save swapBCD
-$sendc {p-opswapab} {a-swapBCD} {t-opswapab} A {p-opswapab-2}
-$loadex {p-opswapab}
+p {p-op01} {p-opswapAB}
+p {p-op02} {p-opswapAC}
+p {p-op03} {p-opswapAD}
 
-# RF->swapBCD, on swap input
-$storerf {p-opswapab-2}
-$rec {p-opswapab-2} {a-swapBCD} {t-opswapab-2} {i-swapAB} {p-opswapab-3}
+# core1: swapBCD->EX
+$pulseamp {p-opswapAB} {p-opswapBCD}
+$pulseamp {p-opswapAC} {p-opswapBCD}
+$pulseamp {p-opswapAD} {p-opswapBCD}
 
-# swapBCD->RF
-$sendc {p-opswapab-3} {a-swapBCD} {t-opswapab-3} A {p-opswapab-4}
-$loadrf {p-opswapab-3}
+$sendcx {p-opswapBCD} {a-swapBCD} {r-swapBCD} A
+$loadex {p-opswapBCD}
 
-# restore swapBCD
-$storeex {p-opswapab-4}
-$rec {p-opswapab-4} {a-swapBCD} {t-opswapab-4} {i-main} {p-fetch}
+# op: RF->swapBCD, on swap input -- actually does the swap
+# per-op dummy to wait for core1, then store to op-specific input, goto core2
+
+defmacro swapbcd-op reg
+  $dummy {p-opswapA$reg} {a-dummy2} {t-swapA$reg} 1 {p-opswapA$reg-2}
+  $storerf {p-opswapA$reg-2}
+  $rec {p-opswapA$reg-2} {a-swapBCD} {t-opswapA$reg-2} {i-swapA$reg} {p-opswapBCD-2}
+endmacro
+$swapbcd-op B
+$swapbcd-op C
+$swapbcd-op D
+
+# core2: swapBCD->RF, saves swapped values back to RF
+$sendc {p-opswapBCD-2} {a-swapBCD} {t-opswapBCD-2} A {p-opswapBCD-3}
+$loadrf {p-opswapBCD-2}
+
+# core2: restore swapBCD
+$storeex {p-opswapBCD-3}
+$rec {p-opswapBCD-3} {a-swapBCD} {t-opswapBCD-3} {i-main} {p-fetch}
 
 
 
