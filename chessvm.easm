@@ -1,6 +1,7 @@
 s cy.op 1a
 
 set a4  2244668800  
+set a5  9988776655
 
 # memory values to check that various instructions save and restore
 set a10 1010101010
@@ -141,7 +142,7 @@ p {d-main} ad.permute.{ad-ir}
 s ad.permute.{ad-ir} 11,2,1,10,9,8,7,6,5,4,3
 p ad.permute.{ad-ir} {a-ex}.{i-rotate-ir}
 
-# clearA input: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
+# clearA input: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV X,A and other writes to A
 p {d-main} ad.permute.{ad-clearA}
 s ad.permute.{ad-clearA} 11,0,0,8,7,6,5,4,3,2,1
 p ad.permute.{ad-clearA} {a-ex}.{i-clearA}
@@ -151,7 +152,7 @@ p {d-main} ad.permute.{ad-clearPC2}
 s ad.permute.{ad-clearPC2} 11,10,9,8,7,6,5,4,3,0,0
 p ad.permute.{ad-clearPC2} {a-ex}.{i-clearPC2}
 
-# clearPC4: SS RRRR PPPP -> SS RRRR 0000, used for JMP FAR/JSR
+# clearPC4: SS RRRR PPPP -> SS RRRR 0000, used for JMP FAR/JSR/RET
 p {d-main} ad.permute.{ad-clearPC4}
 s ad.permute.{ad-clearPC4} 11,10,9,8,7,6,5,0,0,0,0
 p ad.permute.{ad-clearPC4} {a-ex}.{i-clearPC4}
@@ -205,6 +206,10 @@ s {a-rf}.cc{r-storerf} C
 # - Load/Store -
 # Registers F-J of the virtual machine. 
 {a-ls}=a5
+
+p {a-ls}.A {d-main}
+
+p {d-main} {a-ls}.{i-main}
 
 
 # - MEM10 -
@@ -473,11 +478,12 @@ $sendM0 {p-reset}
 # Set discft2/discft3 signs to M so that ft1 is selected via discft1.PM = P
 $rec {p-reset} {a-discft2} {t-reset} {i-main} {p-reset-2}
 $recx {p-reset} {a-discft3} {r-reset} {i-main}
-# Set discft1 to 0900 which is the initial PC
-$recx {p-reset} {a-discft1} {t-reset} {i-resetPC}
 
 # IR to M0 so we trigger a fetch
 $recx {p-reset} {a-ir} {r-reset} {i-main}
+
+# Set discft1 to 0900 which is the initial PC, then copy to PC (out of PC inputs)
+$recx {p-reset} {a-discft1} {t-reset} {i-resetPC}
 
 # Reset PC from discft1 and clear discft1
 $sendc {p-reset-2} {a-discft1} {t-reset-2} A {p-fetch}
@@ -762,6 +768,9 @@ $rec {p-sub-jmp-3} {a-pc} {t-sub-jmp-3} {i-loadPC2} {p-fetchline}
 
 # - DISCFT -
 # The common receive portion of the sequence to select ft from PC ftsg
+# Note that applying this twice is a NOP. So for far jumps (JMP FAR/JSR/RET)
+# we invoke once with current PC, then update FTSG, and call again.
+
 defmacro discft prog
   p $prog {pa-a-%name}
   p {pa-b-%name} {p-sub-discft}
@@ -791,14 +800,22 @@ $recx {p-sub-discft-2} {a-discft3} {r-sub-discft-2} {i-ftsg2}
 # - NOP -
 p {p-op00} {p-fetch}
 
-# - CLR A -
-# RF -> EX
-$sendc {p-op35} {a-rf} {t-op35} A {p-op35-2}
-$loadex {p-op35}
 
-# EX -clearA-> RF
-$storeex {p-op35-2}
-$rec {p-op35-2} {a-rf} {t-op35-2} {i-clearA} {p-fetch}
+# - SWAPALL -
+# Exchange RF and LS. Nothing fancy here.
+p {p-op12} {p-opswapall}
+
+# RF->EX
+$sendc {p-opswapall} {a-rf} {t-opswapall} A {p-opswapall-2}
+$loadex {p-opswapall}
+
+# LS->RF
+$sendc {p-opswapall-2} {a-ls} {t-opswapall-2} A {p-opswapall-3}
+$loadrf {p-opswapall-2}
+
+# EX->LS
+$storeex {p-opswapall-3}
+$rec {p-opswapall-3} {a-ls} {t-opswapall-3} {i-main} {p-fetch}
 
 
 # - SWAP A,[BCD] -
@@ -814,7 +831,7 @@ p {p-op02} {p-opswapAC}
 p {p-op03} {p-opswapAD}
 
 defmacro swapbcd-op reg
-  # swapBCD->EX
+  # swapBCD->EX, save swapBCD
   $sendc {p-opswapA$reg} {a-swapBCD} {t-swapA$reg} A {p-opswapA$reg-2}
   $loadex {p-opswapA$reg}
 
@@ -830,10 +847,19 @@ $swapbcd-op D
 $sendc {p-opswapBCD} {a-swapBCD} {t-opswapBCD} A {p-opswapBCD-2}
 $loadrf {p-opswapBCD}
 
-# restore swapBCD
+# EX->swapBCD, restore swapBCD
 $storeex {p-opswapBCD-2}
 $rec {p-opswapBCD-2} {a-swapBCD} {t-opswapBCD-2} {i-main} {p-fetch}
 
+
+# - CLR A -
+# RF -> EX
+$sendc {p-op35} {a-rf} {t-op35} A {p-op35-2}
+$loadex {p-op35}
+
+# EX -clearA-> RF
+$storeex {p-op35-2}
+$rec {p-op35-2} {a-rf} {t-op35-2} {i-clearA} {p-fetch}
 
 
 # - MOV #XX,A -
