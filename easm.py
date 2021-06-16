@@ -71,7 +71,7 @@ class SymbolTable:
     # shared across entire machine
     self.sym_global = {
       'd':      Resource('digit trunks', 20, {}),
-      'p':      Resource('program lines', 121, {}),
+      'p':      Resource('program lines', 26*11, {}),
       'a':      Resource('accumulators', 20, {}),
       'ad.s':   Resource('shift adapters', 40, {}),
       'ad.d':   Resource('deleter adapters', 40, {}),
