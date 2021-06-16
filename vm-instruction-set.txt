@@ -1,6 +1,3 @@
-
-
-
 51 ORDER CODE (v4, extended registers)
 
 00 - nop          ; NB opcodes chosen for indexswap
@@ -137,7 +134,8 @@ S - select A
 a-e select?
 
 
-MEM6:
+A6
+MEM0:
 DISCLOADACC:
 AS - Discriminate LOADACC
 A - main
@@ -145,92 +143,105 @@ a - nop
 b - loadAccIdx: move digit 10 into sign, digit 9 into 1, all others zero
 c - addrToAccIdx: XX B2 B1 XX XX XX -> B2 0 00 00 00 0 B1, used to calc 2*B2 + (B1>4)
 
-MEM7:
-LOAD09:
-load 0-9 / far jump
+
+A7
+MEM1:
+DISCSTOREACC:
 A - main
-S - load acc 0-9
-a - nop
-b - loadAB: read from FT output
-g - loadim4-irS:  I1 XX XX XX I2 -> 00 00 00 I1 I2
+AS - Discriminate STOREACC
+a - main
 
 
-MEM8:
+A8
+MEM2:
 LOAD1014:
 A - main
 S1-S5 load acc 10-14
-a = nop
+a = main
 b - loadAB: read from FT output
 
 
-MEM9:
-DISCSTOREACC:
-Discriminate STOREACC
-a - nop
-b - A2toPM: move digit 10 into sign, all others zero
-
-
-MEM10:
-SWAPBCD:
-STORE09:
-A - main
-S - store 0-9
-a - nop
-b - loadAB: read from FT output
-g-e - swapA[BCD]
-
-
-MEM11:
+A9
+MEM3:
 STORE1014:
-SWAPAE:
 A - main
-S1 - S5 to store 10-14
-a - nop
-b - loadAB: read from FT output
-g - swapAE
-* additional inputs available here 
-
-
-MEM12:
-DISCJN:
-AS - disc JN
+S - store acc 10-14
 a - main
-b - selA (preserve sign)
+b - loadAB: read from FT output
 
 
-MEM13:
+A10
+MEM4:
+SWAPBCD:
+a - nop
+b-e - swapA[BCDE]
+
+
+A11
+MEM5:
+DISCJZ1:
+A - main
+AS = disc JZ1
+a - main
+
+
+A12
+MEM6:
+DISCJZ2:
+A - main
+AS = disc JZ2
+a - main
+
+
+A13
+MEM7:
 a - main
 b - printAB: AA BB CC DD EE -> 0A AB B 0 00 00 for printing AB with leading 0
+g - selAF: select A/F, AA BB CC DD EE -> AA 00 00 00 00, used MOV F,A
+d - selBG: select B/G, AA BB CC DD EE -> BB 00 00 00 00, used MOV G,A
+b - selCH: select C/H, AA BB CC DD EE -> CC 00 00 00 00, used MOV H,A
 
 
-MEM14:
+A14
+MEM8:
+A - main
+a - main
+b - selDI: select D/I, AA BB CC DD EE -> DD 00 00 00 00, used MOV I,A
+g - selEJ: select E/J, AA BB CC DD EE -> EE 00 00 00 00, used MOV J,A
+
+
+A15
+MEM9:
+DISCJN:
+AS - disc JN
 A - main
 S - main, selA, PM XX XX XX XX XX -> PM XX 00 00 00 00, used for NEG A
 a - nop 
 b - clearA: XX XX XX XX XX -> 00 XX XX XX XX
-g - selAF: select A/F - select A/F, AA BB CC DD EE -> AA 00 00 00 00, used MOV A,F
-d - selBG: select B/G - select B/G, AA BB CC DD EE -> BB 00 00 00 00, used MOV A,G
 
 
-MEM15:
-DISCJZ1:
-AS = disc JZ1
-a - nop
-b - clearA: XX XX XX XX XX -> 00 XX XX XX XX
-g - selCH: select C/H, AA BB CC DD EE -> CC 00 00 00 00, used MOV A,H
-d - selDI: select D/I, AA BB CC DD EE -> DD 00 00 00 00, used MOV A,I
-
-
-MEM16:
-DISCJZ2:
-AS = disc JZ2
+A16
+MEM10:
+LOAD09:
+load acc 0-9
 a - main 
-b - clearA: XX XX XX XX XX -> 00 XX XX XX XX
-g - selEJ: select E/J, AA BB CC DD EE -> EE 00 00 00 00, used MOV A,J
+b - loadAB: read from FT output
+g - clearA: XX XX XX XX XX -> 00 XX XX XX XX
 d - movAE: AA BB CC DD EE -> EE BB CC DD EE
 
 
-MEM17:
+A17
+MEM11:
+STORE09:
+A - main
+S - store 0-9
+a - main
+b - loadAB: read from FT output
+e - selA (preserve sign)
+
+
+A18
+MEM12: 
 DISCFT1:
 A - main
 S - discft1
@@ -240,7 +251,8 @@ g - ftsg2: x xx xx xx Dx xx -> PM
 d - ftsg1: x xx xx xx xD xx -> PM
 
 
-MEM18: 
+A19
+MEM13:
 DISCFT2:
 A - main
 S - discft2
@@ -250,7 +262,8 @@ g - ftsg2: x xx xx xx Dx xx -> PM
 d - ftsg1: x xx xx xx xD xx -> PM
 
 
-MEM19:
+A20
+MEM14:
 DISCFT3:
 A - main
 S - discft3
@@ -258,9 +271,6 @@ a - main
 b - exA
 g - ftsg2: x xx xx xx Dx xx -> PM
 d - ftsg1: x xx xx xx xD xx -> PM
-
-
-MEM20:
 
 
 CONTROL CYCLE

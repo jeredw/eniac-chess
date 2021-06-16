@@ -5,10 +5,10 @@ set a5  9988776655
 
 # memory values to check that various instructions save and restore
 set a10 1010101010
-set a12 9876543210 # memory value, check that JN saves and restores
-set a12 9876543210 # memory value, check that JN saves and restores
-set a13 1234567890 # memory value, check that PRINT saves and restores
-
+set a12 1111111111
+set a12 1212121212 
+set a13 1313131313 
+set a15 1515151515
 
 # ENIAC-VM for playing chess
 # Jonathan Stray and Jered Wierzbicki
@@ -212,39 +212,57 @@ p {a-ls}.A {d-main}
 p {d-main} {a-ls}.{i-main}
 
 
-# - MEM10 -
+# - MEM4 -
 # Used for swap A,BCD and storeacc 0-9
-{a-mem10}=a10
+{a-mem4}=a10
 {a-swapBCD}=a10
 {a-store09}=a10
 
-p {a-mem10}.A {d-main}
+p {a-mem4}.A {d-main}
 
 # patch S to trigger rec on accumulators 0-9
 # XXX
 
-p {d-main} {a-mem10}.{i-main}
+p {d-main} {a-mem4}.{i-main}
 
 p {d-main} ad.permute.{ad-swapAB}
 s ad.permute.{ad-swapAB} 11,8,7,10,9,6,5,4,3,2,1
-p ad.permute.{ad-swapAB} {a-mem10}.{i-swapAB}
+p ad.permute.{ad-swapAB} {a-mem4}.{i-swapAB}
 
 p {d-main} ad.permute.{ad-swapAC}
 s ad.permute.{ad-swapAC} 11,6,5,8,7,10,9,4,3,2,1
-p ad.permute.{ad-swapAC} {a-mem10}.{i-swapAC}
+p ad.permute.{ad-swapAC} {a-mem4}.{i-swapAC}
 
 p {d-main} ad.permute.{ad-swapAD}
 s ad.permute.{ad-swapAD} 11,4,3,8,7,6,5,10,9,2,1
-p ad.permute.{ad-swapAD} {a-mem10}.{i-swapAD}
+p ad.permute.{ad-swapAD} {a-mem4}.{i-swapAD}
 
 
-# - MEM12 -
+# - MEM6 -
 # Used for JN
-{a-mem12}=a12
-{a-discjn}=a12
+{a-mem6}=a12
+
+
+# - MEM7 - 
+# MEM7 is a13 and is used for printing, has an input that shifts AB into printing position
+{a-mem7}=a13
+{a-print}=a13
+p {a-mem13}.A {d-main}
+
+p {d-main} {a-mem7}.{i-main}
+
+p {d-main} ad.permute.{ad-printAB}
+s ad.permute.{ad-printAB} 11,0,10,9,8,7,0,0,0,0,0
+p ad.permute.{ad-printAB} {a-mem7}.{i-printAB}
+
+
+# - MEM9 -
+# Used for JN
+{a-mem9}=a15
+{a-discjn}=a15
 
 # A to its own bus
-p {a-mem12}.A {d-discjnA}
+p {a-discjn}.A {d-discjnA}
 
 # Discriminator; need to delete sign when going from A to main
 p {d-discjnA} ad.permute.{ad-discjnA-sign}
@@ -252,36 +270,44 @@ s ad.permute.{ad-discjnA-sign} 0,10,9,8,7,6,5,4,3,2,1
 p ad.permute.{ad-discjnA-sign} {d-main}
 
 # S to its own bus
-p {a-mem12}.S {d-discjnS}
+p {a-discjn}.S {d-discjnS}
 
 # main input
-p {d-main} {a-mem12}.{i-main}
+p {d-main} {a-mem9}.{i-main}
 
 
-# - M13 - 
-# M13 is used for printing, has an input that shifts AB into printing position
-{a-mem13}=a13
-p {a-mem13}.A {d-main}
-
-p {d-main} {a-mem13}.{i-main}
-
-p {d-main} ad.permute.{ad-printAB}
-s ad.permute.{ad-printAB} 11,0,10,9,8,7,0,0,0,0,0
-p ad.permute.{ad-printAB} {a-mem13}.{i-printAB}
+# - MEM10 -
+{a-mem12}=a16
 
 
-# - M17,18,19 -
-{a-mem17}=a17
-{a-mem18}=a18
-{a-mem19}=a19
+# - MEM11 -
+{a-mem12}=a17
 
-{a-dummy2}=a19
+# third set of dummies here, outside of FTSG selection logic, so it can used there
+{a-dummy3}=a17
 
-{a-discft1}=a17
-{a-discft2}=a18
-{a-discft3}=a19
 
-# The PM digits of M17, M18, and M19 select the current function table for
+# - MEM12 -
+{a-mem12}=a18
+
+
+# - MEM13 -
+{a-mem13}=a19
+{a-dummy2}=a20
+
+
+# - MEM14 -
+{a-mem14}=a20
+{a-dummy}=a20
+
+
+# - Function table decode -
+# Uses 18,19,20
+{a-discft1}=a18
+{a-discft2}=a19
+{a-discft3}=a20
+
+# The PM digits of M18, M19, and M20 select the current function table for
 # instruction fetch. They also have programs to decode the FTSG field.
 defmacro discftaccum name dummy ftnum
   p {a-$name}.A {d-main}
@@ -306,24 +332,19 @@ defmacro discftaccum name dummy ftnum
   p ad.permute.{ad-$name-ftsg2} {a-$name}.{i-ftsg2}
 endmacro
 
-
 # Strictly speaking only discft3 needs both i-ftsg1 and i-ftsg2 inputs but we
 # are not constrained on inputs for these accumulators.
 $discftaccum discft1 discft2 1
 $discftaccum discft2 discft3 2
 $discftaccum discft3 discft1 3
 
-# discft1 is also used to reset PC
+# discft1 is also used to form intitial PC address on reset
 # resetPC input: takes M0 from bus, sets initial PC to 0900
 p {d-main} ad.permute.{ad-pc-reset}
 s ad.permute.{ad-pc-reset} 0,0,0,0,0,0,0,0,11,0,0
 p ad.permute.{ad-pc-reset} {a-discft1}.{i-resetPC}
 
 
-# - M20 - 
-# Used for dummy programs across the code
-{a-mem20}=a20
-{a-dummy}=a20
 
 
 # - Constant transmitter -
@@ -715,6 +736,7 @@ $loadex {p-fetchread}
 $recinc {p-fetchread} {a-pc} {t-fetchread} {i-main} {p-nofetch}
 
 
+
 # -- MICRO-SUBROUTINES --
 # Sequences shared between instructions, none of which retrigger the main cycle
 
@@ -785,8 +807,8 @@ $recx {p-sub-discft} {a-discft3} {r-sub-discft} {i-ftsg1}
 $recx {p-sub-discft-2} {a-discft3} {r-sub-discft-2} {i-ftsg2}
 
 
-# -- OPCODE IMPLEMENTATIONS --
 
+# -- OPCODE IMPLEMENTATIONS --
 
 #$break {p-op40}  # CLR
 #$break {p-op52}  # INC
@@ -796,10 +818,19 @@ $recx {p-sub-discft-2} {a-discft3} {r-sub-discft-2} {i-ftsg2}
 #$break {p-op92}  # PRINT
 
 
-
 # - NOP -
 p {p-op00} {p-fetch}
 
+
+# - LOADACC -
+p {p-op10} {p-oploadacc}
+
+#  4. EX -> DISCLOADACC, clear
+#  5. LOAD09 -> EX, clear
+#  6. receive A,B into LOAD09
+#  7. send LOAD09 on S, clear                  ; trigger one acc to transmit
+#  8  main -> LS
+#  9. EX -> LOAD09, clear   
 
 # - SWAPALL -
 # Exchange RF and LS. Nothing fancy here.
@@ -909,8 +940,8 @@ p {p-op73} {p-sub-jmp}
 # - JMP FAR -
 # TODO extract as a subroutine for JSR?
 
-$dummy {p-op74} {a-dummy} {t-op74} 1 {p-op74-2}  # not a-dummy2 because discft* in use
-$dummy {p-op74-3} {a-dummy2} {t-op74-3} 1 {p-op74-4}
+$dummy {p-op74} {a-dummy3} {t-op74} 1 {p-op74-2}  # not a-dummy[2] because discft* in use
+$dummy {p-op74-3} {a-dummy3} {t-op74-3} 1 {p-op74-4}
 
 # Deselect current function table
 # Send PC twice for discft, and then clear to accept new PC
@@ -935,6 +966,7 @@ $discft {p-op74-4}
 # Load new FTSG+PC
 $recx {p-op74-4} {a-pc} {r-op74-4} {i-loadPC4}
 
+
 # - JN XX -
 
 # save DISCJN
@@ -946,14 +978,14 @@ $send {p-opjn-2} {a-rf} {t-opjn} A {p-opjn-3} # replace with RF send macro?
 $recx {p-opjn-2} {a-discjn} {t-opjn} {i-main}
 
 # discriminate, and clear to ready DISCJN for restored memory value
-$discriminatec {p-opjn-3} {a-discjn} {a-dummy2} opjn-3 {d-discjnA} {d-discjnS} {p-opjn-pos} {p-opjn-neg}
+$discriminatec {p-opjn-3} {a-discjn} {a-dummy3} opjn-3 {d-discjnA} {d-discjnS} {p-opjn-pos} {p-opjn-neg}
 
 # if positive, restore acc, consume and carry on
 $storeex {p-opjn-pos}
 $rec {p-opjn-pos} {a-discjn} {t-opjn-pos} {i-main} {p-opjn-eat}
 
 $consume-op {p-opjn-eat}
-$dummy {p-opjn-eat} {a-dummy2} {t-opjn-eat} 2 {p-fetch}
+$dummy {p-opjn-eat} {a-dummy3} {t-opjn-eat} 2 {p-fetch}
 
 # if negative, restore acc and jump
 $storeex {p-opjn-neg}
@@ -961,33 +993,60 @@ $rec {p-opjn-neg} {a-discjn} {t-opjn-neg} {i-main} {p-sub-jmp}
 
 
 # - PRINT - 
-# Save MEM13, RF-printAB->MEM13, restore
+# Save a13, RF-printAB->a13, restore
 # Really the only trick here is that we can only print from a13,
 # and during the transfer we shift RF right so we print 0AABB not AABBC
 
-# MEM13->EX, clear
-$sendc {p-op92} {a-mem13} {t-op96} A {p-op92-2}
+# PRINT->EX, clear
+$sendc {p-op92} a13 {t-op96} A {p-op92-2}
 $loadex {p-op92}
 
-# RF-printAB-MEM13. Puts AB in lower 4 digits of upper half of accumulator
+# RF-printAB->a13. Puts AB in lower 4 digits of upper half of accumulator
 $sendx {p-op92-2} {a-rf} {r-op92-2} A    
-$rec {p-op92-2} {a-mem13} {t-printAB} {i-printAB} i.pi # trigger print
+$rec {p-op92-2} a13 {t-printAB} {i-printAB} i.pi # trigger print
 
 # prints high half accumulator 13 
 s pr.2 P            
 p i.po {p-op92-3}
 
 # restore contents of MEM13
-$clear {p-op92-3} {a-mem13} {t-mem13} {p-op92-4}
+$clear {p-op92-3} a13 {t-op92-3} {p-op92-4}
 
 $storeex {p-op92-4}
-$rec {p-op92-4} {a-mem13} {t-op92-4} {i-main} {p-fetch}
+$rec {p-op92-4} a13 {t-op92-4} {i-main} {p-fetch}
 
 
 # - HALT -
 # Wire halt to quit the simulator so we can run programs and exit when they're
 # done.
 # p {p-op95} debug.quit
+
+# -- ACCUMULATOR DECODE --
+# lookup table used to trigger accumulators on loadacc / storeacc
+# This is on FT3 but doesn't conflict with FTL values since it uses 10 of 12 digits
+defmacro acc-decode-line line x01 x02 x03 x04 x05 x06 x07 x08 x09 x10
+  s f3.RA$lineL4 $x01
+  s f3.RA$lineL3 $x02
+  s f3.RA$lineL2 $x03
+  s f3.RA$lineL1 $x04
+  s f3.RB$lineL6 $x05
+  s f3.RB$lineL5 $x06
+  s f3.RB$lineL4 $x07
+  s f3.RB$lineL3 $x08
+  s f3.RB$lineL2 $x09
+  s f3.RB$lineL1 $x10
+endmacro
+
+$acc-decode-line 0  0 0 0 0 0 0 0 0 0 9
+$acc-decode-line 1  0 0 0 0 0 0 0 0 9 0
+$acc-decode-line 2  0 0 0 0 0 0 0 9 0 0
+$acc-decode-line 3  0 0 0 0 0 0 9 0 0 0
+$acc-decode-line 4  0 0 0 0 0 9 0 0 0 0
+$acc-decode-line 5  0 0 0 0 9 0 0 0 0 0
+$acc-decode-line 6  0 0 0 9 0 0 0 0 0 0
+$acc-decode-line 7  0 0 9 0 0 0 0 0 0 0
+$acc-decode-line 8  0 9 0 0 0 0 0 0 0 0
+$acc-decode-line 9  9 0 0 0 0 0 0 0 0 0  
 
 
 # -- CURRENT PROGRAM --
