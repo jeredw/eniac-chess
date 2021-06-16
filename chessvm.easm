@@ -213,33 +213,37 @@ p {d-main} {a-ls}.{i-main}
 
 
 # - MEM4 -
-# Used for swap A,BCD and storeacc 0-9
+# Used for swap A,BCDE and storeacc 0-9
 {a-mem4}=a10
-{a-swapBCD}=a10
-{a-store09}=a10
+{a-swapBCDE}=a10
 
 p {a-mem4}.A {d-main}
-
-# patch S to trigger rec on accumulators 0-9
-# XXX
 
 p {d-main} {a-mem4}.{i-main}
 
 p {d-main} ad.permute.{ad-swapAB}
 s ad.permute.{ad-swapAB} 11,8,7,10,9,6,5,4,3,2,1
-p ad.permute.{ad-swapAB} {a-mem4}.{i-swapAB}
+p ad.permute.{ad-swapAB} {a-swapBCDE}.{i-swapAB}
 
 p {d-main} ad.permute.{ad-swapAC}
 s ad.permute.{ad-swapAC} 11,6,5,8,7,10,9,4,3,2,1
-p ad.permute.{ad-swapAC} {a-mem4}.{i-swapAC}
+p ad.permute.{ad-swapAC} {a-swapBCDE}.{i-swapAC}
 
 p {d-main} ad.permute.{ad-swapAD}
 s ad.permute.{ad-swapAD} 11,4,3,8,7,6,5,10,9,2,1
-p ad.permute.{ad-swapAD} {a-mem4}.{i-swapAD}
+p ad.permute.{ad-swapAD} {a-swapBCDE}.{i-swapAD}
+
+p {d-main} ad.permute.{ad-swapAE}
+s ad.permute.{ad-swapAE} 11,2,1,8,7,6,5,4,3,10,9
+p ad.permute.{ad-swapAE} {a-swapBCDE}.{i-swapAE}
+
+# load/store 
+$recx {p-load-swapBCDE} {a-swapBCDE} {r-load-swapBCDE} {i-main}
+$sendcx {p-store-swapBCDE} {a-swapBCDE} {r-store-swapBCDE} A
 
 
 # - MEM6 -
-# Used for JN
+# Discriminate LOADACC < 10
 {a-mem6}=a12
 
 
@@ -277,11 +281,12 @@ p {d-main} {a-mem9}.{i-main}
 
 
 # - MEM10 -
-{a-mem12}=a16
+{a-mem10}=a16
 
 
 # - MEM11 -
-{a-mem12}=a17
+{a-mem11}=a17
+{a-store09}=a17
 
 # third set of dummies here, outside of FTSG selection logic, so it can used there
 {a-dummy3}=a17
@@ -849,38 +854,44 @@ $storeex {p-opswapall-3}
 $rec {p-opswapall-3} {a-ls} {t-opswapall-3} {i-main} {p-fetch}
 
 
-# - SWAP A,[BCD] -
+# - SWAP A,[BCDE] -
 # First two cycles of each instruction is per-op, last two cycles shared
-# 1. per-op: swapBCD->EX
-# 2. per-op: RF-swapA[BCD]->swapBCD, this is where the actual swap is
-# 3. shared: swapBCD->RF
-# 4. shared: EX->swapBCD
-# This uses 8 programs total, rather than 12 if we do all sequences separately
+# 1. per-op: swapBCDE->EX
+# 2. per-op: RF-swapA[BCDE]->swapBCDE, this is where the actual swap is
+# 3. shared: swapBCDE->RF
+# 4. shared: EX->swapBCDE
+# This uses 10 programs total, rather than 16 if we do all sequences separately
 
 p {p-op01} {p-opswapAB}
 p {p-op02} {p-opswapAC}
 p {p-op03} {p-opswapAD}
+p {p-op04} {p-opswapAE}
 
-defmacro swapbcd-op reg
-  # swapBCD->EX, save swapBCD
-  $sendc {p-opswapA$reg} {a-swapBCD} {t-swapA$reg} A {p-opswapA$reg-2}
+defmacro swapBCDE-op reg
+  # swapBCDE->EX, save swapBCDE
+  $sendc {p-opswapA$reg} {a-swapBCDE} {t-swapA$reg} A {p-opswapA$reg-2}
   $loadex {p-opswapA$reg}
 
-  # RF->swapBCD, on swap input -- actually does the swap
+  # RF->swapBCDE, on swap input -- actually does the swap
   $storerf {p-opswapA$reg-2}
-  $rec {p-opswapA$reg-2} {a-swapBCD} {t-opswapA$reg-2} {i-swapA$reg} {p-opswapBCD}
+  $rec {p-opswapA$reg-2} {a-swapBCDE} {t-opswapA$reg-2} {i-swapA$reg} {p-opswapBCDE}
 endmacro
-$swapbcd-op B
-$swapbcd-op C
-$swapbcd-op D
+$swapBCDE-op B
+$swapBCDE-op C
+$swapBCDE-op D
+$swapBCDE-op E
 
-# swapBCD->RF, saves swapped values back to RF
-$sendc {p-opswapBCD} {a-swapBCD} {t-opswapBCD} A {p-opswapBCD-2}
-$loadrf {p-opswapBCD}
+# The rest of the swap sequence has to done with dummies, we used 8 transcievers
 
-# EX->swapBCD, restore swapBCD
-$storeex {p-opswapBCD-2}
-$rec {p-opswapBCD-2} {a-swapBCD} {t-opswapBCD-2} {i-main} {p-fetch}
+# swapBCDE->RF, saves swapped values back to RF
+$dummy {p-opswapBCDE} {a-dummy2} {t-opswapBCDE} 1 {p-opswapBCDE-2}
+$pulseamp {p-opswapBCDE} {p-store-swapBCDE}
+$loadrf {p-opswapBCDE}
+
+# EX->swapBCDE, restore swapBCDE
+$dummy {p-opswapBCDE-2} {a-dummy3} {t-opswapBCDE-2} 1 {p-fetch}
+$storeex {p-opswapBCDE-2}
+$pulseamp {p-opswapBCDE-2} {p-load-swapBCDE}
 
 
 # - CLR A -
@@ -909,7 +920,7 @@ $consume-op {p-op40-3}
 $recx {p-op40-3} {a-rf} {r-load} {i-shiftl8}    # save lowest word into A
 
 # wait for 2 cycles of consume-op, then next op
-$dummy {p-op40-3} {a-dummy} {t-op40-3} 2 {p-fetch}
+$dummy {p-op40-3} {a-dummy3} {t-op40-3} 2 {p-fetch}
 
 
 # - INC -
