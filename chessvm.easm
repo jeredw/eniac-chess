@@ -869,14 +869,24 @@ $pulseamp {p-sub-finishjmp-3} {p-fetchline}
 
 # -- OPCODE IMPLEMENTATIONS --
 
-#$break {p-op40}  # CLR
-#$break {p-op52}  # INC
-#$break {p-op53}  # DEC
-#$break {p-op73}  # JMP
-#$break {p-op80}  # JN
-#$break {p-op84}  # JSR
+#$break {p-op00}  # NOP
+#$break {p-op01}  # SWAP A,B
+#$break {p-op02}  # SWAP A,C
+#$break {p-op03}  # SWAP A,D
+#$break {p-op04}  # SWAP A,E
+#$break {p-op10}  # LOADACC
+#$break {p-op12}  # SWAPALL
+#$break {p-op35}  # CLR A
+#$break {p-op40}  # MOV #xx,A
+#$break {p-op52}  # INC A
+#$break {p-op53}  # DEC A
+#$break {p-op73}  # JMP xx
+#$break {p-op74}  # JMP xxxx
+#$break {p-op80}  # JN xx
+#$break {p-op84}  # JSR xxxx
 #$break {p-op85}  # RET
 #$break {p-op92}  # PRINT
+#$break {p-op95}  # HALT
 
 
 # - NOP -
@@ -1137,6 +1147,7 @@ $rec {p-op92-4} a13 {t-op92-4} {i-main} {p-fetch}
 # Wire halt to quit the simulator so we can run programs and exit when they're
 # done.
 # p {p-op95} debug.quit
+
 
 # -- ACCUMULATOR DECODE --
 # lookup table used to trigger accumulators on loadacc / storeacc
