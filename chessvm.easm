@@ -237,9 +237,10 @@ p {d-main} ad.permute.{ad-swapAE}
 s ad.permute.{ad-swapAE} 11,2,1,8,7,6,5,4,3,10,9
 p ad.permute.{ad-swapAE} {a-swapBCDE}.{i-swapAE}
 
-# load/store 
-$recx {p-load-swapBCDE} {a-swapBCDE} {r-load-swapBCDE} {i-main}
-$sendcx {p-store-swapBCDE} {a-swapBCDE} {r-store-swapBCDE} A
+# load/store using t- because out of r-
+# TODO do these need to be reused still?
+$recx {p-load-swapBCDE} {a-swapBCDE} {t-load-swapBCDE} {i-main}
+$sendcx {p-store-swapBCDE} {a-swapBCDE} {t-store-swapBCDE} A
 
 
 # - MEM6 -
@@ -926,12 +927,22 @@ $rec {p-opswapall-3} {a-ls} {t-opswapall-3} {i-main} {p-fetch}
 # 2. per-op: RF-swapA[BCDE]->swapBCDE, this is where the actual swap is
 # 3. shared: swapBCDE->RF
 # 4. shared: EX->swapBCDE
-# This uses 10 programs total, rather than 16 if we do all sequences separately
+# Use 7 transceivers (6 on swapBCDE + 1 dummy) and 11 programs total, leaving 2
+# transceivers free for load/store on swapBCDE.  Using transceivers for
+# p-opswap-Ax-2 programs would need only 10 programs total (8 on swapBCDE + 2
+# dummies) but this way uses one fewer dummy.
 
 p {p-op01} {p-opswapAB}
 p {p-op02} {p-opswapAC}
 p {p-op03} {p-opswapAD}
 p {p-op04} {p-opswapAE}
+
+# Dummy to trigger shared program in cycle 3
+$pulseamp {p-opswapAB} {p-opswapXX}
+$pulseamp {p-opswapAC} {p-opswapXX}
+$pulseamp {p-opswapAD} {p-opswapXX}
+$pulseamp {p-opswapAE} {p-opswapXX}
+$dummy {p-opswapXX} {a-dummy2} {t-opswapXX} 2 {p-opswapBCDE}
 
 defmacro swapBCDE-op reg
   # swapBCDE->EX, save swapBCDE
@@ -940,24 +951,20 @@ defmacro swapBCDE-op reg
 
   # RF->swapBCDE, on swap input -- actually does the swap
   $storerf {p-opswapA$reg-2}
-  $rec {p-opswapA$reg-2} {a-swapBCDE} {t-opswapA$reg-2} {i-swapA$reg} {p-opswapBCDE}
+  $recx {p-opswapA$reg-2} {a-swapBCDE} {r-opswapA$reg-2} {i-swapA$reg}
 endmacro
 $swapBCDE-op B
 $swapBCDE-op C
 $swapBCDE-op D
 $swapBCDE-op E
 
-# The rest of the swap sequence has to done with dummies, we used 8 transcievers
-
 # swapBCDE->RF, saves swapped values back to RF
-$dummy {p-opswapBCDE} {a-dummy2} {t-opswapBCDE} 1 {p-opswapBCDE-2}
-$pulseamp {p-opswapBCDE} {p-store-swapBCDE}
+$sendc {p-opswapBCDE} {a-swapBCDE} {t-opswapBCDE} A {p-opswapBCDE-2}
 $loadrf {p-opswapBCDE}
 
 # EX->swapBCDE, restore swapBCDE
-$dummy {p-opswapBCDE-2} {a-dummy3} {t-opswapBCDE-2} 1 {p-fetch}
 $storeex {p-opswapBCDE-2}
-$pulseamp {p-opswapBCDE-2} {p-load-swapBCDE}
+$rec {p-opswapBCDE-2} {a-swapBCDE} {t-opswapBCDE-2} {i-main} {p-fetch}
 
 
 # - CLR A -
