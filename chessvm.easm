@@ -142,7 +142,7 @@ p {d-main} ad.permute.{ad-ir}
 s ad.permute.{ad-ir} 11,2,1,10,9,8,7,6,5,4,3
 p ad.permute.{ad-ir} {a-ex}.{i-rotate-ir}
 
-# clearA input: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV X,A and other writes to A
+# clearA input: XX XX XX XX XX -> 00 XX XX XX XX, used in control cycle
 p {d-main} ad.permute.{ad-clearA}
 s ad.permute.{ad-clearA} 11,0,0,8,7,6,5,4,3,2,1
 p ad.permute.{ad-clearA} {a-ex}.{i-clearA}

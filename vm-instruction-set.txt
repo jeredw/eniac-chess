@@ -71,7 +71,8 @@ Typical contents, plus wiring for inputs and outputs
 
 
 PC:
-Current program counter PPPP and return address RRRR, plus a temp SS
+Current program counter PPPP and return address RRRR, plus a temp SS which is
+usually I1, the next instruction to execute.
 layout: SS RRRR PPPP
 
 A - main (to mp steppers, op<=55)
@@ -80,7 +81,7 @@ a - main
 b - shiftl8-ir: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
 g - clearA: XX RRRR PPPP -> 00 RRRR PPPP, wired to EX.S for control cycle
 d - loadPC2: SS RRRR PPPP -> 00 0000 00PP, used for JMP/JN/JZ/JIL
-e - loadPC4: SS RRRR PPPP -> 00 0000 PPPP, used for JMP FAR/JSR
+e - loadPC4: SS RRRR PPPP -> 00 0000 PPPP, used for JMP FAR
 
 
 IR:
@@ -88,9 +89,9 @@ Up to five next instructions. M0 if empty, otherwise P I6 I5 I4 I3 I2.
 99 fills in from the left as instructions are consumed so we can easily detect
 an empty IR by adding 1, giving P999... + 1 = M0.
 
-A - d-irA, I6 I5 I4 I3 I2 I1 -> I1 I6 I5 I4 I3 I2, used in control cycle
-    also main (digits but not sign)
-S - d-irS, I6 I5 I4 I3 I2 I1 -> I1 I6 I5 I4 I3 I2, used in control cycle
+A - d-irA (sign used in control cycle)
+    main (digits but not sign)
+S - d-irS, used in control cycle
 AS - fetch discriminate
 a - main
 b - from FT
@@ -101,15 +102,15 @@ EX:
 General purpose execution register, also used to disc opcode >55
 typically: 100-I1 XX XX XX XX 
 
-A - main
-S - exS
+A - d-exA (sign used in control cycle)
+    main (digits but not sign)
+S - exS, used in control cycle
 AS - op discriminate
 a - main
-b - rotate irA: I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, used in control cycle
-g - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used for MOV A,#X and other writes to A
+b - rotate-ir: I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, used in control cycle
+g - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used in control cycle
 d - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
 e - clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
-? - shiftl4:  XX YY YY 43 32 -> XX 43 21 00 00, used for JSR
 
 
 RF:
@@ -117,12 +118,13 @@ Main register file
 layout: PM AA BB CC DD EE
 
 A - main
-S - main
-a - nop
-b - selA
-g - movAB 
-d - movAC
-e - clearA: PM XX XX XX XX XX -> P 00 XX XX XX XX, for CLR A, NEG A
+S -
+a - main
+b - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used for CLR A, NEG A
+g - shiftl8: XX bb cc dd ee -> bb cc dd ee 00, used for MOV A,#X
+? - selA
+? - movAB
+? - movAC
 
 
 LS:
