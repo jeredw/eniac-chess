@@ -174,7 +174,7 @@ b - loadAB: read from FT output
 
 A10
 MEM4:
-SWAPBCD:
+SWAPBCDE:
 a - nop
 b-e - swapA[BCDE]
 
@@ -231,9 +231,10 @@ MEM10:
 LOAD09:
 load acc 0-9
 a - main 
-b - loadAB: read from FT output
+b - ftselacc: assemble 10 digits from FT output
 g - clearA: XX XX XX XX XX -> 00 XX XX XX XX
 d - movAE: AA BB CC DD EE -> EE BB CC DD EE
+e - shiftr8 - put A in low digits. Used to send A as arg to FT
 
 
 A17

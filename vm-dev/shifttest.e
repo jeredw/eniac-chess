@@ -1,5 +1,7 @@
 # experiment with shift adapter cables
 
+s cy.op 1a
+
 # initiating pulse to 1-1
 p i.io 1-1
 
@@ -42,8 +44,8 @@ p ad.s.1.2 a2.a
 # shift right 2
 p 1-2 a4.1i   
 s a4.op1 a
-p 1 ad.s.2.-2     # a4 = a1>>2
-p ad.s.2.-2 a4.a  
+p 1 ad.s.2.-0     # now test shift "-0", was: # a4 = a1>>2
+p ad.s.2.-0 a4.a  
 
 # keep first 4 digits
 p 1-2 a6.1i   
@@ -65,7 +67,7 @@ p 1-2 a10.1i
 s a10.op1 a
 p 1 ad.s.6.-8
 p ad.s.6.-8 a10.a  
-p 1 ad.s.6.8
+# p 1 ad.s.6.8
 
 # AABBCCDDEE -> 0000CCBBAA into a12, via d3
 # computed as AA sd.x.8 + BB (sd.x.6 then s.x.2) + CC (sd.x4 then s.x.4)
