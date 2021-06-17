@@ -279,38 +279,44 @@ d - ftsg1: x xx xx xx xD xx -> PM
 
 CONTROL CYCLE
 -------------
+The control loop usually resumes from cycle 1.  It takes 6 cycles to dispatch
+instructions from the IR, and 12 cycles to dispatch instructions when we must
+load IR from an FT, ignoring the actual instruction time.  NOP takes 0 cycles,
+so a program consisting entirely of NOPs takes 6*5+12*1 cycles per 6 NOPs, or 7
+cpi.  With 5kHz add cycles this would be about 714 instructions/second.
 
-1. clear EX
-2. IR -> EX, IR-shiftl8->PC, discriminate IR (P->p-nofetch-eat-op, M->p-fetchline)
+0. clear EX
+1. [p-fetch] IR -> EX, IR-shiftl8->PC,
+             discriminate IR (P->p-nofetch-eat-op, M->p-fetchline)
   (IR>=0, p-nofetch-eat-op: triggers both p-nofetch and p-eat-op via pulse amps)
-  3. [p-nofetch] EX += 43                     [p-nofetch-eat-op] nop
-  4. [p-disc-op] disc EX,                     [p-eat-op] M00000 -fill99-> IR,
+  2. [p-nofetch] EX += 43                     [p-nofetch-eat-op] nop
+  3. [p-disc-op] disc EX,                     [p-eat-op] M00000 -fill99-> IR,
                  clear EX,                               EX -fill99-> IR,
                  clear mp                                IR += 1
     (EX>=0, op<=55)                           
-    5. [p-oplt55] PC -clearA-> EX,
+    4. [p-oplt55] PC -clearA-> EX,
                   PC-A->master programmer
-    6. [p-oplt55] EX -> PC,
+    5. [p-oplt55] EX -> PC,
                   clear EX,
                   trigger master programmer
-    7. (decode)
-    8. operation begins in this add time
+    6. (decode)
+    7. operation begins in this add time
   else
     (EX<0, op>55)
-    5. [p-opgt55] PC-S->EX,
+    4. [p-opgt55] PC-S->EX,
                   PC-S->master programmer
-    6. [p-opgt55] EX-S-clearA->PC,
+    5. [p-opgt55] EX-S-clearA->PC,
                   clear EX,
                   trigger master programmer
-    7. (decode)
-    8. operation begins in this add time
+    6. (decode)
+    7. operation begins in this add time
 else
-  3. [p-fetchline]  MEM17-S->dummy, MEM18-S->dummy, MEM19-S->dummy
-  4. [p-fetchtrig]  stim FT
-  5. [p-fetcharg]   PC->FT
-  6. [p-preinc-fetch]  EX += P01..., PC += P01...
-  7. wait
-  8. [p-fetchread]   FT -> IR,EX,PC, IR += 1, PC += 1
+  2. [p-fetchline]  MEM17-S->dummy, MEM18-S->dummy, MEM19-S->dummy
+  3. [p-fetchtrig]  stim FT
+  4. [p-fetcharg]   PC->FT
+  5. [p-preinc-fetch]  EX += P01..., PC += P01...
+  6. wait
+  7. [p-fetchread]   FT -> IR,EX,PC, IR += 1, PC += 1
                      goto p-nofetch*
 
 * note this does not trigger p-eat-op so the top of IR is preserved.

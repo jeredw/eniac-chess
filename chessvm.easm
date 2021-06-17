@@ -363,6 +363,10 @@ endmacro
 
 # Strictly speaking only discft3 needs both i-ftsg1 and i-ftsg2 inputs but we
 # are not constrained on inputs for these accumulators.
+# XXX This choice of dummy accums means that a dummy transceiver will be active
+# in the same add cycle as a send/S program on one discft accumulator.  I think
+# this should be ok, but it is not well specified... consider using other
+# accums for dummies to be on the safe side?
 $discftaccum discft1 discft2 1
 $discftaccum discft2 discft3 2
 $discftaccum discft3 discft1 3
