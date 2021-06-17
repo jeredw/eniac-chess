@@ -339,6 +339,12 @@ class TestBuiltins(AssemblerTestCase):
                      ["file:1: invalid address 'pants': invalid literal for int() with base 10: 'pants'"])
 
 
+def pad(values):
+  line = {(100, n): 99 for n in range(6)}
+  line.update(values)
+  return line
+
+
 class TestV4(AssemblerTestCase):
   def setUp(self):
     self.context = Context()
@@ -665,13 +671,13 @@ class TestV4(AssemblerTestCase):
   def testJmp(self):
     self.isa.dispatch("", "jmp", "99")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 73, (100, 1): 98})
+    self.assertOutputValues(pad({(100, 0): 73, (100, 1): 98}))
 
   def testJmpLabel(self):
     self.context.labels = {"label": 199}
     self.isa.dispatch("", "jmp", "label")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 73, (100, 1): 98})
+    self.assertOutputValues(pad({(100, 0): 73, (100, 1): 98}))
 
   def testJmpLabel_ErrorUnrecognized(self):
     self.isa.dispatch("", "jmp", "label")
@@ -685,28 +691,28 @@ class TestV4(AssemblerTestCase):
   def testJmpFarFt1(self):
     self.isa.dispatch("", "jmp", "far 142")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 74, (100, 1): 41, (100, 2): 9})
+    self.assertOutputValues(pad({(100, 0): 74, (100, 1): 41, (100, 2): 9}))
 
   def testJmpFarFt2(self):
     self.isa.dispatch("", "jmp", "far 242")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 74, (100, 1): 41, (100, 2): 90})
+    self.assertOutputValues(pad({(100, 0): 74, (100, 1): 41, (100, 2): 90}))
 
   def testJmpFarFt3(self):
     self.isa.dispatch("", "jmp", "far 342")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 74, (100, 1): 41, (100, 2): 99})
+    self.assertOutputValues(pad({(100, 0): 74, (100, 1): 41, (100, 2): 99}))
 
   def testJmpFarWithNearTarget(self):
     self.isa.dispatch("", "jmp", "far 42")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 74, (100, 1): 41, (100, 2): 9})
+    self.assertOutputValues(pad({(100, 0): 74, (100, 1): 41, (100, 2): 9}))
 
   def testJmpFarLabel(self):
     self.context.labels = {"label": 342}
     self.isa.dispatch("", "jmp", "far label")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 74, (100, 1): 41, (100, 2): 99})
+    self.assertOutputValues(pad({(100, 0): 74, (100, 1): 41, (100, 2): 99}))
 
   def testJmpFarLabel_ErrorUnrecognized(self):
     self.isa.dispatch("", "jmp", "far label")
@@ -715,7 +721,7 @@ class TestV4(AssemblerTestCase):
   def testJmpA(self):
     self.isa.dispatch("", "jmp", "+A")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 75})
+    self.assertOutputValues(pad({(100, 0): 75}))
 
   def testJn(self):
     self.isa.dispatch("", "jn", "199")
@@ -800,13 +806,13 @@ class TestV4(AssemblerTestCase):
   def testJsr(self):
     self.isa.dispatch("", "jsr", "342")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 84, (100, 1): 41, (100, 2): 99})
+    self.assertOutputValues(pad({(100, 0): 84, (100, 1): 41, (100, 2): 99}))
 
   def testJsrLabel(self):
     self.context.labels = {"label": 142}
     self.isa.dispatch("", "jsr", "label")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 84, (100, 1): 41, (100, 2): 9})
+    self.assertOutputValues(pad({(100, 0): 84, (100, 1): 41, (100, 2): 9}))
 
   def testJsr_ErrorUnrecognizedLabel(self):
     self.isa.dispatch("", "jsr", "bogus")
@@ -815,7 +821,7 @@ class TestV4(AssemblerTestCase):
   def testRet(self):
     self.isa.dispatch("", "ret", "")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 85})
+    self.assertOutputValues(pad({(100, 0): 85}))
 
   def testRet_ErrorInvalidArgument(self):
     self.isa.dispatch("", "ret", "bogus")

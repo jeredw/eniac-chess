@@ -71,20 +71,19 @@ class Assembler(object):
       label, op, arg = m.groups()
 
       if label:
-        if op not in (".align", ".equ", ".org"):
-          # Jumps are only allowed to the start of a function table row, so
-          # labels can only point there.  It'd be nicer syntax if labels forced
-          # instructions to be aligned, but code space is tight and we might
-          # make better coding decisions if we're forced to think about it.
-          self.out.error("only '.align', '.equ', or '.org' may be labeled")
-          continue
         if len(label) == 1 or all(c.isdigit() for c in label):
           # Labels that are all digits would be ambiguous with addresses.
           # Labels that are single characters would be ambiguous with registers.
-          self.out.error("invalid label name '{}'".format(label))
+          self.out.error(f"invalid label name '{label}'")
           continue
+        if op not in (".align", ".equ", ".org"):
+          # Jumps are only allowed to the start of a function table row, so
+          # labels can only point there.
+          self.out.pad_to_new_row()
 
-      if op.startswith('.'):  # directive 
+      if label and not op:
+        self.builtins.dispatch(label, '.align', '')  # defining a label
+      elif op.startswith('.'):  # directive
         self.builtins.dispatch(label, op, arg)
       elif self.context.isa:  # delegate to table for ISA
         self.context.isa.dispatch(label, op, arg)
@@ -148,22 +147,24 @@ class Output(object):
     self.word_of_output_row = 0
     self.operand_correction = 0
 
+  def pad_to_new_row(self):
+    """Aligns output to start of a new function table row."""
+    # If already at the start of a row, no need to pad.
+    while self.word_of_output_row != 0:
+      self.emit(99)
+
   def emit(self, *values, comment=""):
     """Emit one or more opcode/argument words.
 
-    Assume all the given values must go on the same function table row.  If
-    necessary, pad out the current row with 0s (i.e. nops) and move to a new
-    row to guarantee this.
-
-    NB: Also values that go on the same row need to be in the same emit() call.
+    Places values on the same function table row, if necessary padding out the
+    current row with 99s and moving to a new row to guarantee this.
     """
     assert len(values) <= 6
     assert 0 <= self.word_of_output_row < 6
     space_left_in_row = 6 - self.word_of_output_row
     if len(values) > space_left_in_row:
       # values don't all fit, pad row with 99s and move to new row.
-      while self.word_of_output_row != 0:
-        self.emit(99)
+      self.pad_to_new_row()
 
     for i, v in enumerate(values):
       assert 0 <= v <= 99
@@ -307,7 +308,7 @@ class PrimitiveParsing(object):
       self.out.error("unrecognized label '{}'".format(arg))
       return 0
 
-  def bind(self, opcode='', want_arg=''):
+  def op(self, opcode='', want_arg=''):
     """Make a function to parse a simple instruction.
 
     Used to make filling out dispatch tables simpler.  opcode is the opcode to
@@ -353,9 +354,7 @@ class Builtins(PrimitiveParsing):
     if arg != "":
       self.out.error("invalid .align argument '{}'".format(arg))
       return
-    # If already at the start of a row, no need to pad.
-    while self.out.word_of_output_row != 0:
-      self.out.emit(0)
+    self.out.pad_to_new_row()
     if self.context.assembler_pass == 0:
       if label in self.context.labels:
         self.out.error("redefinition of '{}'".format(label))
@@ -409,34 +408,34 @@ class V4(PrimitiveParsing):
   def __init__(self, context, out):
     PrimitiveParsing.__init__(self, context, out)
     self.dispatch_table = {
-      "nop": self.bind(opcode=0),
+      "nop": self.op(opcode=0),
       "swap": self._swap,
-      "loadacc": self.bind(want_arg=r"A", opcode=10),
-      "storeacc": self.bind(want_arg=r"A", opcode=11),
-      "swapall": self.bind(opcode=12),
-      "scanall": self.bind(opcode=13),
-      "ftload": self.bind(want_arg=r"A", opcode=14),
+      "loadacc": self.op(want_arg=r"A", opcode=10),
+      "storeacc": self.op(want_arg=r"A", opcode=11),
+      "swapall": self.op(opcode=12),
+      "scanall": self.op(opcode=13),
+      "ftload": self.op(want_arg=r"A", opcode=14),
       "ftlookup": self._ftlookup,
       "mov": self._mov,
-      "indexswap": self.bind(opcode=34),
-      "clr": self.bind(want_arg=r"A", opcode=35),
-      "indexacc": self.bind(opcode=45),
+      "indexswap": self.op(opcode=34),
+      "clr": self.op(want_arg=r"A", opcode=35),
+      "indexacc": self.op(opcode=45),
       "inc": self._inc,
-      "dec": self.bind(want_arg=r"A", opcode=53),
-      "add": self.bind(want_arg=r"A,\s*D", opcode=70),
-      "neg": self.bind(want_arg=r"A", opcode=71),
-      "sub": self.bind(want_arg=r"A,\s*D", opcode=72),
+      "dec": self.op(want_arg=r"A", opcode=53),
+      "add": self.op(want_arg=r"A,\s*D", opcode=70),
+      "neg": self.op(want_arg=r"A", opcode=71),
+      "sub": self.op(want_arg=r"A,\s*D", opcode=72),
       "jmp": self._jmp,
       "jn": self._jn,
       "jz": self._jz,
       "jil": self._jil,
       "loop": self._loop,
       "jsr": self._jsr,
-      "ret": self.bind(opcode=85),
-      "read": self.bind(want_arg=r"AB", opcode=91),
-      "print": self.bind(want_arg=r"AB", opcode=92),
-      "nextline": self.bind(opcode=94),
-      "halt": self.bind(opcode=95),
+      "ret": self._ret,
+      "read": self.op(want_arg=r"AB", opcode=91),
+      "print": self.op(want_arg=r"AB", opcode=92),
+      "nextline": self.op(opcode=94),
+      "halt": self.op(opcode=95),
     }
 
   def dispatch(self, label, op, arg):
@@ -539,6 +538,7 @@ class V4(PrimitiveParsing):
     else:
       address = self._address_or_label(arg, far=False)
       self.out.emit(73, address % 100, comment=self._comment(op, arg, arg, address))
+    self.out.pad_to_new_row()  # The rest of the row is unreachable
 
   def _jn(self, label, op, arg):
     address = self._address_or_label(arg, far=False)
@@ -560,6 +560,11 @@ class V4(PrimitiveParsing):
     address = self._address_or_label(arg, far=True)
     self.out.emit(84, address % 100, self.encode_ft_number(address // 100),
                   comment=self._comment(op, arg, arg, address))
+    self.out.pad_to_new_row()  # The rest of the row is unreachable
+
+  def _ret(self, label, op, arg):
+    self._generic(label, op, arg, opcode=85)
+    self.out.pad_to_new_row()  # The rest of the row is unreachable
 
   def _comment(self, op, arg, symbol, word):
     # helper to symbolize comments

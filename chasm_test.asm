@@ -12,6 +12,8 @@
 ; label definitions start in column zero
 ; a label defined with .align is the row number after alignment
 label .align
+; ditto labels without a directive - these also force alignment
+implicitly_aligned
 ; a label defined with .equ is a constant
 king .equ 10
 ; .equ can reference previously defined labels
@@ -24,12 +26,11 @@ flub .equ king
 ;constant2 .equ 999
 ; can't redefine labels
 ;constant .equ 11  ; illegal
-; can't label instructions
-;label nop  ; illegal because too error prone
+; instructions can have labels too
+labeled_instr nop
 
+test_each_instruction
   ; instructions must be indented
-  ; test each instruction
-  .align
   nop
   swap A, B
   swap A, C
@@ -178,6 +179,11 @@ flub .equ king
   nop
   nop
   loop  99
+
+  .align
+  nop
+force
+  jmp force
 
 target .org 99
 faraway .org 300
