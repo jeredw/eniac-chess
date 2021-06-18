@@ -138,38 +138,35 @@ a-e select?
 
 A6
 MEM0:
-DISCLOADACC:
-AS - Discriminate LOADACC
+# Discriminate memory cycle 0-9 vs. 10-14
+AS - Discriminate memcyc
 A - main
-a - nop
-b - loadAccIdx: move digit 10 into sign, digit 9 into 1, all others zero
-c - addrToAccIdx: XX B2 B1 XX XX XX -> B2 0 00 00 00 0 B1, used to calc 2*B2 + (B1>4)
-
+a - main
 
 A7
-MEM1:
-DISCSTOREACC:
+MEM1
+MEMCYC1014
+# Trigger mem cycle 10-14 on S outputs
 A - main
-AS - Discriminate STOREACC
+S - trigger memcyc 10-14
 a - main
+b - ftselacc: read from FT output
 
 
 A8
 MEM2:
-LOAD1014:
+DISCJZ1
 A - main
-S1-S5 load acc 10-14
+AS - disc JZ part 1
 a = main
-b - loadAB: read from FT output
 
 
 A9
-MEM3:
-STORE1014:
+MEM3
+DISCJZ2
 A - main
-S - store acc 10-14
+AS - disc JZ part 2
 a - main
-b - loadAB: read from FT output
 
 
 A10
@@ -181,18 +178,14 @@ b-e - swapA[BCDE]
 
 A11
 MEM5:
-DISCJZ1:
 A - main
-AS = disc JZ1
 a - main
 
 
 A12
-MEM6:
-DISCJZ2:
-SHIFTPC:
+MEM6
+SHIFTPC
 A - main
-AS = disc JZ2
 a - main
 b - extract-pc: XX XX XX PP PP -> 00 00 00 PP PP
 g - shiftr4-pc: XX RRRR PPPP -> 00 0000 RRRR
@@ -200,7 +193,7 @@ d - shiftl4-pc: XX XXXX PPPP -> XX PPPP 0000
 
 
 A13
-MEM7:
+MEM7
 a - main
 b - printAB: AA BB CC DD EE -> 0A AB B 0 00 00 for printing AB with leading 0
 g - selAF: select A/F, AA BB CC DD EE -> AA 00 00 00 00, used MOV F,A
@@ -209,7 +202,7 @@ b - selCH: select C/H, AA BB CC DD EE -> CC 00 00 00 00, used MOV H,A
 
 
 A14
-MEM8:
+MEM8
 A - main
 a - main
 b - selDI: select D/I, AA BB CC DD EE -> DD 00 00 00 00, used MOV I,A
@@ -217,8 +210,8 @@ g - selEJ: select E/J, AA BB CC DD EE -> EE 00 00 00 00, used MOV J,A
 
 
 A15
-MEM9:
-DISCJN:
+MEM9
+DISCJN
 AS - disc JN
 A - main
 S - main, selA, PM XX XX XX XX XX -> PM XX 00 00 00 00, used for NEG A
@@ -227,23 +220,22 @@ b - clearA: XX XX XX XX XX -> 00 XX XX XX XX
 
 
 A16
-MEM10:
-LOAD09:
-load acc 0-9
+# Trigger mem cycle 0-9 on S outputs
+MEM10
+MEMCYC09
+A - main
+S - trigger memcyc 0-9
 a - main 
 b - ftselacc: assemble 10 digits from FT output
-g - clearA: XX XX XX XX XX -> 00 XX XX XX XX
-d - movAE: AA BB CC DD EE -> EE BB CC DD EE
-e - shiftr8 - put A in low digits. Used to send A as arg to FT
+g - shiftr8 - put A in low digits. Used to send A as arg to FT
+d - clearA: XX XX XX XX XX -> 00 XX XX XX XX
+e - movAE: AA BB CC DD EE -> EE BB CC DD EE
 
 
 A17
 MEM11:
-STORE09:
 A - main
-S - store 0-9
 a - main
-b - loadAB: read from FT output
 e - selA (preserve sign)
 
 

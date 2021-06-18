@@ -11,6 +11,8 @@ set a13 1313131313
 set a15 1515151515
 set a16 1616161616
 
+
+
 # ENIAC-VM for playing chess
 # Jonathan Stray and Jered Wierzbicki
 # created 2020-3-30 
@@ -24,7 +26,6 @@ set a16 1616161616
 
 include macros.easm
 
-
 # -- ACCUMULATOR LAYOUT --
 # Defines all accumulators and patches to and from data trunks
 # That patching encodes the possible permutations on acc inputs and outputs,
@@ -34,26 +35,41 @@ include macros.easm
 # Main data bus, used for most transfers
 {d-main}=1
 
+# macro to setup main bus connections - no "a-" before acc
+defmacro acc-main acc
+  p {a-$acc}.A {d-main}
+  p {d-main} {a-$acc}.{i-main}
+endmacro
+
+# main bus connections for acc used for discrimination. We need to remove sign,
+# and create another bus for the S output. Otherwise any sign pulse on d-main would
+# trigger one of our discrimination programs. 
+defmacro acc-disc-main acc
+  p {a-$acc}.A {d-$accA}
+  p {d-$accA} ad.permute.{ad-drop-$acc-sign}
+  s ad.permute.{ad-drop-$acc-sign} 0,10,9,8,7,6,5,4,3,2,1
+  p ad.permute.{ad-drop-$acc-sign} {d-main}
+
+  p {a-$acc}.S {d-$accS}
+
+  p {d-main} {a-$acc}.{i-main}
+endmacro
+
+
 # - Program counter -
 # Layout: SS RRRR PPPP
 # Current program counter PPPP and return address RRRR, plus a temp SS used for op decode
 # Four digit address is FFLL: FF = which ft (09=ft1, 90=ft2, 99=ft3), LL = ft line
 
 {a-pc}=a1
+$acc-main pc
 
 # A - mp steppers, op<=55
-p {a-pc}.A {d-main}
-
 # S - mp steppers, op>55
 # Decode needs the digits of the SS field to be swapped.
 p {a-pc}.S ad.permute.{ad-swap-pc-ss-digits}
 s ad.permute.{ad-swap-pc-ss-digits} 11,9,10,8,7,6,5,4,3,2,1
 p ad.permute.{ad-swap-pc-ss-digits} {d-main}
-
-# Note there is no discrimination on PC
-
-# main input
-p {d-main} {a-pc}.{i-main}
 
 # shiftl8-ir input: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
 p {d-main} ad.s.{ad-pc-shiftl8-ir}.8
@@ -68,7 +84,7 @@ p ad.permute.{ad-exS-clearA} {a-pc}.{i-exS-clearA}
 p {d-main} ad.d.{ad-pc-loadPC2}.-8
 p ad.d.{ad-pc-loadPC2}.-8 {a-pc}.{i-loadPC2}
 
-# loadPC4: SS RRRR PPPP -> 00 0000 PPPP, used for JMP FAR/JSR
+# loadPC4: SS RRRR PPPP -> 00 0000 PPPP, used for JMP FAR/JSR/RET
 p {d-main} ad.d.{ad-pc-loadPC4}.-6
 p ad.d.{ad-pc-loadPC4}.-6 {a-pc}.{i-loadPC4}
 
@@ -90,20 +106,7 @@ s {a-pc}.op{r-loadpc} {i-main}
 # So we use the sign of IR to decide whether we need to fetch (discriminate on IR)
 
 {a-ir}=a2
-
-# A(11) - discrimination, A(10-1) main
-p {a-ir}.A {d-irA}
-# Because our PM output lines trigger programs, we don't want to get
-# signals back on them from the main bus, so we don't connect sign to main
-p {d-irA} ad.permute.{ad-drop-ir-sign}
-s ad.permute.{ad-drop-ir-sign} 0,10,9,8,7,6,5,4,3,2,1
-p ad.permute.{ad-drop-ir-sign} {d-main}
-
-# S output to its own bus, unpermuted
-p {a-ir}.S {d-irS}
-
-# main input
-p {d-main} {a-ir}.{i-main}
+$acc-disc-main ir
 
 # fetch input: from d-fetch, used for loading new line of instructions permuted from function table
 p {d-fetch} {a-ir}.{i-fetch}
@@ -122,20 +125,7 @@ p ad.permute.{ad-fill99-main} {a-ir}.{i-fill99}
 # Also used to disc opcode >55
 
 {a-ex}=a3
-
-# A(11) - discrimination, A(10-1) main
-p {a-ex}.A {d-exA}
-p {d-exA} ad.permute.{ad-drop-ex-sign}
-s ad.permute.{ad-drop-ex-sign} 0,10,9,8,7,6,5,4,3,2,1
-p ad.permute.{ad-drop-ex-sign} {d-main}
-
-# S - exS
-p {a-ex}.S {d-exS}
-
-# AS - discriminate opcode > 55
-
-# main
-p {d-main} {a-ex}.{i-main}
+$acc-disc-main ex
 
 # rotate-ir input: I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2 for control cycle
 # Shift the instructions right, then we execute and clear I1, removing one from the queue
@@ -179,9 +169,7 @@ s {a-ex}.cc{t-storeex} C
 # - Register File -
 # Registers A-E of the virtual machine. A is our accumulator.
 {a-rf}=a4
-p {a-rf}.A {d-main}
-
-p {d-main} {a-rf}.{i-main}
+$acc-main rf
 
 # i-clearA, for CLR A
 p {d-main} ad.d.{ad-rf-clearA}.-2
@@ -212,47 +200,49 @@ s {a-rf}.cc{r-sendc-rf} C
 # - Load/Store -
 # Registers F-J of the virtual machine. 
 {a-ls}=a5
-
-p {a-ls}.A {d-main}
-
-p {d-main} {a-ls}.{i-main}
+$acc-main ls
 
 
 # - MEM0 -
-# Discriminate loadacc 0-9 vs. 10-14
+# Discriminate memory cycle 0-9 vs. 10-14
 {a-mem0}=a6
-{a-discloadacc}=a6
+{a-discmemcyc}=a6
+$acc-disc-main discmemcyc
+
+# loadA: Prepare A for disc A<10, and lookup in FT. A1 -> PM, A2 -> digit 1
+p {d-main} ad.permute.{ad-discmemcyc}
+s ad.permute.{ad-discmemcyc} 10,0,0,0,0,0,0,0,0,0,9
+p ad.permute.{ad-discmemcyc} {a-discmemcyc}.{i-loadA}
 
 
 # - MEM1 -
+# Trigger mem cycle 10-14 on S outputs
 {a-mem1}=a7
-# Disc storeacc 0-9 vs 10-14
+{a-memcyc1014}=a7
+$acc-main mem1
+
+p {a-memcyc1014}.S {d-memcyc1014S}
 
 
 # - MEM2 -
-# Trigger mem load 10-14 on S outputs
+# Discriminate JZ, part 1
 {a-mem2}=a8
-{a-load1014}=a8
-
-p {a-load14}.S {d-load1014S}
+{a-discjz1}=a8
+#$acc-disc-main discjz1
 
 
 # - MEM3 -
-# Trigger mem store 10-14 on S outputs
+# Discriminate JZ, part 2
 {a-mem3}=a9
-{a-store1014}=a9
-
-p {a-store1014}.S {d-store1014S}
+{a-discjz2}=a9
+#$acc-disc-main discjz2
 
 
 # - MEM4 -
 # Used for swap A,BCDE 
 {a-mem4}=a10
 {a-swapBCDE}=a10
-
-p {a-mem4}.A {d-main}
-
-p {d-main} {a-mem4}.{i-main}
+$acc-main mem4
 
 p {d-main} ad.permute.{ad-swapAB}
 s ad.permute.{ad-swapAB} 11,8,7,10,9,6,5,4,3,2,1
@@ -277,23 +267,15 @@ $sendcx {p-store-swapBCDE} {a-swapBCDE} {r-store-swapBCDE} A
 
 # - MEM5 -
 {a-mem5}=a11
-{a-discjz1}=a11
+$acc-main mem5
 
-# main i/o
-p {a-mem5}.A {d-main}
-p {d-main} {a-mem5}.{i-main} 
 
 # - MEM6 -
 # Shift inputs and programs for shifting the PC for JSR/RET.
 {a-mem6}=a12
 {a-shiftpc}=a12
-{a-discjz2}=a12
 
-# A output to main
-p {a-mem6}.A {d-main}
-
-# main input: d-main
-p {d-main} {a-mem6}.{i-main}
+$acc-main mem6
 
 # extract-pc input: XX XX XX PP PP -> 00 00 00 PP PP
 p {d-main} ad.permute.{ad-extract-pc}
@@ -315,10 +297,7 @@ p ad.permute.{ad-shiftl4-pc} {a-shiftpc}.{i-shiftl4-pc}
 # MEM7 is a13 and is used for printing, has an input that shifts AB into printing position
 {a-mem7}=a13
 {a-print}=a13
-
-p {a-mem13}.A {d-main}
-
-p {d-main} {a-mem7}.{i-main}
+$acc-main mem7
 
 p {d-main} ad.permute.{ad-printAB}
 s ad.permute.{ad-printAB} 11,0,10,9,8,7,0,0,0,0,0
@@ -327,89 +306,74 @@ p ad.permute.{ad-printAB} {a-mem7}.{i-printAB}
 
 # - MEM8 -
 {a-mem8}=a14
+$acc-main mem8
 
 
 # - MEM9 -
 # Used for JN
 {a-mem9}=a15
 {a-discjn}=a15
-
-# A to its own bus
-p {a-discjn}.A {d-discjnA}
-
-# Discriminator; need to delete sign when going from A to main
-p {d-discjnA} ad.permute.{ad-discjnA-sign}
-s ad.permute.{ad-discjnA-sign} 0,10,9,8,7,6,5,4,3,2,1
-p ad.permute.{ad-discjnA-sign} {d-main}
-
-# S to its own bus
-p {a-discjn}.S {d-discjnS}
-
-# main input
-p {d-main} {a-mem9}.{i-main}
+$acc-disc-main discjn
 
 
 # - MEM10 -
-# Trigger mem load 0-9 on S outputs
+# Trigger mem cycle 0-9 on S outputs
 {a-mem10}=a16
-{a-load09}=a16
+{a-memcyc09}=a16
 {a-dummy4}=a16
+$acc-main mem10
 
-p {a-load09}.A {d-main}
-p {a-load09}.S {d-load09S}
-
-p {d-main} {a-mem10}.{i-main}
+p {a-memcyc09}.S {d-memcyc09S}
 
 # i-ftselacc: get 10 digits from FT, for loadacc/storeacc
-p {d-ftselacc} {a-load09}.{i-ftselacc}
+p {d-ftselacc} {a-memcyc09}.{i-ftselacc}
 
 # i-shiftr8 - put A in low digits. Used to send A as arg to FT
-p {d-main} ad.s.{ad-load09-shiftr8}.-8
-p ad.s.{ad-load09-shiftr8}.-8 {a-load09}.{i-shiftr8}
+p {d-main} ad.s.{ad-memcyc09-shiftr8}.-8
+p ad.s.{ad-memcyc09-shiftr8}.-8 {a-memcyc09}.{i-shiftr8}
 
 
 # - MEM11 -
-# Trigger mem store 0-9 on S outputs
 {a-mem11}=a17
-{a-store09}=a17
 {a-dummy3}=a17
-
-p {a-store09}.S {d-store09S}
+$acc-main mem11
 
 
 # - MEM12 -
 {a-mem12}=a18
+$acc-main mem12
 
 
 # - MEM13 -
 {a-mem13}=a19
 {a-dummy2}=a19
+$acc-main mem13
 
 
 # - MEM14 -
 {a-mem14}=a20
 {a-dummy}=a20
+$acc-main mem14
 
 
 # - Function table decode -
-# Uses 18,19,20
+# The PM digits of M18, M19, and M20 select the current function table for
+# instruction fetch -- you can think of this as the current ROM bank. 
+# The Function Table Selection Group (FTSG), so named by Adele, is the upper two
+# digits of the PC and R registers. We use ft1 = 09, ft2 = 90, ft3 = 99.
+# This is translated by p-sub-discft using the inputs below into PM=P on the
+# selected ft, M otherwise. At fetch time we send on S on all three.
+
 {a-discft1}=a18
 {a-discft2}=a19
 {a-discft3}=a20
 
-# The PM digits of M18, M19, and M20 select the current function table for
-# instruction fetch. They also have programs to decode the FTSG field.
 defmacro discftaccum name dummy ftnum
-  p {a-$name}.A {d-main}
-
   # S.PM is wired to a dummy program to trigger an FT
   p {a-$name}.S ad.dp.{ad-$name-discft$ftnum}.11
   p ad.dp.{ad-$name-discft$ftnum}.11 {a-$dummy}.{t-$name-S}i
   s {a-$dummy}.op{t-$name-S} 0
   p {a-$dummy}.{t-$name-S}o {p-trigger-ft$ftnum}
-
-  # i-main from main bus
-  p {d-main} {a-$name}.{i-main}
 
   # i-ftsg1 puts the ftsg1 digit in PM
   p {d-main} ad.permute.{ad-$name-ftsg1}
@@ -437,7 +401,6 @@ $discftaccum discft3 discft1 3
 p {d-main} ad.permute.{ad-pc-reset}
 s ad.permute.{ad-pc-reset} 0,0,0,0,0,0,0,0,11,0,0
 p ad.permute.{ad-pc-reset} {a-discft1}.{i-resetPC}
-
 
 
 
@@ -598,7 +561,7 @@ $recx {p-reset} {a-discft3} {r-reset} {i-main}
 $recx {p-reset} {a-ir} {r-reset} {i-main}
 
 # Set discft1 to 0900 which is the initial PC, then copy to PC (out of PC inputs)
-$recx {p-reset} {a-discft1} {t-reset} {i-resetPC}
+$recx {p-reset} {a-discft1} {r-reset} {i-resetPC}
 
 # Reset PC from discft1 and clear discft1
 $sendc {p-reset-2} {a-discft1} {t-reset-2} A {p-fetch}
@@ -960,16 +923,16 @@ p {p-op10} {p-oploadacc}
 
 # prototype: only loads 1-9 (A2)
 
-# patch one digit of d-load09S to a send reciever program on mem0..mem9
+# patch one digit of d-memcyc09S to a send reciever program on mem0..mem9
 # shift to get desired digit in 1 position, then use digit select adapter
 # this also allocates the r-send programs for memory accs
-defmacro connect-load09 x
-  p {d-load09S} ad.s.{ad-load09-$x}.-$x
-  p ad.s.{ad-load09-$x}.-$x ad.dp.{ad-load09-dp$x}.1
-  p ad.dp.{ad-load09-dp$x}.1 {a-mem$x}.{t-loadstore}i
+defmacro connect-memcyc09 x
+  p {d-memcyc09S} ad.s.{ad-memcyc09-$x}.-$x
+  p ad.s.{ad-memcyc09-$x}.-$x ad.dp.{ad-memcyc09-dp$x}.1
+  p ad.dp.{ad-memcyc09-dp$x}.1 {a-mem$x}.{t-loadstore}i
 
   # Create the loadstore program for this mem acc
-  # 1. dummy program, triggered from LOAD09.S
+  # 1. dummy program, triggered from memcyc09.S
   # 2. sendc
   # 3. recx
   $dummy {p-loadstore$x} {a-mem$x} {t-loadstore} 1 {p-loadstore$x-2}
@@ -977,35 +940,35 @@ defmacro connect-load09 x
   $recx  {p-loadstore$x-3} {a-mem$x} {r-loadstore-3} {i-main}
 endmacro
 
-#$connect-load09 0  # can't use this, S sends 1'P always
-$connect-load09 1
-$connect-load09 2
-$connect-load09 3
-$connect-load09 4
-$connect-load09 5
-$connect-load09 6
-$connect-load09 7
-$connect-load09 8
-$connect-load09 9
+#$connect-memcyc09 0  # can't use this, S sends 1'P always
+$connect-memcyc09 1
+$connect-memcyc09 2
+$connect-memcyc09 3
+$connect-memcyc09 4
+$connect-memcyc09 5
+$connect-memcyc09 6
+$connect-memcyc09 7
+$connect-memcyc09 8
+$connect-memcyc09 9
 
 
-# Start by saving LOAD09 -> EX, clear
-$sendc {p-oploadacc} {a-load09} {t-send} A {p-oploadacc-2}
+# Start by saving memcyc09 -> EX, clear
+$sendc {p-oploadacc} {a-memcyc09} {t-send} A {p-oploadacc-2}
 $loadex {p-oploadacc}
 
 # also clear LS, we'll want that empty to recieve acc value
 $clearx {p-oploadacc} {a-ls} {r-clear}
 
-# Now load RF->LOAD09, shifting A to lower digits, since that's where FT expects it
+# Now load RF->memcyc09, shifting A to lower digits, since that's where FT expects it
 $send-rf {p-oploadacc-2}
-$rec {p-oploadacc-2} {a-load09} {t-oploadacc-2} {i-shiftr8} {p-oploadacc-3}
+$rec {p-oploadacc-2} {a-memcyc09} {t-oploadacc-2} {i-shiftr8} {p-oploadacc-3}
 
 # trigger FT same cycle
 p {p-oploadacc-2} f3.2i
 s f3.op2 A0
 
 # Send FT argument (tell it which line to grab) and clear to receive lookup data
-$sendcx {p-oploadacc-3} {a-load09} {r-oploadacc-3} A
+$sendcx {p-oploadacc-3} {a-memcyc09} {r-oploadacc-3} A
 
 # Start a dummy that will trigger when data is ready
 $dummy {p-oploadacc-3} {a-dummy2} {t-oploadacc-3} 3 {p-oploadacc-4}
@@ -1019,13 +982,13 @@ p ad.permute.{ad-decodeA} {d-ftselacc}
 p f3.B {d-ftselacc}
 
 # FT -> LOAD90, read FT line when it's ready
-$rec {p-oploadacc-4} {a-load09} {t-oploadacc-4} {i-ftselacc} {p-oploadacc-5}
+$rec {p-oploadacc-4} {a-memcyc09} {t-oploadacc-4} {i-ftselacc} {p-oploadacc-5}
 
-# LOAD09 -S-> trigger memXX loadstore
-# Now LOAD09 is all 9 except for a 0 for the accumulator we want. When we send on S,
-# it will activate the loadstore program of one accumulator.Clear LOAD09 as we do
+# memcyc09 -S-> trigger memXX loadstore
+# Now memcyc09 is all 9 except for a 0 for the accumulator we want. When we send on S,
+# it will activate the loadstore program of one accumulator.Clear memcyc09 as we do
 # this, so we can restore from EX later
-$sendc {p-oploadacc-5} {a-load09} {t-oploadacc-5} S {p-oploadacc-6}
+$sendc {p-oploadacc-5} {a-memcyc09} {t-oploadacc-5} S {p-oploadacc-6}
 
 # Each loadstore program is two steps: sendc, then rec. Over the next two cycles we
 # need to receive the accumulator value into LS, then immediately send it again
@@ -1036,9 +999,9 @@ $rec {p-oploadacc-6} {a-ls} {t-oploadacc-6} {i-main} {p-oploadacc-7}
 # LS -> memXX, restore accumulator value
 $send {p-oploadacc-7} {a-ls} {t-oploadacc-7} A {p-oploadacc-8}
 
-# Finally, restore LOAD09
+# Finally, restore memcyc09
 $storeex {p-oploadacc-8}
-$rec {p-oploadacc-8} {a-load09} {t-oploadacc-7} {i-main} {p-fetch}
+$rec {p-oploadacc-8} {a-memcyc09} {t-oploadacc-7} {i-main} {p-fetch}
 
 
 
@@ -1304,7 +1267,7 @@ defmacro acc-decode-line line x01 x02 x03 x04 x05 x06 x07 x08 x09 x10
   s f3.RB$lineL1 $x10
 endmacro
 
-# Thes are the 9s complements of 000..9..00 (we send from LOAD09/LOAD1014 on S)
+# Thes are the 9s complements of 000..9..00 (we send from memcyc09/LOAD1014 on S)
 $acc-decode-line 0  9 9 9 9 9 9 9 9 9 0
 $acc-decode-line 1  9 9 9 9 9 9 9 9 0 9
 $acc-decode-line 2  9 9 9 9 9 9 9 0 9 9
