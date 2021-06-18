@@ -10,7 +10,7 @@ s f3.RA0L3 9
 s f3.RA0L2 9
 s f3.RA0L1 9
 
-s f3.RA0S  M
+s f3.RB0S  M
 s f3.RB0L6 9
 s f3.RB0L5 9
 s f3.RB0L4 9
