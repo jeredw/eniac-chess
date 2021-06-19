@@ -321,7 +321,6 @@ $acc-disc-main discjn
 # Trigger mem cycle 0-9 on S outputs
 {a-mem10}=a16
 {a-memcyc09}=a16
-{a-dummy4}=a16
 $acc-main mem10
 
 p {a-memcyc09}.S {d-memcyc09S}
@@ -336,7 +335,6 @@ p ad.s.{ad-memcyc09-shiftr8}.-8 {a-memcyc09}.{i-shiftr8}
 
 # - MEM11 -
 {a-mem11}=a17
-{a-dummy3}=a17
 $acc-main mem11
 
 
@@ -347,13 +345,11 @@ $acc-main mem12
 
 # - MEM13 -
 {a-mem13}=a19
-{a-dummy2}=a19
 $acc-main mem13
 
 
 # - MEM14 -
 {a-mem14}=a20
-{a-dummy}=a20
 $acc-main mem14
 
 
@@ -369,12 +365,11 @@ $acc-main mem14
 {a-discft2}=a19
 {a-discft3}=a20
 
-defmacro discftaccum name dummy ftnum
+defmacro discftaccum name ftnum
   # S.PM is wired to a dummy program to trigger an FT
   p {a-$name}.S ad.dp.{ad-$name-discft$ftnum}.11
-  p ad.dp.{ad-$name-discft$ftnum}.11 {a-$dummy}.{t-$name-S}i
-  s {a-$dummy}.op{t-$name-S} 0
-  p {a-$dummy}.{t-$name-S}o {p-trigger-ft$ftnum}
+  p ad.dp.{ad-$name-discft$ftnum}.11 {p-trigger-ft$ftnum-pm}
+  $dummy-exclude {p-trigger-ft$ftnum-pm} {p-trigger-ft$ftnum} -{a-discft1},{a-discft2},{a-discft3}
 
   # i-ftsg1 puts the ftsg1 digit in PM
   p {d-main} ad.permute.{ad-$name-ftsg1}
@@ -389,13 +384,9 @@ endmacro
 
 # Strictly speaking only discft3 needs both i-ftsg1 and i-ftsg2 inputs but we
 # are not constrained on inputs for these accumulators.
-# XXX This choice of dummy accums means that a dummy transceiver will be active
-# in the same add cycle as a send/S program on one discft accumulator.  I think
-# this should be ok, but it is not well specified... consider using other
-# accums for dummies to be on the safe side?
-$discftaccum discft1 discft2 1
-$discftaccum discft2 discft3 2
-$discftaccum discft3 discft1 3
+$discftaccum discft1 1
+$discftaccum discft2 2
+$discftaccum discft3 3
 
 # discft1 is also used to form intitial PC address on reset
 # resetPC input: takes M0 from bus, sets initial PC to 0900
@@ -585,7 +576,7 @@ $assert {p-fetch} {a-pc}~x00xxxxxxxx
 
 # If more instructions are needed, IR is M0, and control proceeds to p-fetchline.
 # Otherwise, IR is P I5 I4 I3 I2 I1+1 and we trigger p-nofetch-eat-op.
-$discriminatec {p-fetch} {a-ir} {a-dummy} fetch {d-irA} {d-irS} {p-nofetch-eat-op} {p-fetchline} 
+$discriminatec {p-fetch} {a-ir} {d-irA} {d-irS} {p-nofetch-eat-op} {p-fetchline}
 
 # IR -> EX 
 # $discriminate sends IR on d-main, and EX receives it permuted I5 I4 I3 I2 I1+1
@@ -629,7 +620,7 @@ $dummy {p-nofetch-eat-op} {p-eat-op}
 $assert {p-eat-op} {a-ir}~P0000000000
 
 # Discriminate based on sign of EX, already set based on whether I1 > 55. Clear EX.
-$discriminatec {p-disc-op} {a-ex} {a-dummy} disc-op {d-exA} {d-exS} {p-ople55} {p-opgt55}
+$discriminatec {p-disc-op} {a-ex} {d-exA} {d-exS} {p-ople55} {p-opgt55}
 
 # If we are consuming from IR, store EX back into IR without the op we are now decoding.
 # Replace first two digits with M from a constant, so the top of IR is
@@ -965,9 +956,9 @@ $connect-memcyc09 9
 # a-mem4 is also used for SWAP so must use pulseamps to share common
 # load/store programs.
 $select-memcyc09-acc 4
-$dummy-exclude {p-memcyc4} {p-memcyc4-2} -{a-memcyc09}
+$dummy-exclude {p-memcyc4} {p-memcyc4-2} -{a-memcyc09},{a-mem4}
 $pulseamp {p-memcyc4-2} {p-store-swapBCDE}
-$dummy-exclude {p-memcyc4-2} {p-memcyc4-3} -{a-memcyc09}
+$dummy-exclude {p-memcyc4-2} {p-memcyc4-3} -{a-memcyc09},{a-mem4}
 $pulseamp {p-memcyc4-3} {p-load-swapBCDE}
 
 
@@ -1226,7 +1217,7 @@ $send {p-opjn-2} {a-rf} {t-opjn} A {p-opjn-3} # replace with RF send macro?
 $recx {p-opjn-2} {a-discjn} {t-opjn} {i-main}
 
 # discriminate, and clear to ready DISCJN for restored memory value
-$discriminatec {p-opjn-3} {a-discjn} {a-dummy3} opjn-3 {d-discjnA} {d-discjnS} {p-opjn-pos} {p-opjn-neg}
+$discriminatec {p-opjn-3} {a-discjn} {d-discjnA} {d-discjnS} {p-opjn-pos} {p-opjn-neg}
 
 # if positive, restore acc, consume and carry on
 $storeex {p-opjn-pos}

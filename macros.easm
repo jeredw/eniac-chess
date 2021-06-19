@@ -124,36 +124,37 @@ endmacro
 #
 #   inp   - input program line
 #   acc   - accumulator to wire for discrimination
-#   dummy - accumulator to use for dummy programs
-#   name  - base for transciever names on acc and dummy
 #   dA,dS - data busses to use for acc.A acc.S
 #   outp  - program line for acc>=0
 #   outm  - program line for acc<0
-defmacro discriminate inp acc dummy name dA dS outp outm
+defmacro discriminate inp acc dA dS outp outm
+  p $inp $acc.{t-%name}i
+  s $acc.op{t-%name} AS
 
-  p $inp $acc.{t-$name}i
-  s $acc.op{t-$name} AS               
-
-  # acc >= 0 -> outp
-  p $dS ad.dp.{ad-disc-$name-S}.11
-  p ad.dp.{ad-disc-$name-S}.11 $dummy.{t-$name-S}i
-  s $dummy.op{t-$name-S} 0
-  p $dummy.{t-$name-S}o $outp
-
-  # acc < 0 -> outm
-  p $dA ad.dp.{ad-disc-$name-A}.11
-  p ad.dp.{ad-disc-$name-A}.11 $dummy.{t-$name-A}i
-  s $dummy.op{t-$name-A} 0
-  p $dummy.{t-$name-A}o $outm
-
+  $discriminate-pm $inp $acc $dA $dS $outp $outm
 endmacro
 
 # Discriminate and clear
-defmacro discriminatec inp acc dummy name dA dS outp outm
-  $discriminate $inp $acc $dummy $name $dA $dS $outp $outm
-  s $acc.cc{t-$name} C 
+defmacro discriminatec inp acc dA dS outp outm
+  p $inp $acc.{t-%name}i
+  s $acc.op{t-%name} AS
+  s $acc.cc{t-%name} C
+
+  $discriminate-pm $inp $acc $dA $dS $outp $outm
 endmacro
 
+# Common PM steps for discriminate and discriminatec
+defmacro discriminate-pm inp acc dA dS outp outm
+  # acc >= 0 -> outp
+  p $dS ad.dp.{ad-disc-%name-S}.11
+  p ad.dp.{ad-disc-%name-S}.11 {p-%name-pm-S}
+  $dummy-exclude {p-%name-pm-S} $outp -$acc
+
+  # acc < 0 -> outm
+  p $dA ad.dp.{ad-disc-%name-A}.11
+  p ad.dp.{ad-disc-%name-A}.11 {p-%name-pm-A}
+  $dummy-exclude {p-%name-pm-A} $outm -$acc
+endmacro
 
 # Convenience helper for making debug assertions
 #   inp   - input program line
