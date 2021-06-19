@@ -707,6 +707,7 @@ $sendx {p-fetchline} {a-discft3} {r-fetchline} S
 defmacro triggerft num
   p {p-trigger-ft$num} f$num.1i
   s f$num.rp1 1                    # send once in r-fetchread
+  # TODO switch to A+2 addressing to minimize overlap with accumulator decode
   s f$num.op1 A0                   # send uncomplemented, don't offset argument
 endmacro
 $triggerft 1
@@ -970,7 +971,7 @@ $rec {p-oploadacc-2} {a-memcyc09} {t-oploadacc-2} {i-shiftr8} {p-oploadacc-3}
 
 # trigger FT same cycle
 p {p-oploadacc-2} f3.2i
-s f3.op2 A0
+s f3.op2 A-2
 
 # Send FT argument (tell it which line to grab) and clear to receive lookup data
 $sendcx {p-oploadacc-3} {a-memcyc09} {r-oploadacc-3} A
@@ -1246,7 +1247,7 @@ $rec {p-opjn-neg} {a-discjn} {t-opjn-neg} {i-main} {p-sub-jmp}
 p {p-op92} {p-opprint}
 
 # PRINT->EX, clear
-$sendc {p-opprint} a13 {t-op96} A {p-opprint-2}
+$sendc {p-opprint} a13 {t-opprint} A {p-opprint-2}
 $loadex {p-opprint}
 
 # RF-printAB->a13. Puts AB in lower 4 digits of upper half of accumulator
@@ -1290,16 +1291,17 @@ endmacro
 s f3.mpm1 T             # send individual line signs through
 
 # These are the 9s complements of 000..9..00 (we send from memcyc09/memcyc1014 on S)
-$acc-decode-line 0  M 9 9 9 9 9 9 9 9 0 
-$acc-decode-line 1  M 9 9 9 9 9 9 9 0 9 
-$acc-decode-line 2  M 9 9 9 9 9 9 0 9 9
-$acc-decode-line 3  M 9 9 9 9 9 0 9 9 9
-$acc-decode-line 4  M 9 9 9 9 0 9 9 9 9
-$acc-decode-line 5  M 9 9 9 0 9 9 9 9 9
-$acc-decode-line 6  M 9 9 0 9 9 9 9 9 9
-$acc-decode-line 7  M 9 0 9 9 9 9 9 9 9
-$acc-decode-line 8  M 0 9 9 9 9 9 9 9 9
-$acc-decode-line 9  P 9 9 9 9 9 9 9 9 9
+# Use rows -2..7 with A-2 addressing to minimize program overlap.
+$acc-decode-line -2 M 9 9 9 9 9 9 9 9 0
+$acc-decode-line -1 M 9 9 9 9 9 9 9 0 9
+$acc-decode-line  0 M 9 9 9 9 9 9 0 9 9
+$acc-decode-line  1 M 9 9 9 9 9 0 9 9 9
+$acc-decode-line  2 M 9 9 9 9 0 9 9 9 9
+$acc-decode-line  3 M 9 9 9 0 9 9 9 9 9
+$acc-decode-line  4 M 9 9 0 9 9 9 9 9 9
+$acc-decode-line  5 M 9 0 9 9 9 9 9 9 9
+$acc-decode-line  6 M 0 9 9 9 9 9 9 9 9
+$acc-decode-line  7 P 9 9 9 9 9 9 9 9 9
 
 
 # -- DUMMIES --
