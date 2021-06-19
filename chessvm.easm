@@ -261,10 +261,6 @@ p {d-main} ad.permute.{ad-swapAE}
 s ad.permute.{ad-swapAE} 11,2,1,8,7,6,5,4,3,10,9
 p ad.permute.{ad-swapAE} {a-swapBCDE}.{i-swapAE}
 
-# load/store 
-$recx {p-load-swapBCDE} {a-swapBCDE} {r-load-swapBCDE} {i-main}
-$sendcx {p-store-swapBCDE} {a-swapBCDE} {r-store-swapBCDE} A
-
 
 # - MEM5 -
 {a-mem5}=a11
@@ -953,14 +949,13 @@ $connect-memcyc09 7
 $connect-memcyc09 8
 $connect-memcyc09 9
 
-# a-mem4 is also used for SWAP so must use pulseamps to share common
-# load/store programs.
+# a-mem4 is also used for SWAP which needs all its t- programs, so memcyc4 must
+# use r- programs with dummies elsewhere.
 $select-memcyc09-acc 4
 $dummy-exclude {p-memcyc4} {p-memcyc4-2} -{a-memcyc09},{a-mem4}
-$pulseamp {p-memcyc4-2} {p-store-swapBCDE}
+$sendcx {p-memcyc4-2} {a-mem4} {r-memcyc-2} A
 $dummy-exclude {p-memcyc4-2} {p-memcyc4-3} -{a-memcyc09},{a-mem4}
-$pulseamp {p-memcyc4-3} {p-load-swapBCDE}
-
+$recx {p-memcyc4-3} {a-mem4} {r-memcyc-3} {i-main}
 
 # Start by saving memcyc09 -> EX, clear
 $sendc {p-oploadacc} {a-memcyc09} {t-send} A {p-oploadacc-2}
@@ -1036,8 +1031,8 @@ $rec {p-opswapall-3} {a-ls} {t-opswapall-3} {i-main} {p-fetch}
 # First two cycles of each instruction is per-op, last two cycles shared
 # 1. per-op: swapBCDE->EX
 # 2. per-op: RF-swapA[BCDE]->swapBCDE, this is where the actual swap is
-# 3. shared: swapBCDE->RF
-# 4. shared: EX->swapBCDE
+# 3. shared: swapBCDE->RF  $memcyc4-2
+# 4. shared: EX->swapBCDE  $memcyc4-3
 # This uses 10 programs total, rather than 16 if we do all sequences separately
 
 p {p-op01} {p-opswapAB}
@@ -1060,16 +1055,19 @@ $swapBCDE-op D
 $swapBCDE-op E
 
 # The rest of the swap sequence has to done with dummies, we used 8 transcievers
+# We need to send+clear swapBCDE, and then restore it from d-main, but this is
+# exactly the memory cycle sequence so reuse that (a-swapBCDE == a-mem4).
+$pulseamp {p-opswapBCDE} {p-memcyc4-2}
 
 # swapBCDE->RF, saves swapped values back to RF
 $dummy-exclude {p-opswapBCDE} {p-opswapBCDE-2} -{a-swapBCDE}
-$pulseamp {p-opswapBCDE} {p-store-swapBCDE}
+# p-memcyc4-2 sends a-swapBCDE
 $loadrf {p-opswapBCDE}
 
 # EX->swapBCDE, restore swapBCDE
 $dummy-exclude {p-opswapBCDE-2} {p-fetch} -{a-swapBCDE}
 $storeex {p-opswapBCDE-2}
-$pulseamp {p-opswapBCDE-2} {p-load-swapBCDE}
+# p-memcyc4-3 receives a-swapBCDE
 
 
 # - CLR A -
