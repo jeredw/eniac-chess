@@ -138,6 +138,7 @@ a-e select?
 
 A6
 MEM0:
+DISCMEMCYC
 # Discriminate memory cycle 0-9 vs. 10-14
 AS - Discriminate memcyc
 A - main
@@ -345,27 +346,33 @@ OPCODE MICROPROGRAMS
 LOADACC A
 # accumulator index in A, store result in LS
 # Use function table as a 1-of-10 decoder on A1 (ones digit)
-# Use A2 (tens digit) to place ft result in LOAD09 or LOAD1014
-# Then S outputs of LOAD09/LOAD1014 trigger a single accumulator to transmit its value
+# Use A2 (tens digit) to place ft result in MEMCYC09 or MEMCYC1014
+# Then S outputs of MEMCYC09/MEMCYC1014 trigger a single accumulator to transmit its value
 
-1. DISCLOADACC -> EX, clear, clear LS
-2. RF ->loadAccIdx -> DISCLOADACC, stim FT3
-3. disc DISCLOADACC, DISCLOADACC -> FT3, clear ; discriminate and send ft arg
-  (PM=P, meaning A<10)
-  4. EX -> DISCLOADACC, clear
-  5. LOAD09 -> EX, clear
-  6. receive A,B into LOAD09
-  7. send LOAD09 on S, clear                  ; trigger one acc to transmit
-  8  main -> LS
-  9. EX -> LOAD09, clear                      ; could parallelize with another bus
-or 
-  (PM=M, meaning A>=10)
-  4. EX -> DISCLOADACC, clear
-  5. LOAD1014 -> EX, clear
-  6. receive A,B into LOAD1014
-  7. send LOAD1014 on S, clear
-  8. main -> LS,
-  9. EX -> LOAD1014, clear 
+1. DISCMEMCYC -> EX, clear, clear LS
+2. RF -splitA-> DISCMEMCYC, X XX XX XX XX A2A1 -> A2 00 00 00 00 0A1
+3. discriminate DISCMEMCYC, trigger ft3
+
+DISCMEMCYC pos, A < 10
+  4. DISCMEMCYC -> ft3.arg, clear
+  5. EX -> DISCMEMCYC             (ft shadow)
+  6. MEMCYC09 -> EX, clear        (ft shadow)
+  7. FT3 -> MEMCYC09
+  8. send MEMCYC09.S, clear, trigger accumulator memory cycle
+  9. main -> LS
+  10. LS -> main
+  11. EX -> MEMCYC09
+
+DISCMEMCYC neg, A >= 10
+  4. DISCMEMCYC -> ft3.arg, clear
+  5. EX -> DISCMEMCYC             (ft shadow)
+  6. MEMCYC1014 -> EX, clear      (ft shadow)
+  7. FT3 -> MEMCYC1014
+  8. send MEMCYC1014.S, clear, trigger accumulator memory cycle
+  9. main -> LS
+  10. LS -> main
+  11. EX -> MEMCYC1014
+
 
 
 STOREACC A

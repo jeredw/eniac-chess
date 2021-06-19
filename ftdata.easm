@@ -1,42 +1,42 @@
 # function table values
 s f1.RA0L6 1 # LOADACC
 s f1.RA0L5 0
-s f1.RA0L4 8 # JSR 300
+s f1.RA0L4 8 # JSR 310
 s f1.RA0L3 4
-s f1.RA0L2 9
+s f1.RA0L2 0
 s f1.RA0L1 9
 s f1.RB0L6 9
-s f1.RB0L5 8
+s f1.RB0L5 9
 
 s f1.RA1L6 9  # HALT
 s f1.RA1L5 5
 
-s f3.RA0L6 4  # MOV 10,A
-s f3.RA0L5 0
-s f3.RA0L4 0  
-s f3.RA0L3 9
-s f3.RA0L2 7  # JMP 1
-s f3.RA0L1 3  
-s f3.RB0L6 0  
-s f3.RB0L5 0
-s f3.RB0L4 9
-s f3.RB0L3 9
-s f3.RB0L2 9
-s f3.RB0L1 9
+s f3.RA10L6 4  # MOV 10,A
+s f3.RA10L5 0
+s f3.RA10L4 0  
+s f3.RA10L3 9
+s f3.RA10L2 7  # JMP 11
+s f3.RA10L1 3  
+s f3.RB10L6 1  
+s f3.RB10L5 0
+s f3.RB10L4 9
+s f3.RB10L3 9
+s f3.RB10L2 9
+s f3.RB10L1 9
 
-s f3.RA1L6 9  # PRINT
-s f3.RA1L5 2
-s f3.RA1L4 5  # DEC
-s f3.RA1L3 3
-s f3.RA1L2 8  # JN 2  
-s f3.RA1L1 0
-s f3.RB1L6 0  
-s f3.RB1L5 1
-s f3.RB1L4 7  # JMP 1
-s f3.RB1L3 3
-s f3.RB1L2 0
-s f3.RB1L1 0
+s f3.RA11L6 9  # PRINT
+s f3.RA11L5 2
+s f3.RA11L4 5  # DEC
+s f3.RA11L3 3
+s f3.RA11L2 8  # JN 12
+s f3.RA11L1 0
+s f3.RB11L6 1 
+s f3.RB11L5 1
+s f3.RB11L4 7  # JMP 11
+s f3.RB11L3 3
+s f3.RB11L2 1
+s f3.RB11L1 0
 
-s f3.RA2L6 8  # RET
-s f3.RA2L5 5
+s f3.RA12L6 8  # RET
+s f3.RA12L5 5
 

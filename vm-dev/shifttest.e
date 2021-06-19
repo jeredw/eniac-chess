@@ -9,7 +9,7 @@ p i.io 1-1
 #
 p 1-1 c.26i 
 s c.s26 Jlr
-#s c.jl M
+s c.jl M
 s c.j1 1
 s c.j2 1
 s c.j3 2
@@ -44,8 +44,8 @@ p ad.s.1.2 a2.a
 # shift right 2
 p 1-2 a4.1i   
 s a4.op1 a
-p 1 ad.s.2.-0     # now test shift "-0", was: # a4 = a1>>2
-p ad.s.2.-0 a4.a  
+p 1 ad.s.2.-2     # a4 = a1>>2
+p ad.s.2.-2 a4.a  
 
 # keep first 4 digits
 p 1-2 a6.1i   

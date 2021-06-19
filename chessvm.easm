@@ -1,9 +1,10 @@
 s cy.op 1a
 
-set a4  0544668800  
+set a4  0044668800  
 set a5  9988776655
 
 # memory values to check that various instructions save and restore
+set a6  0606060606
 set a10 1010101010
 set a11 1111111111
 set a12 1212121212 
@@ -921,29 +922,32 @@ p {p-op00} {p-fetch}
 # - LOADACC -
 p {p-op10} {p-oploadacc}
 
-# prototype: only loads 1-9 (A2)
+# prototype: only loads 0-9 
 
-# patch one digit of d-memcyc09S to a send reciever program on mem0..mem9
-# shift to get desired digit in 1 position, then use digit select adapter
-# this also allocates the r-send programs for memory accs
-defmacro connect-memcyc09 x
-  p {d-memcyc09S} ad.s.{ad-memcyc09-$x}.-$x
-  p ad.s.{ad-memcyc09-$x}.-$x ad.dp.{ad-memcyc09-dp$x}.1
-  p ad.dp.{ad-memcyc09-dp$x}.1 {a-mem$x}.{t-loadstore}i
-
-  # Create the loadstore program for this mem acc
-  # 1. dummy program, triggered from memcyc09.S
-  # 2. sendc
-  # 3. recx
-  #$dummy {p-loadstore$x} {a-mem$x} {t-loadstore} 1 {p-loadstore$x-2}
-  # XXX Previously we placed this on a-mem$x but 1) see the note above for
-  # $discftaccum discft1 discft2 1, 2) I think it can go anywhere?
-  $dummy-exclude {p-loadstore$x} {p-loadstore$x-2} -{a-memcyc09}
-  $sendc {p-loadstore$x-2} {a-mem$x} {t-loadstore-2} A {p-loadstore$x-3}
-  $recx  {p-loadstore$x-3} {a-mem$x} {r-loadstore-3} {i-main}
+# Create the memory cycle program for each acc
+# Start with a dummytriggered from memcyc09.S. Then send/clear, then receive
+# In this way the same program can be used for both load and store operations
+defmacro memcyc-prog x
+  # XXX see note in discft1
+  $manual-dummy {p-memcyc$x} {a-mem$x} {t-memcyc} 1 {p-memcyc$x-2}
+  $sendc {p-memcyc$x-2} {a-mem$x} {t-memcyc-2} A {p-memcyc$x-3}
+  $recx  {p-memcyc$x-3} {a-mem$x} {r-memcyc-3} {i-main}
 endmacro
 
-#$connect-memcyc09 0  # can't use this, S sends 1'P always
+# Patch one digit of d-memcyc09S to a send reciever program on mem0..mem9
+# shift to get desired digit in 2 position, then use digit select adapter
+# 2 position because 1 position always generates 1'P pulse on S send. This
+# means trigger for 9 is stored in PM digit
+# This also allocates the memcyc programs for each acc
+defmacro connect-memcyc09 x
+  p {d-memcyc09S} ad.s.{ad-memcyc09-$x}.-$x
+  p ad.s.{ad-memcyc09-$x}.-$x ad.dp.{ad-memcyc09-dp$x}.2
+  p ad.dp.{ad-memcyc09-dp$x}.2 {a-mem$x}.{t-memcyc}i
+
+  $memcyc-prog $x
+endmacro
+
+$connect-memcyc09 0
 $connect-memcyc09 1
 $connect-memcyc09 2
 $connect-memcyc09 3
@@ -976,11 +980,11 @@ $sendcx {p-oploadacc-3} {a-memcyc09} {r-oploadacc-3} A
 # Start a dummy that will trigger when data is ready
 $dummy-delay-exclude {p-oploadacc-3} 3 {p-oploadacc-4} -{a-memcyc09}
 
-# Wiring to send rightmost 10 digits of f3 to d-ftselacc
+# Wiring to send rightmost 10 digits of f3, plus PMA, to d-ftselacc
 # used for loadacc, storeacc
-# A4A3 A2A1 B6B5 B4B3 B2B1 -> d-ftselacc
+# PMA A4A3 A2A1 B6B5 B4B3 B2B1 -> d-ftselacc
 p f3.A ad.permute.{ad-decodeA}
-s ad.permute.{ad-decodeA} 0,4,3,2,1,0,0,0,0,0,0
+s ad.permute.{ad-decodeA} 11,4,3,2,1,0,0,0,0,0,0
 p ad.permute.{ad-decodeA} {d-ftselacc}
 p f3.B {d-ftselacc}
 
@@ -1256,31 +1260,34 @@ $rec {p-op92-4} a13 {t-op92-4} {i-main} {p-fetch}
 
 # -- ACCUMULATOR DECODE --
 # lookup table used to trigger accumulators on loadacc / storeacc
-# This is on FT3 but doesn't conflict with FTL values since it uses 10 of 12 digits
+# This is on FT3 but doesn't conflict with FTL values on I1 since it uses 10 of 12 digits
 defmacro acc-decode-line line x01 x02 x03 x04 x05 x06 x07 x08 x09 x10
-  s f3.RA$lineL4 $x01
-  s f3.RA$lineL3 $x02
-  s f3.RA$lineL2 $x03
-  s f3.RA$lineL1 $x04
-  s f3.RB$lineL6 $x05
-  s f3.RB$lineL5 $x06
-  s f3.RB$lineL4 $x07
-  s f3.RB$lineL3 $x08
-  s f3.RB$lineL2 $x09
-  s f3.RB$lineL1 $x10
+  s f3.RA$lineS  $x01
+  s f3.RA$lineL4 $x02
+  s f3.RA$lineL3 $x03
+  s f3.RA$lineL2 $x04
+  s f3.RA$lineL1 $x05
+  s f3.RB$lineL6 $x06
+  s f3.RB$lineL5 $x07
+  s f3.RB$lineL4 $x08
+  s f3.RB$lineL3 $x09
+  s f3.RB$lineL2 $x10
+  s f3.RB$lineL1 9      # use 2-10 + sign, digit 1 is not usable on S due to 1'P
 endmacro
 
-# Thes are the 9s complements of 000..9..00 (we send from memcyc09/LOAD1014 on S)
-$acc-decode-line 0  9 9 9 9 9 9 9 9 9 0
-$acc-decode-line 1  9 9 9 9 9 9 9 9 0 9
-$acc-decode-line 2  9 9 9 9 9 9 9 0 9 9
-$acc-decode-line 3  9 9 9 9 9 9 0 9 9 9
-$acc-decode-line 4  9 9 9 9 9 0 9 9 9 9
-$acc-decode-line 5  9 9 9 9 0 9 9 9 9 9
-$acc-decode-line 6  9 9 9 0 9 9 9 9 9 9
-$acc-decode-line 7  9 9 0 9 9 9 9 9 9 9
-$acc-decode-line 8  9 0 9 9 9 9 9 9 9 9
-$acc-decode-line 9  0 9 9 9 9 9 9 9 9 9
+s f3.mpm1 T             # send individual line signs through
+
+# These are the 9s complements of 000..9..00 (we send from memcyc09/memcyc1014 on S)
+$acc-decode-line 0  M 9 9 9 9 9 9 9 9 0 
+$acc-decode-line 1  M 9 9 9 9 9 9 9 0 9 
+$acc-decode-line 2  M 9 9 9 9 9 9 0 9 9
+$acc-decode-line 3  M 9 9 9 9 9 0 9 9 9
+$acc-decode-line 4  M 9 9 9 9 0 9 9 9 9
+$acc-decode-line 5  M 9 9 9 0 9 9 9 9 9
+$acc-decode-line 6  M 9 9 0 9 9 9 9 9 9
+$acc-decode-line 7  M 9 0 9 9 9 9 9 9 9
+$acc-decode-line 8  M 0 9 9 9 9 9 9 9 9
+$acc-decode-line 9  P 9 9 9 9 9 9 9 9 9
 
 
 # -- DUMMIES --

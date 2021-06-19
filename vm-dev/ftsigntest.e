@@ -2,21 +2,24 @@
 
 s cy.op 1a
 
-s f3.RA0S  M
-s f3.RA0L6 0
-s f3.RA0L5 0
-s f3.RA0L4 9
-s f3.RA0L3 9
-s f3.RA0L2 9
-s f3.RA0L1 9
+s f3.RA0S  P
+s f3.RA0L6 6
+s f3.RA0L5 5
+s f3.RA0L4 4
+s f3.RA0L3 3
+s f3.RA0L2 2
+s f3.RA0L1 1
 
 s f3.RB0S  M
-s f3.RB0L6 9
-s f3.RB0L5 9
-s f3.RB0L4 9
-s f3.RB0L3 9
-s f3.RB0L2 0
-s f3.RB0L1 9 
+s f3.RB0L6 1
+s f3.RB0L5 2
+s f3.RB0L4 3
+s f3.RB0L3 4
+s f3.RB0L2 5
+s f3.RB0L1 6 
+
+s f3.mpm1 T
+s f3.mpm2 T
 
 # try to load this row into a1,a2
 
