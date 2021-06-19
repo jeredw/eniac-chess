@@ -136,6 +136,7 @@ class Assembler(object):
     self.defmacro = None  # Macro object currently being defined
     self.macros = {}  # name -> Macro
     self.uniqueid = 1  # unique id for making up names
+    self.deferred = []  # lines deferred til insert-deferred
 
 
   # Each argument processor fn maps from 0-based resource ids to strings
@@ -314,7 +315,7 @@ class Assembler(object):
       return symbol_comment
 
 
-  def line_p(self, line):
+  def line_p(self, line, **kwargs):
     m = re.match(r'(\s*p)\s+([^\s]+)\s+([^\s]+)\s*(#.*)?', line)
     leading_ws, arg1, arg2, comment = m.groups()
 
@@ -384,7 +385,7 @@ class Assembler(object):
 
 
   # for switch settings, we can lookup accumuators and permute adapters
-  def line_s(self, line): 
+  def line_s(self, line, **kwargs):
     m = re.match(r'(\s*s)\s+([^\s]+)\s+([^\s]+)\s*(#.*)?', line)
     leading_ws, arg1, arg2, comment = m.groups()
 
@@ -404,7 +405,7 @@ class Assembler(object):
 
 
   # Handles symbol definitions e.g. {p-foo}=3-1
-  def line_define(self, line):
+  def line_define(self, line, **kwargs):
     m = re.match(r'{(?P<name>[apd]-[A-Za-z0-9-]+)}\s*=\s*(?P<value>a?\d\d?(-\d\d?)?)\s*(#.*)?', line)
     if not m:
       raise SyntaxError('bad definition value')
@@ -431,11 +432,11 @@ class Assembler(object):
     return '# ' + line  # echo the define statement, commented out
 
 
-  def line_literal(self, line): 
+  def line_literal(self, line, **kwargs):
     return line
 
 
-  def line_defmacro(self, line):
+  def line_defmacro(self, line, **kwargs):
     m = re.match(r'\s*defmacro\s+(?P<name>[^\s]+)\s*(?P<args>[^#]*)(#.*)?', line)
     if not m:
       raise SyntaxError('bad defmacro')
@@ -445,7 +446,7 @@ class Assembler(object):
     return f"# (elided '{name}' macro definition)"
 
 
-  def line_domacro(self, line):
+  def line_domacro(self, line, **kwargs):
     m = re.match(r'\s*\$(?P<name>[^\s]+)\s*(?P<args>[^#]*)(#.*)?', line)
     if not m:
       raise SyntaxError('bad macro invocation')
@@ -480,11 +481,11 @@ class Assembler(object):
       # in case people want to say $macro {arg} instead of $macro arg
       line = line.replace('{{', '{')
       line = line.replace('}}', '}')
-      outlines += self.assemble_line(line) + '\n'
+      outlines += self.assemble_line(line, **kwargs) + '\n'
     return outlines.strip()  # '\n' will be added by _scan
 
 
-  def line_inmacro(self, line):
+  def line_inmacro(self, line, **kwargs):
     # add lines to macro until reaching endmacro
     if re.match(r'\s*endmacro', line):
       self.macros[self.defmacro.name] = self.defmacro
@@ -493,7 +494,7 @@ class Assembler(object):
     self.defmacro.lines.append(line)
 
 
-  def line_include(self, line):
+  def line_include(self, line, **kwargs):
     # include another source file
     m = re.match(r'\s*include\s+(?P<path>.*)(#.*)?', line)
     if not m:
@@ -504,7 +505,71 @@ class Assembler(object):
     return f'# begin {path}\n{outlines}\n# end {path}\n'
 
 
-  def assemble_line(self,line):
+  def line_defer(self, line, **kwargs):
+    # defer a line til insert-deferred (used for reserving dummies)
+    m = re.match(r'\s*defer\s+(?P<text>\S.*)', line)
+    if not m:
+      raise SyntaxError('bad defer directive')
+    text = m.group('text')
+    self.deferred.append((text, kwargs))
+    return ''
+
+
+  def line_insert_deferred(self, line, **kwargs):
+    # insert deferred lines (used for reserving dummies)
+    out = ''
+    for line, context in self.deferred:
+      try:
+        outlines = self.assemble_line(line)
+      except Exception as e:
+        print(f'(deferred from {context["filename"]}:{context["line_number"]+1})')
+        raise
+      if outlines != None:
+        out += outlines + '\n'
+    return out
+
+
+  def line_allocate_dummy(self, line, **kwargs):
+    # allocate an accumulator transceiver to a dummy program
+    # allocate-dummy foo -{a1},{a2},{a3} -{a4} -{a5},{a6}
+    m = re.match(r'\s*allocate-dummy\s+(?P<name>[A-Za-z0-9-]+)\s+(?P<args>[^#]*)(#.*)?', line)
+    if not m:
+      raise SyntaxError('bad allocate-dummy directive')
+    name = m.group('name')
+
+    allowed_accums = set('a' + str(n+1) for n in range(20))
+    excluded_accums = set()
+    args = m.group('args').strip().split()
+    for spec in args:
+      if not spec.startswith('-'):
+        raise SyntaxError(f"allocate-dummy: expecting -accum found `{spec}'")
+      exclusions = spec[1:].split(',')
+      for exclusion in exclusions:
+        m = re.match(r'(?P<accum>(a\d\d?|{a-[A-Za-z0-9-]+}))', exclusion)
+        if not m:
+          raise SyntaxError(f"allocate-dummy: expecting accum found `{exclusion}'")
+        accum = m.group('accum')
+        accumtext, _ = self.lookup_accum(m.group('accum'))
+        allowed_accums.discard(accumtext)
+        excluded_accums.add(accumtext)
+
+    transceiver = -1
+    # try accums in a deterministic order so dummies are somewhat consistent
+    for accum in reversed(sorted(allowed_accums, key=lambda name: int(name[1:]))):
+      try:
+        transceiver, _ = self.lookup_accum_arg(accum, f'{{t-{name}}}')
+        accum_index = int(accum[1:])-1  # 'a1' -> 0
+        self.symbols.define('a', f'a-{name}', accum_index)
+        break
+      except OutOfResources:
+        continue
+    if transceiver == -1:
+      raise OutOfResources(f'dummy transceivers exhausted for {allowed_accums}')
+
+    return f'# dummy {name} = {accum}.{transceiver}i (excluded {excluded_accums})'
+
+
+  def assemble_line(self, line, **kwargs):
     # The types of lines we understand
     line_dispatch = {
       re.compile(r'\s*p\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'): self.line_p,
@@ -513,12 +578,15 @@ class Assembler(object):
       re.compile(r'\s*defmacro.*'):                       self.line_defmacro,
       re.compile(r'\s*\$([^\s]+).*'):                     self.line_domacro,
       re.compile(r'\s*include.*'):                        self.line_include,
+      re.compile(r'\s*defer.*'):                          self.line_defer,
+      re.compile(r'\s*insert-deferred.*'):                self.line_insert_deferred,
+      re.compile(r'\s*allocate-dummy.*'):                 self.line_allocate_dummy,
       re.compile(r'.*'):                                  self.line_literal
     }
 
     for pattern, handler in line_dispatch.items():
       if pattern.match(line):
-        return handler(line)
+        return handler(line, **kwargs)
         break
 
 
@@ -529,7 +597,7 @@ class Assembler(object):
         if self.defmacro:
           outlines = self.line_inmacro(line)
         else:
-          outlines = self.assemble_line(line)
+          outlines = self.assemble_line(line, filename=filename, line_number=line_number)
       except Exception as e:
         print(line)
         print(f'{filename}:{line_number+1}: {str(e)}')

@@ -619,7 +619,7 @@ $rec {p-nofetch} {a-ex} {t-nofetch} {i-main} {p-disc-op}
 
 # If we are eating an operand (removing it from IR) then we need to set
 # the top digits of IR to 99 after next instruction (delay 1 cycle)
-$dummy {p-nofetch-eat-op} {a-dummy} {t-eat-op} 1 {p-eat-op}
+$dummy {p-nofetch-eat-op} {p-eat-op}
 
 
 # -- {p-disc-op} discriminate opcode I1>55, to switch between two decode pathways
@@ -641,7 +641,7 @@ $sendM0 {p-eat-op}
 
 # Clear MP prior to decode.  Clearing isn't synchronous, so this needs to
 # happen "next cycle" i.e. during pulse 17 of p-disc-op.
-$dummy {p-disc-op} {a-dummy} {t-disc-op} 1 {p-clear-mp}
+$dummy {p-disc-op} {p-clear-mp}
 p {p-clear-mp} p.Acdi
 p {p-clear-mp} p.Bcdi
 p {p-clear-mp} p.Ccdi
@@ -732,7 +732,7 @@ $triggerft 3
 $clear {p-fetchtrig} {a-ir} {t-fetchtrig} {p-fetcharg}
 
 # wait 4 cycles until argument ready 
-$dummy {p-fetchtrig} {a-dummy} {t-fetchtrig} 4 {p-fetchread}
+$dummy-delay {p-fetchtrig} 4 {p-fetchread}
 
 
 # -- {p-fetcharg} ft argument request
@@ -935,7 +935,10 @@ defmacro connect-memcyc09 x
   # 1. dummy program, triggered from memcyc09.S
   # 2. sendc
   # 3. recx
-  $dummy {p-loadstore$x} {a-mem$x} {t-loadstore} 1 {p-loadstore$x-2}
+  #$dummy {p-loadstore$x} {a-mem$x} {t-loadstore} 1 {p-loadstore$x-2}
+  # XXX Previously we placed this on a-mem$x but 1) see the note above for
+  # $discftaccum discft1 discft2 1, 2) I think it can go anywhere?
+  $dummy-exclude {p-loadstore$x} {p-loadstore$x-2} -{a-memcyc09}
   $sendc {p-loadstore$x-2} {a-mem$x} {t-loadstore-2} A {p-loadstore$x-3}
   $recx  {p-loadstore$x-3} {a-mem$x} {r-loadstore-3} {i-main}
 endmacro
@@ -971,7 +974,7 @@ s f3.op2 A0
 $sendcx {p-oploadacc-3} {a-memcyc09} {r-oploadacc-3} A
 
 # Start a dummy that will trigger when data is ready
-$dummy {p-oploadacc-3} {a-dummy2} {t-oploadacc-3} 3 {p-oploadacc-4}
+$dummy-delay-exclude {p-oploadacc-3} 3 {p-oploadacc-4} -{a-memcyc09}
 
 # Wiring to send rightmost 10 digits of f3 to d-ftselacc
 # used for loadacc, storeacc
@@ -1052,12 +1055,12 @@ $swapBCDE-op D
 # The rest of the swap sequence has to done with dummies, we used 8 transcievers
 
 # swapBCDE->RF, saves swapped values back to RF
-$dummy {p-opswapBCDE} {a-dummy2} {t-opswapBCDE} 1 {p-opswapBCDE-2}
+$dummy-exclude {p-opswapBCDE} {p-opswapBCDE-2} -{a-swapBCDE}
 $pulseamp {p-opswapBCDE} {p-store-swapBCDE}
 $loadrf {p-opswapBCDE}
 
 # EX->swapBCDE, restore swapBCDE
-$dummy {p-opswapBCDE-2} {a-dummy3} {t-opswapBCDE-2} 1 {p-fetch}
+$dummy-exclude {p-opswapBCDE-2} {p-fetch} -{a-swapBCDE}
 $storeex {p-opswapBCDE-2}
 $pulseamp {p-opswapBCDE-2} {p-load-swapBCDE}
 
@@ -1088,7 +1091,7 @@ $consume-op {p-op40-3}
 $recx {p-op40-3} {a-rf} {r-load} {i-shiftl8}    # save lowest word into A
 
 # wait for 2 cycles of consume-op, then next op
-$dummy {p-op40-3} {a-dummy3} {t-op40-3} 2 {p-fetch}
+$dummy-delay {p-op40-3} 2 {p-fetch}
 
 
 # - INC -
@@ -1130,12 +1133,12 @@ $startjmp {p-op74}
 # PC -clearPC4-> EX
 $rec {p-op74} {a-ex} {t-op74} {i-clearPC4} {p-op74-2}
 
-$dummy {p-op74-2} {a-dummy3} {t-op74-2} 1 {p-op74-3}  # not a-dummy2 because discft* in use
+$dummy-exclude {p-op74-2} {p-op74-3} -{a-discft1},{a-discft2},{a-discft3}
 
 # EX -> PC
 $storeex {p-op74-3}
 $loadpc {p-op74-3}
-$dummy {p-op74-3} {a-dummy3} {t-op74-3} 1 {p-op74-4}
+$dummy-exclude {p-op74-3} {p-op74-4} -{a-discft3}
 
 # Select new function table and go to fetch
 $assert {p-op74-4} {a-ir}~Pxxxxxxxxxx  # don't trigger IR discrimination
@@ -1168,7 +1171,7 @@ $rec {p-op84-2} {a-shiftpc} {t-op84-2} {i-extract-pc} {p-op84-3}
 $startjmp {p-op84-3}
 $rec {p-op84-3} {a-shiftpc} {t-op84-3} {i-shiftl4-pc} {p-op84-4}
 
-$dummy {p-op84-4} {a-dummy3} {t-op84-4} 1 {p-op84-5}
+$dummy-exclude {p-op84-4} {p-op84-5} -{a-discft3}
 
 # Select new ft, reload new PC, goto fetchline, restore shiftpc
 $finishjmp {p-op84-5}
@@ -1190,7 +1193,7 @@ $loadex {p-op85}
 $startjmp {p-op85-2}
 $rec {p-op85-2} {a-shiftpc} {t-op85-2} {i-shiftr4-pc} {p-op85-3}
 
-$dummy {p-op85-3} {a-dummy3} {t-op85-3} 1 {p-op85-4}
+$dummy-exclude {p-op85-3} {p-op85-4} -{a-discft3}
 
 # Select new ft, reload new PC, goto fetchline, restore shiftpc
 $finishjmp {p-op85-4}
@@ -1214,7 +1217,7 @@ $storeex {p-opjn-pos}
 $rec {p-opjn-pos} {a-discjn} {t-opjn-pos} {i-main} {p-opjn-eat}
 
 $consume-op {p-opjn-eat}
-$dummy {p-opjn-eat} {a-dummy4} {t-opjn-eat} 2 {p-fetch}
+$dummy-delay {p-opjn-eat} 2 {p-fetch}
 
 # if negative, restore acc and jump
 $storeex {p-opjn-neg}
@@ -1278,6 +1281,11 @@ $acc-decode-line 6  9 9 9 0 9 9 9 9 9 9
 $acc-decode-line 7  9 9 0 9 9 9 9 9 9 9
 $acc-decode-line 8  9 0 9 9 9 9 9 9 9 9
 $acc-decode-line 9  0 9 9 9 9 9 9 9 9 9
+
+
+# -- DUMMIES --
+# Reserved after other all other accumulator programs are configured.
+insert-deferred
 
 
 # -- CURRENT PROGRAM --

@@ -73,12 +73,44 @@ defmacro clearx inpr acc t
   s $acc.cc$t C
 endmacro
 
-# $dummy program definition, with a given delay
-defmacro dummy inpr acc t delay outpr
+# $manual-dummy program definition, with a given delay
+# Use this to manually place a dummy program somewhere if needed.
+defmacro manual-dummy inpr acc t delay outpr
   p {$inpr} $acc.{$t}i
   s $acc.op{$t} 0
   s $acc.rp{$t} $delay
   p $acc.{$t}o {$outpr}
+endmacro
+
+# Dummy to trigger outpr delay cycles after inpr
+# Does not use a1-a5 nor other accums listed in exclude
+# usage: $dummy-delay-exclude {p-in} 2 {p-out} -{a-foo},{a-bar},{a-baz}
+#
+# The defer directive delays output until the insert-deferred directive,
+# which occurs after all accumulator programs are reserved.  This makes sure
+# dummies do not claim otherwise necessary accumulator programs.
+defmacro dummy-delay-exclude inpr delay outpr exclude
+  defer allocate-dummy %name -a1,a2,a3,a4,a5 $exclude
+  defer p {$inpr} {a-%name}.{t-%name}i
+  defer s {a-%name}.op{t-%name} 0
+  defer s {a-%name}.rp{t-%name} $delay
+  defer p {a-%name}.{t-%name}o {$outpr}
+endmacro
+
+# Dummy to trigger outpr 1 cycle after inpr; does not use a1-a5
+defmacro dummy inpr outpr
+  $dummy-delay-exclude $inpr 1 $outpr -a1,a2,a3,a4,a5 
+endmacro
+
+# Dummy to trigger outpr delay cycles after inpr; does not use a1-a5
+defmacro dummy-delay inpr delay outpr
+  $dummy-delay-exclude $inpr $delay $outpr -a1,a2,a3,a4,a5
+endmacro
+
+# Dummy to trigger outpr 1 cycle after inpr
+# Does not use a1-a5 nor other accums listed in exclude
+defmacro dummy-exclude inpr outpr exclude
+  $dummy-delay-exclude $inpr 1 $outpr $exclude
 endmacro
 
 # $discriminate
