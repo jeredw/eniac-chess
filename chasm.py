@@ -181,6 +181,10 @@ class Output(object):
           self.error("overwriting output, conflicting .org?")
           self.context.had_fatal_error = True
           break
+        elif 300 <= self.output_row < 308:
+          self.error(f"location {self.output_row} is reserved")
+          self.context.had_fatal_error = True
+          break
         elif self.output_row >= 400:
           self.error("beyond end of function table 3")
           self.context.had_fatal_error = True
@@ -203,6 +207,8 @@ class Output(object):
       if self.word_of_output_row == 6:
         self.word_of_output_row = 0
         self.output_row += 1
+        if self.output_row == 300:
+          self.output_row = 308  # skip table at start of ft3
         self.operand_correction = 0
 
   def get(self, ft, row, word):

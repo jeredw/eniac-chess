@@ -160,6 +160,13 @@ class TestOutput(AssemblerTestCase):
     self.out.emit(42)
     self.assertEqual(self.out.errors, ["file:1: overwriting output, conflicting .org?"])
 
+  def testEmit_ErrorReservedLocation(self):
+    self.context.assembler_pass = 1
+    self.out.output_row = 300
+    self.out.word_of_output_row = 0
+    self.out.emit(42)
+    self.assertEqual(self.out.errors, ["file:1: location 300 is reserved"])
+
   def testEmit_ErrorPastEnd(self):
     self.context.assembler_pass = 1
     self.out.output_row = 400
@@ -168,14 +175,14 @@ class TestOutput(AssemblerTestCase):
 
   def testGet(self):
     self.context.assembler_pass = 1
-    for i in range(6 * 300):
+    for i in range(6 * 200 + 6 * 92):
       self.out.emit(i % 100)
     self.assertFalse(self.out.errors)
     self.assertEqual(self.out.output_row, 400)
     self.assertEqual(self.out.word_of_output_row, 0)
     self.assertEqual(self.out.get(1, 42, 0), Value(word=52, comment=""))
     self.assertEqual(self.out.get(2, 42, 5), Value(word=57, comment=""))
-    self.assertEqual(self.out.get(3, 42, 0), Value(word=52, comment=""))
+    self.assertEqual(self.out.get(3, 42, 0), Value(word=4, comment=""))
 
   def testFunctionTable(self):
     self.out.output_row = 236
