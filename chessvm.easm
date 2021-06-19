@@ -1073,56 +1073,62 @@ $pulseamp {p-opswapBCDE-2} {p-load-swapBCDE}
 
 
 # - CLR A -
+p {p-op35} {p-opclrA}
+
 # RF -> EX
-$sendc {p-op35} {a-rf} {t-op35} A {p-op35-2}
-$loadex {p-op35}
+$sendc {p-opclrA} {a-rf} {t-opclrA} A {p-opclrA-2}
+$loadex {p-opclrA}
 
 # EX -clearA-> RF
-$storeex {p-op35-2}
-$rec {p-op35-2} {a-rf} {t-op35-2} {i-clearA} {p-fetch}
+$storeex {p-opclrA-2}
+$rec {p-opclrA-2} {a-rf} {t-opclrA-2} {i-clearA} {p-fetch}
 
 
 # - MOV #XX,A -
+p {p-op40} {p-opmovimmA}
 
 # First clear A
 # RF -> EX
-$sendc {p-op40} {a-rf} {t-op40} A {p-op40-2}
-$loadex {p-op40}
+$sendc {p-opmovimmA} {a-rf} {t-opmovimmA} A {p-opmovimmA-2}
+$loadex {p-opmovimmA}
 
 # EX -clearA-> RF
-$storeex {p-op40-2}
-$rec {p-op40-2} {a-rf} {t-op40-2} {i-clearA} {p-op40-3}
+$storeex {p-opmovimmA-2}
+$rec {p-opmovimmA-2} {a-rf} {t-opmovimmA-2} {i-clearA} {p-opmovimmA-3}
 
 # Now consume the next word in IR, saving it into A
-$consume-op {p-op40-3}
-$recx {p-op40-3} {a-rf} {r-load} {i-shiftl8}    # save lowest word into A
+$consume-op {p-opmovimmA-3}
+$recx {p-opmovimmA-3} {a-rf} {r-load} {i-shiftl8}    # save lowest word into A
 
 # wait for 2 cycles of consume-op, then next op
-$dummy-delay {p-op40-3} 2 {p-fetch}
+$dummy-delay {p-opmovimmA-3} 2 {p-fetch}
 
 
 # - INC -
+p {p-op52} {p-opinc}
+
 # Send P01000 on d-main
-p {p-op52} c.29i
+p {p-opinc} c.29i
 s c.s29 Jr
 
 # Increment A field of RF
 # XXX should probably use pulseamp
-$rec {p-op52} {a-rf} {t-op52} {i-main} {p-fetch}
+$rec {p-opinc} {a-rf} {t-opinc} {i-main} {p-fetch}
 
 
 # - DEC -
+p {p-op53} {p-opdec}
+
 # Send M99000 on d-main
-p {p-op53} c.30i
+p {p-opdec} c.30i
 s c.s30 Jl
 
 # Decrement A field of RF
 # XXX should probably use pulseamp
-$rec {p-op53} {a-rf} {t-op53} {i-main} {p-fetch}
+$rec {p-opdec} {a-rf} {t-opdec} {i-main} {p-fetch}
 
 
 # - JMP XX -
-
 p {p-op73} {p-sub-jmp}
 
 
@@ -1134,26 +1140,27 @@ p {p-op73} {p-sub-jmp}
 # 3. EX -> PC
 # 4. IR -loadPC4-> PC   $discft-1
 # 5. send IR            $discft-2
+p {p-op74} {p-opjmpfar}
 
 # Deselect current function table
-$startjmp {p-op74}
+$startjmp {p-opjmpfar}
 # PC -clearPC4-> EX
-$rec {p-op74} {a-ex} {t-op74} {i-clearPC4} {p-op74-2}
+$rec {p-opjmpfar} {a-ex} {t-opjmpfar} {i-clearPC4} {p-opjmpfar-2}
 
-$dummy-exclude {p-op74-2} {p-op74-3} -{a-discft1},{a-discft2},{a-discft3}
+$dummy-exclude {p-opjmpfar-2} {p-opjmpfar-3} -{a-discft1},{a-discft2},{a-discft3}
 
 # EX -> PC
-$storeex {p-op74-3}
-$loadpc {p-op74-3}
-$dummy-exclude {p-op74-3} {p-op74-4} -{a-discft3}
+$storeex {p-opjmpfar-3}
+$loadpc {p-opjmpfar-3}
+$dummy-exclude {p-opjmpfar-3} {p-opjmpfar-4} -{a-discft3}
 
 # Select new function table and go to fetch
-$assert {p-op74-4} {a-ir}~Pxxxxxxxxxx  # don't trigger IR discrimination
-$send {p-op74-4} {a-ir} {t-op74-4} A {p-fetchline}
-s {a-ir}.rp{t-op74-4} 2
-$discft {p-op74-4}
+$assert {p-opjmpfar-4} {a-ir}~Pxxxxxxxxxx  # don't trigger IR discrimination
+$send {p-opjmpfar-4} {a-ir} {t-opjmpfar-4} A {p-fetchline}
+s {a-ir}.rp{t-opjmpfar-4} 2
+$discft {p-opjmpfar-4}
 # Load new PC
-$recx {p-op74-4} {a-pc} {r-op74-4} {i-loadPC4}
+$recx {p-opjmpfar-4} {a-pc} {r-opjmpfar-4} {i-loadPC4}
 
 
 # - JSR XXXX -
@@ -1164,24 +1171,25 @@ $recx {p-op74-4} {a-pc} {r-op74-4} {i-loadPC4}
 # 5. SHIFTPC -> PC             $discft-1
 # 6. send SHIFTPC              $discft-2
 #  . EX -> SHIFTPC             (parallel with p-fetchline)
+p {p-op84} {p-opjsr}
 
 # Save shiftpc in ex
-$sendc {p-op84} {a-shiftpc} {t-op84} A {p-op84-2}
-$loadex {p-op84}
+$sendc {p-opjsr} {a-shiftpc} {t-opjsr} A {p-opjsr-2}
+$loadex {p-opjsr}
 
 # Extract pc from ir into shiftpc
-$assert {p-op84-2} {a-ir}~Pxxxxxxxxxx
-$sendx {p-op84-2} {a-ir} {t-op84-2} A
-$rec {p-op84-2} {a-shiftpc} {t-op84-2} {i-extract-pc} {p-op84-3}
+$assert {p-opjsr-2} {a-ir}~Pxxxxxxxxxx
+$sendx {p-opjsr-2} {a-ir} {t-opjsr-2} A
+$rec {p-opjsr-2} {a-shiftpc} {t-opjsr-2} {i-extract-pc} {p-opjsr-3}
 
 # Deselect ft and load RRRR into PPPP field in shiftpc
-$startjmp {p-op84-3}
-$rec {p-op84-3} {a-shiftpc} {t-op84-3} {i-shiftl4-pc} {p-op84-4}
+$startjmp {p-opjsr-3}
+$rec {p-opjsr-3} {a-shiftpc} {t-opjsr-3} {i-shiftl4-pc} {p-opjsr-4}
 
-$dummy-exclude {p-op84-4} {p-op84-5} -{a-discft3}
+$dummy-exclude {p-opjsr-4} {p-opjsr-5} -{a-discft3}
 
 # Select new ft, reload new PC, goto fetchline, restore shiftpc
-$finishjmp {p-op84-5}
+$finishjmp {p-opjsr-5}
 
 
 # - RET -
@@ -1191,30 +1199,32 @@ $finishjmp {p-op84-5}
 # 4. SHIFTPC -> PC             $discft-1
 # 5. send SHIFTPC              $discft-2
 #  . EX -> SHIFTPC             (parallel with p-fetchline)
+p {p-op85} {p-opret}
 
 # Save shiftpc in ex
-$sendc {p-op85} {a-shiftpc} {t-op85} A {p-op85-2}
-$loadex {p-op85}
+$sendc {p-opret} {a-shiftpc} {t-opret} A {p-opret-2}
+$loadex {p-opret}
 
 # Deselect ft and load RRRR into PPPP field in shiftpc
-$startjmp {p-op85-2}
-$rec {p-op85-2} {a-shiftpc} {t-op85-2} {i-shiftr4-pc} {p-op85-3}
+$startjmp {p-opret-2}
+$rec {p-opret-2} {a-shiftpc} {t-opret-2} {i-shiftr4-pc} {p-opret-3}
 
-$dummy-exclude {p-op85-3} {p-op85-4} -{a-discft3}
+$dummy-exclude {p-opret-3} {p-opret-4} -{a-discft3}
 
 # Select new ft, reload new PC, goto fetchline, restore shiftpc
-$finishjmp {p-op85-4}
+$finishjmp {p-opret-4}
 
 
 # - JN XX -
+p {p-op80} {p-opjn}
 
 # save DISCJN
-$sendc {p-op80} {a-discjn} {t-op80} A {p-opjn-2}
-$loadex {p-op80}
+$sendc {p-opjn} {a-discjn} {t-opjn} A {p-opjn-2}
+$loadex {p-opjn}
 
 # RF->DISCJN, this puts sign of A into DISCJN PM
-$send {p-opjn-2} {a-rf} {t-opjn} A {p-opjn-3} # replace with RF send macro?
-$recx {p-opjn-2} {a-discjn} {t-opjn} {i-main}
+$send {p-opjn-2} {a-rf} {t-opjn-2} A {p-opjn-3} # replace with RF send macro?
+$recx {p-opjn-2} {a-discjn} {t-opjn-2} {i-main}
 
 # discriminate, and clear to ready DISCJN for restored memory value
 $discriminatec {p-opjn-3} {a-discjn} {d-discjnA} {d-discjnS} {p-opjn-pos} {p-opjn-neg}
@@ -1235,24 +1245,25 @@ $rec {p-opjn-neg} {a-discjn} {t-opjn-neg} {i-main} {p-sub-jmp}
 # Save a13, RF-printAB->a13, restore
 # Really the only trick here is that we can only print from a13,
 # and during the transfer we shift RF right so we print 0AABB not AABBC
+p {p-op92} {p-opprint}
 
 # PRINT->EX, clear
-$sendc {p-op92} a13 {t-op96} A {p-op92-2}
-$loadex {p-op92}
+$sendc {p-opprint} a13 {t-op96} A {p-opprint-2}
+$loadex {p-opprint}
 
 # RF-printAB->a13. Puts AB in lower 4 digits of upper half of accumulator
-$send-rf {p-op92-2}
-$rec {p-op92-2} a13 {t-printAB} {i-printAB} i.pi # trigger print
+$send-rf {p-opprint-2}
+$rec {p-opprint-2} a13 {t-printAB} {i-printAB} i.pi # trigger print
 
 # prints high half accumulator 13 
 s pr.2 P            
-p i.po {p-op92-3}
+p i.po {p-opprint-3}
 
 # restore contents of MEM13
-$clear {p-op92-3} a13 {t-op92-3} {p-op92-4}
+$clear {p-opprint-3} a13 {t-opprint-3} {p-opprint-4}
 
-$storeex {p-op92-4}
-$rec {p-op92-4} a13 {t-op92-4} {i-main} {p-fetch}
+$storeex {p-opprint-4}
+$rec {p-opprint-4} a13 {t-opprint-4} {i-main} {p-fetch}
 
 
 # - HALT -
