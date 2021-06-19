@@ -1,6 +1,6 @@
 s cy.op 1a
 
-set a4  0044668800  
+set a4  0444668800
 set a5  9988776655
 
 # memory values to check that various instructions save and restore
@@ -699,7 +699,7 @@ $assert {p-opgt55-2} {a-ex}~Mxxxxxxxxxx
 # EX with 0s in the opcode field, then an extra +1 from the 1pp. If PC were
 # Pxx00000000, this would give P0099999999 and the 1pp would cause a carry into
 # the opcode field leaving it P01... instead of P00. That can't happen because
-# PC.RRRR always begins with 09, 90, or 99, so there's no possibility of a
+# PC.PPPP always begins with 09, 90, or 99, so there's no possibility of a
 # carry into digit 9.
 # Note #2: EX.S is not connected to d-main. If it were, this would cause
 # spurious MP inputs.
@@ -928,8 +928,9 @@ p {p-op10} {p-oploadacc}
 # Start with a dummytriggered from memcyc09.S. Then send/clear, then receive
 # In this way the same program can be used for both load and store operations
 defmacro memcyc-prog x
-  # XXX see note in discft1
-  $manual-dummy {p-memcyc$x} {a-mem$x} {t-memcyc} 1 {p-memcyc$x-2}
+  # TODO If we can trigger dummies at the same time as other programs on an
+  # accumulator, then it should be fine to include a-memcyc09.
+  $dummy-exclude {p-memcyc$x} {p-memcyc$x-2} -{a-memcyc09}
   $sendc {p-memcyc$x-2} {a-mem$x} {t-memcyc-2} A {p-memcyc$x-3}
   $recx  {p-memcyc$x-3} {a-mem$x} {r-memcyc-3} {i-main}
 endmacro
@@ -938,12 +939,15 @@ endmacro
 # shift to get desired digit in 2 position, then use digit select adapter
 # 2 position because 1 position always generates 1'P pulse on S send. This
 # means trigger for 9 is stored in PM digit
-# This also allocates the memcyc programs for each acc
-defmacro connect-memcyc09 x
+defmacro select-memcyc09-acc x
   p {d-memcyc09S} ad.s.{ad-memcyc09-$x}.-$x
   p ad.s.{ad-memcyc09-$x}.-$x ad.dp.{ad-memcyc09-dp$x}.2
-  p ad.dp.{ad-memcyc09-dp$x}.2 {a-mem$x}.{t-memcyc}i
+  p ad.dp.{ad-memcyc09-dp$x}.2 {p-memcyc$x}
+endmacro
 
+# Decode and allocate the memcyc programs for each acc
+defmacro connect-memcyc09 x
+  $select-memcyc09-acc $x
   $memcyc-prog $x
 endmacro
 
@@ -951,12 +955,20 @@ $connect-memcyc09 0
 $connect-memcyc09 1
 $connect-memcyc09 2
 $connect-memcyc09 3
-$connect-memcyc09 4
+#$connect-memcyc09 4
 $connect-memcyc09 5
 $connect-memcyc09 6
 $connect-memcyc09 7
 $connect-memcyc09 8
 $connect-memcyc09 9
+
+# a-mem4 is also used for SWAP so must use pulseamps to share common
+# load/store programs.
+$select-memcyc09-acc 4
+$dummy-exclude {p-memcyc4} {p-memcyc4-2} -{a-memcyc09}
+$pulseamp {p-memcyc4-2} {p-store-swapBCDE}
+$dummy-exclude {p-memcyc4-2} {p-memcyc4-3} -{a-memcyc09}
+$pulseamp {p-memcyc4-3} {p-load-swapBCDE}
 
 
 # Start by saving memcyc09 -> EX, clear
@@ -1054,7 +1066,7 @@ endmacro
 $swapBCDE-op B
 $swapBCDE-op C
 $swapBCDE-op D
-#$swapBCDE-op E
+$swapBCDE-op E
 
 # The rest of the swap sequence has to done with dummies, we used 8 transcievers
 
