@@ -108,7 +108,7 @@ S - exS, used in control cycle
 AS - op discriminate
 a - main
 b - rotate-ir: I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, used in control cycle
-g - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used in control cycle
+g - clearA: aa bb cc dd ee -> 00 bb cc dd ee, used in control cycle
 d - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
 e - clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
 
@@ -120,11 +120,10 @@ layout: PM AA BB CC DD EE
 A - main
 S -
 a - main
-b - clearA: XX XX XX XX XX -> 00 XX XX XX XX, used for CLR A, NEG A
-g - shiftl8: XX bb cc dd ee -> bb cc dd ee 00, used for MOV A,#X
-? - selA
-? - movAB
-? - movAC
+b - selBA: XX bb XX XX XX -> bb 00 00 00 00, used for MOV B,A
+g - selCA: XX XX cc XX XX -> cc 00 00 00 00, used for MOV C,A
+d - selDA: XX XX XX dd XX -> dd 00 00 00 00, used for MOV D,A
+e - selEA: XX XX XX XX ee -> ee 00 00 00 00, used for MOV E,A/MOV #X,A
 
 
 LS:
@@ -133,7 +132,6 @@ layout: FF GG HH II JJ
 
 A - main
 S - select A
-a-e select?
 
 
 A6
@@ -197,17 +195,12 @@ A13
 MEM7
 a - main
 b - printAB: AA BB CC DD EE -> 0A AB B 0 00 00 for printing AB with leading 0
-g - selAF: select A/F, AA BB CC DD EE -> AA 00 00 00 00, used MOV F,A
-d - selBG: select B/G, AA BB CC DD EE -> BB 00 00 00 00, used MOV G,A
-b - selCH: select C/H, AA BB CC DD EE -> CC 00 00 00 00, used MOV H,A
 
 
 A14
 MEM8
 A - main
 a - main
-b - selDI: select D/I, AA BB CC DD EE -> DD 00 00 00 00, used MOV I,A
-g - selEJ: select E/J, AA BB CC DD EE -> EE 00 00 00 00, used MOV J,A
 
 
 A15
@@ -217,7 +210,6 @@ AS - disc JN
 A - main
 S - main, selA, PM XX XX XX XX XX -> PM XX 00 00 00 00, used for NEG A
 a - nop 
-b - clearA: XX XX XX XX XX -> 00 XX XX XX XX
 
 
 A16
@@ -229,14 +221,15 @@ S - trigger memcyc 0-9
 a - main 
 b - ftselacc: assemble 10 digits from FT output
 g - shiftr8 - put A in low digits. Used to send A as arg to FT
-d - clearA: XX XX XX XX XX -> 00 XX XX XX XX
-e - movAE: AA BB CC DD EE -> EE BB CC DD EE
 
 
 A17
 MEM11:
+MOVFA:
 A - main
 a - main
+b - clearA: aa bb cc dd ee -> 00 bb cc dd ee
+g - selectA: aa XX XX XX XX -> aa 00 00 00 00
 e - selA (preserve sign)
 
 
@@ -320,17 +313,17 @@ else
 
 CHANGE FT:
 
-The current ft for instruction fetch is selected by the signs of MEM17/18/19,
+The current ft for instruction fetch is selected by the signs of MEM18/19/20,
 where P means to fetch from the corresponding ft. Signs are decoded from PC
 ftsg only for instructions which may change it,
 
-MEM17.S = P+ftsg2 -> ft 1 (09)  # disable for 90 or 99
-MEM18.S = P+ftsg1 -> ft 2 (90)  # disable for 09 or 99
-MEM19.S = P+ftsg1+ftsg2 -> ft 3 (99)  # disable for 09 or 90
+MEM18.S = P+ftsg2 -> ft 1 (09)  # disable for 90 or 99
+MEM19.S = P+ftsg1 -> ft 2 (90)  # disable for 09 or 99
+MEM20.S = P+ftsg1+ftsg2 -> ft 3 (99)  # disable for 09 or 90
 
 [p-decode-ftsg]
-  1. PC-ftsg2->MEM17, PC-ftsg1->MEM18, PC-ftsg1->MEM19
-  2. PC-ftsg2->MEM19
+  1. PC-ftsg2->MEM18, PC-ftsg1->MEM19, PC-ftsg1->MEM20
+  2. PC-ftsg2->MEM20
 
 p-decode-ftsg relies on having signs at P initially, and will toggle signs for
 disabled fts. So the sequence for changing ft should be:
@@ -507,16 +500,19 @@ MOV [XX], A
 
 
 
-MOV A,[BCD]
-1. RF -x-> EX
+MOV [BCDEGHIJ],A
+1. RF -clearA-> EX
 2. EX -> RF
+3. RF -> EX or LS -> EX(no clear)
+4. EX -sel[BCDE]A-> RF
 
 
-MOV A,E
-1. MEM16 -> EX, clear
-2. RF -movAE-> MEM16, clear
-3. MEM16 -> RF, clear
-4. EX -> MEM16, clear
+MOV F,A
+1. MOVFA -> EX
+2. RF -clearA-> MOVFA
+3. LS -selectA-> MOVFA
+4. MOVFA -> RF
+5. EX -> MOVFA
 
 
 SWAP A,[BCDE]
@@ -524,14 +520,6 @@ SWAP A,[BCDE]
 2. RF -x-> SWAPAX, clear
 3. SWAPAX -> RF, clear
 4. EX->SWAPAX, clear
-
-
-MOV A,[FGHIJ]
-1. MEM14/15/16 -> EX
-2. RF -clearA-> MEM14/15/16, clear
-3. LS ->selX-> MEM14/15/16
-4. MEM14/15/16 -> RF, clear
-5. EX -> MEM14/15/16, clear
 
 
 SWAP A,F

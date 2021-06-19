@@ -1,6 +1,6 @@
 # function table values
-s f1.RA0L6 1 # LOADACC
-s f1.RA0L5 0
+s f1.RA0L6 3 # MOV J,A
+s f1.RA0L5 2
 s f1.RA0L4 8 # JSR 310
 s f1.RA0L3 4
 s f1.RA0L2 0
