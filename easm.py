@@ -9,8 +9,8 @@
 #
 # Resources which can be allocated:
 # a     accumulator, 1-20
-# p     program line, 1-1 to 11-11
-# d     data trunk, 1-9
+# p     program line, 1-1 to 26-11
+# d     data trunk, 1-20
 # r     accumulator receiver, 1-5 on each accumulator
 # t     accumulator transciever, 6-12 on each accumulator
 # ad    adapter, 1-40 (simulator limitation) for each type
@@ -120,6 +120,29 @@ class SymbolTable:
     '''Lookup/allocate a named resource on a particular accumulator'''
     r = self.sym_acc[acc_idx][resource_type]
     return self._lookup(r, name)
+
+  def summarize_resource_usage(self):
+    def bitmap(alloc):
+      result = ["."] * alloc.limit
+      for r in alloc.symbols.values():
+        result[r] = "*"
+      return ''.join(result)
+
+    num_ts_used = 0
+    num_ts_avail = 0
+    per_acc = []
+    for acc in range(20):
+      inputs = self.sym_acc[acc]['i']
+      transceivers = self.sym_acc[acc]['t']
+      receivers = self.sym_acc[acc]['r']
+      num_ts_used += len(transceivers.symbols)
+      num_ts_avail += transceivers.limit
+      per_acc.append(f"a{acc+1:<2d} {bitmap(inputs)} {bitmap(receivers)}{bitmap(transceivers)}")
+
+    pulseamps = self.sym_global['pa']
+    print(f"pas {len(pulseamps.symbols)}/{pulseamps.limit} ts {num_ts_used}/{num_ts_avail}")
+    for row in range(10):
+      print(f"{per_acc[2*row]}   {per_acc[2*row+1]}")
 
 
 @dataclass
@@ -613,6 +636,9 @@ class Assembler(object):
   def assemble(self, filename, intext):
     return self._scan(filename, intext)
 
+  def summarize_resource_usage(self):
+    self.symbols.summarize_resource_usage()
+
 
 def main():
   if len(sys.argv) < 3:
@@ -627,6 +653,7 @@ def main():
 
   if outtext:
     open(sys.argv[2], 'w+').write(outtext)
+    a.summarize_resource_usage()
 
 if __name__ == "__main__":
   main()
