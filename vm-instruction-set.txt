@@ -367,7 +367,6 @@ DISCMEMCYC neg, A >= 10
   11. EX -> MEMCYC1014
 
 
-
 STOREACC A
 # accumulator index in A, accumulator contents to write in SAVE
 # Use function table as a 1-of-10 decoder on A1 (ones digit)
@@ -431,73 +430,96 @@ disc LN, clear
 
 
 
-MOV A,[B]
-# Linearized memory is a riot
+MOV [B],A  (aka LOAD)
 
-# calculate A = 2*B2 + B1>4
-RF -> EX, clear                   ; clear A 
-EX -clearA-> RF, clear
-INDEXACC -> EX, clear
-RF -addrToAccIdx-> INDEXACC       ; double B2 in low digits,
-RF -addrToAccIdx-> INDEXACC       ; double B1 in digit 10 to overflow if >4
-disc INDEXACC
-  (M so B1>4)
-  inc INDEXACC                    ; result += 1 if B1>4
-INDEXACC -shiftL8-> RF, clear     ; store result in A
-EX -> INDEXACC
+Translate address, then LOADACC, then MOV
 
-# load the accumulator containing the value
-subprogram LOADACC
+The main challenge is temp space for addressing, because we need to rotate
+the arg for ft3 which takes two spare accumulators.  We can use LS to manage
+this for LOAD, e.g.
 
-RF -> EX, clear                   ; clear A in
-EX -clearA-> RF, clear
+Option 1:
 
-# index the word of LS we want, using S outputs of LOADSEL
-LOADSEL -> EX,clear
-RF -selB1-> LOADSEL, stim FT3     ; use B1 to index FT
-LOADSEL -> FT3, clear             
-.
-.
-FT3 -loadAB-> LOADSEL             
-send LOADSEL, clear               ; trigger appropriate receive program
-EX -> LOADSEL
+# Compute accumulator# 0-14 and 2x word offset 0,2,4,6,8 from [B] into the top
+# 3 digits of LS.  This leaves F with the accumulator# and the top of G with 2x
+# word offset.
+1. clear LS
+2. RF -selB-> LS
+3. RF -selB-> LS  # LS += 2*0Bb0000000  e.g. 57+57 -> 1140000000
 
-# at this point we have one of five different active programs executing
-# We have to distribute the reads of ABCDE positions over at least two accs
-# because each acc needs a nop input so max 4
-# Each program chooses a specific accumulator to work with
-LOADSEL_X -> EX
-LS -selX-> LOADSEL_X              ; masks and shifts to A position
-LOADSEX_X -> RF, clear
-EX -> LOADSEL_X, xclear
+# Lookup 2x word offset (e.g. 04) in ft3, reusing the LOADACC decode table.
+# Use this to start a long-running dummy to trigger the appropriate MOV opcode
+# to MOV the desired word from LS to A after LOADACC finishes.  The dummies are
+# taken from GETWORD.S digits 0,2,4,6,8, and trigger MOV [FGHIJ],A - they
+# should probably be FT dummies.
+
+# Trying to reuse mostly the same sequence as LOADACC
+4. DISCMEMCYC -> EX, clear
+5. LS -splitB-> DISCMEMCYC  # DISCMEMCYC += 000000000b
+   trigger ft3
+6. DISCMEMCYC -> ft3.arg, clear
+7. EX -> DISCMEMCYC (ft shadow)
+8. GETWORD -> EX, clear (ft shadow)
+9. FT3 -> GETWORD
+10. send GETWORD.S, clear, trigger dummies for getword
+11. EX -> GETWORD
+
+# This is basically LOADACC-1/2 except we need to use LS not RF.
+12. DISCMEMCYC -> EX, clear
+13. LS -splitA-> DISCMEMCYC, clear  # DISCMEMCYC: PM=A2, 1=A1
+
+# Can reuse LOADACC-3 from here on
+14-22. LOADACC-3
+
+# Here the dummy from cycle 10 triggers MOV
+23. trigger MOV [FGHIJ],A opcode
+(27-8. fetch)
+
+---
+
+Alternatively, perhaps we could wire only the 1s digit of an accum to ft3 arg
+via its S output?
+
+# 1. FT3ARG1 -> EX, clear
+# 2. RF -selB1-> FT3ARG1
+# 3. RF -selB1-> FT3ARG1  # FT3ARG1 += 2*000000000b  e.g. 07+07 -> 0000000014
+#    trigger ft3
+# 4. FT3ARG1.S -> ft3.arg, clear  # NB only connects digit 1
+# 5. EX -> FT3ARG1 (ft shadow)
+# 6. GETWORD -> EX (ft shadow)
+# 7. FT3 -> GETWORD
+# 8. send GETWORD.S, clear, trigger dummies for getword
+# 9. EX -> GETWORD
+
+It's a bit more nuanced to do the same trick for DISCMEMCYC.10 -> ft3.arg
+because the S output is wired for discrimination, but it should be possible.
+
+# 10. DISCMEMCYC -> EX, clear
+# 11. RF -selB-> DISCMEMCYC, clear
+# 12. RF -selB-> DISCMEMCYC, clear  # DMC += 2*Bb00000000  e.g. 57+57 -> M 1400000000
+# 13. discriminate DISCMEMCYC, trigger ft3
+#
+# DISCMEMCYC pos, A < 10
+#   14. DISCMEMCYC += M00000   # set sign to M send on S does not trigger disc
+#   15. DISCMEMCYC.S -> ft3.arg, clear
+#   16. EX -> DISCMEMCYC             (ft shadow)
+#   17. MEMCYC09 -> EX, clear        (ft shadow)
+#   18. FT3 -> MEMCYC09
+#   19. send MEMCYC09.S, clear, trigger accumulator memory cycle
+#   20. main -> LS
+#   21. LS -> main
+#   22. EX -> MEMCYC09
 
 
 
-
-send LS                           ; value now in A of SELECTREG
-
-LS -> RF, clear                   ; save value
-
-EX -> SELECTREG, clear
-
-
-
-
-
-
-
-  indexacc    ; A = accumulator# with address B
-  loadacc A   ; LS = accumulator[A]
-  swapall     ; stash RF (in the process, setting G=B)
-  indexswap   ; A = ABCDE[G%5]
-  swapall     ; restore RF
-  mov A, F    ; A = the selected value
-  ret
-
-
-MOV [XX], A
-# This is big one, the most complex microprogram in the machine
-
+MOV A,[B]  (aka STORE)
+# Reuse MOV [B],A to find the correct accumulator and word offset, but instead
+# of GETWORD, decode into PUTWORD.  This triggers sequences for MOVSTORE
+# A,[FGHIJ] following LOADACC.  These sequences perform a MOV and then
+# immediately tail call STOREACC.
+#
+# XXX A problem here is where to compute the address for STOREACC.  Likely
+# requires the option 2 rewiring hack.
 
 
 MOV [BCDEGHIJ],A
