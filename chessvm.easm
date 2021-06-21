@@ -517,11 +517,10 @@ p p.A2o p.Ci
 p p.A3o p.Di
 p p.A4o p.Ei
 p p.A5o p.Fi
-p p.A6o {p-mp-5x}
+p p.A6o p.Gi
 
-# For opcodes>55, Gi is triggered both by A6o when decoding 5x, and explicitly via a program
-# control to decode the tens digit of 7x-9x.
-$pulseamp {p-mp-5x} p.Gi
+# For opcodes>55, Gi is triggered both by A6o when decoding 5x, and explicitly
+# via a program control to decode the tens digit of 7x-9x.
 $pulseamp {p-mp-789x} p.Gi
 
 
@@ -953,6 +952,7 @@ $loadrf {p-sub-clearA-2}
 #$break {p-op40}  # MOV #xx,A
 #$break {p-op52}  # INC A
 #$break {p-op53}  # DEC A
+#$break {p-op70}  # ADD D,A
 #$break {p-op73}  # JMP xx
 #$break {p-op74}  # JMP xxxx
 #$break {p-op80}  # JN xx
@@ -1295,6 +1295,20 @@ s c.s30 Jl
 # Decrement A field of RF
 # XXX should probably use pulseamp
 $rec {p-opdec} {a-rf} {t-opdec} {i-main} {p-fetch}
+
+
+# - ADD D,A -
+p {p-op70} {p-opadd}
+
+# RF -> EX
+$send-rf {p-opadd}
+$loadex {p-opadd}
+$dummy {p-opadd} {p-opadd-2}
+
+# EX -selDA-> RF
+$storeex {p-opadd-2}
+$pulseamp {p-opadd-2} {p-rf-selDA}
+$dummy {p-opadd-2} {p-fetch}
 
 
 # - JMP XX -

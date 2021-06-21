@@ -122,7 +122,7 @@ S -
 a - main
 b - selBA: XX bb XX XX XX -> bb 00 00 00 00, used for MOV B,A
 g - selCA: XX XX cc XX XX -> cc 00 00 00 00, used for MOV C,A
-d - selDA: XX XX XX dd XX -> dd 00 00 00 00, used for MOV D,A
+d - selDA: XX XX XX dd XX -> dd 00 00 00 00, used for MOV D,A/ADD D,A
 e - selEA: XX XX XX XX ee -> ee 00 00 00 00, used for MOV E,A/MOV #X,A
 
 
@@ -586,14 +586,12 @@ INC B
 
 
 DEC A
-CT sends M 99 00 00 00 00 -> RF
+1. M99000 -> RF
 
 
-ADD A,D
-1. MEM15 -> EX, clear
-2. RF -selDI-> MEM15
-3. MEM15 -> RF, clear
-4. EX->MEM15, clear
+ADD D,A
+1. RF -> EX
+2. EX -selDA-> RF, clear
 
 
 SUB A,D
@@ -764,7 +762,7 @@ SAMPLE CODE
 mov A,[XX]        ; 01
 swap A,D          ; 2
 mov A,[YY]        ; 34
-add A,D           ; 5
+add D,A           ; 5
 mov [XX],A        ; 67
 
 
