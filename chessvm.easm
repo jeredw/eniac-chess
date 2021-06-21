@@ -992,13 +992,13 @@ endif # SUB_CLEARA
 if SUB_RFTOEX
 
 # - RFTOEX -
-# send RF, receive EX
+# send RF, receive EX.  NB does not clear RF!
 defmacro rf-to-ex prog
   p $prog {pa-a-%name}
-  p {pa-b-%name} {p-sub-clearA}
+  p {pa-b-%name} {p-sub-rftoex}
 endmacro
 
-$sendc-rf {p-sub-rftoex}
+$send-rf {p-sub-rftoex}
 $loadex {p-sub-rftoex}
 
 endif
@@ -1200,8 +1200,9 @@ if OP_SWAPALL
 # Exchange RF and LS. Nothing fancy here.
 p {p-op12} {p-opswapall}
 
-# RF->EX
-$rf-to-ex {p-opswapall}
+# RF->EX, clear
+$sendc-rf {p-opswapall}
+$loadex {p-opswapall}
 $dummy {p-opswapall} {p-opswapall-2}
 
 # LS->RF
@@ -1225,8 +1226,14 @@ if OP_MOVXA
 # helpful for word insert/extract for the memory cycle.
 # 1. $clearA-1
 # 2. $clearA-2
-# 3. RF -> EX or LS -> EX(no clear)
+# 3. RF -> EX(no clear) or LS -> EX(no clear)
 # 4. EX -sel[BCDE]A-> RF
+#
+# TODO If we had a $send program on EX rather than just a $sendc program, we
+# could fit this into 3 cycles as
+# 1. RF -clearA-> EX
+# 2. EX -> RF, don't clear
+# 3. EX -sel[BCDE]A-> RF, clear
 #
 # TODO An alternative 6-cycle sequence would reuse swapBCDE programs and would
 # work for all mov X,A... it would probably conserve programs but not pulse
@@ -1297,7 +1304,7 @@ $dummy {p-opmovXA-4} {p-fetch}
 $clearA {p-opmovXA}
 
 # Read either RF or LS in EX
-$rf-to-ex {p-opmovRFA-3}
+p {p-opmovRFA-3} {p-sub-rftoex}
 $sendx {p-opmovLSA-3} {a-ls} {r-opmovLSA-3} A
 $loadex {p-opmovLSA-3}
 
