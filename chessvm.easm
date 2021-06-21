@@ -12,6 +12,31 @@ set a13 1313131313
 set a15 1515151515
 set a16 1616161616
 
+# comment out these defines to disable the corresponding sequences
+define RESET_SEQUENCE #  2 pas,  2 ts
+define CONTROL_CYCLE  #  9 pas, 19 ts
+define OP_SWAP        # 11 pas, 10 ts
+define OP_LOADACC     #  3 pas, 22 ts
+define OP_SWAPALL     #  3 pas,  3 ts
+define OP_MOVXA       # 15 pas, 12 ts
+define OP_MOVFA       #  4 pas,  6 ts
+define OP_CLRA        #  1 pas,  1 ts
+define OP_MOVIMMA     #  3 pas,  2 ts
+define OP_INC         #  0 pas,  1 ts
+define OP_DEC         #  0 pas,  1 ts
+define OP_ADD         #  4 pas,  2 ts
+define OP_JSR         #  3 pas,  5 ts
+define OP_RET         #  3 pas,  3 ts
+define OP_JMPFAR      #  4 pas,  4 ts
+define OP_JMP         #  0 pas,  0 ts
+define OP_JN          #  4 pas,  9 ts
+define OP_PRINT       #  3 pas,  4 ts
+define SUB_JMP        #  1 pas,  4 ts (OP_JMP)
+define SUB_DISCFT     #  0 pas,  1 ts (OP_JSR, OP_RET, OP_JMPFAR)
+define SUB_STARTJMP   #  1 pas,  1 ts (OP_JSR, OP_RET, OP_JMPFAR)
+define SUB_FINISHJMP  #  4 pas,  1 ts (OP_JSR, OP_RET)
+define SUB_CONSUME_OP #  2 pas,  2 ts (OP_JN, OP_MOVIMMA)
+define SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA, OP_CLRA, OP_MOVIMMA)
 
 
 # ENIAC-VM for playing chess
@@ -519,9 +544,11 @@ p p.A4o p.Ei
 p p.A5o p.Fi
 p p.A6o p.Gi
 
+if CONTROL_CYCLE
 # For opcodes>55, Gi is triggered both by A6o when decoding 5x, and explicitly
 # via a program control to decode the tens digit of 7x-9x.
 $pulseamp {p-mp-789x} p.Gi
+endif
 
 
 # Wire the outputs to individual opcode programs
@@ -566,6 +593,8 @@ $op-lines-gt55 H 9
 $op-lines-gt55 J 8
 $op-lines-gt55 K 7
 
+if RESET_SEQUENCE
+
 # -- RESET --
 # Builtin clearing should first set all accumulators to 0
 p i.io {p-reset}
@@ -588,6 +617,10 @@ $recx {p-reset} {a-discft1} {r-reset} {i-resetPC}
 $sendc {p-reset-2} {a-discft1} {t-reset-2} A {p-fetch}
 $loadpc {p-reset-2}
 
+endif RESET_SEQUENCE
+
+
+if CONTROL_CYCLE
 
 # -- CONTROL CYCLE --
 
@@ -811,10 +844,13 @@ p ad.permute.{ad-fetch-ex} {d-main}
 $loadex {p-fetchread}
 $recinc {p-fetchread} {a-pc} {t-fetchread} {i-main} {p-nofetch}
 
+endif # CONTROL_CYCLE
 
 
 # -- MICRO-SUBROUTINES --
 # Sequences shared between instructions, none of which retrigger the main cycle
+
+if SUB_CONSUME_OP
 
 # - CONSUME-OP -
 # Consume opcode: used to read immediate operands
@@ -841,6 +877,10 @@ $recincx {p-sub-consume-op-2} {a-ir} {r-consume-op-2} {i-fill99}
 # fill99 requires an M0 on the bus
 $sendM0 {p-sub-consume-op-2}
 
+endif # SUB_CONSUME_OP
+
+
+if SUB_JMP
 
 # - JMP -
 # Short jump (2 digits, no FT switch) to immediate operand
@@ -863,6 +903,10 @@ $rec {p-sub-jmp-2} {a-pc} {t-sub-jmp-2} {i-main} {p-sub-jmp-3}
 $sendx {p-sub-jmp-3} {a-ir} {r-send} A
 $rec {p-sub-jmp-3} {a-pc} {t-sub-jmp-3} {i-loadPC2} {p-fetchline} 
 
+endif # SUB_JMP
+
+
+if SUB_DISCFT
 
 # - DISCFT -
 # The common receive portion of the sequence to select ft from PC ftsg
@@ -882,6 +926,10 @@ $recx {p-sub-discft} {a-discft3} {r-sub-discft} {i-ftsg1}
 # Finish decoding discft3 sign
 $recx {p-sub-discft-2} {a-discft3} {r-sub-discft-2} {i-ftsg2}
 
+endif # SUB_DISCFT
+
+
+if SUB_STARTJMP
 
 # - STARTJMP -
 # Send PC twice and then clear it to load new PC, meanwhile deselecting current FT
@@ -894,6 +942,10 @@ $sendcx {p-sub-startjmp} {a-pc} {t-sub-startjmp} A
 s {a-pc}.rp{t-sub-startjmp} 2
 $discft {p-sub-startjmp}
 
+endif # SUB_STARTJMP
+
+
+if SUB_FINISHJMP
 
 # - FINISHJMP -
 # Send shiftpc twice, load pc, meanwhile selecting new ft, and then go to fetch
@@ -913,6 +965,10 @@ $storeex {p-sub-finishjmp-3}
 $recx {p-sub-finishjmp-3} {a-shiftpc} {r-sub-finishjmp-3} {i-main}
 $pulseamp {p-sub-finishjmp-3} {p-fetchline}
 
+endif
+
+
+if SUB_CLEARA
 
 # - CLEARA -
 # clear A register in RF
@@ -928,6 +984,8 @@ $loadex-clearA {p-sub-clearA}
 # EX -> RF
 $storeex {p-sub-clearA-2}
 $loadrf {p-sub-clearA-2}
+
+endif # SUB_CLEARA
 
 
 # -- OPCODE IMPLEMENTATIONS --
@@ -965,6 +1023,8 @@ $loadrf {p-sub-clearA-2}
 # - NOP -
 p {p-op00} {p-fetch}
 
+
+if OP_SWAP
 
 # - SWAP A,[BCDE] -
 # First two cycles of each instruction is per-op, last two cycles shared
@@ -1008,6 +1068,10 @@ $dummy-exclude {p-opswapBCDE-2} {p-fetch} -{a-swapBCDE}
 $storeex {p-opswapBCDE-2}
 # p-memcyc4-3 receives a-swapBCDE
 
+endif # OP_SWAP
+
+
+if OP_LOADACC
 
 # - LOADACC -
 p {p-op10} {p-oploadacc}
@@ -1111,6 +1175,10 @@ $send {p-oploadacc-7} {a-ls} {t-oploadacc-7} A {p-oploadacc-8}
 $storeex {p-oploadacc-8}
 $rec {p-oploadacc-8} {a-memcyc09} {t-oploadacc-7} {i-main} {p-fetch}
 
+endif # OP_LOADACC
+
+
+if OP_SWAPALL
 
 # - SWAPALL -
 # Exchange RF and LS. Nothing fancy here.
@@ -1128,6 +1196,10 @@ $loadrf {p-opswapall-2}
 $storeex {p-opswapall-3}
 $rec {p-opswapall-3} {a-ls} {t-opswapall-3} {i-main} {p-fetch}
 
+endif # OP_SWAPALL
+
+
+if OP_MOVXA
 
 # - MOV [BCDEGHIJ],A -
 # Four inputs on RF let us share almost the same 4-cycle sequence for most
@@ -1218,6 +1290,10 @@ $loadex {p-opmovLSA-3}
 $storeex {p-opmovXA-4}
 # dummy will trigger p-rf-selXA this cycle
 
+endif # OP_MOVXA
+
+
+if OP_MOVFA
 
 # - MOV F,A -
 # Separate from other MOVs because RF doesn't have enough inputs to select A.
@@ -1249,6 +1325,10 @@ $loadrf {p-opmovFA-4}
 $storeex {p-opmovFA-5}
 $rec {p-opmovFA-5} {a-movfa} {t-opmovFA-5} {i-main} {p-fetch}
 
+endif # OP_MOVFA
+
+
+if OP_CLRA
 
 # - CLR A -
 p {p-op35} {p-opclrA}
@@ -1257,6 +1337,10 @@ p {p-op35} {p-opclrA}
 $clearA {p-opclrA}
 $dummy-delay {p-opclrA} 2 {p-fetch}
 
+endif # OP_CLRA
+
+
+if OP_MOVIMMA
 
 # - MOV #XX,A -
 p {p-op40} {p-opmovimmA}
@@ -1272,6 +1356,10 @@ $pulseamp {p-opmovimmA-3} {p-rf-selEA}  # save lowest word into A
 # wait for 2 cycles of consume-op, then next op
 $dummy-delay {p-opmovimmA-3} 2 {p-fetch}
 
+endif # OP_MOVIMMA
+
+
+if OP_INC
 
 # - INC -
 p {p-op52} {p-opinc}
@@ -1284,6 +1372,10 @@ s c.s29 Jr
 # XXX should probably use pulseamp
 $rec {p-opinc} {a-rf} {t-opinc} {i-main} {p-fetch}
 
+endif # OP_INC
+
+
+if OP_DEC
 
 # - DEC -
 p {p-op53} {p-opdec}
@@ -1296,6 +1388,10 @@ s c.s30 Jl
 # XXX should probably use pulseamp
 $rec {p-opdec} {a-rf} {t-opdec} {i-main} {p-fetch}
 
+endif # OP_DEC
+
+
+if OP_ADD
 
 # - ADD D,A -
 p {p-op70} {p-opadd}
@@ -1310,10 +1406,18 @@ $storeex {p-opadd-2}
 $pulseamp {p-opadd-2} {p-rf-selDA}
 $dummy {p-opadd-2} {p-fetch}
 
+endif # OP_ADD
+
+
+if OP_JMP
 
 # - JMP XX -
 p {p-op73} {p-sub-jmp}
 
+endif # OP_JMP
+
+
+if OP_JMPFAR
 
 # - JMP XXXX -
 # This is similar to JSR/RET sequences but saves a cycle by using IR directly
@@ -1345,6 +1449,10 @@ $discft {p-opjmpfar-4}
 # Load new PC
 $recx {p-opjmpfar-4} {a-pc} {r-opjmpfar-4} {i-loadPC4}
 
+endif # OP_JMPFAR
+
+
+if OP_JSR
 
 # - JSR XXXX -
 # 1. SHIFTPC -> EX
@@ -1374,6 +1482,10 @@ $dummy-exclude {p-opjsr-4} {p-opjsr-5} -{a-discft3}
 # Select new ft, reload new PC, goto fetchline, restore shiftpc
 $finishjmp {p-opjsr-5}
 
+endif # OP_JSR
+
+
+if OP_RET
 
 # - RET -
 # 1. SHIFTPC -> EX
@@ -1397,6 +1509,10 @@ $dummy-exclude {p-opret-3} {p-opret-4} -{a-discft3}
 # Select new ft, reload new PC, goto fetchline, restore shiftpc
 $finishjmp {p-opret-4}
 
+endif # OP_RET
+
+
+if OP_JN
 
 # - JN XX -
 p {p-op80} {p-opjn}
@@ -1423,6 +1539,10 @@ $dummy-delay {p-opjn-eat} 2 {p-fetch}
 $storeex {p-opjn-neg}
 $rec {p-opjn-neg} {a-discjn} {t-opjn-neg} {i-main} {p-sub-jmp}
 
+endif # OP_JN
+
+
+if OP_PRINT
 
 # - PRINT - 
 # Save a13, RF-printAB->a13, restore
@@ -1447,6 +1567,8 @@ $clear {p-opprint-3} a13 {t-opprint-3} {p-opprint-4}
 
 $storeex {p-opprint-4}
 $rec {p-opprint-4} a13 {t-opprint-4} {i-main} {p-fetch}
+
+endif # OP_PRINT
 
 
 # - HALT -

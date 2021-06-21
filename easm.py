@@ -160,6 +160,9 @@ class Assembler(object):
     self.macros = {}  # name -> Macro
     self.uniqueid = 1  # unique id for making up names
     self.deferred = []  # lines deferred til insert-deferred
+    self.defines = {}  # var -> True
+    self.inside_if = False
+    self.if_condition = False
 
 
   # Each argument processor fn maps from 0-based resource ids to strings
@@ -427,11 +430,11 @@ class Assembler(object):
     return self.line_literal(line)
 
 
-  # Handles symbol definitions e.g. {p-foo}=3-1
-  def line_define(self, line, **kwargs):
+  # Handles symbol assignments e.g. {p-foo}=3-1
+  def line_assign(self, line, **kwargs):
     m = re.match(r'{(?P<name>[apd]-[A-Za-z0-9-]+)}\s*=\s*(?P<value>a?\d\d?(-\d\d?)?)\s*(#.*)?', line)
     if not m:
-      raise SyntaxError('bad definition value')
+      raise SyntaxError('bad assignment value')
     name = m.group('name')
     value = m.group('value')
     res_type = name[0]
@@ -517,6 +520,15 @@ class Assembler(object):
     self.defmacro.lines.append(line)
 
 
+  def line_inif(self, line, **kwargs):
+    # conditionally assemble until endif
+    if re.match(r'\s*endif', line):
+      self.inside_if = False
+      return '# endif'
+    elif self.if_condition:
+      return self.assemble_line(line, **kwargs)
+
+
   def line_include(self, line, **kwargs):
     # include another source file
     m = re.match(r'\s*include\s+(?P<path>.*)(#.*)?', line)
@@ -592,18 +604,41 @@ class Assembler(object):
     return f'# dummy {name} = {accum}.{transceiver}i (excluded {excluded_accums})'
 
 
+  def line_define(self, line, **kwargs):
+    m = re.match(r'\s*define\s+(?P<var>\S+)(#.*)?', line)
+    if not m:
+      raise SyntaxError('bad define directive')
+    var = m.group('var')
+    self.defines[var] = True
+    return f"# define {var}"
+
+
+  def line_if(self, line, **kwargs):
+    m = re.match(r'\s*if\s+(?P<var>\S+)(#.*)?', line)
+    if not m:
+      raise SyntaxError('bad if directive')
+    if self.inside_if:
+      raise SyntaxError('nesting if is not supported')
+    var = m.group('var')
+    self.inside_if = True
+    self.if_condition = self.defines.get(var)
+    return f"# if {var}  ({var} is {bool(self.if_condition)})"
+
+
   def assemble_line(self, line, **kwargs):
     # The types of lines we understand
     line_dispatch = {
       re.compile(r'\s*p\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'): self.line_p,
       re.compile(r'\s*s\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'): self.line_s,
-      re.compile(r'\s*{[apd]-[A-Za-z0-9-]+}\s*=.+'):      self.line_define,
+      re.compile(r'\s*{[apd]-[A-Za-z0-9-]+}\s*=.+'):      self.line_assign,
       re.compile(r'\s*defmacro.*'):                       self.line_defmacro,
       re.compile(r'\s*\$([^\s]+).*'):                     self.line_domacro,
       re.compile(r'\s*include.*'):                        self.line_include,
       re.compile(r'\s*defer.*'):                          self.line_defer,
       re.compile(r'\s*insert-deferred.*'):                self.line_insert_deferred,
       re.compile(r'\s*allocate-dummy.*'):                 self.line_allocate_dummy,
+      re.compile(r'\s*define.*'):                         self.line_define,
+      re.compile(r'\s*if.*'):                             self.line_if,
       re.compile(r'.*'):                                  self.line_literal
     }
 
@@ -619,6 +654,8 @@ class Assembler(object):
       try:
         if self.defmacro:
           outlines = self.line_inmacro(line)
+        elif self.inside_if:
+          outlines = self.line_inif(line, filename=filename, line_number=line_number)
         else:
           outlines = self.assemble_line(line, filename=filename, line_number=line_number)
       except Exception as e:
