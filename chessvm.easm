@@ -25,13 +25,13 @@ define OP_MOVIMMA     #  3 pas,  2 ts
 define OP_INC         #  0 pas,  1 ts
 define OP_DEC         #  0 pas,  1 ts
 define OP_ADD         #  4 pas,  2 ts
-define OP_JSR         #  3 pas,  5 ts
-define OP_RET         #  3 pas,  3 ts
+define OP_JSR         #  2 pas,  5 ts
+define OP_RET         #  2 pas,  3 ts
 define OP_JMPFAR      #  4 pas,  4 ts
 define OP_JMP         #  0 pas,  0 ts
 define OP_JN          #  4 pas,  9 ts
 define OP_PRINT       #  3 pas,  4 ts
-define SUB_JMP        #  1 pas,  4 ts (OP_JMP)
+define SUB_JMP        #  1 pas,  4 ts (OP_JMP, OP_JN)
 define SUB_DISCFT     #  0 pas,  1 ts (OP_JSR, OP_RET, OP_JMPFAR)
 define SUB_STARTJMP   #  1 pas,  1 ts (OP_JSR, OP_RET, OP_JMPFAR)
 define SUB_FINISHJMP  #  4 pas,  1 ts (OP_JSR, OP_RET)
@@ -1477,10 +1477,8 @@ $rec {p-opjsr-2} {a-shiftpc} {t-opjsr-2} {i-extract-pc} {p-opjsr-3}
 $startjmp {p-opjsr-3}
 $rec {p-opjsr-3} {a-shiftpc} {t-opjsr-3} {i-shiftl4-pc} {p-opjsr-4}
 
-$dummy-exclude {p-opjsr-4} {p-opjsr-5} -{a-discft3}
-
 # Select new ft, reload new PC, goto fetchline, restore shiftpc
-$finishjmp {p-opjsr-5}
+$dummy-exclude {p-opjsr-4} {p-sub-finishjmp} -{a-discft3}
 
 endif # OP_JSR
 
@@ -1504,10 +1502,8 @@ $loadex {p-opret}
 $startjmp {p-opret-2}
 $rec {p-opret-2} {a-shiftpc} {t-opret-2} {i-shiftr4-pc} {p-opret-3}
 
-$dummy-exclude {p-opret-3} {p-opret-4} -{a-discft3}
-
 # Select new ft, reload new PC, goto fetchline, restore shiftpc
-$finishjmp {p-opret-4}
+$dummy-exclude {p-opret-3} {p-sub-finishjmp} -{a-discft3}
 
 endif # OP_RET
 
