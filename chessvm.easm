@@ -37,6 +37,7 @@ define SUB_STARTJMP   #  1 pas,  1 ts (OP_JSR, OP_RET, OP_JMPFAR)
 define SUB_FINISHJMP  #  4 pas,  1 ts (OP_JSR, OP_RET)
 define SUB_CONSUME_OP #  2 pas,  2 ts (OP_JN, OP_MOVIMMA)
 define SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA, OP_CLRA, OP_MOVIMMA)
+define SUB_RFTOEX     #  2 pas,  0 ts (OP_SWAPALL, OP_MOVXA, OP_ADD)
 
 
 # ENIAC-VM for playing chess
@@ -988,6 +989,21 @@ $loadrf {p-sub-clearA-2}
 endif # SUB_CLEARA
 
 
+if SUB_RFTOEX
+
+# - RFTOEX -
+# send RF, receive EX
+defmacro rf-to-ex prog
+  p $prog {pa-a-%name}
+  p {pa-b-%name} {p-sub-clearA}
+endmacro
+
+$sendc-rf {p-sub-rftoex}
+$loadex {p-sub-rftoex}
+
+endif
+
+
 # -- OPCODE IMPLEMENTATIONS --
 
 #$break {p-op00}  # NOP
@@ -1185,8 +1201,8 @@ if OP_SWAPALL
 p {p-op12} {p-opswapall}
 
 # RF->EX
-$sendc {p-opswapall} {a-rf} {t-opswapall} A {p-opswapall-2}
-$loadex {p-opswapall}
+$rf-to-ex {p-opswapall}
+$dummy {p-opswapall} {p-opswapall-2}
 
 # LS->RF
 $sendc {p-opswapall-2} {a-ls} {t-opswapall-2} A {p-opswapall-3}
@@ -1281,8 +1297,7 @@ $dummy {p-opmovXA-4} {p-fetch}
 $clearA {p-opmovXA}
 
 # Read either RF or LS in EX
-$send-rf {p-opmovRFA-3}
-$loadex {p-opmovRFA-3}
+$rf-to-ex {p-opmovRFA-3}
 $sendx {p-opmovLSA-3} {a-ls} {r-opmovLSA-3} A
 $loadex {p-opmovLSA-3}
 
@@ -1397,8 +1412,7 @@ if OP_ADD
 p {p-op70} {p-opadd}
 
 # RF -> EX
-$send-rf {p-opadd}
-$loadex {p-opadd}
+$rf-to-ex {p-opadd}
 $dummy {p-opadd} {p-opadd-2}
 
 # EX -selDA-> RF
