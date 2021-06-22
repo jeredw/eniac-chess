@@ -1196,24 +1196,24 @@ $clearx {p-oploadacc} {a-ls} {r-clear}
 $send-rf {p-oploadacc-2}
 $rec {p-oploadacc-2} {a-discmemcyc} {t-oploadacc-2} {i-splitA} {p-oploadacc-3}
 
-# Discriminate: are we reading from 0-9 (pos) or 10-14 (neg)?
-# Always triggers {p-oploadacc-4} next cycle, but wait 3 cycles before triggering 
-# conditional branches (p-oploadacc09 vs p-oploadacc1014), as next two ops are shared
-$discriminate-delay-passthru {p-oploadacc-3} {a-discmemcyc} {d-discmemcycA} {d-discmemcycS} 3 {p-oploadacc-4} {p-oploadacc09} {p-oploadacc1014}
-
-# trigger FT same cycle
-p {p-oploadacc-3} f3.2i
+# trigger FT this cycle
+p {p-oploadacc-2} f3.2i
 s f3.op2 A-2
 
-# Shared steps post discriminate, always send FT arg and restore DISCMEMCYC
-$sendc {p-oploadacc-4} {a-discmemcyc} {t-oploadacc-4} A {p-oploadacc-5}
+# Discriminate: are we reading from 0-9 (pos) or 10-14 (neg)?
+# Always triggers {p-oploadacc-4} next cycle, but wait 2 cycles before triggering 
+# conditional branches (p-oploadacc09 vs p-oploadacc1014), as the next op is shared
+# Since we're sending DISCMEMCYC.A to main anyway, ft arg is also loaded this cycle 
+$discriminate-delay-passthru {p-oploadacc-3} {a-discmemcyc} {d-discmemcycA} {d-discmemcycS} 2 {p-oploadacc-4} {p-oploadacc09} {p-oploadacc1014}
 
-$rec {p-oploadacc-5} {a-discmemcyc} {t-oploadacc-5} {i-main} {p-oploadacc-6}
-$storeex {p-oploadacc-5}
+# Shared step post discriminate, executed regardless of branch taken
+# EX -> DISCMEMCYC, restore it
+$rec {p-oploadacc-4} {a-discmemcyc} {t-oploadacc-4} {i-main} {p-oploadacc-5}
+$storeex {p-oploadacc-4}
 
 # Now wait 4 cycles until the address is decoded and acc memory cycle begins
 # Use LS program as it's guaranteed not a memory accumulator
-$manual-dummy {p-oploadacc-6} {a-ls} {t-oploadacc6} 4 {p-oploadacc-7}
+$manual-dummy {p-oploadacc-5} {a-ls} {t-oploadacc5} 4 {p-oploadacc-6}
 
 
 # POSITIVE (0-9) and NEGATIVE (10-14) branches of discriminate differ only on which acc
@@ -1245,10 +1245,10 @@ $loadacc-branch 1014
 # accumulator value into LS, then immediately send it again
 
 # MEMXX-> LS, receive accumulator value
-$rec {p-oploadacc-7} {a-ls} {t-oploadacc-7} {i-main} {p-oploadacc-8}
+$rec {p-oploadacc-6} {a-ls} {t-oploadacc-6} {i-main} {p-oploadacc-7}
 
 # LS -> MEMXX, restore accumulator value, then next op
-$send {p-oploadacc-8} {a-ls} {t-oploadacc-8} A {p-fetch}
+$send {p-oploadacc-7} {a-ls} {t-oploadacc-7} A {p-fetch}
 
 
 endif # OP_LOADACC

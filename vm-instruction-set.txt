@@ -343,28 +343,24 @@ LOADACC A
 # Then S outputs of MEMCYC09/MEMCYC1014 trigger a single accumulator to transmit its value
 
 1. DISCMEMCYC -> EX, clear, clear LS
-2. RF -splitA-> DISCMEMCYC, X XX XX XX XX A2A1 -> A2 00 00 00 00 0A1
-3. discriminate DISCMEMCYC, trigger ft3
+2. RF -splitA-> DISCMEMCYC, X XX XX XX XX A2A1 -> A2 00 00 00 00 0A1, trigger ft3
+3. discriminate DISCMEMCYC, send arg, clear
+4. EX -> DISCMEMCYC             (ft shadow)
 
 DISCMEMCYC pos, A < 10
-  4. DISCMEMCYC -> ft3.arg, clear
-  5. EX -> DISCMEMCYC             (ft shadow)
-  6. MEMCYC09 -> EX, clear        (ft shadow)
-  7. FT3 -> MEMCYC09
-  8. send MEMCYC09.S, clear, trigger accumulator memory cycle
-  9. EX -> MEMCYC09
-  10. main -> LS
-  11. LS -> main
+  5. MEMCYC09 -> EX, clear        (ft shadow)
+  6. FT3 -> MEMCYC09
+  7. send MEMCYC09.S, clear, trigger accumulator memory cycle
+  8. EX -> MEMCYC09
 
 DISCMEMCYC neg, A >= 10
-  4. DISCMEMCYC -> ft3.arg, clear
-  5. EX -> DISCMEMCYC             (ft shadow)
-  6. MEMCYC1014 -> EX, clear      (ft shadow)
-  7. FT3 -> MEMCYC1014
-  8. send MEMCYC1014.S, clear, trigger accumulator memory cycle
-  9. EX -> MEMCYC10
-  10. main -> LS
-  11. LS -> main
+  5. MEMCYC1014 -> EX, clear        (ft shadow)
+  6. FT3 -> MEMCYC1014
+  7. send MEMCYC1014.S, clear, trigger accumulator memory cycle
+  8. EX -> MEMCYC1014
+
+9. main -> LS
+10. LS -> main
 
 
 STOREACC A
