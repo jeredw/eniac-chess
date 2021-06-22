@@ -1,6 +1,6 @@
 s cy.op 1a
 
-set a4  0444668800
+set a4  1444668800
 set a5  9988776655
 
 # memory values to check that various instructions save and restore
@@ -15,6 +15,9 @@ set a13 1313131313
 set a15 1515151515
 set a16 1616161616
 set a17 1717171717
+#set a18 1818181818    can't do this, used to construct reset PC
+set a19 1919191919
+set a20 2020202020  
 
 # comment out these defines to disable the corresponding sequences
 define RESET_SEQUENCE #  2 pas,  2 ts
@@ -423,7 +426,7 @@ $acc-main mem14
 
 
 # - Function table decode -
-# The PM digits of M18, M19, and M20 select the current function table for
+# The PM digits of a18, a19, and a20 select the current function table for
 # instruction fetch -- you can think of this as the current ROM bank. 
 # The Function Table Selection Group (FTSG), so named by Adele, is the upper two
 # digits of the PC and R registers. We use ft1 = 09, ft2 = 90, ft3 = 99.
@@ -627,7 +630,7 @@ $recx {p-reset} {a-ir} {r-reset} {i-main}
 # Set discft1 to 0900 which is the initial PC, then copy to PC (out of PC inputs)
 $recx {p-reset} {a-discft1} {r-reset} {i-resetPC}
 
-# Reset PC from discft1 and clear discft1
+# Reset PC from discft1, clear, and fetch first instruction
 $sendc {p-reset-2} {a-discft1} {t-reset-2} A {p-fetch}
 $loadpc {p-reset-2}
 
@@ -779,9 +782,9 @@ p {p-opgt55-2} {p-mp-789x}
 
 # -- {p-fetchline} no more instructons in IR, load new line from ft
 # Trigger the currently selected FT to send
-$send {p-fetchline} {a-discft1} {t-fetchline} S {p-fetchtrig}
+$sendx {p-fetchline} {a-discft1} {r-fetchline} S 
 $sendx {p-fetchline} {a-discft2} {r-fetchline} S
-$sendx {p-fetchline} {a-discft3} {r-fetchline} S
+$send {p-fetchline} {a-discft3} {t-fetchline} S {p-fetchtrig} # save r for r-memcyc 
 
 # FT settings
 defmacro triggerft num
@@ -1179,7 +1182,7 @@ $connect-memcyc1014 10 0
 $connect-memcyc1014 11 1
 $connect-memcyc1014 12 2
 $connect-memcyc1014 13 3
-#$connect-memcyc1014 14 4
+$connect-memcyc1014 14 4
 
 
 # Start by saving DISCMEMCYC -> EX, clear
