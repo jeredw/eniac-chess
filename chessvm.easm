@@ -23,8 +23,8 @@ set a20 2020202020
 define RESET_SEQUENCE #  2 pas,  2 ts
 define CONTROL_CYCLE  #  9 pas, 19 ts
 define OP_SWAP        # 11 pas, 10 ts
-define OP_LOADACC 
-define OP_STOREACC
+define OP_LOADACC     #  1 pas,  1 ts
+define OP_STOREACC    #  0 pas,  0 ts
 define OP_SWAPALL     #  3 pas,  3 ts
 define OP_MOVXA       # 15 pas, 12 ts
 define OP_MOVFA       #  4 pas,  6 ts
@@ -47,7 +47,7 @@ define SUB_FINISHJMP  #  4 pas,  1 ts (OP_JSR, OP_RET)
 define SUB_CONSUME_OP #  2 pas,  2 ts (OP_JN, OP_MOVIMMA)
 define SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA, OP_CLRA, OP_MOVIMMA)
 define SUB_RFTOEX     #  2 pas,  0 ts (OP_SWAPALL, OP_MOVXA, OP_ADD)
-define SUB_MEMCYC
+define SUB_MEMCYC     #  7 pas, 44 ts (OP_LOADACC, OP_STOREACC)
 
 
 # ENIAC-VM for playing chess
