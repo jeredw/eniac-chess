@@ -157,11 +157,12 @@ defmacro discriminate-pm inp acc dA dS outp outm
 endmacro
 
 # also need a version that delays for >1 cycles
-# this one uses a transceiver to output a program pulse on both conditions
-defmacro discriminate-delay-passthru inp acc dA dS delay bothp outp outm
+# this one uses a transceiver to output a program pulse (passp) on both conditions
+defmacro discriminatec-delay-passthru inp acc dA dS delay passp outp outm
   p $inp $acc.{t-%name}i
   s $acc.op{t-%name} AS
-  p $acc.{t-%name}o $bothp
+  s $acc.cc{t-%name} C
+  p $acc.{t-%name}o $passp
 
   # acc >= 0 -> outp
   p $dS ad.dp.{ad-disc-%name-S}.11

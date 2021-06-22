@@ -337,10 +337,10 @@ OPCODE MICROPROGRAMS
 --------------------
 
 LOADACC A
-# accumulator index in A, store result in LS
-# Use function table as a 1-of-10 decoder on A1 (ones digit)
-# Use A2 (tens digit) to place ft result in MEMCYC09 or MEMCYC1014
-# Then S outputs of MEMCYC09/MEMCYC1014 trigger a single accumulator to transmit its value
+Accumulator index in A, store result in LS
+Use function table as a 1-of-10 decoder on A1 (ones digit)
+Use A2 (tens digit) to place ft result in MEMCYC09 or MEMCYC1014
+Then S outputs of MEMCYC09/MEMCYC1014 trigger a single accumulator to transmit its value
 
 1. DISCMEMCYC -> EX, clear, clear LS
 2. RF -splitA-> DISCMEMCYC, X XX XX XX XX A2A1 -> A2 00 00 00 00 0A1, trigger ft3
@@ -364,29 +364,13 @@ DISCMEMCYC neg, A >= 10
 
 
 STOREACC A
-# accumulator index in A, accumulator contents to write in SAVE
-# Use function table as a 1-of-10 decoder on A1 (ones digit)
-# Use A2 (tens digit) to place ft result in STORE09 or STORE1014
-# Then S outputs of STORE09/STORE1014 trigger a single accumulator to recieve a value
+Identical to LOADACC, except we do:
 
-1. DISCSTOREACC -> EX, clear
-2. RF ->storeAccIdx -> DISCSTOREACC, stim FT3
-3. send DISCSTOREACC on AS, clear              ; discriminate and send ft arg
-  (PM=P, so A<10)
-  4. EX -> DISCSTOREACC, clear
-  5. STORE09 -> EX, clear
-  6. receive A,B into STORE09
-  7. send STORE09 on S, clear                  ; trigger one acc to transmit
-  8  LS -> main
-  9. EX -> STORE09, clear                      ; could parallelize with another bus
-or 
-  (PM=M, so A>=10)
-  4. EX -> DISCSTOREACC, clear
-  5. STORE1014 -> EX, clear
-  6. receive A,B into STORE1014
-  7. send STORE1014 on S, clear
-  8. LS -> main
-  9. EX -> STORE1014, clear 
+1. Don't clear LS
+2..9. wait
+10. LS -> main
+
+This replaces accumulator value with LS, instead of vice-versa. Voilla!
 
 
 LOADNEXT

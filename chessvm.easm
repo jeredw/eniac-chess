@@ -23,7 +23,8 @@ set a20 2020202020
 define RESET_SEQUENCE #  2 pas,  2 ts
 define CONTROL_CYCLE  #  9 pas, 19 ts
 define OP_SWAP        # 11 pas, 10 ts
-define OP_LOADACC     #  3 pas, 22 ts
+define OP_LOADACC 
+define OP_STOREACC
 define OP_SWAPALL     #  3 pas,  3 ts
 define OP_MOVXA       # 15 pas, 12 ts
 define OP_MOVFA       #  4 pas,  6 ts
@@ -46,6 +47,7 @@ define SUB_FINISHJMP  #  4 pas,  1 ts (OP_JSR, OP_RET)
 define SUB_CONSUME_OP #  2 pas,  2 ts (OP_JN, OP_MOVIMMA)
 define SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA, OP_CLRA, OP_MOVIMMA)
 define SUB_RFTOEX     #  2 pas,  0 ts (OP_SWAPALL, OP_MOVXA, OP_ADD)
+define SUB_MEMCYC
 
 
 # ENIAC-VM for playing chess
@@ -1020,94 +1022,10 @@ $loadex {p-sub-rftoex}
 endif
 
 
-# -- OPCODE IMPLEMENTATIONS --
-
-#$break {p-op00}  # NOP
-#$break {p-op01}  # SWAP A,B
-#$break {p-op02}  # SWAP A,C
-#$break {p-op03}  # SWAP A,D
-#$break {p-op04}  # SWAP A,E
-#$break {p-op10}  # LOADACC
-#$break {p-op12}  # SWAPALL
-#$break {p-op20}  # MOV B,A
-#$break {p-op21}  # MOV C,A
-#$break {p-op22}  # MOV D,A
-#$break {p-op23}  # MOV E,A
-#$break {p-op24}  # MOV F,A
-#$break {p-op25}  # MOV G,A
-#$break {p-op30}  # MOV H,A
-#$break {p-op31}  # MOV I,A
-#$break {p-op32}  # MOV J,A
-#$break {p-op35}  # CLR A
-#$break {p-op40}  # MOV #xx,A
-#$break {p-op52}  # INC A
-#$break {p-op53}  # DEC A
-#$break {p-op70}  # ADD D,A
-#$break {p-op72}  # SUB D,A
-#$break {p-op73}  # JMP xx
-#$break {p-op74}  # JMP xxxx
-#$break {p-op80}  # JN xx
-#$break {p-op84}  # JSR xxxx
-#$break {p-op85}  # RET
-#$break {p-op92}  # PRINT
-#$break {p-op95}  # HALT
-
-
-# - NOP -
-p {p-op00} {p-fetch}
-
-
-if OP_SWAP
-
-# - SWAP A,[BCDE] -
-# First two cycles of each instruction is per-op, last two cycles shared
-# 1. per-op: swapBCDE->EX
-# 2. per-op: RF-swapA[BCDE]->swapBCDE, this is where the actual swap is
-# 3. shared: swapBCDE->RF  $memcyc4-2
-# 4. shared: EX->swapBCDE  $memcyc4-3
-# This uses 10 programs total, rather than 16 if we do all sequences separately
-
-p {p-op01} {p-opswapAB}
-p {p-op02} {p-opswapAC}
-p {p-op03} {p-opswapAD}
-p {p-op04} {p-opswapAE}
-
-defmacro swapBCDE-op reg
-  # swapBCDE->EX, save swapBCDE
-  $sendc {p-opswapA$reg} {a-swapBCDE} {t-swapA$reg} A {p-opswapA$reg-2}
-  $loadex {p-opswapA$reg}
-
-  # RF->swapBCDE, on swap input -- actually does the swap
-  $sendc-rf {p-opswapA$reg-2}
-  $rec {p-opswapA$reg-2} {a-swapBCDE} {t-opswapA$reg-2} {i-swapA$reg} {p-opswapBCDE}
-endmacro
-$swapBCDE-op B
-$swapBCDE-op C
-$swapBCDE-op D
-$swapBCDE-op E
-
-# The rest of the swap sequence has to done with dummies, we used 8 transcievers
-# We need to send+clear swapBCDE, and then restore it from d-main, but this is
-# exactly the memory cycle sequence so reuse that (a-swapBCDE == a-mem4).
-$pulseamp {p-opswapBCDE} {p-memcyc4-2}
-
-# swapBCDE->RF, saves swapped values back to RF
-$dummy-exclude {p-opswapBCDE} {p-opswapBCDE-2} -{a-swapBCDE}
-# p-memcyc4-2 sends a-swapBCDE
-$loadrf {p-opswapBCDE}
-
-# EX->swapBCDE, restore swapBCDE
-$dummy-exclude {p-opswapBCDE-2} {p-fetch} -{a-swapBCDE}
-$storeex {p-opswapBCDE-2}
-# p-memcyc4-3 receives a-swapBCDE
-
-endif # OP_SWAP
-
-
-if OP_LOADACC
-
-# - LOADACC -
-p {p-op10} {p-oploadacc}
+# - Memory Cycle -
+# Implements LOADACC/STOREACC by decoding memacc index in A, triggering memory cycle
+# program on the appropriate accumulator. 
+if SUB_MEMCYC
 
 # Wiring to send rightmost 10 digits of f3, plus PMA, to d-ftselacc
 # used for loadacc, storeacc
@@ -1186,72 +1104,184 @@ $connect-memcyc1014 14 4
 
 
 # Start by saving DISCMEMCYC -> EX, clear
-$sendc {p-oploadacc} {a-discmemcyc} {t-oploadacc} A {p-oploadacc-2}
-$loadex {p-oploadacc}
-
-# also clear LS, we'll want that empty to recieve acc value
-$clearx {p-oploadacc} {a-ls} {r-clear}
+$sendc {p-sub-memcyc} {a-discmemcyc} {t-sub-memcyc} A {p-sub-memcyc-2}
+$loadex {p-sub-memcyc}
 
 # send A to DISCMEMCYC, first digit into sign: X XX XX XX XX A2A1 -> A2 00 00 00 00 0A1
-$send-rf {p-oploadacc-2}
-$rec {p-oploadacc-2} {a-discmemcyc} {t-oploadacc-2} {i-splitA} {p-oploadacc-3}
+$send-rf {p-sub-memcyc-2}
+$rec {p-sub-memcyc-2} {a-discmemcyc} {t-sub-memcyc-2} {i-splitA} {p-sub-memcyc-3}
 
 # trigger FT this cycle
-p {p-oploadacc-2} f3.2i
+p {p-sub-memcyc-2} f3.2i
 s f3.op2 A-2
 
 # Discriminate: are we reading from 0-9 (pos) or 10-14 (neg)?
-# Always triggers {p-oploadacc-4} next cycle, but wait 2 cycles before triggering 
-# conditional branches (p-oploadacc09 vs p-oploadacc1014), as the next op is shared
+# Always triggers {p-sub-memcyc-4} next cycle, but wait 2 cycles before triggering 
+# conditional branches (p-sub-memcyc09 vs p-sub-memcyc1014), as the next op is shared
 # Since we're sending DISCMEMCYC.A to main anyway, ft arg is also loaded this cycle 
-$discriminate-delay-passthru {p-oploadacc-3} {a-discmemcyc} {d-discmemcycA} {d-discmemcycS} 2 {p-oploadacc-4} {p-oploadacc09} {p-oploadacc1014}
+$discriminatec-delay-passthru {p-sub-memcyc-3} {a-discmemcyc} {d-discmemcycA} {d-discmemcycS} 2 {p-sub-memcyc-4} {p-sub-memcyc09} {p-sub-memcyc1014}
 
 # Shared step post discriminate, executed regardless of branch taken
 # EX -> DISCMEMCYC, restore it
-$rec {p-oploadacc-4} {a-discmemcyc} {t-oploadacc-4} {i-main} {p-oploadacc-5}
-$storeex {p-oploadacc-4}
+$rec {p-sub-memcyc-4} {a-discmemcyc} {t-sub-memcyc-4} {i-main} {p-sub-memcyc-5}
+$storeex {p-sub-memcyc-4}
 
-# Now wait 4 cycles until the address is decoded and acc memory cycle begins
-# Use LS program as it's guaranteed not a memory accumulator
-$manual-dummy {p-oploadacc-5} {a-ls} {t-oploadacc5} 4 {p-oploadacc-6}
+# Now wait 5 cycles until the address is decoded, and acc memory cycle step 2
+# Use RF program as it's not a memory accumulator or LS
+# XXX could really be an FT dummy
+$manual-dummy {p-sub-memcyc-5} {a-rf} {t-sub-memcyc5} 5 {p-sub-memcyc-6}
 
 
 # POSITIVE (0-9) and NEGATIVE (10-14) branches of discriminate differ only on which acc
-defmacro loadacc-branch x
+defmacro sub-memcyc-branch x
   # Save MEMCYC$x -> EX, clear
-  $sendc {p-oploadacc$x} {a-memcyc$x} {t-oploadacc$x} A {p-oploadacc$x-2}
-  $loadex {p-oploadacc$x}
+  $sendc {p-sub-memcyc$x} {a-memcyc$x} {t-sub-memcyc$x} A {p-sub-memcyc$x-2}
+  $loadex {p-sub-memcyc$x}
 
   # FT -> MEMCYC$x, read FT line when it's ready
-  $rec {p-oploadacc$x-2} {a-memcyc$x} {t-oploadacc$x-2} {i-ftselacc} {p-oploadacc$x-3}
+  $rec {p-sub-memcyc$x-2} {a-memcyc$x} {t-sub-memcyc$x-2} {i-ftselacc} {p-sub-memcyc$x-3}
 
   # MEMCYC$x -S-> trigger memXX loadstore
   # Now MEMCYC$x is all 9 except for a 0 for the accumulator we want. When we send on S,
   # it will activate the loadstore program of one accumulator. Clear as we do this,
   # so we can restore from EX later
-  $sendc {p-oploadacc$x-3} {a-memcyc$x} {t-oploadacc$x-3} S {p-oploadacc$x-4}
+  $sendc {p-sub-memcyc$x-3} {a-memcyc$x} {t-sub-memcyc$x-3} S {p-sub-memcyc$x-4}
 
   # restore MEMCYC$x
-  $recx {p-oploadacc$x-4} {a-memcyc$x} {r-oploadacc$x-4} {i-main}
-  $storeex {p-oploadacc$x-4}
+  $recx {p-sub-memcyc$x-4} {a-memcyc$x} {r-sub-memcyc$x-4} {i-main}
+  $storeex {p-sub-memcyc$x-4}
 endmacro
 
-$loadacc-branch 09
-$loadacc-branch 1014
+$sub-memcyc-branch 09
+$sub-memcyc-branch 1014
 
-
-# Now the memory cycle proper; these two steps run while the selected accumulator 
-# is running. Each memcyc is two steps: sendc, then rec. We need to receive the 
-# accumulator value into LS, then immediately send it again
-
-# MEMXX-> LS, receive accumulator value
-$rec {p-oploadacc-6} {a-ls} {t-oploadacc-6} {i-main} {p-oploadacc-7}
+# Now the "memory cycle" proper. Each mem acc will execute a sendc then rec
+# For load we do: main -> LS, LS -> main
+# For store just: LS - >main
+# Therefore put just the LS -> main in this shared program, we always want it
 
 # LS -> MEMXX, restore accumulator value, then next op
-$send {p-oploadacc-7} {a-ls} {t-oploadacc-7} A {p-fetch}
+$send {p-sub-memcyc-6} {a-ls} {t-sub-memcyc-7} A {p-fetch}
 
+endif
+
+
+# -- OPCODE IMPLEMENTATIONS --
+
+#$break {p-op00}  # NOP
+#$break {p-op01}  # SWAP A,B
+#$break {p-op02}  # SWAP A,C
+#$break {p-op03}  # SWAP A,D
+#$break {p-op04}  # SWAP A,E
+#$break {p-op10}  # LOADACC
+#$break {p-op11}  # STOREACC
+#$break {p-op12}  # SWAPALL
+#$break {p-op20}  # MOV B,A
+#$break {p-op21}  # MOV C,A
+#$break {p-op22}  # MOV D,A
+#$break {p-op23}  # MOV E,A
+#$break {p-op24}  # MOV F,A
+#$break {p-op25}  # MOV G,A
+#$break {p-op30}  # MOV H,A
+#$break {p-op31}  # MOV I,A
+#$break {p-op32}  # MOV J,A
+#$break {p-op35}  # CLR A
+#$break {p-op40}  # MOV #xx,A
+#$break {p-op52}  # INC A
+#$break {p-op53}  # DEC A
+#$break {p-op70}  # ADD D,A
+#$break {p-op72}  # SUB D,A
+#$break {p-op73}  # JMP xx
+#$break {p-op74}  # JMP xxxx
+#$break {p-op80}  # JN xx
+#$break {p-op84}  # JSR xxxx
+#$break {p-op85}  # RET
+#$break {p-op92}  # PRINT
+#$break {p-op95}  # HALT
+
+
+# - NOP -
+p {p-op00} {p-fetch}
+
+
+if OP_SWAP
+
+# - SWAP A,[BCDE] -
+# First two cycles of each instruction is per-op, last two cycles shared
+# 1. per-op: swapBCDE->EX
+# 2. per-op: RF-swapA[BCDE]->swapBCDE, this is where the actual swap is
+# 3. shared: swapBCDE->RF  $memcyc4-2
+# 4. shared: EX->swapBCDE  $memcyc4-3
+# This uses 10 programs total, rather than 16 if we do all sequences separately
+
+p {p-op01} {p-opswapAB}
+p {p-op02} {p-opswapAC}
+p {p-op03} {p-opswapAD}
+p {p-op04} {p-opswapAE}
+
+defmacro swapBCDE-op reg
+  # swapBCDE->EX, save swapBCDE
+  $sendc {p-opswapA$reg} {a-swapBCDE} {t-swapA$reg} A {p-opswapA$reg-2}
+  $loadex {p-opswapA$reg}
+
+  # RF->swapBCDE, on swap input -- actually does the swap
+  $sendc-rf {p-opswapA$reg-2}
+  $rec {p-opswapA$reg-2} {a-swapBCDE} {t-opswapA$reg-2} {i-swapA$reg} {p-opswapBCDE}
+endmacro
+$swapBCDE-op B
+$swapBCDE-op C
+$swapBCDE-op D
+$swapBCDE-op E
+
+# The rest of the swap sequence has to done with dummies, we used 8 transcievers
+# We need to send+clear swapBCDE, and then restore it from d-main, but this is
+# exactly the memory cycle sequence so reuse that (a-swapBCDE == a-mem4).
+$pulseamp {p-opswapBCDE} {p-memcyc4-2}
+
+# swapBCDE->RF, saves swapped values back to RF
+$dummy-exclude {p-opswapBCDE} {p-opswapBCDE-2} -{a-swapBCDE}
+# p-memcyc4-2 sends a-swapBCDE
+$loadrf {p-opswapBCDE}
+
+# EX->swapBCDE, restore swapBCDE
+$dummy-exclude {p-opswapBCDE-2} {p-fetch} -{a-swapBCDE}
+$storeex {p-opswapBCDE-2}
+# p-memcyc4-3 receives a-swapBCDE
+
+endif # OP_SWAP
+
+
+
+# - LOADACC -
+if OP_LOADACC
+# LOADACC is identical to STOREACC except 
+# - clear LS at the start of the cycle
+# - run main->LS in accumulator memory cycle, to read the value coming out
+
+p {p-op10} {p-oploadacc}
+
+$pulseamp {p-oploadacc} {p-sub-memcyc}
+
+# clear LS, we'll want that empty to recieve acc value
+$clearx {p-oploadacc} {a-ls} {r-clear}
+
+# XXX good for FT dummy
+$dummy-delay {p-oploadacc} 8 {p-oploadacc-2}
+
+# MEMXX-> LS, receive accumulator value
+$recx {p-oploadacc-2} {a-ls} {r-oploadacc-2} {i-main}
 
 endif # OP_LOADACC
+
+
+# - STOREACC -
+# Basic memory cycle subprogram is already a store
+if OP_STOREACC
+
+p {p-op11} {p-sub-memcyc}
+
+endif # OP_STOREACC
+
 
 
 if OP_SWAPALL
