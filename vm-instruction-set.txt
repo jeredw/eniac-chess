@@ -118,7 +118,7 @@ Main register file
 layout: PM AA BB CC DD EE
 
 A - main
-S -
+S - main, deleting PM and digit 1, used for SUB D,A
 a - main
 b - selBA: XX bb XX XX XX -> bb 00 00 00 00, used for MOV B,A
 g - selCA: XX XX cc XX XX -> cc 00 00 00 00, used for MOV C,A
@@ -589,24 +589,16 @@ DEC A
 1. M99000 -> RF
 
 
-ADD D,A
+ADD D,A   (A += D)
 1. RF -> EX
 2. EX -selDA-> RF, clear
 
 
-SUB A,D
-1. MEM15 -> EX, clear
-2. RF -S-selDI-> MEM15
-3. constant M 01 00 00 00 00 -> MEM15
-4. MEM15 -> RF, clear   # movAD must preserve sign!
-5. EX->MEM15, clear
-
-{p-subad1}={p-op72}
-$tc subad1  mem15  A   nop    ex      subad2
-$tc subad2  rf     S   selDI  mem15   subad3
-constant M 01 00 00 00 00 -> MEM15, subad4
-$tc subad4  mem15  A   nop    rf      subad5
-$tc subad5  ex     A   nop    mem15   fetch
+SUB D,A   (A -= D, treating D as +)
+1. RF.S -> EX             # adapter on S deletes PM and digit 1 (so no 1'p)
+2. EX -selDA-> RF, clear  # A += 99-D
+3. P01000 -> RF           # A += 100-D
+4. M00000 -> RF           # Fix sign (don't have M01 constant)
 
 
 NEG A

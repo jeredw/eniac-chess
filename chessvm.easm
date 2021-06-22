@@ -25,6 +25,7 @@ define OP_MOVIMMA     #  3 pas,  2 ts
 define OP_INC         #  0 pas,  1 ts
 define OP_DEC         #  0 pas,  1 ts
 define OP_ADD         #  4 pas,  2 ts
+# define OP_SUB         #  6 pas,  3 ts
 define OP_JSR         #  2 pas,  5 ts
 define OP_RET         #  2 pas,  3 ts
 define OP_JMPFAR      #  4 pas,  4 ts
@@ -204,6 +205,14 @@ s {a-ex}.cc{t-storeex} C
 # Registers A-E of the virtual machine. A is our accumulator.
 {a-rf}=a4
 $acc-main rf
+
+# RF.S is used to negate fields of RF for arithmetic.  Discard sign to avoid
+# setting EX.PM to M, which might misfire discrimination.  A 1'p on digit 1
+# might cause the E field to carry into D; we don't need -E so just don't
+# connect digit 1.
+p {a-rf}.S ad.permute.{ad-drop-rf-sign}
+s ad.permute.{ad-drop-rf-sign} 0,10,9,8,7,6,5,4,3,2,0
+p ad.permute.{ad-drop-rf-sign} {d-main}
 
 # i-selBA input: XX aa XX XX XX -> aa 00 00 00 00, used for MOV BG,A
 p {d-main} ad.permute.{ad-rf-selBA}
@@ -618,7 +627,7 @@ $recx {p-reset} {a-discft1} {r-reset} {i-resetPC}
 $sendc {p-reset-2} {a-discft1} {t-reset-2} A {p-fetch}
 $loadpc {p-reset-2}
 
-endif RESET_SEQUENCE
+endif # RESET_SEQUENCE
 
 
 if CONTROL_CYCLE
@@ -1027,6 +1036,7 @@ endif
 #$break {p-op52}  # INC A
 #$break {p-op53}  # DEC A
 #$break {p-op70}  # ADD D,A
+#$break {p-op72}  # SUB D,A
 #$break {p-op73}  # JMP xx
 #$break {p-op74}  # JMP xxxx
 #$break {p-op80}  # JN xx
@@ -1428,6 +1438,38 @@ $pulseamp {p-opadd-2} {p-rf-selDA}
 $dummy {p-opadd-2} {p-fetch}
 
 endif # OP_ADD
+
+
+if OP_SUB
+
+# - SUB D,A -
+# 1. RF.S -> EX
+# 2. EX -> selDA -> RF
+# 3. P01 -> RF
+# 4. M00 -> RF  # ideally we'd send M01, but don't have it
+p {p-op72} {p-opsub}
+
+# RF.S -> EX
+$send {p-opsub} {a-rf} {t-opsub} S {p-opsub-2}
+$loadex {p-opsub}
+
+# EX -selDA-> RF
+$storeex {p-opsub-2}
+$pulseamp {p-opsub-2} {p-rf-selDA}
+$dummy {p-opsub-2} {p-opsub-3}
+
+# P01 -> RF
+$loadrf {p-opsub-3}
+p {p-opsub-3} c.27i
+s c.s27 Jr
+p c.27o {p-opsub-4}
+
+# M00 -> RF
+$loadrf {p-opsub-4}
+$sendM0 {p-opsub-4}
+$dummy {p-opsub-4} {p-fetch}
+
+endif # OP_SUB
 
 
 if OP_JMP
