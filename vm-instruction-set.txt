@@ -352,9 +352,9 @@ DISCMEMCYC pos, A < 10
   6. MEMCYC09 -> EX, clear        (ft shadow)
   7. FT3 -> MEMCYC09
   8. send MEMCYC09.S, clear, trigger accumulator memory cycle
-  9. main -> LS
-  10. LS -> main
-  11. EX -> MEMCYC09
+  9. EX -> MEMCYC09
+  10. main -> LS
+  11. LS -> main
 
 DISCMEMCYC neg, A >= 10
   4. DISCMEMCYC -> ft3.arg, clear
@@ -362,9 +362,9 @@ DISCMEMCYC neg, A >= 10
   6. MEMCYC1014 -> EX, clear      (ft shadow)
   7. FT3 -> MEMCYC1014
   8. send MEMCYC1014.S, clear, trigger accumulator memory cycle
-  9. main -> LS
-  10. LS -> main
-  11. EX -> MEMCYC1014
+  9. EX -> MEMCYC10
+  10. main -> LS
+  11. LS -> main
 
 
 STOREACC A

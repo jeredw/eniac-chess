@@ -156,6 +156,25 @@ defmacro discriminate-pm inp acc dA dS outp outm
   $dummy-exclude {p-%name-pm-A} $outm -$acc
 endmacro
 
+# also need a version that delays for >1 cycles
+# this one uses a transceiver to output a program pulse on both conditions
+defmacro discriminate-delay-passthru inp acc dA dS delay bothp outp outm
+  p $inp $acc.{t-%name}i
+  s $acc.op{t-%name} AS
+  p $acc.{t-%name}o $bothp
+
+  # acc >= 0 -> outp
+  p $dS ad.dp.{ad-disc-%name-S}.11
+  p ad.dp.{ad-disc-%name-S}.11 {p-%name-pm-S}
+  $dummy-delay-exclude {p-%name-pm-S} $delay $outp -$acc
+
+  # acc < 0 -> outm
+  p $dA ad.dp.{ad-disc-%name-A}.11
+  p ad.dp.{ad-disc-%name-A}.11 {p-%name-pm-A}
+  $dummy-delay-exclude {p-%name-pm-A} $delay $outm -$acc
+endmacro
+
+
 # Convenience helper for making debug assertions
 #   inp   - input program line
 #   test  - an expression like {a-foo}~M00xxxxxxxx

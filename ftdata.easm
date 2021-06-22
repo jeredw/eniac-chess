@@ -1,5 +1,5 @@
 # function table values
-s f1.RA0L6 0 # NOP
+s f1.RA0L6 1 # LOADACC
 s f1.RA0L5 0
 s f1.RA0L4 8 # JSR 310
 s f1.RA0L3 4
