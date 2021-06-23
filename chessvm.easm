@@ -34,17 +34,16 @@ define OP_INC         #  0 pas,  1 ts
 define OP_DEC         #  0 pas,  1 ts
 define OP_ADD         #  4 pas,  2 ts
 # define OP_SUB         #  6 pas,  3 ts
-define OP_JSR         #  2 pas,  5 ts
-define OP_RET         #  2 pas,  3 ts
-define OP_JMPFAR      #  4 pas,  4 ts
+define OP_JMPFAR      #  1 pas,  2 ts
+define OP_JSR         #  1 pas,  2 ts
+define OP_RET         #  1 pas,  2 ts
 define OP_JMP         #  0 pas,  0 ts
 define OP_JN          #  1 pas,  3 ts
 define OP_JZ          #  2 pas,  3 ts
 define OP_PRINT       #  3 pas,  4 ts
 define SUB_JMP        #  1 pas,  4 ts (OP_JMP, SUB_JX)
-define SUB_DISCFT     #  0 pas,  1 ts (OP_JSR, OP_RET, OP_JMPFAR)
-define SUB_STARTJMP   #  1 pas,  1 ts (OP_JSR, OP_RET, OP_JMPFAR)
-define SUB_FINISHJMP  #  4 pas,  1 ts (OP_JSR, OP_RET)
+define SUB_DISCFT     #  0 pas,  1 ts (SUB_FARGO)
+define SUB_FARGO      #  6 pas,  4 ts (OP_JMPFAR, OP_JSR, OP_RET)
 define SUB_CONSUME_OP #  2 pas,  2 ts (OP_JN, OP_MOVIMMA)
 define SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA, OP_CLRA, OP_MOVIMMA)
 define SUB_RFTOEX     #  2 pas,  0 ts (OP_SWAPALL, OP_MOVXA, OP_ADD)
@@ -181,11 +180,6 @@ p ad.d.{ad-ex-clearA}.-2 {a-ex}.{i-clearA}
 p {d-main} ad.permute.{ad-clearPC2}
 s ad.permute.{ad-clearPC2} 11,10,9,8,7,6,5,4,3,0,0
 p ad.permute.{ad-clearPC2} {a-ex}.{i-clearPC2}
-
-# clearPC4: SS RRRR PPPP -> SS RRRR 0000, used for JMP FAR/JSR/RET
-p {d-main} ad.permute.{ad-clearPC4}
-s ad.permute.{ad-clearPC4} 11,10,9,8,7,6,5,0,0,0,0
-p ad.permute.{ad-clearPC4} {a-ex}.{i-clearPC4}
 
 
 # predefine programs that load ex from and store ex to main -- we use these everywhere
@@ -345,26 +339,31 @@ $acc-main mem5
 
 
 # - MEM6 -
-# Shift inputs and programs for shifting the PC for JSR/RET.
+# Programs to compute new PC for JMP FAR/JSR/RET.
 {a-mem6}=a12
-{a-shiftpc}=a12
+{a-newpc}=a12
 
 $acc-main mem6
 
-# extract-pc input: XX XX XX PP PP -> 00 00 00 PP PP
+# extract-pc input: XX XXXX PPPP -> 00 0000 PPPP
 p {d-main} ad.permute.{ad-extract-pc}
 s ad.permute.{ad-extract-pc} 0,0,0,0,0,0,0,4,3,2,1
-p ad.permute.{ad-extract-pc} {a-shiftpc}.{i-extract-pc}
+p ad.permute.{ad-extract-pc} {a-newpc}.{i-extract-pc}
+
+# keep-r input: XX RRRR XXXX -> 00 RRRR 0000
+p {d-main} ad.permute.{ad-keep-r}
+s ad.permute.{ad-keep-r} 0,0,0,8,7,6,5,0,0,0,0
+p ad.permute.{ad-keep-r} {a-newpc}.{i-keep-r}
 
 # shiftr4-pc input: shift XX RRRR PPPP to 00 0000 RRRR
 p {d-main} ad.permute.{ad-shiftr4-pc}
 s ad.permute.{ad-shiftr4-pc} 0,0,0,0,0,0,0,8,7,6,5
-p ad.permute.{ad-shiftr4-pc} {a-shiftpc}.{i-shiftr4-pc}
+p ad.permute.{ad-shiftr4-pc} {a-newpc}.{i-shiftr4-pc}
 
 # shiftl4-pc input: shift XX XXXX PPPP to XX PPPP 0000
 p {d-main} ad.permute.{ad-shiftl4-pc}
 s ad.permute.{ad-shiftl4-pc} 0,0,0,4,3,2,1,0,0,0,0
-p ad.permute.{ad-shiftl4-pc} {a-shiftpc}.{i-shiftl4-pc}
+p ad.permute.{ad-shiftl4-pc} {a-newpc}.{i-shiftl4-pc}
 
 
 # - MEM7 - 
@@ -962,43 +961,61 @@ $recx {p-sub-discft-2} {a-discft3} {r-sub-discft-2} {i-ftsg2}
 endif # SUB_DISCFT
 
 
-if SUB_STARTJMP
-
-# - STARTJMP -
-# Send PC twice and then clear it to load new PC, meanwhile deselecting current FT
-defmacro startjmp prog
+if SUB_FARGO
+# Select a new PC and return address and go to p-fetchline
+# 1. NEWPC -> EX
+# 2. (JMP FAR) IR -extract-pc -> NEWPC
+#    (JSR)     IR -extract-pc -> NEWPC
+#    (RET)     nop
+# 3. (JMP FAR) PC -keep-r     -> NEWPC  $discft-1
+#    (JSR)     PC -shiftl4-pc -> NEWPC  $discft-1
+#    (RET)     PC -shiftr4-pc -> NEWPC  $discft-1
+# 4. (send PC)                 $discft-2
+# 5. NEWPC -> PC             $discft-1
+# 6. (send NEWPC)            $discft-2
+#  . EX -> NEWPC             (parallel with p-fetchline)
+#
+# TODO investigate alternative 5-cycle sequence that moves up IR->NEWPC
+# Is it worth the extra resource usage?
+# 1. NEWPC -> EX
+# 2. (JMP FAR) PC -keep-r     -> NEWPC  $discft-1
+#    (JSR)     PC -shiftl4-pc -> NEWPC  $discft-1
+#    (RET)     PC -shiftr4-pc -> NEWPC  $discft-1
+# 3. (send PC)                            $discft-2
+# 4. (JMP FAR) IR -extract-pc -> NEWPC  $discft-1
+#    (JSR)     IR -extract-pc -> NEWPC  $discft-1
+#    (RET)     send NEWPC               $discft-1
+# 5. NEWPC -> PC                        $discft-2
+#  . EX -> NEWPC             (parallel with p-fetchline)
+defmacro fargo prog
   p $prog {pa-a-%name}
-  p {pa-b-%name} {p-sub-startjmp}
+  p {pa-b-%name} {p-sub-fargo}
 endmacro
 
-$sendcx {p-sub-startjmp} {a-pc} {t-sub-startjmp} A
-s {a-pc}.rp{t-sub-startjmp} 2
-$discft {p-sub-startjmp}
+# Save newpc in ex
+$sendc {p-sub-fargo} {a-newpc} {t-sub-fargo} A {p-sub-fargo-2}
+$loadex {p-sub-fargo}
 
-endif # SUB_STARTJMP
+# Set new PC from IR (JMP FAR/JSR) or nop (RET)
+$rec {p-sub-fargo-2} {a-newpc} {t-sub-fargo-2} {i-extract-pc} {p-sub-fargo-3}
 
+# Set new return address from PC (all) and deselect current FT
+$sendc {p-sub-fargo-3} {a-pc} {t-sub-fargo-3} A {p-sub-fargo-5}
+s {a-pc}.rp{t-sub-fargo-3} 2
+$discft {p-sub-fargo-3}
 
-if SUB_FINISHJMP
+# Select new function table and update PC
+$sendc {p-sub-fargo-5} {a-newpc} {t-sub-fargo-5} A {p-sub-fargo-7}
+s {a-newpc}.rp{t-sub-fargo-5} 2
+$discft {p-sub-fargo-5}
+$loadpc {p-sub-fargo-5}
 
-# - FINISHJMP -
-# Send shiftpc twice, load pc, meanwhile selecting new ft, and then go to fetch
-defmacro finishjmp prog
-  p $prog {pa-a-%name}
-  p {pa-b-%name} {p-sub-finishjmp}
-endmacro
+# Restore newpc from ex in parallel with p-fetchline
+$pulseamp {p-sub-fargo-7} {p-fetchline}
+$storeex {p-sub-fargo-7}
+$recx {p-sub-fargo-7} {a-newpc} {r-sub-fargo-7} {i-main}
 
-# Send shiftpc twice for discft to select new function table
-$sendc {p-sub-finishjmp} {a-shiftpc} {t-sub-finishjmp} A {p-sub-finishjmp-3}
-s {a-shiftpc}.rp{t-sub-finishjmp} 2
-$discft {p-sub-finishjmp}
-$loadpc {p-sub-finishjmp}
-
-# Restore shiftpc from ex in parallel with p-fetchline
-$storeex {p-sub-finishjmp-3}
-$recx {p-sub-finishjmp-3} {a-shiftpc} {r-sub-finishjmp-3} {i-main}
-$pulseamp {p-sub-finishjmp-3} {p-fetchline}
-
-endif
+endif # SUB_FARGO
 
 
 if SUB_CLEARA
@@ -1623,34 +1640,17 @@ endif # OP_JMP
 if OP_JMPFAR
 
 # - JMP XXXX -
-# This is similar to JSR/RET sequences but saves a cycle by using IR directly
-# because there is no need to shift.
-# 1. PC -clearPC4-> EX  $discft-1
-# 2. send PC            $discft-2
-# 3. EX -> PC
-# 4. IR -loadPC4-> PC   $discft-1
-# 5. send IR            $discft-2
 p {p-op74} {p-opjmpfar}
 
-# Deselect current function table
-$startjmp {p-opjmpfar}
-# PC -clearPC4-> EX
-$rec {p-opjmpfar} {a-ex} {t-opjmpfar} {i-clearPC4} {p-opjmpfar-2}
+$fargo {p-opjmpfar}
+$dummy {p-opjmpfar} {p-opjmpfar-2}
 
-$dummy-exclude {p-opjmpfar-2} {p-opjmpfar-3} -{a-discft1},{a-discft2},{a-discft3}
+# Set new PC from IR
+$assert {p-opjmpfar-2} {a-ir}~Pxxxxxxxxxx
+$send {p-opjmpfar-2} {a-ir} {t-opjmpfar-2} A {p-opjmpfar-3}
 
-# EX -> PC
-$storeex {p-opjmpfar-3}
-$loadpc {p-opjmpfar-3}
-$dummy-exclude {p-opjmpfar-3} {p-opjmpfar-4} -{a-discft3}
-
-# Select new function table and go to fetch
-$assert {p-opjmpfar-4} {a-ir}~Pxxxxxxxxxx  # don't trigger IR discrimination
-$send {p-opjmpfar-4} {a-ir} {t-opjmpfar-4} A {p-fetchline}
-s {a-ir}.rp{t-opjmpfar-4} 2
-$discft {p-opjmpfar-4}
-# Load new PC
-$recx {p-opjmpfar-4} {a-pc} {r-opjmpfar-4} {i-loadPC4}
+# Preserve return address from PC
+$recx {p-opjmpfar-3} {a-newpc} {r-opjmpfar-3} {i-keep-r}
 
 endif # OP_JMPFAR
 
@@ -1658,30 +1658,17 @@ endif # OP_JMPFAR
 if OP_JSR
 
 # - JSR XXXX -
-# 1. SHIFTPC -> EX
-# 2. IR -extract-pc-> SHIFTPC
-# 3. PC -shiftl4-pc-> SHIFTPC  $discft-1
-# 4. send PC                   $discft-2
-# 5. SHIFTPC -> PC             $discft-1
-# 6. send SHIFTPC              $discft-2
-#  . EX -> SHIFTPC             (parallel with p-fetchline)
 p {p-op84} {p-opjsr}
 
-# Save shiftpc in ex
-$sendc {p-opjsr} {a-shiftpc} {t-opjsr} A {p-opjsr-2}
-$loadex {p-opjsr}
+$fargo {p-opjsr}
+$dummy {p-opjsr} {p-opjsr-2}
 
-# Extract pc from ir into shiftpc
+# Set new PC from IR
 $assert {p-opjsr-2} {a-ir}~Pxxxxxxxxxx
-$sendx {p-opjsr-2} {a-ir} {t-opjsr-2} A
-$rec {p-opjsr-2} {a-shiftpc} {t-opjsr-2} {i-extract-pc} {p-opjsr-3}
+$send {p-opjsr-2} {a-ir} {t-opjsr-2} A {p-opjsr-3}
 
-# Deselect ft and load RRRR into PPPP field in shiftpc
-$startjmp {p-opjsr-3}
-$rec {p-opjsr-3} {a-shiftpc} {t-opjsr-3} {i-shiftl4-pc} {p-opjsr-4}
-
-# Select new ft, reload new PC, goto fetchline, restore shiftpc
-$dummy-exclude {p-opjsr-4} {p-sub-finishjmp} -{a-discft3}
+# Shift old PC into return address
+$recx {p-opjsr-3} {a-newpc} {r-opjsr-3} {i-shiftl4-pc}
 
 endif # OP_JSR
 
@@ -1689,24 +1676,13 @@ endif # OP_JSR
 if OP_RET
 
 # - RET -
-# 1. SHIFTPC -> EX
-# 2. PC -shiftr4-pc-> SHIFTPC  $discft-1
-# 3. send PC                   $discft-2
-# 4. SHIFTPC -> PC             $discft-1
-# 5. send SHIFTPC              $discft-2
-#  . EX -> SHIFTPC             (parallel with p-fetchline)
 p {p-op85} {p-opret}
 
-# Save shiftpc in ex
-$sendc {p-opret} {a-shiftpc} {t-opret} A {p-opret-2}
-$loadex {p-opret}
+$fargo {p-opret}
+$dummy-delay {p-opret} 2 {p-opret-3}
 
-# Deselect ft and load RRRR into PPPP field in shiftpc
-$startjmp {p-opret-2}
-$rec {p-opret-2} {a-shiftpc} {t-opret-2} {i-shiftr4-pc} {p-opret-3}
-
-# Select new ft, reload new PC, goto fetchline, restore shiftpc
-$dummy-exclude {p-opret-3} {p-sub-finishjmp} -{a-discft3}
+# Shift return address into new PC
+$recx {p-opret-3} {a-newpc} {t-opret-3} {i-shiftr4-pc}
 
 endif # OP_RET
 
