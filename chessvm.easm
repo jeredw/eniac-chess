@@ -1300,12 +1300,12 @@ $recx {p-opstoreacc-2} {a-discmemcyc} {r-opstoreacc-2} {i-dropsign}
 $sendc {p-opstoreacc-3} {a-discmemcyc} {t-opstoreacc-3} A {p-opstoreacc-4}
 $recx {p-opstoreacc-3} {a-ls} {t-opstoreacc-3} {i-main} # ran out of r's
 
-# Jump into main routine
-$pulseamp {p-opstoreacc-4} {p-sub-memcyc-2}
-
 # Wait until accumulator outputs a value, save only the sign
 # XXX good for FT dummy
-$dummy-delay {p-opstoreacc-4} 7 {p-opstoreacc-5}
+$dummy-delay {p-opstoreacc-3} 8 {p-opstoreacc-5}
+
+# Jump into sub-memcyc - no pulseamp needed because p-opstoreacc-4 triggers nothing else
+p {p-opstoreacc-4} {p-sub-memcyc-2}
 
 # Receive only sign on mem->LS, preserve sign when LS->mem next cycle
 $recx {p-opstoreacc-5} {a-ls} {r-opstoreacc-4} {i-signonly}
