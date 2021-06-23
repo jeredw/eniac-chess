@@ -131,7 +131,8 @@ Secondary register file / load/store accumulator
 layout: FF GG HH II JJ
 
 A - main
-S - select A
+a - main
+b - signonly: delete all digits, used to preserve sign of DISCFTx in STOREACC
 
 
 A6
@@ -141,6 +142,9 @@ DISCMEMCYC
 AS - Discriminate memcyc
 A - main
 a - main
+b - splitA: Prepare A for disc A<10, X XX XX XX XX A2A1 -> A2 00 00 00 00 0A1
+g - dropsign: used to clear sign of LS in STOREACC
+
 
 A7
 MEM1

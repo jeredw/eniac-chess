@@ -1,7 +1,7 @@
 s cy.op 1a
 
 set a4  1444668800
-set a5  9988776655
+set a5  -9988776655  # check that STOREACC maintains sign of DISCFTx
 
 # memory values to check that various instructions save and restore
 set a6  0606060606
@@ -83,6 +83,7 @@ endmacro
 # trigger one of our discrimination programs. 
 defmacro acc-disc-main acc
   p {a-$acc}.A {d-$accA}
+  # XXX does a.d.{x}.-0 delete sign?
   p {d-$accA} ad.permute.{ad-drop-$acc-sign}
   s ad.permute.{ad-drop-$acc-sign} 0,10,9,8,7,6,5,4,3,2,1
   p ad.permute.{ad-drop-$acc-sign} {d-main}
@@ -171,9 +172,8 @@ s ad.permute.{ad-ir} 11,2,1,10,9,8,7,6,5,4,3
 p ad.permute.{ad-ir} {a-ex}.{i-rotate-ir}
 
 # clearA input: XX XX XX XX XX -> 00 XX XX XX XX, used in control cycle
-p {d-main} ad.permute.{ad-ex-clearA}
-s ad.permute.{ad-ex-clearA} 11,0,0,8,7,6,5,4,3,2,1
-p ad.permute.{ad-ex-clearA} {a-ex}.{i-clearA}
+p {d-main} ad.d.{ad-ex-clearA}.-2
+p ad.d.{ad-ex-clearA}.-2 {a-ex}.{i-clearA}
 
 # clearPC2: SS RRRR PPPP -> SS RRRR PP00, used for JMP/JN/JZ/JIL
 p {d-main} ad.permute.{ad-clearPC2}
@@ -270,6 +270,10 @@ s {a-rf}.cc{t-sendc-rf} C
 {a-ls}=a5
 $acc-main ls
 
+# Load only the sign. used in STOREACC to preserve DISCFT acc signs
+p {d-main} ad.permute.{ad-ls-signonly}
+s ad.permute.{ad-ls-signonly} 11,0,0,0,0,0,0,0,0,0,0
+p ad.permute.{ad-ls-signonly} {a-ls}.{i-signonly}
 
 # - MEM0 -
 # Discriminate memory cycle 0-9 vs. 10-14
@@ -281,6 +285,11 @@ $acc-disc-main discmemcyc
 p {d-main} ad.permute.{ad-discmemcyc}
 s ad.permute.{ad-discmemcyc} 10,0,0,0,0,0,0,0,0,0,9
 p ad.permute.{ad-discmemcyc} {a-discmemcyc}.{i-splitA}
+
+# drop sign, used to clear LS sign in STOREACC
+p {d-main} ad.permute.{ad-discmemcyc-dropsign}
+s ad.permute.{ad-discmemcyc-dropsign} 0,10,9,8,7,6,5,4,3,2,1
+p ad.permute.{ad-discmemcyc-dropsign} {a-discmemcyc}.{i-dropsign}
 
 
 # - MEM1 -
@@ -402,9 +411,8 @@ p {d-ftselacc} {a-memcyc09}.{i-ftselacc}
 $acc-main mem11
 
 # clearA input: aa bb cc dd ee -> 00 bb cc dd ee, used in MOV F,A
-p {d-main} ad.permute.{ad-movfa-clearA}
-s ad.permute.{ad-movfa-clearA} 11,0,0,8,7,6,5,4,3,2,1
-p ad.permute.{ad-movfa-clearA} {a-movfa}.{i-clearA}
+p {d-main} ad.d.{ad-movfa-clearA}.-2
+p ad.d.{ad-movfa-clearA}.-2 {a-movfa}.{i-clearA}
 
 # selectA input: aa bb cc dd ee -> aa 00 00 00 00, used in MOV F,A
 p {d-main} ad.permute.{ad-movfa-selectA}
@@ -1260,7 +1268,7 @@ if OP_LOADACC
 
 p {p-op10} {p-oploadacc}
 
-$pulseamp {p-oploadacc} {p-sub-memcyc}
+$pulseamp {p-oploadacc} {p-sub-memcyc} # XXX pa not currently needed but maybe on word access?
 
 # clear LS, we'll want that empty to recieve acc value
 $clearx {p-oploadacc} {a-ls} {r-clear}
@@ -1278,7 +1286,30 @@ endif # OP_LOADACC
 # Basic memory cycle subprogram is already a store
 if OP_STOREACC
 
-p {p-op11} {p-sub-memcyc}
+p {p-op11} {p-opstoreacc}
+
+# Start by saving DISCMEMCYC -> EX, clear
+$sendc {p-opstoreacc} {a-discmemcyc} {t-opstoreacc} A {p-opstoreacc-2}
+$loadex {p-opstoreacc}
+
+# clear sign of LS by ping-pong to DISCMEMCYC through i-dropsign
+# this is necessary to preserve sign of DISsCFTx when storing there
+$sendc {p-opstoreacc-2} {a-ls} {t-opstoreacc-2} A {p-opstoreacc-3}
+$recx {p-opstoreacc-2} {a-discmemcyc} {r-opstoreacc-2} {i-dropsign}
+
+$sendc {p-opstoreacc-3} {a-discmemcyc} {t-opstoreacc-3} A {p-opstoreacc-4}
+$recx {p-opstoreacc-3} {a-ls} {t-opstoreacc-3} {i-main} # ran out of r's
+
+# Jump into main routine
+$pulseamp {p-opstoreacc-4} {p-sub-memcyc-2}
+
+# Wait until accumulator outputs a value, save only the sign
+# XXX good for FT dummy
+$dummy-delay {p-opstoreacc-4} 7 {p-opstoreacc-5}
+
+# Receive only sign on mem->LS, preserve sign when LS->mem next cycle
+$recx {p-opstoreacc-5} {a-ls} {r-opstoreacc-4} {i-signonly}
+
 
 endif # OP_STOREACC
 
