@@ -158,17 +158,13 @@ b - ftselacc: read from FT output
 
 A8
 MEM2:
-DISCJZ1
 A - main
-AS - disc JZ part 1
 a = main
 
 
 A9
 MEM3
-DISCJZ2
 A - main
-AS - disc JZ part 2
 a - main
 
 
@@ -209,11 +205,13 @@ a - main
 
 A15
 MEM9
-DISCJN
-AS - disc JN
+DISCJX
+AS - disc JX
 A - main
-S - main, selA, PM XX XX XX XX XX -> PM XX 00 00 00 00, used for NEG A
-a - nop 
+S - trigger conditional jump/taken
+a - main
+b - shiftA: used to shift RF A into digits 1+2 for ft arg
+g - ftjzsign: get sign for jz discrimination
 
 
 A16
@@ -611,37 +609,26 @@ nearjump:                    # maybe an opcode, used as subprogram for condition
 
 
 JN XX
-1. DISCJN->EX, clear
-2. RF->DISCJN
-3. disc DISCJN, clear
+1. DISCJX->EX, clear
+2. RF->DISCJX
+3. disc DISCJX, clear
   (A>=0)
-  4. EX->DISCJN, clear
-  4. IR -S-> EX, clear      # consume operand; assumes IR<0 so disc not triggered
+  4. EX->DISCJX, clear
+  5. IR -S-> EX, clear      # consume operand; assumes IR<0 so disc not triggered
   6. EX -S-fill99exS-> IR, clear 
   (A<0)
-  4. EX->DISCJN, clear
+  4. EX->DISCJX, clear
      goto nearjump
 
 
-JZ XX
-1. DISCJZ1 -> EX, clear
-2. RF -> DISCJZ1
-3. disc DISCJZ1, clear
-  (X<0)
-  4. EX -> DISCJZ1, clear
-  goto fetch
-  (X>0)
-  4. EX -> DISCJZ1, clear
-  5. DISCJZ2 -> EX, clear
-  6. RF -S-selA-> DISCJZ2
-  7  DISCJZ2 += P 01 00 00 00 00
-  8. disc DISCJZ2, clear
-    (X<0)
-    9. EX->DISCJZ2, clear
-    goto fetch
-    (x>=0)
-    9. EX->DISCJZ2, clear
-    goto nearjump
+JZ XX   (NB treats M00 as P00)
+1. DISCJX -> EX, clear
+2. RF -shiftA-> DISCJX, trigger ft2
+3. DISCJX -> ft2.arg
+4. wait
+5. wait
+6. ft2.AxxS -> DISCJX
+7. goto JN-3
 
 
 JNZ for unsigned values

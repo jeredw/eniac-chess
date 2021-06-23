@@ -1,6 +1,6 @@
 s cy.op 1a
 
-set a4  1444668800
+set a4  0044668800
 set a5  -9988776655  # check that STOREACC maintains sign of DISCFTx
 
 # memory values to check that various instructions save and restore
@@ -28,7 +28,7 @@ define OP_STOREACC    #  0 pas,  0 ts
 define OP_SWAPALL     #  3 pas,  3 ts
 define OP_MOVXA       # 15 pas, 12 ts
 define OP_MOVFA       #  4 pas,  6 ts
-define OP_CLRA        #  1 pas,  1 ts
+# define OP_CLRA        #  1 pas,  1 ts
 define OP_MOVIMMA     #  3 pas,  2 ts
 define OP_INC         #  0 pas,  1 ts
 define OP_DEC         #  0 pas,  1 ts
@@ -38,9 +38,10 @@ define OP_JSR         #  2 pas,  5 ts
 define OP_RET         #  2 pas,  3 ts
 define OP_JMPFAR      #  4 pas,  4 ts
 define OP_JMP         #  0 pas,  0 ts
-define OP_JN          #  4 pas,  9 ts
+define OP_JN          #  1 pas,  3 ts
+define OP_JZ          #  2 pas,  3 ts
 define OP_PRINT       #  3 pas,  4 ts
-define SUB_JMP        #  1 pas,  4 ts (OP_JMP, OP_JN)
+define SUB_JMP        #  1 pas,  4 ts (OP_JMP, SUB_JX)
 define SUB_DISCFT     #  0 pas,  1 ts (OP_JSR, OP_RET, OP_JMPFAR)
 define SUB_STARTJMP   #  1 pas,  1 ts (OP_JSR, OP_RET, OP_JMPFAR)
 define SUB_FINISHJMP  #  4 pas,  1 ts (OP_JSR, OP_RET)
@@ -48,6 +49,7 @@ define SUB_CONSUME_OP #  2 pas,  2 ts (OP_JN, OP_MOVIMMA)
 define SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA, OP_CLRA, OP_MOVIMMA)
 define SUB_RFTOEX     #  2 pas,  0 ts (OP_SWAPALL, OP_MOVXA, OP_ADD)
 define SUB_MEMCYC     #  7 pas, 44 ts (OP_LOADACC, OP_STOREACC)
+define SUB_JX         #  3 pas,  6 ts (OP_JN, OP_JZ)
 
 
 # ENIAC-VM for playing chess
@@ -305,17 +307,13 @@ p {d-ftselacc} {a-memcyc1014}.{i-ftselacc}
 
 
 # - MEM2 -
-# Discriminate JZ, part 1
 {a-mem2}=a8
-{a-discjz1}=a8
-#$acc-disc-main discjz1
+$acc-main mem2
 
 
 # - MEM3 -
-# Discriminate JZ, part 2
 {a-mem3}=a9
-{a-discjz2}=a9
-#$acc-disc-main discjz2
+$acc-main mem3
 
 
 # - MEM4 -
@@ -386,10 +384,18 @@ $acc-main mem8
 
 
 # - MEM9 -
-# Used for JN
+# Used for JN/JZ/JIL
 {a-mem9}=a15
-{a-discjn}=a15
-$acc-disc-main discjn
+{a-discjx}=a15
+$acc-disc-main discjx
+
+# i-shiftA: Used to shift RF A into digits 1+2 for ft arg
+p {d-main} ad.permute.{ad-discjx-shiftA}
+s ad.permute.{ad-discjx-shiftA} 0,0,0,0,0,0,0,0,0,10,9
+p ad.permute.{ad-discjx-shiftA} {a-discjx}.{i-shiftA}
+
+# i-ftjzsign: get sign for jz discrimination
+p {d-ftjzsign} {a-discjx}.{i-ftjzsign}
 
 
 # - MEM10 -
@@ -1027,7 +1033,7 @@ endmacro
 $send-rf {p-sub-rftoex}
 $loadex {p-sub-rftoex}
 
-endif
+endif # SUB_RFTOEX
 
 
 # - Memory Cycle -
@@ -1171,7 +1177,30 @@ $sub-memcyc-branch 1014
 # LS -> MEMXX, restore accumulator value, then next op
 $send {p-sub-memcyc-6} {a-ls} {t-sub-memcyc-7} A {p-fetch}
 
-endif
+endif # SUB_MEMCYC
+
+
+if SUB_JX
+
+# - JX -
+# Conditional jump sequence, always ends up back at control cycle
+
+# discriminate, and clear to ready DISCJX for restored memory value
+# P = not taken, M = taken
+$discriminatec {p-sub-jx} {a-discjx} {d-discjxA} {d-discjxS} {p-sub-jx-not-taken} {p-sub-jx-taken}
+
+# if not taken, restore acc, consume and carry on
+$storeex {p-sub-jx-not-taken}
+$rec {p-sub-jx-not-taken} {a-discjx} {t-sub-jx-not-taken} {i-main} {p-sub-jx-eat}
+
+$consume-op {p-sub-jx-eat}
+$dummy-delay {p-sub-jx-eat} 2 {p-fetch}
+
+# if taken, restore acc and jump
+$storeex {p-sub-jx-taken}
+$rec {p-sub-jx-taken} {a-discjx} {t-sub-jx-taken} {i-main} {p-sub-jmp}
+
+endif # SUB_JX
 
 
 # -- OPCODE IMPLEMENTATIONS --
@@ -1687,29 +1716,64 @@ if OP_JN
 # - JN XX -
 p {p-op80} {p-opjn}
 
-# save DISCJN
-$sendc {p-opjn} {a-discjn} {t-opjn} A {p-opjn-2}
+# save DISCJX
+$sendc {p-opjn} {a-discjx} {t-opjn} A {p-opjn-2}
 $loadex {p-opjn}
 
-# RF->DISCJN, this puts sign of A into DISCJN PM
-$send {p-opjn-2} {a-rf} {t-opjn-2} A {p-opjn-3} # replace with RF send macro?
-$recx {p-opjn-2} {a-discjn} {t-opjn-2} {i-main}
+# RF->DISCJX, this puts sign of A into DISCJX PM
+$send {p-opjn-2} {a-rf} {t-opjn-2} A {p-opjn-3} # TODO use $send-rf?
+$recx {p-opjn-2} {a-discjx} {t-opjn-2} {i-main}
 
-# discriminate, and clear to ready DISCJN for restored memory value
-$discriminatec {p-opjn-3} {a-discjn} {d-discjnA} {d-discjnS} {p-opjn-pos} {p-opjn-neg}
-
-# if positive, restore acc, consume and carry on
-$storeex {p-opjn-pos}
-$rec {p-opjn-pos} {a-discjn} {t-opjn-pos} {i-main} {p-opjn-eat}
-
-$consume-op {p-opjn-eat}
-$dummy-delay {p-opjn-eat} 2 {p-fetch}
-
-# if negative, restore acc and jump
-$storeex {p-opjn-neg}
-$rec {p-opjn-neg} {a-discjn} {t-opjn-neg} {i-main} {p-sub-jmp}
+# conditional jump
+p {p-opjn-3} {p-sub-jx}
 
 endif # OP_JN
+
+
+if OP_JZ
+
+# - JZ XX -
+# Uses a function table lookup.  Note that this treats M00 as P00.
+# XXX A somewhat insane way to fix M00 might be to wire RF PM to shiftA.1, but
+# this has unclear electrical implications.
+# 1. DISCJX -> EX, clear
+# 2. RF -shiftA-> DISCJX, trigger ft2
+# 3. DISCJX -> ft2.arg
+# 4. wait
+# 5. wait
+# 6. ft2.AxxS -> DISCJX
+# 7. p-sub-jx
+p {p-op81} {p-opjz}
+
+# save DISCJX
+$sendc {p-opjz} {a-discjx} {t-opjz} A {p-opjz-2}
+$loadex {p-opjz}
+
+# RF -shiftA-> DISCJX
+$send-rf {p-opjz-2}
+$rec {p-opjz-2} {a-discjx} {t-opjz-2} {i-shiftA} {p-opjz-3}
+
+# trigger ft2
+p {p-opjz-2} f2.2i
+s f2.rp2 1
+s f2.op2 A0
+# start dummy for ft result
+$dummy-delay {p-opjz-2} 4 {p-opjz-6}
+
+# send ft arg
+$sendx {p-opjz-3} {a-discjx} {r-opjz-3} A
+
+# receive ft2 sign for jz
+p f2.A ad.permute.{ad-ftjzsign}
+s ad.permute.{ad-ftjzsign} 11,0,0,0,0,0,0,0,0,0,0
+p ad.permute.{ad-ftjzsign} {d-ftjzsign}
+
+$recx {p-opjz-6} {a-discjx} {r-opjz-6} {i-ftjzsign}
+
+# go to conditional jump sub
+p f2.2o {p-sub-jx}
+
+endif # OP_JZ
 
 
 if OP_PRINT
@@ -1745,6 +1809,17 @@ endif # OP_PRINT
 # Wire halt to quit the simulator so we can run programs and exit when they're
 # done.
 # p {p-op95} debug.quit
+
+
+# -- JUMP DISCRIMINATION --
+# PM digits of FT2 are a lookup table for jz and jil discrimination
+s f2.mpm1 T
+s f2.mpm2 T
+
+# jz uses A signs, with 00 -> M, other rows -> P
+s f2.RA0S M
+
+# TODO jil uses B signs
 
 
 # -- ACCUMULATOR DECODE --
