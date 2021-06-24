@@ -154,6 +154,12 @@ jmpfar1
   print AB
   halt
 
+; this is used for far JSR/RET test -- weird to put it in the middle of this test, but
+inca
+ inc A        ; error 01 if ret does not jump
+ ret
+
+; continue in new bank
 .org 200      ; tests chasm encoding of bank:line as 90:00 = 8999
 jmpfar2
   jmp far jmpfar3
@@ -190,21 +196,24 @@ t13done
   print AB
 
 
-; 14: JSR/RET (no bank switch)
+; 14: JSR/RET 
   inc A
   swap A,B
 
-  jsr t14sub
+  jsr t14sub  ; test near 
 
-.align      ; should chasm ensure op after jsr is aligned?
-  dec A     ; error 99 if jsr does not jump
-  jmp t14done
+.align        ; should chasm ensure op after jsr is aligned?
+  dec A       ; error 99 if jsr does not jump
+  jmp t14next
 
 t14sub
- inc A      ; error 01 if ret does not jump
+ inc A        ; error 01 if ret does not jump
  ret
 
-t14done
+t14next
+ jsr inca     ; now test far
+ dec A        ; error 99 if jsr does not jump
+ 
  swap A,B
  print AB
 
