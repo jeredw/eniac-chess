@@ -367,13 +367,21 @@ DISCMEMCYC neg, A >= 10
 
 
 STOREACC A
-Identical to LOADACC, except we do:
+Based on LOADACC. Basic idea is we ignore the memcycle sendc, then send LS for the
+rec phase. This replaces accumulator value with LS, instead of vice-versa. Voilla!
+Complication is we can't change the sign of destination, as M18-M20 signs
+are used for FT decode ("bank switch"). To prevent changes, we store the sign only
+during the sendc phase. This also requires clearing LS sign in advance.
 
-1. Don't clear LS
-2..9. wait
-10. LS -> main
+1. DISCMEMCYC -> EX, clear
+2. LS -dropsign-> DISCMEMCYC  # clears LS.PM
+3. DISCMEMCYC -> LS
+goto step 2 of LOADACC 
+.
+. wait 8 cycles
+.
+11. main -signonly-> LS       # leaves LS contents intact, but saves memacc PM
 
-This replaces accumulator value with LS, instead of vice-versa. Voilla!
 
 
 LOADNEXT

@@ -100,12 +100,12 @@ s a16.op1 a
 p 2 ad.s.13.8
 p ad.s.13.8 a16.a  
 
-# a18: keep only sign (M)
+# a18: keep only sign (M) -- doesn't work, just clears
 p 1-2 a18.1i   
 s a18.op1 a
 p 2 ad.d.14.0      # keep 0 digits
 p ad.d.14.0 a18.a  
 
-
+b i
 
 
