@@ -1,6 +1,6 @@
 s cy.op 1a
 
-set a4  0044668822
+set a4  -1144668822
 set a5  -9988776655  # check that STOREACC maintains sign of DISCFTx
 
 # memory values to check that various instructions save and restore
@@ -26,8 +26,10 @@ define OP_SWAP        # 11 pas, 10 ts
 define OP_LOADACC     #  1 pas,  1 ts
 define OP_STOREACC    #  0 pas,  0 ts
 define OP_SWAPALL     #  3 pas,  3 ts
-define OP_MOVXA       #  5 pas, 14 ts
-define OP_MOVFA       #  4 pas,  6 ts
+# 3-cycle mov datapath
+# TODO probably replace with 6-cycle datapath + more ops
+define OP_MOVXA3      #  6 pas, 14 ts (4-cycle with 5 pas, 12 ts)
+define OP_MOVFA3      #  4 pas,  6 ts
 define OP_MOVIMMA     #  3 pas,  2 ts
 define OP_INC         #  0 pas,  1 ts
 define OP_DEC         #  0 pas,  1 ts
@@ -172,9 +174,10 @@ p {d-main} ad.permute.{ad-ir}
 s ad.permute.{ad-ir} 11,2,1,10,9,8,7,6,5,4,3
 p ad.permute.{ad-ir} {a-ex}.{i-rotate-ir}
 
-# clearA input: XX XX XX XX XX -> 00 XX XX XX XX, used in control cycle
-p {d-main} ad.d.{ad-ex-clearA}.-2
-p ad.d.{ad-ex-clearA}.-2 {a-ex}.{i-clearA}
+# clearA input: S aa bb cc dd ee -> 0 00 bb cc dd ee, used in control cycle and MOV
+p {d-main} ad.permute.{ad-ex-clearA}
+s ad.permute.{ad-ex-clearA} 0,0,0,8,7,6,5,4,3,2,1
+p ad.permute.{ad-ex-clearA} {a-ex}.{i-clearA}
 
 # clearPC2: SS RRRR PPPP -> SS RRRR PP00, used for JMP/JN/JZ/JIL
 p {d-main} ad.permute.{ad-clearPC2}
@@ -190,7 +193,7 @@ defmacro loadex prog
 endmacro
 s {a-ex}.op{r-loadex} {i-main}
 
-# loads EX with A field (digits 10 and 9) clear
+# loads EX with A field (sign=P, digits 10 and 9) clear
 defmacro loadex-clearA prog
   p $prog {pa-a-%name}
   p {pa-b-%name} {a-ex}.{r-loadex-clearA}i
@@ -221,25 +224,25 @@ p ad.permute.{ad-drop-rf-sign} {d-main}
 
 # i-selBA input: XX aa XX XX XX -> aa 00 00 00 00, used for MOV BG,A
 p {d-main} ad.permute.{ad-rf-selBA}
-s ad.permute.{ad-rf-selBA} 11,8,7,0,0,0,0,0,0,0,0
+s ad.permute.{ad-rf-selBA} 0,8,7,0,0,0,0,0,0,0,0
 p ad.permute.{ad-rf-selBA} {a-rf}.{i-selBA}
 $recx {p-rf-selBA} {a-rf} {r-rf-selBA} {i-selBA}
 
 # i-selCA input: XX XX aa XX XX -> aa 00 00 00 00, used for MOV CH,A
 p {d-main} ad.permute.{ad-rf-selCA}
-s ad.permute.{ad-rf-selCA} 11,6,5,0,0,0,0,0,0,0,0
+s ad.permute.{ad-rf-selCA} 0,6,5,0,0,0,0,0,0,0,0
 p ad.permute.{ad-rf-selCA} {a-rf}.{i-selCA}
 $recx {p-rf-selCA} {a-rf} {r-rf-selCA} {i-selCA}
 
 # i-selDA input: XX XX XX aa XX -> aa 00 00 00 00, used for MOV DI,A
 p {d-main} ad.permute.{ad-rf-selDA}
-s ad.permute.{ad-rf-selDA} 11,4,3,0,0,0,0,0,0,0,0
+s ad.permute.{ad-rf-selDA} 0,4,3,0,0,0,0,0,0,0,0
 p ad.permute.{ad-rf-selDA} {a-rf}.{i-selDA}
 $recx {p-rf-selDA} {a-rf} {r-rf-selDA} {i-selDA}
 
 # i-selEA input: XX XX XX XX aa -> aa 00 00 00 00, used for MOV EJ,A/MOV #X,A
 p {d-main} ad.permute.{ad-rf-selEA}
-s ad.permute.{ad-rf-selEA} 11,2,1,0,0,0,0,0,0,0,0
+s ad.permute.{ad-rf-selEA} 0,2,1,0,0,0,0,0,0,0,0
 p ad.permute.{ad-rf-selEA} {a-rf}.{i-selEA}
 $recx {p-rf-selEA} {a-rf} {r-rf-selEA} {i-selEA}
 
@@ -415,13 +418,14 @@ p {d-ftselacc} {a-memcyc09}.{i-ftselacc}
 {a-movfa}=a17
 $acc-main mem11
 
-# clearA input: aa bb cc dd ee -> 00 bb cc dd ee, used in MOV F,A
-p {d-main} ad.d.{ad-movfa-clearA}.-2
-p ad.d.{ad-movfa-clearA}.-2 {a-movfa}.{i-clearA}
+# clearA input: S aa bb cc dd ee -> P 00 bb cc dd ee, used in MOV F,A
+p {d-main} ad.permute.{ad-movfa-clearA}
+s ad.permute.{ad-movfa-clearA} 0,0,0,8,7,6,5,4,3,2,1
+p ad.permute.{ad-movfa-clearA} {a-movfa}.{i-clearA}
 
 # selectA input: aa bb cc dd ee -> aa 00 00 00 00, used in MOV F,A
 p {d-main} ad.permute.{ad-movfa-selectA}
-s ad.permute.{ad-movfa-selectA} 11,10,9,0,0,0,0,0,0,0,0
+s ad.permute.{ad-movfa-selectA} 0,10,9,0,0,0,0,0,0,0,0
 p ad.permute.{ad-movfa-selectA} {a-movfa}.{i-selectA}
 
 
@@ -656,10 +660,6 @@ if CONTROL_CYCLE
 
 # -- CONTROL CYCLE --
 
-# - A program line to jump to if ex has something in it
-$clear {p-clearex-fetch} {a-ex} {t-clearex-fetch} {p-fetch}
-
-
 # -- p-fetch: begin next instruction
 # During this cycle:
 #  - discriminate, to decide whether to fetch new instructions, clear IR
@@ -701,7 +701,8 @@ s c.s26 Kr
 # EX = I1+1
 # If I1 <= 55 then I1+1+43 < 100, EX still P
 # If I1 > 55 then I1+1+43 >= 100, EX now M
-$rec {p-nofetch} {a-ex} {t-nofetch} {i-main} {p-disc-op}
+$loadex {p-nofetch}
+$dummy {p-nofetch} {p-disc-op}
 
 # If we are eating an operand (removing it from IR) then we need to set
 # the top digits of IR to 99 after next instruction (delay 1 cycle)
@@ -1383,24 +1384,16 @@ $rec {p-opswapall-3} {a-ls} {t-opswapall-3} {i-main} {p-fetch}
 endif # OP_SWAPALL
 
 
-if OP_MOVXA
+if OP_MOVXA3
 
 # - MOV [BCDEGHIJ],A -
-# Four inputs on RF let us share almost the same 4-cycle sequence for most
-# MOVs, except MOV F,A which needs an extra input.  We could get 2-cycle MOVs
-# for [BCD] by wiring movBA, movCA, movDA inputs on RF instead, but that would
-# take more total programs, and having [BCDE] timing be the same might be
-# helpful for word insert/extract for the memory cycle.
-# 1. $clearA-1
-# 2. $clearA-2
-# 3. RF -> EX(no clear) or LS -> EX(no clear)
-# 4. EX -sel[BCDE]A-> RF
-#
-# TODO If we had a $send program on EX rather than just a $sendc program, we
-# could fit this into 3 cycles as
+# Four inputs on RF let us share almost the same sequence for most MOVs, except
+# MOV F,A which needs an extra input.  We could get 2-cycle MOVs for [BCD] by
+# wiring movBA, movCA, movDA inputs on RF instead.
 # 1. RF -clearA-> EX
 # 2. EX -> RF, don't clear
 # 3. EX -sel[BCDE]A-> RF, clear
+#    (or: LS -sel[BCDE]A -> RF, clear EX)
 #
 # TODO An alternative 6-cycle sequence would reuse swapBCDE programs and would
 # work for all mov X,A... it would probably conserve programs but not pulse
@@ -1434,9 +1427,8 @@ p {p-op33} {p-opmovJA}
 $pulseamp {p-opmovRFA} {p-opmovXA}
 $pulseamp {p-opmovLSA} {p-opmovXA}
 
-# Shared dummies (12 total)
 # Manually placed so they don't overlap with the multicycle sel dummies.
-$manual-dummy {p-opmovXA} a19 {t-opmovXA} 3 {p-opmovXA-4}
+$manual-dummy {p-opmovXA} a19 {t-opmovXA} 1 {p-opmovXA-2}
 # NB only one of these two may be active so fine if same accum
 $manual-dummy {p-opmovRFA} a20 {t-opmovRFA} 2 {p-opmovRFA-3}
 $manual-dummy {p-opmovLSA} a20 {t-opmovLSA} 2 {p-opmovLSA-3}
@@ -1444,35 +1436,34 @@ $manual-dummy {p-opmovLSA} a20 {t-opmovLSA} 2 {p-opmovLSA-3}
 # Decode which select inputs to use, e.g. mov B,A and mov G,A each select the
 # same field to move into A. only one sel dummy can be active so fine if same
 # accum
-$dummy-delay-exclude {p-opmovBA} 3 {p-rf-selBA} -a20,a19,a18
-$dummy-delay-exclude {p-opmovCA} 3 {p-rf-selCA} -a20,a19,a18
-$dummy-delay-exclude {p-opmovDA} 3 {p-rf-selDA} -a20,a19,a18
-$dummy-delay-exclude {p-opmovEA} 3 {p-rf-selEA} -a20,a19,a18
-$dummy-delay-exclude {p-opmovGA} 3 {p-rf-selBA} -a20,a19,a18
-$dummy-delay-exclude {p-opmovHA} 3 {p-rf-selCA} -a20,a19,a18
-$dummy-delay-exclude {p-opmovIA} 3 {p-rf-selDA} -a20,a19,a18
-$dummy-delay-exclude {p-opmovJA} 3 {p-rf-selEA} -a20,a19,a18
-$dummy {p-opmovXA-4} {p-fetch}
+$dummy-delay-exclude {p-opmovBA} 2 {p-rf-selBA} -a20,a19
+$dummy-delay-exclude {p-opmovCA} 2 {p-rf-selCA} -a20,a19
+$dummy-delay-exclude {p-opmovDA} 2 {p-rf-selDA} -a20,a19
+$dummy-delay-exclude {p-opmovEA} 2 {p-rf-selEA} -a20,a19
+$dummy-delay-exclude {p-opmovGA} 2 {p-rf-selBA} -a20,a19
+$dummy-delay-exclude {p-opmovHA} 2 {p-rf-selCA} -a20,a19
+$dummy-delay-exclude {p-opmovIA} 2 {p-rf-selDA} -a20,a19
+$dummy-delay-exclude {p-opmovJA} 2 {p-rf-selEA} -a20,a19
 
-# Clear A register
-$clearA {p-opmovXA}
+# RF -clearA-> EX
+$sendc-rf {p-opmovXA}
+$loadex-clearA {p-opmovXA}
 
-# Read either RF or LS in EX
-p {p-opmovRFA-3} {p-sub-rftoex}
+# EX -> RF, don't clear
+$send {p-opmovXA-2} {a-ex} {t-opmovXA-2} A {p-opmovXA-3}
+$loadrf {p-opmovXA-2}
 
+# EX -sel[BCDE]A-> RF, clear
+$storeex {p-opmovRFA-3}
+# Alternatively LS -sel[BCDE]A->RF, clear EX
 $sendx {p-opmovLSA-3} {a-ls} {r-opmovLSA-3} A
-$loadex {p-opmovLSA-3}
+$clearx {p-opmovLSA-3} {a-ex} {t-opmovLSA-3}
+$dummy {p-opmovXA-3} {p-fetch}
 
-# Store back other register into A register from EX
-# XXX there is a bug here currently!  EX i-main input reads sign (does it need
-# to?) so sending LS with PM=M breaks things.
-$storeex {p-opmovXA-4}
-# dummy will trigger p-rf-selXA this cycle
-
-endif # OP_MOVXA
+endif # OP_MOVXA3
 
 
-if OP_MOVFA
+if OP_MOVFA3
 
 # - MOV F,A -
 # Separate from other MOVs because RF doesn't have enough inputs to select A.
@@ -1504,7 +1495,7 @@ $loadrf {p-opmovFA-4}
 $storeex {p-opmovFA-5}
 $rec {p-opmovFA-5} {a-movfa} {t-opmovFA-5} {i-main} {p-fetch}
 
-endif # OP_MOVFA
+endif # OP_MOVFA3
 
 
 if OP_CLRA

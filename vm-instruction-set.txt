@@ -507,9 +507,9 @@ MOV A,[B]  (aka STORE)
 
 MOV [BCDEGHIJ],A
 1. RF -clearA-> EX
-2. EX -> RF
-3. RF -> EX or LS -> EX(no clear)
-4. EX -sel[BCDE]A-> RF
+2. EX -> RF, don't clear
+3. EX -sel[BCDE]A-> RF, clear
+   (or: LS -sel[BCDE]A -> RF, clear EX)
 
 
 MOV F,A
