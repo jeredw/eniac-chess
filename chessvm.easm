@@ -1416,8 +1416,8 @@ if OP_MOVXA
 # with LS are encoded as 3x to conserve pulse amplifiers.
 p p.A3o {p-op2x}
 p p.A4o {p-op3x}
-$manual-dummy {p-op2x} a18 {t-op2x} 1 {p-opmovRFA}
-$manual-dummy {p-op3x} a18 {t-op3x} 1 {p-opmovLSA}
+$i-dummy {p-op2x} {p-opmovRFA}
+$i-dummy {p-op3x} {p-opmovLSA}
 
 p {p-op20} {p-opmovBA}
 p {p-op21} {p-opmovCA}

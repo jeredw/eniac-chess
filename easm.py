@@ -13,6 +13,7 @@
 # d     data trunk, 1-20
 # r     accumulator receiver, 1-5 on each accumulator
 # t     accumulator transciever, 6-12 on each accumulator
+# t     selective clear transceiver, 1-6 on init unit
 # ad    adapter, 1-40 (simulator limitation) for each type
 # pa    pulse amplifier channel, 8x11
 # da    debug assertions
@@ -73,6 +74,7 @@ class SymbolTable:
       'd':      Resource('digit trunks', 20, {}),
       'p':      Resource('program lines', 26*11, {}),
       'a':      Resource('accumulators', 20, {}),
+      'i.t':    Resource('selective clear transceivers', 6, {}),
       'ad.s':   Resource('shift adapters', 80, {}),
       'ad.d':   Resource('deleter adapters', 80, {}),
       'ad.dp':  Resource('digit pulse adapters', 80, {}),
@@ -139,8 +141,12 @@ class SymbolTable:
       num_ts_avail += transceivers.limit
       per_acc.append(f"a{acc+1:<2d} {bitmap(inputs)} {bitmap(receivers)}{bitmap(transceivers)}")
 
-    pulseamps = self.sym_global['pa']
-    print(f"pas {len(pulseamps.symbols)}/{pulseamps.limit} ts {num_ts_used}/{num_ts_avail}")
+    pa = self.sym_global['pa']
+    pa_summary = f"{len(pa.symbols)}/{pa.limit}"
+    t_summary = f"{num_ts_used}/{num_ts_avail}"
+    ct = self.sym_global['i.t']
+    ct_summary = f"{len(ct.symbols)}/{ct.limit}"
+    print(f"pas {pa_summary} ts {t_summary} its {ct_summary}")
     for row in range(10):
       print(f"{per_acc[2*row]}   {per_acc[2*row+1]}")
 
@@ -293,6 +299,22 @@ class Assembler(object):
     return text, symbols
 
 
+  def patch_init(self, arg):
+    # patch selective clear transceiver
+    m = re.match(r'i\.C(?P<prefix>[io])(?P<terminal>\d|{t-[A-Za-z0-9-]+})', arg)
+    if not m:
+      raise SyntaxError('bad init clear terminal')
+    prefix = m.group('prefix')
+    terminal = m.group('terminal')
+    if '{' in terminal:
+      terminal = terminal[1:-1]  # strip {}
+      n = 1 + self.symbols.lookup('i.t', terminal)
+      text = f'i.C{prefix}{n}'
+      return text, {terminal: text}
+    else:
+      return arg, {}  # literal
+
+
   def patch_pulseamp(self, arg):
     # only individual pulseamp channel allocation is supported
     m = re.match(r"{pa-(?P<side>[ab])-(?P<name>[A-Za-z0-9-]+)}", arg)
@@ -317,7 +339,8 @@ class Assembler(object):
         re.compile(r"(a\d\d?|{a-[A-Za-z0-9-]+})\..+"): self.patch_accum,   # accumulator, more complex handling
         re.compile(r"{pa-[ab]-[A-Za-z0-9-]+}"): self.patch_pulseamp, # pulse amplifiers
         re.compile(r"debug\..+"):         self.patch_debug,   # debug resource
-        re.compile(r".+"):                self.arg_literal    # function table, initiating unit, etc. (all else)
+        re.compile(r"i\.C.+"):            self.patch_init,    # initiating unit (selective clear)
+        re.compile(r".+"):                self.arg_literal    # function table, constants, etc. (all else)
     }
 
     for pattern, handler in patch_dispatch.items():

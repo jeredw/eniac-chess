@@ -82,6 +82,12 @@ defmacro manual-dummy inpr acc t delay outpr
   p $acc.{$t}o {$outpr}
 endmacro
 
+# Allocates an initiate unit clear transceiver for use as a dummy.
+defmacro i-dummy inpr outpr
+  p {$inpr} i.Ci{t-%name}
+  p i.Co{t-%name} {$outpr}
+endmacro
+
 # Dummy to trigger outpr delay cycles after inpr
 # Does not use a1-a5 nor other accums listed in exclude
 # usage: $dummy-delay-exclude {p-in} 2 {p-out} -{a-foo},{a-bar},{a-baz}
