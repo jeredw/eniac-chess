@@ -45,9 +45,9 @@
 
 ; 4: test swap A,D
   inc A
-  swap A,C
+  swap A,D
   inc A
-  swap A,C
+  swap A,D
   print AB
 
 
@@ -88,6 +88,11 @@
 ; Add 32+32 and subtract 64
   inc A
   swap A,B
+
+  clr A     ; set C=D=0
+  swap A,C
+  clr A
+  swap A,D
 
   mov 64,A
   swap A,C
@@ -202,7 +207,6 @@ t13done
 
   jsr t14sub  ; test near 
 
-.align        ; should chasm ensure op after jsr is aligned?
   dec A       ; error 99 if jsr does not jump
   jmp t14next
 
