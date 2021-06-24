@@ -25,7 +25,7 @@
 31 - mov H,A
 32 - mov I,A
 33 - mov J,A
-34 - (reserved for future LS<->RF mov)
+34 - mov F,A
 35 - (reserved for future LS<->RF mov)
 
 40 - mov XX,A
@@ -59,7 +59,7 @@
 90 - clr A
 91 - read AB
 92 - print AB
-93 - mov F,A      ; TODO hopefully this can move back to 3x
+93 -              ; XXX 3-cycle mov puts MOV F,A here
 94 - nextline     ; go immediately to line fetch
 95 - halt
 
@@ -228,7 +228,7 @@ g - shiftr8 - put A in low digits. Used to send A as arg to FT
 
 A17
 MEM11:
-MOVFA:
+MOVSWAP:
 A - main
 a - main
 b - clearA: aa bb cc dd ee -> 00 bb cc dd ee
@@ -505,26 +505,37 @@ MOV A,[B]  (aka STORE)
 # requires the option 2 rewiring hack.
 
 
-MOV [BCDEGHIJ],A
+MOV [BCDEFGHIJ],A
+Option 1: 3-cycle sequence
 1. RF -clearA-> EX
 2. EX -> RF, don't clear
 3. EX -sel[BCDE]A-> RF, clear
    (or: LS -sel[BCDE]A -> RF, clear EX)
-
-
-MOV F,A
+# but needs separate sequence for MOV F,A,
+# which is super expensive :(
 1. MOVFA -> EX
 2. RF -clearA-> MOVFA
 3. LS -selectA-> MOVFA
 4. MOVFA -> RF
 5. EX -> MOVFA
+# also not shared with SWAP
+
+Option 2: 6-cycle sequence (works for all regs)
+Can share with SWAP
+1. $clearA-1
+2. $clearA-2
+3. MOVSWAP -> EX
+4. (RF or LS) -movswap[BCDE]-> MOVSWAP
+5. MOVSWAP -selectA-> RF
+6. EX -> MOVSWAP
 
 
 SWAP A,[BCDE]
-1. SWAPAX -> EX, clear
-2. RF -x-> SWAPAX, clear
-3. SWAPAX -> RF, clear
-4. EX->SWAPAX, clear
+(Shared with MOV)
+1. MOVSWAP -> EX
+2. RF -movswap[BCDE]-> MOVSWAP
+3. MOVSWAP -> RF
+4. EX -> MOVSWAP
 
 
 SWAP A,F

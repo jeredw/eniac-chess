@@ -1,6 +1,6 @@
 # function table values
-s f1.RA0L6 2  # MOV E,A
-s f1.RA0L5 3
+s f1.RA0L6 0  # SWAP A,D
+s f1.RA0L5 4
 s f1.RA0L4 7  # JMP 102
 s f1.RA0L3 4
 s f1.RA0L2 0
