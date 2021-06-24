@@ -1,6 +1,6 @@
 s cy.op 1a
 
-set a4  0044668800
+set a4  0044668822
 set a5  -9988776655  # check that STOREACC maintains sign of DISCFTx
 
 # memory values to check that various instructions save and restore
@@ -26,9 +26,8 @@ define OP_SWAP        # 11 pas, 10 ts
 define OP_LOADACC     #  1 pas,  1 ts
 define OP_STOREACC    #  0 pas,  0 ts
 define OP_SWAPALL     #  3 pas,  3 ts
-define OP_MOVXA       # 15 pas, 12 ts
+define OP_MOVXA       #  5 pas, 14 ts
 define OP_MOVFA       #  4 pas,  6 ts
-# define OP_CLRA        #  1 pas,  1 ts
 define OP_MOVIMMA     #  3 pas,  2 ts
 define OP_INC         #  0 pas,  1 ts
 define OP_DEC         #  0 pas,  1 ts
@@ -40,6 +39,7 @@ define OP_RET         #  1 pas,  2 ts
 define OP_JMP         #  0 pas,  0 ts
 define OP_JN          #  1 pas,  3 ts
 define OP_JZ          #  2 pas,  3 ts
+define OP_CLRA        #  1 pas,  1 ts
 define OP_PRINT       #  3 pas,  4 ts
 define SUB_JMP        #  1 pas,  4 ts (OP_JMP, SUB_JX)
 define SUB_DISCFT     #  0 pas,  1 ts (SUB_FARGO)
@@ -1234,12 +1234,10 @@ endif # SUB_JX
 #$break {p-op21}  # MOV C,A
 #$break {p-op22}  # MOV D,A
 #$break {p-op23}  # MOV E,A
-#$break {p-op24}  # MOV F,A
-#$break {p-op25}  # MOV G,A
-#$break {p-op30}  # MOV H,A
-#$break {p-op31}  # MOV I,A
-#$break {p-op32}  # MOV J,A
-#$break {p-op35}  # CLR A
+#$break {p-op30}  # MOV G,A
+#$break {p-op31}  # MOV H,A
+#$break {p-op32}  # MOV I,A
+#$break {p-op33}  # MOV J,A
 #$break {p-op40}  # MOV #xx,A
 #$break {p-op52}  # INC A
 #$break {p-op53}  # DEC A
@@ -1250,7 +1248,9 @@ endif # SUB_JX
 #$break {p-op80}  # JN xx
 #$break {p-op84}  # JSR xxxx
 #$break {p-op85}  # RET
+#$break {p-op90}  # CLR A
 #$break {p-op92}  # PRINT
+#$break {p-op93}  # MOV F,A
 #$break {p-op95}  # HALT
 
 
@@ -1411,60 +1411,45 @@ if OP_MOVXA
 # 4. RF -swapBCDE-> swapBCDE
 # 5. swapBCDE -selectA-> RF
 # 6. EX -> swapBCDE
+
+# All mov opcodes for A with RF are encoded as 2x, and all mov opcodes for A
+# with LS are encoded as 3x to conserve pulse amplifiers.
+p p.A3o {p-op2x}
+p p.A4o {p-op3x}
+$manual-dummy {p-op2x} a18 {t-op2x} 1 {p-opmovRFA}
+$manual-dummy {p-op3x} a18 {t-op3x} 1 {p-opmovLSA}
+
 p {p-op20} {p-opmovBA}
 p {p-op21} {p-opmovCA}
 p {p-op22} {p-opmovDA}
 p {p-op23} {p-opmovEA}
-p {p-op25} {p-opmovGA}
-p {p-op30} {p-opmovHA}
-p {p-op31} {p-opmovIA}
-p {p-op32} {p-opmovJA}
+p {p-op30} {p-opmovGA}
+p {p-op31} {p-opmovHA}
+p {p-op32} {p-opmovIA}
+p {p-op33} {p-opmovJA}
 
-# Decode which select inputs to use, e.g. mov B,A and mov G,A each select the
-# same field to move into A.
-# XXX Use dummies instead of pulseamps because pulseamps are more constrained.
-#$pulseamp {p-opmovBA} {p-opmovBGA}
-#$pulseamp {p-opmovGA} {p-opmovBGA}
-#$pulseamp {p-opmovCA} {p-opmovCHA}
-#$pulseamp {p-opmovHA} {p-opmovCHA}
-#$pulseamp {p-opmovDA} {p-opmovDIA}
-#$pulseamp {p-opmovIA} {p-opmovDIA}
-#$pulseamp {p-opmovEA} {p-opmovEJA}
-#$pulseamp {p-opmovJA} {p-opmovEJA}
-# ops that use rf
-$pulseamp {p-opmovBA} {p-opmovRFA}
-$pulseamp {p-opmovCA} {p-opmovRFA}
-$pulseamp {p-opmovDA} {p-opmovRFA}
-$pulseamp {p-opmovEA} {p-opmovRFA}
-# ops that use ls
-$pulseamp {p-opmovGA} {p-opmovLSA}
-$pulseamp {p-opmovHA} {p-opmovLSA}
-$pulseamp {p-opmovIA} {p-opmovLSA}
-$pulseamp {p-opmovJA} {p-opmovLSA}
 # all the mov ops
 $pulseamp {p-opmovRFA} {p-opmovXA}
 $pulseamp {p-opmovLSA} {p-opmovXA}
 
-# shared dummies (12 total)
+# Shared dummies (12 total)
 # Manually placed so they don't overlap with the multicycle sel dummies.
 $manual-dummy {p-opmovXA} a19 {t-opmovXA} 3 {p-opmovXA-4}
 # NB only one of these two may be active so fine if same accum
 $manual-dummy {p-opmovRFA} a20 {t-opmovRFA} 2 {p-opmovRFA-3}
 $manual-dummy {p-opmovLSA} a20 {t-opmovLSA} 2 {p-opmovLSA-3}
-# only one sel dummy can be active so fine if same accum
-# XXX Use dummies instead of pulseamps because pulseamps are more constrained.
-#$dummy-delay-exclude {p-opmovBGA} 3 {p-rf-selBA} -a20,a19
-#$dummy-delay-exclude {p-opmovCHA} 3 {p-rf-selCA} -a20,a19
-#$dummy-delay-exclude {p-opmovDIA} 3 {p-rf-selDA} -a20,a19
-#$dummy-delay-exclude {p-opmovEJA} 3 {p-rf-selEA} -a20,a19
-$dummy-delay-exclude {p-opmovBA} 3 {p-rf-selBA} -a20,a19
-$dummy-delay-exclude {p-opmovCA} 3 {p-rf-selCA} -a20,a19
-$dummy-delay-exclude {p-opmovDA} 3 {p-rf-selDA} -a20,a19
-$dummy-delay-exclude {p-opmovEA} 3 {p-rf-selEA} -a20,a19
-$dummy-delay-exclude {p-opmovGA} 3 {p-rf-selBA} -a20,a19
-$dummy-delay-exclude {p-opmovHA} 3 {p-rf-selCA} -a20,a19
-$dummy-delay-exclude {p-opmovIA} 3 {p-rf-selDA} -a20,a19
-$dummy-delay-exclude {p-opmovJA} 3 {p-rf-selEA} -a20,a19
+
+# Decode which select inputs to use, e.g. mov B,A and mov G,A each select the
+# same field to move into A. only one sel dummy can be active so fine if same
+# accum
+$dummy-delay-exclude {p-opmovBA} 3 {p-rf-selBA} -a20,a19,a18
+$dummy-delay-exclude {p-opmovCA} 3 {p-rf-selCA} -a20,a19,a18
+$dummy-delay-exclude {p-opmovDA} 3 {p-rf-selDA} -a20,a19,a18
+$dummy-delay-exclude {p-opmovEA} 3 {p-rf-selEA} -a20,a19,a18
+$dummy-delay-exclude {p-opmovGA} 3 {p-rf-selBA} -a20,a19,a18
+$dummy-delay-exclude {p-opmovHA} 3 {p-rf-selCA} -a20,a19,a18
+$dummy-delay-exclude {p-opmovIA} 3 {p-rf-selDA} -a20,a19,a18
+$dummy-delay-exclude {p-opmovJA} 3 {p-rf-selEA} -a20,a19,a18
 $dummy {p-opmovXA-4} {p-fetch}
 
 # Clear A register
@@ -1472,10 +1457,13 @@ $clearA {p-opmovXA}
 
 # Read either RF or LS in EX
 p {p-opmovRFA-3} {p-sub-rftoex}
+
 $sendx {p-opmovLSA-3} {a-ls} {r-opmovLSA-3} A
 $loadex {p-opmovLSA-3}
 
 # Store back other register into A register from EX
+# XXX there is a bug here currently!  EX i-main input reads sign (does it need
+# to?) so sending LS with PM=M breaks things.
 $storeex {p-opmovXA-4}
 # dummy will trigger p-rf-selXA this cycle
 
@@ -1492,7 +1480,7 @@ if OP_MOVFA
 # 3. LS -selectA-> MOVFA
 # 4. MOVFA -> RF
 # 5. EX -> MOVFA
-p {p-op24} {p-opmovFA}
+p {p-op93} {p-opmovFA}
 
 # Stash MOVFA in EX
 $sendc {p-opmovFA} {a-movfa} {t-opmovFA} A {p-opmovFA-2}
@@ -1520,7 +1508,7 @@ endif # OP_MOVFA
 if OP_CLRA
 
 # - CLR A -
-p {p-op35} {p-opclrA}
+p {p-op90} {p-opclrA}
 
 # Use clear A subroutine
 $clearA {p-opclrA}

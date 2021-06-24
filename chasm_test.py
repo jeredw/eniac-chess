@@ -517,27 +517,27 @@ class TestV4(AssemblerTestCase):
   def testMovAF(self):
     self.isa.dispatch("", "mov", "A, F")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 24})
+    self.assertOutputValues({(100, 0): 93})
 
   def testMovAG(self):
     self.isa.dispatch("", "mov", "A, G")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 25})
+    self.assertOutputValues({(100, 0): 30})
 
   def testMovAH(self):
     self.isa.dispatch("", "mov", "A, H")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 30})
+    self.assertOutputValues({(100, 0): 31})
 
   def testMovAI(self):
     self.isa.dispatch("", "mov", "A, I")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 31})
+    self.assertOutputValues({(100, 0): 32})
 
   def testMovAJ(self):
     self.isa.dispatch("", "mov", "A, J")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 32})
+    self.assertOutputValues({(100, 0): 33})
 
   def testMovLoadAImmediate(self):
     self.isa.dispatch("", "mov", "A, 99")
@@ -841,6 +841,15 @@ class TestV4(AssemblerTestCase):
 
   def testRead_ErrorInvalidArgument(self):
     self.isa.dispatch("", "read", "bogus")
+    self.assertEqual(self.out.errors, ["file:1: invalid argument 'bogus'"])
+
+  def testClrA(self):
+    self.isa.dispatch("", "clr", "A")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 90})
+
+  def testClr_ErrorInvalidArgument(self):
+    self.isa.dispatch("", "clr", "bogus")
     self.assertEqual(self.out.errors, ["file:1: invalid argument 'bogus'"])
 
   def testPrintAB(self):

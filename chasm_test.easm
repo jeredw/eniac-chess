@@ -98,22 +98,22 @@ s f1.RB6L2 2  # mov A, E
 s f1.RB6L1 3
 
 # address=107  PC=0907
-s f1.RA7L6 2  # mov A, F
-s f1.RA7L5 4
-s f1.RA7L4 2  # mov A, G
-s f1.RA7L3 5
+s f1.RA7L6 9  # mov A, F
+s f1.RA7L5 3
+s f1.RA7L4 3  # mov A, G
+s f1.RA7L3 0
 s f1.RA7L2 3  # mov A, H
-s f1.RA7L1 0
+s f1.RA7L1 1
 s f1.RB7L6 3  # mov A, I
-s f1.RB7L5 1
+s f1.RB7L5 2
 s f1.RB7L4 3  # mov A, J
-s f1.RB7L3 2
+s f1.RB7L3 3
 s f1.RB7L2 3  # indexswap 
 s f1.RB7L1 4
 
 # address=108  PC=0908
-s f1.RA8L6 3  # clr A
-s f1.RA8L5 5
+s f1.RA8L6 9  # clr A
+s f1.RA8L5 0
 s f1.RA8L4 4  # mov A, 10
 s f1.RA8L3 0
 s f1.RA8L2 0
