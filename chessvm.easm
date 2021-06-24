@@ -1413,11 +1413,13 @@ if OP_MOVXA
 # 6. EX -> swapBCDE
 
 # All mov opcodes for A with RF are encoded as 2x, and all mov opcodes for A
-# with LS are encoded as 3x to conserve pulse amplifiers.
-p p.A3o {p-op2x}
-p p.A4o {p-op3x}
-$i-dummy {p-op2x} {p-opmovRFA}
-$i-dummy {p-op3x} {p-opmovLSA}
+# with LS are encoded as 3x to conserve pulse amplifiers.  There is nothing
+# happening on d-main during decode, so use spare constant transceivers as
+# dummies, don't care what they send.
+p p.A3o c.23i
+p c.23o {p-opmovRFA}
+p p.A4o c.24i
+p c.24o {p-opmovLSA}
 
 p {p-op20} {p-opmovBA}
 p {p-op21} {p-opmovCA}
