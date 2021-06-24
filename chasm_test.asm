@@ -49,33 +49,31 @@ test_each_instruction
   ftload A
   ftlookup A, 10
   ftlookup A, king
-  mov A, B
-  mov A, C
-  mov A, D
-  mov A, E
-  mov A, F
-  mov A, G
-  mov A, H
-  mov A, I
-  mov A, J
-  indexswap
+  mov B, A
+  mov C, A
+  mov D, A
+  mov E, A
+  mov F, A
+  mov G, A
+  mov H, A
+  mov I, A
+  mov J, A
   clr A
-  mov A, 10
-  mov A, king
-  mov D, 10
-  mov D, king
-  mov A, [king]
-  mov A, [10]
-  mov A, [B]
+  mov 10, A
+  mov king, A
+  mov 10, D
+  mov king, D
   mov [king], A
   mov [10], A
-  ;mov [B], A
+  mov [B], A
+  mov [king], A
+  mov [10], A
+  mov A, [B]
   inc A
   inc B
   dec A
-  add A, D
-  neg A
-  sub A, D
+  add D, A
+  sub D, A
   jmp target
   jmp far faraway
   jmp +A
@@ -106,7 +104,7 @@ test_each_instruction
   nop
   nop
   nop
-  mov A, 99
+  mov 99, A
 
   .align
   nop

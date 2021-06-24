@@ -88,94 +88,94 @@ s f1.RA6L6 1  # ftlookup A, king # king=10
 s f1.RA6L5 5
 s f1.RA6L4 0
 s f1.RA6L3 9
-s f1.RA6L2 2  # mov A, B
+s f1.RA6L2 2  # mov B, A
 s f1.RA6L1 0
-s f1.RB6L6 2  # mov A, C
+s f1.RB6L6 2  # mov C, A
 s f1.RB6L5 1
-s f1.RB6L4 2  # mov A, D
+s f1.RB6L4 2  # mov D, A
 s f1.RB6L3 2
-s f1.RB6L2 2  # mov A, E
+s f1.RB6L2 2  # mov E, A
 s f1.RB6L1 3
 
 # address=107  PC=0907
-s f1.RA7L6 9  # mov A, F
-s f1.RA7L5 3
-s f1.RA7L4 3  # mov A, G
+s f1.RA7L6 3  # mov F, A
+s f1.RA7L5 4
+s f1.RA7L4 3  # mov G, A
 s f1.RA7L3 0
-s f1.RA7L2 3  # mov A, H
+s f1.RA7L2 3  # mov H, A
 s f1.RA7L1 1
-s f1.RB7L6 3  # mov A, I
+s f1.RB7L6 3  # mov I, A
 s f1.RB7L5 2
-s f1.RB7L4 3  # mov A, J
+s f1.RB7L4 3  # mov J, A
 s f1.RB7L3 3
-s f1.RB7L2 3  # indexswap 
-s f1.RB7L1 4
+s f1.RB7L2 9  # clr A
+s f1.RB7L1 0
 
 # address=108  PC=0908
-s f1.RA8L6 9  # clr A
+s f1.RA8L6 4  # mov 10, A
 s f1.RA8L5 0
-s f1.RA8L4 4  # mov A, 10
-s f1.RA8L3 0
-s f1.RA8L2 0
-s f1.RA8L1 9
-s f1.RB8L6 4  # mov A, king # king=10
-s f1.RB8L5 0
-s f1.RB8L4 0
-s f1.RB8L3 9
-s f1.RB8L2 9
+s f1.RA8L4 0
+s f1.RA8L3 9
+s f1.RA8L2 4  # mov king, A # king=10
+s f1.RA8L1 0
+s f1.RB8L6 0
+s f1.RB8L5 9
+s f1.RB8L4 4  # mov 10, D
+s f1.RB8L3 1
+s f1.RB8L2 0
 s f1.RB8L1 9
 
 # address=109  PC=0909
-s f1.RA9L6 4  # mov D, 10
+s f1.RA9L6 4  # mov king, D # king=10
 s f1.RA9L5 1
 s f1.RA9L4 0
 s f1.RA9L3 9
-s f1.RA9L2 4  # mov D, king # king=10
-s f1.RA9L1 1
+s f1.RA9L2 4  # mov [king], A # king=10
+s f1.RA9L1 2
 s f1.RB9L6 0
 s f1.RB9L5 9
-s f1.RB9L4 4  # mov A, [king] # king=10
+s f1.RB9L4 4  # mov [10], A
 s f1.RB9L3 2
 s f1.RB9L2 0
 s f1.RB9L1 9
 
 # address=110  PC=0910
-s f1.RA10L6 4  # mov A, [10]
-s f1.RA10L5 2
-s f1.RA10L4 0
-s f1.RA10L3 9
-s f1.RA10L2 4  # mov A, [B]
-s f1.RA10L1 3
-s f1.RB10L6 4  # mov [king], A # king=10
-s f1.RB10L5 4
+s f1.RA10L6 4  # mov [B], A
+s f1.RA10L5 3
+s f1.RA10L4 4  # mov [king], A # king=10
+s f1.RA10L3 2
+s f1.RA10L2 0
+s f1.RA10L1 9
+s f1.RB10L6 4  # mov [10], A
+s f1.RB10L5 2
 s f1.RB10L4 0
 s f1.RB10L3 9
-s f1.RB10L2 9
-s f1.RB10L1 9
+s f1.RB10L2 4  # mov A, [B]
+s f1.RB10L1 5
 
 # address=111  PC=0911
-s f1.RA11L6 4  # mov [10], A
-s f1.RA11L5 4
-s f1.RA11L4 0
-s f1.RA11L3 9
-s f1.RA11L2 5  # inc A
-s f1.RA11L1 2
-s f1.RB11L6 5  # inc B
-s f1.RB11L5 4
-s f1.RB11L4 5  # dec A
-s f1.RB11L3 3
-s f1.RB11L2 7  # add A, D
-s f1.RB11L1 0
+s f1.RA11L6 5  # inc A
+s f1.RA11L5 2
+s f1.RA11L4 5  # inc B
+s f1.RA11L3 4
+s f1.RA11L2 5  # dec A
+s f1.RA11L1 3
+s f1.RB11L6 7  # add D, A
+s f1.RB11L5 0
+s f1.RB11L4 7  # sub D, A
+s f1.RB11L3 2
+s f1.RB11L2 9
+s f1.RB11L1 9
 
 # address=112  PC=0912
-s f1.RA12L6 7  # neg A
-s f1.RA12L5 1
-s f1.RA12L4 7  # sub A, D
-s f1.RA12L3 2
-s f1.RA12L2 7  # jmp target # target=199
-s f1.RA12L1 3
+s f1.RA12L6 7  # jmp target # target=199
+s f1.RA12L5 3
+s f1.RA12L4 9
+s f1.RA12L3 8
+s f1.RA12L2 9
+s f1.RA12L1 9
 s f1.RB12L6 9
-s f1.RB12L5 8
+s f1.RB12L5 9
 s f1.RB12L4 9
 s f1.RB12L3 9
 s f1.RB12L2 9
@@ -281,7 +281,7 @@ s f1.RB19L1 9
 
 # address=120  PC=0920
 s f1.RA20L6 4  # mov A, [10]
-s f1.RA20L5 2
+s f1.RA20L5 4
 s f1.RA20L4 0
 s f1.RA20L3 9
 s f1.RA20L2 9
@@ -308,7 +308,7 @@ s f1.RB21L2 9
 s f1.RB21L1 9
 
 # address=122  PC=0922
-s f1.RA22L6 4  # mov A, 99
+s f1.RA22L6 4  # mov 99, A
 s f1.RA22L5 0
 s f1.RA22L4 9
 s f1.RA22L3 8

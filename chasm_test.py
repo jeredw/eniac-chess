@@ -494,97 +494,98 @@ class TestV4(AssemblerTestCase):
     self.isa.dispatch("", "ftlookup", "B, 99")
     self.assertEqual(self.out.errors, ["file:1: invalid ftlookup argument 'B, 99'"])
 
-  def testMovAB(self):
-    self.isa.dispatch("", "mov", "A, B")
+  def testMovBA(self):
+    self.isa.dispatch("", "mov", "B, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 20})
 
-  def testMovAC(self):
-    self.isa.dispatch("", "mov", "A, C")
+  def testMovCA(self):
+    self.isa.dispatch("", "mov", "C, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 21})
 
-  def testMovAD(self):
-    self.isa.dispatch("", "mov", "A, D")
+  def testMovDA(self):
+    self.isa.dispatch("", "mov", "D, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 22})
 
-  def testMovAE(self):
-    self.isa.dispatch("", "mov", "A, E")
+  def testMovEA(self):
+    self.isa.dispatch("", "mov", "E, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 23})
 
-  def testMovAF(self):
-    self.isa.dispatch("", "mov", "A, F")
+  def testMovFA(self):
+    self.isa.dispatch("", "mov", "F, A")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 93})
+    self.assertOutputValues({(100, 0): 34})
+    #self.assertOutputValues({(100, 0): 93})
 
-  def testMovAG(self):
-    self.isa.dispatch("", "mov", "A, G")
+  def testMovGA(self):
+    self.isa.dispatch("", "mov", "G, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 30})
 
-  def testMovAH(self):
-    self.isa.dispatch("", "mov", "A, H")
+  def testMovHA(self):
+    self.isa.dispatch("", "mov", "H, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 31})
 
-  def testMovAI(self):
-    self.isa.dispatch("", "mov", "A, I")
+  def testMovIA(self):
+    self.isa.dispatch("", "mov", "I, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 32})
 
-  def testMovAJ(self):
-    self.isa.dispatch("", "mov", "A, J")
+  def testMovJA(self):
+    self.isa.dispatch("", "mov", "J, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 33})
 
   def testMovLoadAImmediate(self):
-    self.isa.dispatch("", "mov", "A, 99")
+    self.isa.dispatch("", "mov", "99, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 40, (100, 1): 98})
 
   def testMovLoadAImmediateLabel(self):
     self.context.labels = {"label": 99}
-    self.isa.dispatch("", "mov", "A, label")
+    self.isa.dispatch("", "mov", "label, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 40, (100, 1): 98})
 
   def testMovLoadDImmediate(self):
-    self.isa.dispatch("", "mov", "D, 99")
+    self.isa.dispatch("", "mov", "99, D")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 41, (100, 1): 98})
 
   def testMovLoadDImmediateLabel(self):
     self.context.labels = {"label": 99}
-    self.isa.dispatch("", "mov", "D, label")
+    self.isa.dispatch("", "mov", "label, D")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 41, (100, 1): 98})
 
   def testMovLoadDirect(self):
-    self.isa.dispatch("", "mov", "A, [42]")
+    self.isa.dispatch("", "mov", "[42], A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 42, (100, 1): 41})
 
   def testMovLoadDirectLabel(self):
     self.context.labels = {"label": 42}
-    self.isa.dispatch("", "mov", "A, [label]")
+    self.isa.dispatch("", "mov", "[label], A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 42, (100, 1): 41})
 
   def testMovLoadDirectLabel_ErrorOutOfRange(self):
     self.context.labels = {"label": 123}
-    self.isa.dispatch("", "mov", "A, [label]")
+    self.isa.dispatch("", "mov", "[label], A")
     self.assertEqual(self.out.errors, ["file:1: address out of mov range '123'"])
 
   def testMovStoreDirect(self):
-    self.isa.dispatch("", "mov", "[42], A")
+    self.isa.dispatch("", "mov", "A, [42]")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 44, (100, 1): 41})
 
   def testMovStoreDirectLabel(self):
     self.context.labels = {"label": 42}
-    self.isa.dispatch("", "mov", "[label], A")
+    self.isa.dispatch("", "mov", "A, [label]")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 44, (100, 1): 41})
 
@@ -594,36 +595,18 @@ class TestV4(AssemblerTestCase):
     self.assertEqual(self.out.errors, ["file:1: address out of mov range '123'"])
 
   def testMovLoadDirectB(self):
-    self.isa.dispatch("", "mov", "A, [B]")
+    self.isa.dispatch("", "mov", "[B], A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 43})
 
-  #def testMovStoreDirectB(self):
-  #  self.isa.dispatch("", "mov", "[B], A")
-  #  self.assertFalse(self.out.errors)
-  #  self.assertOutputValues({(100, 0): xx})
+  def testMovStoreDirectB(self):
+    self.isa.dispatch("", "mov", "A, [B]")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 45})
 
   def testMov_ErrorInvalidArgument(self):
     self.isa.dispatch("", "mov", "bogus")
     self.assertEqual(self.out.errors, ["file:1: invalid mov argument 'bogus'"])
-
-  def testIndexswap(self):
-    self.isa.dispatch("", "indexswap", "")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 34})
-
-  def testIndexswap_ErrorArgument(self):
-    self.isa.dispatch("", "indexswap", "bogus")
-    self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
-
-  def testIndexacc(self):
-    self.isa.dispatch("", "indexacc", "")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 45})
-
-  def testIndexacc_ErrorArgument(self):
-    self.isa.dispatch("", "indexacc", "bogus")
-    self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
   def testIncA(self):
     self.isa.dispatch("", "inc", "A")
@@ -648,32 +631,23 @@ class TestV4(AssemblerTestCase):
     self.isa.dispatch("", "dec", "B")
     self.assertEqual(self.out.errors, ["file:1: invalid argument 'B'"])
 
-  def testAddAD(self):
-    self.isa.dispatch("", "add", "A, D")
+  def testAddDA(self):
+    self.isa.dispatch("", "add", "D, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 70})
 
   def testAdd_ErrorInvalidArgument(self):
-    self.isa.dispatch("", "add", "A, B")
-    self.assertEqual(self.out.errors, ["file:1: invalid argument 'A, B'"])
+    self.isa.dispatch("", "add", "B, A")
+    self.assertEqual(self.out.errors, ["file:1: invalid argument 'B, A'"])
 
-  def testNeg(self):
-    self.isa.dispatch("", "neg", "A")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 71})
-
-  def testNeg_ErrorInvalidArgument(self):
-    self.isa.dispatch("", "neg", "bogus")
-    self.assertEqual(self.out.errors, ["file:1: invalid argument 'bogus'"])
-
-  def testSubAD(self):
-    self.isa.dispatch("", "sub", "A, D")
+  def testSubDA(self):
+    self.isa.dispatch("", "sub", "D, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 72})
 
   def testSub_ErrorInvalidArgument(self):
-    self.isa.dispatch("", "sub", "A, B")
-    self.assertEqual(self.out.errors, ["file:1: invalid argument 'A, B'"])
+    self.isa.dispatch("", "sub", "B, A")
+    self.assertEqual(self.out.errors, ["file:1: invalid argument 'B, A'"])
 
   def testJmp(self):
     self.isa.dispatch("", "jmp", "99")
