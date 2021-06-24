@@ -427,9 +427,9 @@ class V4(PrimitiveParsing):
       "indexacc": self.op(opcode=45),
       "inc": self._inc,
       "dec": self.op(want_arg=r"A", opcode=53),
-      "add": self.op(want_arg=r"A,\s*D", opcode=70),
+      "add": self.op(want_arg=r"D,\s*A", opcode=70),
       "neg": self.op(want_arg=r"A", opcode=71),
-      "sub": self.op(want_arg=r"A,\s*D", opcode=72),
+      "sub": self.op(want_arg=r"D,\s*A", opcode=72),
       "jmp": self._jmp,
       "jn": self._jn,
       "jz": self._jz,
@@ -463,21 +463,21 @@ class V4(PrimitiveParsing):
     # arg.  Note that [label] would also match [B] so order is important.
     # 'a' means the captured pattern is a direct address, and 'w' means
     # it is an immediate word.
-    patterns = [(r"A,\s*B", 20, ''),
-                (r"A,\s*C", 21, ''),
-                (r"A,\s*D", 22, ''),
-                (r"A,\s*E", 23, ''),
-                (r"A,\s*F", 93, ''),
-                (r"A,\s*G", 30, ''),
-                (r"A,\s*H", 31, ''),
-                (r"A,\s*I", 32, ''),
-                (r"A,\s*J", 33, ''),
-                (r"A,\s*\[B\]", 43, ''),
-                (r"A,\s*\[(.+?)\]", 42, 'a'),
+    patterns = [(r"B,\s*A", 20, ''),
+                (r"C,\s*A", 21, ''),
+                (r"D,\s*A", 22, ''),
+                (r"E,\s*A", 23, ''),
+                (r"F,\s*A", 93, ''),
+                (r"G,\s*A", 30, ''),
+                (r"H,\s*A", 31, ''),
+                (r"I,\s*A", 32, ''),
+                (r"J,\s*A", 33, ''),
+                (r"\[B\],\s*A", 43, ''),
+                (r"\[(.+?)\],\s*A", 42, 'a'),
                 #(r"\[B\],\s*A", xx, ''),
-                (r"\[(.+?)\],\s*A", 44, 'a'),
-                (r"A,\s*(.+)", 40, 'w'),
-                (r"D,\s*(.+)", 41, 'w'),]
+                (r"A,\[(.+?)\],\s*", 44, 'a'),
+                (r"\s*(.+),A", 40, 'w'),
+                (r"\s*(.+),D", 41, 'w'),]
     for regex, opcode, arg_type in patterns:
       m = re.match(regex, arg)
       if m:
