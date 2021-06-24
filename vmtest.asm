@@ -184,10 +184,29 @@ t13loop
   jmp t13loop
 t13done
   mov 10,A
-  sub D,A
+  sub D,A    ; result=10-number of iterations counted
 
   swap A,B
   print AB
+
+
+; 14: JSR/RET (no bank switch)
+  inc A
+  swap A,B
+
+  jsr t14sub
+
+.align      ; should chasm ensure op after jsr is aligned?
+  dec A     ; error 99 if jsr does not jump
+  jmp t14done
+
+t14sub
+ inc A      ; error 01 if ret does not jump
+ ret
+
+t14done
+ swap A,B
+ print AB
 
 
 ; -- DONE --
