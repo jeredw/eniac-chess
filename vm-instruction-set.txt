@@ -423,6 +423,82 @@ disc LN, clear
 
 MOV [B],A  (aka LOAD)
 
+Working version 2?
+This may require ft3 on its own bus to use long ft dummies for word timers (MOV triggers)
+
+i-windex = X A2A1 XX XX XX XX -> 0 00 00 00 00 0A1
+
+# Begin word timers
+1. loadword -> EX
+2. RF -windex-> loadword, trigger ft3
+3. loadword -> ft2=3.arg        # usual 10 entry lookup table
+
+4. LS -dropsign-> loadword      # use shadow to clear LS.PM to preserve signs of disftX
+5. loadword -> LS
+
+6. ft3 -> loadword
+7. send loadword.S              # begin word timers, mod 5 wired
+8. EX -> loadword
+
+# Discriminate acc 09 vs 1014
+# disclw can't be loadword because loadword S.PM already used
+# maybe get around this with mod5 table? but then can't share disclw & accidx arg send
+# this sequence very similar to LOADACC/STOREACC, sharable after disc?
+
+9. disclw -> EX               
+10. RF -selA-> disclw
+11. RF -selA-> disclw, trigger ft3
+12. disc disclw, disclw -S-> ft.arg # S: D AW 00 00 00 00 -> X XX XX XX XX 0 9-A
+13. EX -> disclw
+14. memcyc09/1014 -> EX
+15. ft3 -> memcyc09/1014
+16. memcyc09/1014 -> S          # trigger acc memcycle
+17. EX -> memcyc09/1014
+
+18. memacc -> LS
+19. LS -> memacc
+
+20. ...delayed MOV [FGHIJ],A
+
+
+---
+A probably working design -- Update: NOPE
+Uses ft2 for word decode, but requires 18 entries
+Uses ft3 repeat 5 to delay ft3 output until we can read it
+On cycle 6 we use DISCMEMCYC as our temp space, to be able to receive ft2 next cycle
+
+splitA2 is designed to decode acc in top after two ads, word low after one add
+X A2A1 XX XX XX XX -> 0 A2A1 00 00 00 0A1 
+
+1. DISCMEMCYC -> EX, clear LS
+2. RF -splitA2-> DISCMEMCYC
+3. RF -splitA2-> DISCMEMCYC, trigger ft2    # word lookup (0,2,4,6,8)
+4. DISCMEMCYC -> ft2.arg, trigger ft3       # word pos, digit 2 may be 1, table with 18 entries?
+5. discriminate DISCMEMCYC, -S-> ft3.arg    # 9-acc on digit 10, ft2 shadow
+
+###### blargh S and A will both try to go to main for ft.arg, clash
+
+6. WORDSEL -> DISCMEMCYC                    # ft2 shadow, ft3 shadow
+
+DISCMEMCYC pos, A < 10
+  7. ft2 -> WORDSEL                         # ft2 send, ft3 shadow
+  8. WORDSEL -> S, trigger ft1/2 dummies    # ft3 send 1
+  9. DISCMEMCYC -> WORDSEL                  # ft3 send 2
+  10. EX -> DISMEMCYC                       # ft3 send 3
+  11. MEMCYC09 -> EX                        # ft3 send 4
+  12. FT3 -> MEMCYC09                       # ft3 send 5
+  13. send MEMCYC09.S, clear                # trigger accumulator memory cycle
+  14. EX -> MEMCYC09
+
+ 15. mem -> LS
+ 16. LS -> mem
+
+Word MOV programs
+ 17. ...
+
+
+--
+
 Translate address, then LOADACC, then MOV
 
 The main challenge is temp space for addressing, because we need to rotate
@@ -455,15 +531,20 @@ Option 1:
 10. send GETWORD.S, clear, trigger dummies for getword
 11. EX -> GETWORD
 
-# This is basically LOADACC-1/2 except we need to use LS not RF.
+# This is basically LOADACC except we need to use LS not RF.
 12. DISCMEMCYC -> EX, clear
-13. LS -splitA-> DISCMEMCYC, clear  # DISCMEMCYC: PM=A2, 1=A1
-
-# Can reuse LOADACC-3 from here on
-14-22. LOADACC-3
+13. LS -splitA-> DISCMEMCYC, clear, trigger ft3  # DISCMEMCYC: PM=A2, 1=A1
+14. disc DISCMEMCYC, DISCMEMCYC -> ft3.arg, clear
+15. EX -> DISCMEMCYC
+16. MEMCYC09/1014 -> EX, clear
+17. FT3 -> MEMCYC09/1014
+18. send MEMCYC09/1014.S, clear, trigger mem cycle
+19. EX -> MEMCYC09/1014
+20. memacc -> LS
+21. LS -> memacc
 
 # Here the dummy from cycle 10 triggers MOV
-23. trigger MOV [FGHIJ],A opcode
+22. trigger MOV [FGHIJ],A opcode
 (27-8. fetch)
 
 ---
