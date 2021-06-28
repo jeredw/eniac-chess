@@ -1750,10 +1750,11 @@ p {p-op52} {p-opinc}
 # Send P01000 on d-main
 p {p-opinc} c.29i
 s c.s29 Jr
+p c.29o {p-fetch}
 
 # Increment A field of RF
 # XXX should probably use pulseamp
-$rec {p-opinc} {a-rf} {t-opinc} {i-main} {p-fetch}
+$recx {p-opinc} {a-rf} {r-opinc} {i-main}
 
 endif # OP_INC
 
@@ -1766,10 +1767,10 @@ p {p-op53} {p-opdec}
 # Send M99000 on d-main
 p {p-opdec} c.30i
 s c.s30 Jl
+p c.30o {p-fetch}
 
 # Decrement A field of RF
 $loadrf {p-opdec}
-$dummy {p-opdec} {p-fetch}
 
 endif # OP_DEC
 
