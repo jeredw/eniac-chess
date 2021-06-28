@@ -132,10 +132,6 @@ p ad.permute.{ad-exS-clearA} {a-pc}.{i-exS-clearA}
 p {d-main} ad.d.{ad-pc-loadPC2}.-8
 p ad.d.{ad-pc-loadPC2}.-8 {a-pc}.{i-loadPC2}
 
-# loadPC4: SS RRRR PPPP -> 00 0000 PPPP, used for JMP FAR/JSR/RET
-p {d-main} ad.d.{ad-pc-loadPC4}.-6
-p ad.d.{ad-pc-loadPC4}.-6 {a-pc}.{i-loadPC4}
-
 
 # Several sequences will want to load pc from the main bus so share that
 # program via pulse amp

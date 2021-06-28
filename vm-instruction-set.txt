@@ -81,7 +81,6 @@ a - main
 b - shiftl8-ir: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
 g - clearA: XX RRRR PPPP -> 00 RRRR PPPP, wired to EX.S for control cycle
 d - loadPC2: SS RRRR PPPP -> 00 0000 00PP, used for JMP/JN/JZ/JIL
-e - loadPC4: SS RRRR PPPP -> 00 0000 PPPP, used for JMP FAR
 
 
 IR:
