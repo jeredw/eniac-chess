@@ -114,7 +114,7 @@
 
 ; -- 10-19 --
 ; Jumps, conditionals, bank switching, subroutines
-; JMP, JN, JZ, JMP FAR, JSR, RET
+; JMP, JN, JZ, JIL, JMP FAR, JSR, RET
 ; All of these tests start with .align so we get consistent operand splitting
 ; We also switch to bank 2 here
 
@@ -220,6 +220,44 @@ t14next
  
  swap A,B
  print AB
+
+
+; 15: JZ
+.align
+  inc A
+  swap A, B
+
+  ;mov 42,A
+  clr A
+  jz t15out
+  dec A       ; fail if jz not taken
+
+t15out
+  swap A,B
+  print AB
+
+
+; 16: JIL
+.align
+  inc A
+  swap A, B
+
+  mov 11,A    ; 11=legal, fall through
+  jil t16out
+  mov 88,A    ; 88=legal, fall through
+  jil t16out
+  mov 64,A    ; 64=legal, fall through
+  jil t16out
+  mov 89,A    ; 89=illegal, goto t16ok
+  jil t16ok
+  jmp t16out
+
+t16ok
+  clr A
+
+t16out
+  swap A,B
+  print AB
 
 
 ; -- DONE --

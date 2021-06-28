@@ -213,6 +213,7 @@ S - trigger conditional jump/taken
 a - main
 b - shiftA: used to shift RF A into digits 1+2 for ft arg
 g - ftjzsign: get sign for jz discrimination
+d - ftjilsign: get sign fo jil discrimination
 
 
 A16
@@ -740,57 +741,13 @@ jump if negative - use subprogram
 
 
 JIL XX
-?? could replace all of this with sign from 00-99 ft lookup
-
-# Basic idea: both digits need to be not 0 and not 9
-# In other words they both need to send a pulse both normally and complemented
-# Simplest implementation is to use four discriminate stages, on four accs
-
-1. jump if A1=0 = set PM to P, 9-complement, inc, jump if N
-  0 -> 9 -> M0
-  1..8 -> 9..2
-  9 -> 0 -> 1
-
-2. jump if A1=9 = set PM to M, inc, then jump if P
-  0 -> M0 -> M1
-  1..8 -> M1..M8 -> M2..M9
-  9 -> M9 -> 0
-
-1. JIL1 -> EX
-2. RF -S-extendA2Right-inc-> JIL1   ; check A2=0: set PM to P, 9-complement, inc, jump if M
-3. discriminate JIL1, clear
-  (JIL1<0)
-  4. EX -> JIL1, clear
-     goto localjmp
-(JIL1>=0)
-4. EX -> JIL1
-5. JIL2 -> EX
-6. RF -extendA2Right -> JIL2   ; check A2=9: set PM to M, inc, jump if P
-7. constant M0100000000 -> JIL2
-8. discriminate JIL2, clear
-  (JIL2>=0)
-  9. EX -> JIL2, clear
-  goto localjmp
-(JIL2<0)
-10. EX -> JIL2, clear
-11. JIL3 -> EX, clear
-12. RF -S-extendA1Right-inc-> JIL3   ; check A1=0: set PM to P, 9-complement, inc, jump if M
-13. discriminate JIL3, clear
-  (JIL3<0)
-  14. EX -> JIL3, clear
-     goto localjmp
-(JIL3>=0)
-14. EX -> JIL3, clear
-15. JIL4 -> EX , clear
-16. RF -extendA1Right -> JIL4   ; check A1=9: set PM to M, inc, jump if P
-17. constant M0100000000 -> JIL4
-18. discriminate JIL4, clear
-  (JIL4>=0)
-  19. EX -> JIL4, clear
-  goto localjmp
-(JIL4<0)
-19. EX -> JIL4, clear
-goto fetch
+1. DISCJX -> EX, clear
+2. RF -shiftA-> DISCJX, trigger ft2
+3. DISCJX -> ft2.arg
+4. wait
+5. wait
+6. ft2.BxxS -> DISCJX
+7. goto JN-3
 
 
 JSR XXXX

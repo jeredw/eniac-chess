@@ -45,7 +45,8 @@ define OP_JSR         #  1 pas,  2 ts
 define OP_RET         #  1 pas,  2 ts
 define OP_JMP         #  0 pas,  0 ts
 define OP_JN          #  1 pas,  3 ts
-define OP_JZ          #  2 pas,  3 ts
+define OP_JZ          #  1 pas,  1 ts
+define OP_JIL         #  1 pas,  1 ts
 define OP_CLRA        #  1 pas,  1 ts
 define OP_PRINT       #  3 pas,  4 ts
 define SUB_JMP        #  1 pas,  4 ts (OP_JMP, SUB_JX)
@@ -55,7 +56,8 @@ define SUB_CONSUME_OP #  2 pas,  2 ts (OP_JN, OP_MOVIMMA)
 define SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA6, OP_CLRA, OP_MOVIMMA)
 define SUB_RFTOEX     #  2 pas,  0 ts (OP_SWAPALL, OP_ADD)
 define SUB_MEMCYC     #  7 pas, 44 ts (OP_LOADACC, OP_STOREACC)
-define SUB_JX         #  3 pas,  6 ts (OP_JN, OP_JZ)
+define SUB_DISCJX     #  2 pas,  2 ts (OP_JZ, OP_JIL)
+define SUB_JX         #  3 pas,  6 ts (OP_JN, OP_JZ, OP_JIL)
 
 
 # ENIAC-VM for playing chess
@@ -414,7 +416,16 @@ s ad.permute.{ad-discjx-shiftA} 0,0,0,0,0,0,0,0,0,10,9
 p ad.permute.{ad-discjx-shiftA} {a-discjx}.{i-shiftA}
 
 # i-ftjzsign: get sign for jz discrimination
+p f2.A ad.permute.{ad-ftjzsign}
+s ad.permute.{ad-ftjzsign} 11,0,0,0,0,0,0,0,0,0,0
+p ad.permute.{ad-ftjzsign} {d-ftjzsign}
 p {d-ftjzsign} {a-discjx}.{i-ftjzsign}
+
+# i-ftjilsign: get sign for jil discrimination
+p f2.B ad.permute.{ad-ftjilsign}
+s ad.permute.{ad-ftjilsign} 11,0,0,0,0,0,0,0,0,0,0
+p ad.permute.{ad-ftjilsign} {d-ftjilsign}
+p {d-ftjilsign} {a-discjx}.{i-ftjilsign}
 
 
 # - MEM10 -
@@ -1243,6 +1254,40 @@ $send {p-sub-memcyc-6} {a-ls} {t-sub-memcyc-7} A {p-fetch}
 endif # SUB_MEMCYC
 
 
+if SUB_DISCJX
+# Discriminate for conditional jump, shared by JZ and JIL
+# Continues on to SUB_JX and fetch.
+# 1. DISCJX -> EX, clear
+# 2. RF -shiftA-> DISCJX, trigger ft2
+# 3. DISCJX -> ft2.arg
+# 4. wait
+# 5. wait
+# 6. [ft2.[AB]xxS -> DISCJX]  # sign selected by caller
+# 7. p-sub-jx
+
+# save DISCJX
+$sendc {p-sub-discjx} {a-discjx} {t-sub-discjx} A {p-sub-discjx-2}
+$loadex {p-sub-discjx}
+
+# RF -shiftA-> DISCJX
+$send-rf {p-sub-discjx-2}
+$rec {p-sub-discjx-2} {a-discjx} {t-sub-discjx-2} {i-shiftA} {p-sub-discjx-3}
+
+# trigger ft2
+p {p-sub-discjx-2} f2.2i
+s f2.rp2 1
+s f2.op2 A0
+
+# send ft arg
+$sendx {p-sub-discjx-3} {a-discjx} {r-sub-discjx-3} A
+
+# caller receives ft sign in p-sub-discjx-6
+# continue to conditional jump sub in cycle 7
+p f2.2o {p-sub-jx}
+
+endif
+
+
 if SUB_JX
 
 # - JX -
@@ -1851,47 +1896,38 @@ endif # OP_JN
 if OP_JZ
 
 # - JZ XX -
-# Uses a function table lookup.  Note that this treats M00 as P00.
-# XXX A somewhat insane way to fix M00 might be to wire RF PM to shiftA.1, but
-# this has unclear electrical implications.
-# 1. DISCJX -> EX, clear
-# 2. RF -shiftA-> DISCJX, trigger ft2
-# 3. DISCJX -> ft2.arg
-# 4. wait
-# 5. wait
-# 6. ft2.AxxS -> DISCJX
-# 7. p-sub-jx
+# XXX Note that this treats M00 as P00.  A somewhat insane way to fix M00 might
+# be to wire RF PM to discjx i-shiftA.1, but this has unclear electrical
+# implications, and would complicate jil.
 p {p-op81} {p-opjz}
 
-# save DISCJX
-$sendc {p-opjz} {a-discjx} {t-opjz} A {p-opjz-2}
-$loadex {p-opjz}
+# reuse discjx sequence
+$pulseamp {p-opjz} {p-sub-discjx}
 
-# RF -shiftA-> DISCJX
-$send-rf {p-opjz-2}
-$rec {p-opjz-2} {a-discjx} {t-opjz-2} {i-shiftA} {p-opjz-3}
-
-# trigger ft2
-p {p-opjz-2} f2.2i
-s f2.rp2 1
-s f2.op2 A0
-# start dummy for ft result
-$dummy-delay {p-opjz-2} 4 {p-opjz-6}
-
-# send ft arg
-$sendx {p-opjz-3} {a-discjx} {r-opjz-3} A
+# TODO use dummy on ft1 or ft3?
+$dummy-delay-exclude {p-opjz} 5 {p-opjz-6} -{a-discjx}
 
 # receive ft2 sign for jz
-p f2.A ad.permute.{ad-ftjzsign}
-s ad.permute.{ad-ftjzsign} 11,0,0,0,0,0,0,0,0,0,0
-p ad.permute.{ad-ftjzsign} {d-ftjzsign}
-
 $recx {p-opjz-6} {a-discjx} {r-opjz-6} {i-ftjzsign}
 
-# go to conditional jump sub
-p f2.2o {p-sub-jx}
-
 endif # OP_JZ
+
+
+if OP_JIL
+
+# - JIL XX -
+p {p-op82} {p-opjil}
+
+# reuse discjx sequence
+$pulseamp {p-opjil} {p-sub-discjx}
+
+# TODO use dummy on ft1 or ft3?
+$dummy-delay-exclude {p-opjil} 5 {p-opjil-6} -{a-discjx}
+
+# receive ft2 sign for jil
+$recx {p-opjil-6} {a-discjx} {r-opjil-6} {i-ftjilsign}
+
+endif # OP_JIL
 
 
 if OP_PRINT
@@ -1937,8 +1973,41 @@ s f2.mpm2 T
 # jz uses A signs, with 00 -> M, other rows -> P
 s f2.RA0S M
 
-# TODO jil uses B signs
-
+# jil uses B signs, with xy -> M when x or y is 0 or 9, otherwise P.
+defmacro jil-rank0 x01 x02 x03 x04 x05 x06 x07 x08 x09 x10
+  s f2.RB0S $x01
+  s f2.RB1S $x02
+  s f2.RB2S $x03
+  s f2.RB3S $x04
+  s f2.RB4S $x05
+  s f2.RB5S $x06
+  s f2.RB6S $x07
+  s f2.RB7S $x08
+  s f2.RB8S $x09
+  s f2.RB9S $x10
+endmacro
+defmacro jil-rank rank x01 x02 x03 x04 x05 x06 x07 x08 x09 x10
+  s f2.RB$rank0S $x01
+  s f2.RB$rank1S $x02
+  s f2.RB$rank2S $x03
+  s f2.RB$rank3S $x04
+  s f2.RB$rank4S $x05
+  s f2.RB$rank5S $x06
+  s f2.RB$rank6S $x07
+  s f2.RB$rank7S $x08
+  s f2.RB$rank8S $x09
+  s f2.RB$rank9S $x10
+endmacro
+$jil-rank0  M M M M M M M M M M
+$jil-rank 1 M P P P P P P P P M
+$jil-rank 2 M P P P P P P P P M
+$jil-rank 3 M P P P P P P P P M
+$jil-rank 4 M P P P P P P P P M
+$jil-rank 5 M P P P P P P P P M
+$jil-rank 6 M P P P P P P P P M
+$jil-rank 7 M P P P P P P P P M
+$jil-rank 8 M P P P P P P P P M
+$jil-rank 9 M M M M M M M M M M
 
 # -- ACCUMULATOR DECODE --
 # lookup table used to trigger accumulators on loadacc / storeacc
