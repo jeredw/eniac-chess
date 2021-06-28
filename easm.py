@@ -166,7 +166,7 @@ class Assembler(object):
     self.macros = {}  # name -> Macro
     self.uniqueid = 1  # unique id for making up names
     self.deferred = []  # lines deferred til insert-deferred
-    self.defines = {}  # var -> True
+    self.enables = {}  # bools defined by enable/disable directives
     self.inside_if = False
     self.if_condition = False
 
@@ -627,25 +627,30 @@ class Assembler(object):
     return f'# dummy {name} = {accum}.{transceiver}i (excluded {excluded_accums})'
 
 
-  def line_define(self, line, **kwargs):
-    m = re.match(r'\s*define\s+(?P<var>\S+)(#.*)?', line)
+  def line_enable_disable(self, line, **kwargs):
+    m = re.match(r'\s*(?P<cmd>enable|disable)\s+(?P<what>\S+)(?P<comment>\s*#.*)?', line)
     if not m:
-      raise SyntaxError('bad define directive')
-    var = m.group('var')
-    self.defines[var] = True
-    return f"# define {var}"
+      raise SyntaxError('bad enable/disable directive')
+    cmd = m.group('cmd')
+    what = m.group('what')
+    comment = m.group('comment')
+    self.enables[what] = (cmd == 'enable')
+    return f"# {cmd} {what} {comment}"
 
 
   def line_if(self, line, **kwargs):
-    m = re.match(r'\s*if\s+(?P<var>\S+)(#.*)?', line)
+    m = re.match(r'\s*if\s+(?P<what>\S+)(#.*)?', line)
     if not m:
       raise SyntaxError('bad if directive')
     if self.inside_if:
       raise SyntaxError('nesting if is not supported')
-    var = m.group('var')
+    what = m.group('what')
+    if not what in self.enables:
+      raise SyntaxError(f'unrecognized if condition {what}')
     self.inside_if = True
-    self.if_condition = self.defines.get(var)
-    return f"# if {var}  ({var} is {bool(self.if_condition)})"
+    self.if_condition = self.enables[what]
+    state = 'enabled' if self.if_condition else 'disabled'
+    return f"# if {what}  ({what} is {state})"
 
 
   def assemble_line(self, line, **kwargs):
@@ -660,7 +665,7 @@ class Assembler(object):
       re.compile(r'\s*defer.*'):                          self.line_defer,
       re.compile(r'\s*insert-deferred.*'):                self.line_insert_deferred,
       re.compile(r'\s*allocate-dummy.*'):                 self.line_allocate_dummy,
-      re.compile(r'\s*define.*'):                         self.line_define,
+      re.compile(r'\s*(enable|disable).*'):               self.line_enable_disable,
       re.compile(r'\s*if.*'):                             self.line_if,
       re.compile(r'.*'):                                  self.line_literal
     }
