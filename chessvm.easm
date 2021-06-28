@@ -23,7 +23,7 @@ endif
 
 # use 'enable' or 'disable' to condition assembly of the corresponding sequence
 enable RESET_SEQUENCE #  2 pas,  2 ts
-enable CONTROL_CYCLE  #  9 pas, 19 ts
+enable CONTROL_CYCLE  # 10 pas, 17 ts
 # - memory
 enable OP_LOADACC     #  1 pas,  1 ts
 enable OP_STOREACC    #  0 pas,  0 ts
@@ -729,16 +729,15 @@ $assert {p-fetch} {a-pc}~x00xxxxxxxx
 $discriminatec {p-fetch} {a-ir} {d-irA} {d-irS} {p-nofetch-eat-op} {p-fetchline}
 
 # IR -> EX 
-# $discriminate sends IR on d-main, and EX receives it permuted I5 I4 I3 I2 I1+1
-# -> I1+1 I5 I4 I3 I2.  This puts the next instruction in the left (first two
-# digits) of EX. 
+# $discriminatec sends IR=I5 I4 I3 I2 I1+1 on d-main, and EX receives it permuted
+# as I1+1 I5 I4 I3 I2. This puts the next instruction in the left (first two
+# digits) of EX for opcode discrimination.
 $recx {p-fetch} {a-ex} {r-fetch} {i-rotate-ir}
 
 # IR -shiftl8-> PC
 # Also send first opcode to left of PC. This copy of the instruction will later be
 # sent to MP steppers for decoding.
 $recx {p-fetch} {a-pc} {r-fetch} {i-shiftl8}
-
 
 
 # -- {p-nofetch} no fetch needed, begin instruction decode
@@ -752,13 +751,13 @@ $assert {p-nofetch} {a-ex}~Pxxxxxxxxxx
 # Send 43 from CT on d-main
 p {p-nofetch} c.26i 
 s c.s26 Kr
+p c.26o {p-disc-op}
 
-# EX += 43 for discrimination next cycle
+# EX += 43 for opcode discrimination next cycle
 # EX = I1+1
 # If I1 <= 55 then I1+1+43 < 100, EX still P
 # If I1 > 55 then I1+1+43 >= 100, EX now M
 $loadex {p-nofetch}
-$dummy {p-nofetch} {p-disc-op}
 
 # If we are eating an operand (removing it from IR) then we need to set
 # the top digits of IR to 99 after next instruction (delay 1 cycle)
@@ -894,11 +893,19 @@ $assert {p-preinc-fetch} {a-pc}~P00xxxxxxxx
 # Send P01000 from the constant transmitter
 p {p-preinc-fetch} c.28i
 s c.s28 Jr
+p c.28o {p-await-fetchread}
 
 # Preload P01 into EX and PC so that when the FT sends I1, EX and PC will end
 # up I1+1 which is the precondition in p-nofetch.
 $loadex {p-preinc-fetch}
 $loadpc {p-preinc-fetch}
+
+
+# -- {p-await-fetchread}
+# Nothing happens, just waiting for ft
+# because main is idle this cycle, use ct as a dummy, don't care what it sends
+p {p-await-fetchread} c.1i
+p c.1o {p-fetchread}
 
 
 # -- {p-fetchread} read ft line of instructions
@@ -922,7 +929,7 @@ s ad.permute.{ad-fetchB} 0,2,1,4,3,6,5,0,0,0,0
 p ad.permute.{ad-fetchB} {d-fetch}
 
 # Increment IR to make the rightmost instruction I2+1 instead of I2
-$recincx {p-fetchread} {a-ir} {r-fetchread} {i-fetch}
+$recinc {p-fetchread} {a-ir} {t-fetchread} {i-fetch} {p-nofetch}
 
 # A6A5 00 00 00 00 -> EX,PC
 p {d-fA} ad.permute.{ad-fetch-ex}
@@ -931,7 +938,7 @@ p ad.permute.{ad-fetch-ex} {d-main}
 
 # Get I1+1 in the top of EX and PC, and increment PC
 $loadex {p-fetchread}
-$recinc {p-fetchread} {a-pc} {t-fetchread} {i-main} {p-nofetch}
+$recincx {p-fetchread} {a-pc} {r-fetchread} {i-main}
 
 endif # CONTROL_CYCLE
 
