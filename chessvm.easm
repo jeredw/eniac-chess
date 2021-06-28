@@ -61,7 +61,6 @@ enable SUB_DISCFT     #  0 pas,  1 ts (SUB_FARGO)
 enable OP_PRINT       #  3 pas,  4 ts
 enable SUB_CONSUME_OP #  2 pas,  2 ts (OP_JN, OP_MOVIMMA)
 enable SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA6, OP_CLRA, OP_MOVIMMA)
-enable SUB_RFTOEX     #  2 pas,  0 ts (OP_SWAPALL, OP_ADD)
 
 
 # ENIAC-VM for playing chess
@@ -1102,21 +1101,6 @@ $loadrf {p-sub-clearA-2}
 endif # SUB_CLEARA
 
 
-if SUB_RFTOEX
-
-# - RFTOEX -
-# send RF, receive EX.  NB does not clear RF!
-defmacro rf-to-ex prog
-  p $prog {pa-a-%name}
-  p {pa-b-%name} {p-sub-rftoex}
-endmacro
-
-$send-rf {p-sub-rftoex}
-$loadex {p-sub-rftoex}
-
-endif # SUB_RFTOEX
-
-
 # - Memory Cycle -
 # Implements LOADACC/STOREACC by decoding memacc index in A, triggering memory cycle
 # program on the appropriate accumulator. 
@@ -1781,7 +1765,8 @@ if OP_ADD
 p {p-op70} {p-opadd}
 
 # RF -> EX
-$rf-to-ex {p-opadd}
+$send-rf {p-opadd}
+$loadex {p-opadd}
 $dummy {p-opadd} {p-opadd-2}
 
 # EX -selDA-> RF
