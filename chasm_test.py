@@ -540,6 +540,26 @@ class TestV4(AssemblerTestCase):
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 33})
 
+  def testMovAB(self):
+    self.isa.dispatch("", "mov", "A, B")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 1, (100, 1): 20})
+
+  def testMovAC(self):
+    self.isa.dispatch("", "mov", "A, C")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 2, (100, 1): 21})
+
+  def testMovAD(self):
+    self.isa.dispatch("", "mov", "A, D")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 3, (100, 1): 22})
+
+  def testMovAE(self):
+    self.isa.dispatch("", "mov", "A, E")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 4, (100, 1): 23})
+
   def testMovLoadAImmediate(self):
     self.isa.dispatch("", "mov", "99, A")
     self.assertFalse(self.out.errors)

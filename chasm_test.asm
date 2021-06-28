@@ -58,6 +58,10 @@ test_each_instruction
   mov H, A
   mov I, A
   mov J, A
+  mov A, B    ; pseudo op
+  mov A, C    ; pseudo op
+  mov A, D    ; pseudo op
+  mov A, E    ; pseudo op
   clr A
   mov 10, A
   mov king, A

@@ -469,6 +469,10 @@ class V4(PrimitiveParsing):
                 (r"H,\s*A", 31, ''),
                 (r"I,\s*A", 32, ''),
                 (r"J,\s*A", 33, ''),
+                (r"A,\s*B", ('B', 1, 20), 'p'),
+                (r"A,\s*C", ('C', 2, 21), 'p'),
+                (r"A,\s*D", ('D', 3, 22), 'p'),
+                (r"A,\s*E", ('E', 4, 23), 'p'),
                 (r"\[B\],\s*A", 43, ''),
                 (r"\[(.+?)\],\s*A", 42, 'a'),
                 (r"A,\s*\[B\]", 45, ''),
@@ -478,7 +482,13 @@ class V4(PrimitiveParsing):
     for regex, opcode, arg_type in patterns:
       m = re.match(regex, arg)
       if m:
-        if not arg_type:
+        if arg_type == 'p':
+          # mov A,[BCDE] (from A into BCDE) is a pseudo op assembled as
+          #  swap B,A     ; ABxxx -> BAxxx
+          #  mov B,A      ; BAxxx -> AAxxx
+          self.out.emit(opcode[1], comment=f"mov {opcode[0]},A")
+          self.out.emit(opcode[2])
+        elif not arg_type:
           self.out.emit(opcode, comment=f"{op} {arg}")
         else:
           symbol = m.group(1)
