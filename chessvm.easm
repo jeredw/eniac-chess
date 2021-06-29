@@ -29,14 +29,25 @@ enable OP_LOADACC     #  1 pas,  1 ts
 enable OP_STOREACC    #  0 pas,  0 ts
 enable SUB_MEMCYC     #  7 pas, 44 ts (OP_LOADACC, OP_STOREACC)
 enable OP_SWAPALL     #  3 pas,  3 ts
-# - word access (6-cycle mov datapath permitting shared SWAP)
-enable OP_MOVXA6      #  5 pas, 10 ts
-enable OP_SWAP6       #  7 pas,  6 ts
-enable SUB_MOVSWAP    #  2 pas,  6 ts (OP_SWAP6, OP_MOVXA6)
-# - word access (alternative 3-cycle mov datapath)
-disable OP_MOVXA3      #  6 pas, 14 ts (4-cycle with 5 pas, 12 ts)
-disable OP_MOVFA3      #  4 pas,  6 ts
-disable OP_SWAP        # 11 pas, 10 ts
+# - word access
+disable FAST_MOV
+if FAST_MOV
+  # 3-cycle mov datapath
+  enable OP_MOVXA3    #  6 pas, 14 ts (4-cycle with 5 pas, 12 ts)
+  enable OP_MOVFA3    #  4 pas,  6 ts
+  enable OP_SWAP      # 11 pas, 10 ts
+  disable OP_MOVXA6
+  disable OP_SWAP6
+  disable SUB_MOVSWAP
+else
+  # 6-cycle mov datapath permitting shared SWAP
+  enable OP_MOVXA6    #  5 pas, 10 ts
+  enable OP_SWAP6     #  7 pas,  6 ts
+  enable SUB_MOVSWAP  #  2 pas,  6 ts (OP_SWAP6, OP_MOVXA6)
+  disable OP_MOVXA3
+  disable OP_MOVFA3
+  disable OP_SWAP
+endif
 # - arithmetic
 enable OP_MOVIMMA     #  3 pas,  2 ts
 enable OP_INC         #  0 pas,  1 ts
@@ -1136,20 +1147,24 @@ $connect-memcyc09 0
 $connect-memcyc09 1
 $connect-memcyc09 2
 $connect-memcyc09 3
-#$connect-memcyc09 4
+if OP_SWAP6
+  $connect-memcyc09 4
+endif
 $connect-memcyc09 5
 $connect-memcyc09 6
 $connect-memcyc09 7
 $connect-memcyc09 8
 $connect-memcyc09 9
 
-# a-mem4 is also used for SWAP which needs all its t- programs, so memcyc4 must
-# use r- programs with dummies elsewhere.
-$select-memcyc09-acc 4
-$dummy-delay-exclude {p-memcyc4} 2 {p-memcyc4-2} -{a-memcyc09},{a-mem4}
-$sendcx {p-memcyc4-2} {a-mem4} {r-memcyc-2} A
-$dummy-exclude {p-memcyc4-2} {p-memcyc4-3} -{a-memcyc09},{a-mem4}
-$recx {p-memcyc4-3} {a-mem4} {r-memcyc-3} {i-main}
+if OP_SWAP
+  # a-mem4 is also used for SWAP which needs all its t- programs, so memcyc4 must
+  # use r- programs with dummies elsewhere.
+  $select-memcyc09-acc 4
+  $dummy-delay-exclude {p-memcyc4} 2 {p-memcyc4-2} -{a-memcyc09},{a-mem4}
+  $sendcx {p-memcyc4-2} {a-mem4} {r-memcyc-2} A
+  $dummy-exclude {p-memcyc4-2} {p-memcyc4-3} -{a-memcyc09},{a-mem4}
+  $recx {p-memcyc4-3} {a-mem4} {r-memcyc-3} {i-main}
+endif
 
 
 # similar for 10-14
@@ -1724,8 +1739,11 @@ s c.s29 Jr
 p c.29o {p-fetch}
 
 # Increment A field of RF
-# XXX should probably use pulseamp
-$recx {p-opinc} {a-rf} {r-opinc} {i-main}
+if FAST_MOV
+  $recx {p-opinc} {a-rf} {t-opinc} {i-main}
+else
+  $recx {p-opinc} {a-rf} {r-opinc} {i-main}
+endif
 
 endif # OP_INC
 

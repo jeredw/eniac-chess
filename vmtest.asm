@@ -260,6 +260,76 @@ t16out
   print AB
 
 
+; -- 20-29 --
+; RF and memory access
+; MOV, LOADACC, STOREACC
+
+; 20: test storeacc/loadacc, swapall
+; TODO this is sort of elaborate and may be better as 2x, x>0
+  mov 43,A
+  mov A,B     ; B=43
+  inc A
+  mov A,C     ; C=44
+  inc A
+  mov A,D     ; D=45
+  inc A
+  mov A,E     ; E=46
+  mov 42,A    ; A=42
+  swapall     ; LS <-> RF
+  mov 4,A
+  storeacc A  ; store mem4 [42 43 44 45 46]
+  jsr t20clear
+  swapall     ; clear LS
+  jsr t20clear; clear RF
+  mov 4,A
+  loadacc A   ; load mem4 again
+  mov 42,A    ; D=42
+  mov A,D
+  mov F,A
+  sub D,A     ; A-=42 (== 0)
+  jz t20aok
+  jmp t20out
+t20aok
+  mov 43,A    ; D=43
+  mov A,D
+  mov G,A
+  sub D,A     ; A-=43 (== 0)
+  jz t20bok
+  jmp t20out
+t20bok
+  mov 44,A    ; D=44
+  mov A,D
+  mov H,A
+  sub D,A     ; A-=44 (== 0)
+  jz t20cok
+  jmp t20out
+t20cok
+  mov 45,A    ; D=45
+  mov A,D
+  mov I,A
+  sub D,A     ; A-=45 (== 0)
+  jz t20dok
+  jmp t20out
+t20dok
+  mov 46,A    ; D=46
+  mov A,D
+  mov J,A
+  sub D,A     ; A-=46 (== 0)
+  jmp t20out
+
+t20clear
+  clr A       ; clear all regs
+  mov A,B
+  mov A,C
+  mov A,D
+  mov A,E
+  ret
+
+t20out
+  swap A,B
+  mov 20,A
+  print AB
+
 ; -- DONE --
   mov 99,A
   print AB

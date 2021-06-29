@@ -167,8 +167,7 @@ class Assembler(object):
     self.uniqueid = 1  # unique id for making up names
     self.deferred = []  # lines deferred til insert-deferred
     self.enables = {}  # bools defined by enable/disable directives
-    self.inside_if = False
-    self.if_condition = False
+    self.if_stack = []
 
 
   # Each argument processor fn maps from 0-based resource ids to strings
@@ -546,9 +545,13 @@ class Assembler(object):
   def line_inif(self, line, **kwargs):
     # conditionally assemble until endif
     if re.match(r'\s*endif', line):
-      self.inside_if = False
+      if not self.if_stack:
+        raise SyntaxError('mismatched endif')
+      self.if_stack.pop()
       return '# endif'
-    elif self.if_condition:
+    elif re.match(r'\s*else', line):
+      return self.line_else(line, **kwargs)
+    elif all(self.if_stack):
       return self.assemble_line(line, **kwargs)
 
 
@@ -642,15 +645,23 @@ class Assembler(object):
     m = re.match(r'\s*if\s+(?P<what>\S+)(#.*)?', line)
     if not m:
       raise SyntaxError('bad if directive')
-    if self.inside_if:
-      raise SyntaxError('nesting if is not supported')
     what = m.group('what')
     if not what in self.enables:
       raise SyntaxError(f'unrecognized if condition {what}')
-    self.inside_if = True
-    self.if_condition = self.enables[what]
-    state = 'enabled' if self.if_condition else 'disabled'
+    self.if_stack.append(self.enables[what])
+    state = 'enabled' if all(self.if_stack) else 'disabled'
     return f"# if {what}  ({what} is {state})"
+
+
+  def line_else(self, line, **kwargs):
+    m = re.match(r'\s*else', line)
+    if not m:
+      raise SyntaxError('bad else directive')
+    if not self.if_stack:
+      raise SyntaxError('else not in if')
+    self.if_stack[-1] = not self.if_stack[-1]
+    state = 'enabled' if all(self.if_stack) else 'disabled'
+    return f"# else  ({state})"
 
 
   def assemble_line(self, line, **kwargs):
@@ -667,6 +678,7 @@ class Assembler(object):
       re.compile(r'\s*allocate-dummy.*'):                 self.line_allocate_dummy,
       re.compile(r'\s*(enable|disable).*'):               self.line_enable_disable,
       re.compile(r'\s*if.*'):                             self.line_if,
+      re.compile(r'\s*else.*'):                           self.line_else,
       re.compile(r'.*'):                                  self.line_literal
     }
 
@@ -682,7 +694,7 @@ class Assembler(object):
       try:
         if self.defmacro:
           outlines = self.line_inmacro(line)
-        elif self.inside_if:
+        elif self.if_stack:
           outlines = self.line_inif(line, filename=filename, line_number=line_number)
         else:
           outlines = self.assemble_line(line, filename=filename, line_number=line_number)
