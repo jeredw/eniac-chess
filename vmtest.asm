@@ -266,6 +266,8 @@ t16out
 
 ; 20: test storeacc/loadacc, swapall
 ; TODO this is sort of elaborate and may be better as 2x, x>0
+t20acc .equ 4 ; which accum
+
   mov 43,A
   mov A,B     ; B=43
   inc A
@@ -276,16 +278,17 @@ t16out
   mov A,E     ; E=46
   mov 42,A    ; A=42
   swapall     ; LS <-> RF
-  mov 4,A
+  mov t20acc,A
   storeacc A  ; store mem4 [42 43 44 45 46]
   jsr t20clear
   swapall     ; clear LS
   jsr t20clear; clear RF
-  mov 4,A
+  mov t20acc,A
   loadacc A   ; load mem4 again
   mov 42,A    ; D=42
   mov A,D
   mov F,A
+  ;.dw 93      ; XXX 3-cycle mov has MOV F,A=93
   sub D,A     ; A-=42 (== 0)
   jz t20aok
   jmp t20out
