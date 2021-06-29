@@ -593,8 +593,23 @@ MOV A,[B]  (aka STORE)
 # XXX A problem here is where to compute the address for STOREACC.  Likely
 # requires the option 2 rewiring hack.
 
+MOV A,[BCDE] and MOV A,[FGHIJ]
+Option 0:  (Used as part of STOREWORD)
+1. sel[FGHIJ] -> EX, clear
+2. RF -movAX-> sel[FGHIJ], don't clear
+3. (BCDE:RF or FGHIJ:LS) -notX-> sel[FGHIJ], clear
+4. sel[FGHIJ] -> (BCDE:RF or FGHIJ:LS)
+5. EX -> sel[FGHIJ]
 
-MOV [BCDEFGHIJ],A
+
+MOV [BCDE],A and MOV [FGHIJ],A
+Option 0: 5-cycle sequence
+1. sel[FGHIJ] -> EX, clear
+2. (BCDE:RF or FGHIJ:LS) -movXA-> sel[FGHIJ], don't clear
+3. RF -notA-> sel[FGHIJ], clear
+4. sel[FGHIJ] -> RF
+5. EX -> sel[FGHIJ]
+
 Option 1: 3-cycle sequence
 1. RF -clearA-> EX
 2. EX -> RF, don't clear
