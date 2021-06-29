@@ -146,6 +146,8 @@ p ad.permute.{ad-exS-clearA} {a-pc}.{i-exS-clearA}
 p {d-main} ad.d.{ad-pc-loadPC2}.-8
 p ad.d.{ad-pc-loadPC2}.-8 {a-pc}.{i-loadPC2}
 
+# fetch input: from d-fetch-i1, used for loading I1 into SS field
+p {d-fetch-i1} {a-pc}.{i-fetch-i1}
 
 # Several sequences will want to load pc from the main bus so share that
 # program via pulse amp
@@ -199,6 +201,9 @@ p ad.permute.{ad-ex-clearA} {a-ex}.{i-clearA}
 p {d-main} ad.permute.{ad-clearPC2}
 s ad.permute.{ad-clearPC2} 11,10,9,8,7,6,5,4,3,0,0
 p ad.permute.{ad-clearPC2} {a-ex}.{i-clearPC2}
+
+# fetch input: from d-fetch-i1, used for loading I1 into left two digits
+p {d-fetch-i1} {a-ex}.{i-fetch-i1}
 
 
 # predefine programs that load ex from and store ex to main -- we use these everywhere
@@ -939,11 +944,11 @@ $recinc {p-fetchread} {a-ir} {t-fetchread} {i-fetch} {p-nofetch}
 # A6A5 00 00 00 00 -> EX,PC
 p {d-fA} ad.permute.{ad-fetch-ex}
 s ad.permute.{ad-fetch-ex} 0,6,5,0,0,0,0,0,0,0,0
-p ad.permute.{ad-fetch-ex} {d-main}
+p ad.permute.{ad-fetch-ex} {d-fetch-i1}
 
 # Get I1+1 in the top of EX and PC, and increment PC
-$loadex {p-fetchread}
-$recincx {p-fetchread} {a-pc} {r-fetchread} {i-main}
+$recx {p-fetchread} {a-ex} {t-fetchread} {i-fetch-i1}
+$recincx {p-fetchread} {a-pc} {r-fetchread} {i-fetch-i1}
 
 endif # CONTROL_CYCLE
 

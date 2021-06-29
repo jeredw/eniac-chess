@@ -81,6 +81,7 @@ a - main
 b - shiftl8-ir: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
 g - clearA: XX RRRR PPPP -> 00 RRRR PPPP, wired to EX.S for control cycle
 d - loadPC2: SS RRRR PPPP -> 00 0000 00PP, used for JMP/JN/JZ/JIL
+e - fetch-i1: from FT for instruction fetch
 
 
 IR:
@@ -109,7 +110,7 @@ a - main
 b - rotate-ir: I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, used in control cycle
 g - clearA: aa bb cc dd ee -> 00 bb cc dd ee, used in control cycle
 d - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
-e - clearPC4: XX XX XX 43 21 -> XX XX XX 00 00, used for JMP
+e - fetch-i1: from FT for instruction fetch
 
 
 RF:
@@ -243,8 +244,8 @@ A - main
 S - discft1
 a - main
 b - resetPC: sign digit to ftsg1, used to load initial PC
-g - ftsg2: x xx xx xx Dx xx -> PM
-d - ftsg1: x xx xx xx xD xx -> PM
+g - ftsg1: x xx xx xx xD xx -> PM
+d - ftsg2: x xx xx xx Dx xx -> PM
 
 
 A19
@@ -253,9 +254,8 @@ DISCFT2:
 A - main
 S - discft2
 a - main
-b - exA
+b - ftsg1: x xx xx xx xD xx -> PM
 g - ftsg2: x xx xx xx Dx xx -> PM
-d - ftsg1: x xx xx xx xD xx -> PM
 
 
 A20
@@ -264,9 +264,8 @@ DISCFT3:
 A - main
 S - discft3
 a - main
-b - exA
+b - ftsg1: x xx xx xx xD xx -> PM
 g - ftsg2: x xx xx xx Dx xx -> PM
-d - ftsg1: x xx xx xx xD xx -> PM
 
 
 CONTROL CYCLE
@@ -277,7 +276,6 @@ load IR from an FT, ignoring the actual instruction time.  NOP takes 0 cycles,
 so a program consisting entirely of NOPs takes 6*5+12*1 cycles per 6 NOPs, or 7
 cpi.  With 5kHz add cycles this would be about 714 instructions/second.
 
-0. clear EX
 1. [p-fetch] IR -> EX, IR-shiftl8->PC,
              discriminate IR (P->p-nofetch-eat-op, M->p-fetchline)
   (IR>=0, p-nofetch-eat-op: triggers both p-nofetch and p-eat-op via pulse amps)
