@@ -786,7 +786,7 @@ $discriminatec {p-disc-op} {a-ex} {d-exA} {d-exS} {p-ople55} {p-opgt55}
 # Replace first two digits with M from a constant, so the top of IR is
 # P99. Finally, increment so that an empty IR, P9999999999, wraps to M0000000000.
 # This also turns I2 into I2+1 at the right of IR.
-$recincx {p-eat-op} {a-ir} {t-disc-op} {i-fill99}
+$recincx {p-eat-op} {a-ir} {r-disc-op} {i-fill99}
 # Send M00000 from the constant transmitter to fix IR.  EX doesn't send a sign
 # on d-main so there's no bus conflict.
 $sendM0 {p-eat-op}
