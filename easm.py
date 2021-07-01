@@ -543,8 +543,9 @@ class Assembler(object):
 
 
   def line_inif(self, line, **kwargs):
-    # conditionally assemble until endif
-    if re.match(r'\s*endif', line):
+    if re.match(r'\s*if', line):
+      return self.line_if(line, **kwargs)
+    elif re.match(r'\s*endif', line):
       if not self.if_stack:
         raise SyntaxError('mismatched endif')
       self.if_stack.pop()
@@ -706,6 +707,9 @@ class Assembler(object):
         out += outlines + '\n'
     if self.defmacro:
       print(f'unterminated macro {self.defmacro.name}')
+      return None
+    if self.if_stack:
+      print(f'unterminated if')
       return None
     return out
 
