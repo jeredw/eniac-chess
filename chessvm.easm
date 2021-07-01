@@ -51,6 +51,7 @@ else
   enable SUB_MOVSWAP  #  2 pas,  6 ts (OP_SWAP6, OP_MOVXA6)
 endif
 endif
+disable SUB_MOVAX5    # 10 pas, 21 ts(!)
 # - arithmetic (15 pas, 10 ts)
 enable OP_MOVIMMA     #  3 pas,  2 ts
 enable OP_INC         #  0 pas,  1 ts
@@ -304,6 +305,16 @@ $acc-main ls
 p {d-main} ad.permute.{ad-ls-signonly}
 s ad.permute.{ad-ls-signonly} 11,0,0,0,0,0,0,0,0,0,0
 p ad.permute.{ad-ls-signonly} {a-ls}.{i-signonly}
+
+if SUB_MOVAX5
+# clears LS
+defmacro clearls prog
+  $pulseamp $prog {a-ls}.{r-clear}i
+endmacro
+s {a-ls}.op{r-clear} 0
+s {a-ls}.cc{r-clear} C
+endif
+
 
 # - MEM0 -
 # Discriminate memory cycle 0-9 vs. 10-14
@@ -918,7 +929,6 @@ $loadpc {p-preinc-fetch}
 # -- {p-await-fetchread}
 # Nothing happens, just waiting for ft
 # because main is idle this cycle, use ct as a dummy, don't care what it sends
-# FIXME this is dodgy unless we decide to initialize ct to 0!
 p {p-await-fetchread} c.22i
 p c.22o {p-fetchread}
 
@@ -1346,6 +1356,101 @@ $rec {p-sub-movswap-4} {a-movswap} {t-sub-movswap-4} {i-main} {p-fetch}
 endif # SUB_MOVSWAP
 
 
+if SUB_MOVAX5
+
+# - MOVAX -
+# To use trigger p-sub-movAX e.g. p-sub-movAG moves A to G
+# XXX doesn't fit
+# 1. MOVAX -> EX
+# 2. LS -notX-> MOVAX
+# 3. RF -AtoX-> MOVAX
+# 4. MOVAX -> LS
+# 5. EX -> MOVAX
+
+# This sequence relies on 2 accumulator inputs per target register, one to
+# select everything but that register "notX" and one to move A into the X
+# position "AtoX". Spread these 2 * 5 = 10 inputs across 3 accums.
+# X          which target reg inputs being defined
+# YX         FG, HI or J (which target registers on this accum)
+# AtoXwiring permute adapter wiring for AtoX input
+# notXwiring permute adapter wiring for notX input
+defmacro acc-movax acc X YX AtoXwiring notXwiring
+{a-movA$YX}=$acc
+
+# AtoX input: select digits 10,9 in X register position
+p {d-main} ad.permute.{ad-Ato$X}
+s ad.permute.{ad-Ato$X} $AtoXwiring
+p ad.permute.{ad-Ato$X} {a-movA$YX}.{i-Ato$X}
+
+# notX input: select digits besides X register
+p {d-main} ad.permute.{ad-not$X}
+s ad.permute.{ad-not$X} $notXwiring
+p ad.permute.{ad-not$X} {a-movA$YX}.{i-not$X}
+
+# 2-step sequence receive on notX then AtoX
+# 1. -
+# 2.     -notX-> MOVAX
+# 3.     -AtoX-> MOVAX
+$dummy-exclude {p-sub-movA$X} {p-sub-movA$X-2} -{a-movA$YX}
+$rec {p-sub-movA$X-2} {a-movA$YX} {t-movA$X-2} {i-not$X} {p-sub-movA$X-3}
+$recx {p-sub-movA$X-3} {a-movA$YX} {r-movA$X-3} {i-Ato$X}
+endmacro
+
+#          acc X YX AtoXwiring             notXwiring
+$acc-movax a8  F FG 0,10,9,0,0,0,0,0,0,0,0 0,0,0,8,7,6,5,4,3,2,1
+$acc-movax a8  G FG 0,0,0,10,9,0,0,0,0,0,0 0,10,9,0,0,6,5,4,3,2,1
+$acc-movax a9  H HI 0,0,0,0,0,10,9,0,0,0,0 0,10,9,8,7,0,0,4,3,2,1
+$acc-movax a9  I HI 0,0,0,0,0,0,0,10,9,0,0 0,10,9,8,7,6,5,0,0,2,1
+$acc-movax a10 J J  0,0,0,0,0,0,0,0,0,10,9 0,10,9,8,7,6,5,4,3,0,0
+
+# Shared sequence to save and restore temp accums. Only one instance is needed
+# per accumulator.
+# 1. MOVAX ->    
+# 2. -
+# 3. -
+# 4. MOVAX ->    
+# 5.     ->  MOVAX
+defmacro acc-movax-save-restore YX rt
+$sendcx {p-movA$YX} {a-movA$YX} {r-movA$YX} A
+$dummy-delay-exclude {p-movA$YX} 3 {p-movA$YX-4} -{a-movA$YX}
+
+$sendc {p-movA$YX-4} {a-movA$YX} {t-movA$YX-4} A {p-movA$YX-5}
+$recx {p-movA$YX-5} {a-movA$YX} {$rt-movA$YX-5} {i-main}
+endmacro
+
+$acc-movax-save-restore FG t
+$acc-movax-save-restore HI t
+# FG and HI each use two r- programs for $acc-movax, and one for memcycle, so
+# can fit only one more. But J can fit 2 more r- programs.
+$acc-movax-save-restore J r
+
+# Used to trigger save/restore for the accum used for this mov.
+$pulseamp {p-sub-movAF} {p-sub-movAFG}
+$pulseamp {p-sub-movAG} {p-sub-movAFG}
+$pulseamp {p-sub-movAH} {p-sub-movAHI}
+$pulseamp {p-sub-movAI} {p-sub-movAHI}
+
+# A single shared sequence for all the movs
+# register and accum specific parts are triggered by pulse amps
+# 1.       -> EX
+# 2. LS ->     
+# 3. RF ->      
+# 4.       -> LS
+# 5. EX ->      
+$rec {p-sub-movAX} {a-ex} {t-sub-movAX} {i-main} {p-sub-movAX-2}
+$sendc {p-sub-movAX-2} {a-ls} {t-sub-movAX-2} A {p-sub-movAX-3}
+$send {p-sub-movAX-3} {a-rf} {t-sub-movAX-3} A {p-sub-movAX-4}
+$rec {p-sub-movAX-4} {a-ls} {t-sub-movAX-4} {i-main} {p-sub-movAX-5}
+$storeex {p-sub-movAX-5}
+
+# Used to trigger the common sequence for all the movs.
+$pulseamp {p-sub-movAFG} {p-sub-movAX}
+$pulseamp {p-sub-movAHI} {p-sub-movAX}
+$pulseamp {p-sub-movAJ} {p-sub-movAX}
+
+endif # SUB_MOVAX5
+
+
 # -- OPCODE IMPLEMENTATIONS --
 
 #$break {p-op00}  # NOP
@@ -1444,7 +1549,11 @@ p {p-op10} {p-oploadacc}
 $pulseamp {p-oploadacc} {p-sub-memcyc} # XXX pa not currently needed but maybe on word access?
 
 # clear LS, we'll want that empty to recieve acc value
-$clearx {p-oploadacc} {a-ls} {r-clear}
+if SUB_MOVAX5
+  $clearls {p-oploadacc}
+else
+  $clearx {p-oploadacc} {a-ls} {r-clear}
+endif
 
 # XXX good for FT dummy
 $dummy-delay {p-oploadacc} 8 {p-oploadacc-2}
@@ -1977,7 +2086,11 @@ p {p-op91} {p-opread}
 # read in a new card into constant transmitter
 p {p-opread} i.Ri
 # clear LS to receive card data
-$clear {p-opread} {a-ls} {t-opread} {p-opread-2}
+if SUB_MOVAX5
+  $clearls {p-opread}
+else
+  $clear {p-opread} {a-ls} {t-opread} {p-opread-2}
+endif
 
 # wait for card to read
 p {p-opread-2} i.Rl
