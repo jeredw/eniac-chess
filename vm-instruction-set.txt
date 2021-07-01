@@ -57,8 +57,8 @@
 85 - ret
 
 90 - clr A
-91 - read AB
-92 - print AB
+91 - read         ; read 5 digits from card into LS (FFGGH)
+92 - print        ; print 5 digits from RF (0AABB)
 93 -              ; XXX 3-cycle mov puts MOV F,A here
 94 - nextline     ; go immediately to line fetch
 95 - halt
@@ -195,7 +195,6 @@ e - shiftl4-pc: XX XXXX PPPP -> XX PPPP 0000
 A13
 MEM7
 a - main
-b - printAB: AA BB CC DD EE -> 0A AB B 0 00 00 for printing AB with leading 0
 
 
 A14

@@ -16,12 +16,12 @@
 
 ; A=B=0 here
 ; 00: test PRINT
-  print AB
+  print
 
 
 ; 01: test inc, which also gets us to next test number
   inc A
-  print AB
+  print
 
 
 ; 02: test swap A,B, dec
@@ -32,7 +32,7 @@
   dec A       ; A=-99, B=2
   inc A       ; A=0, B=2
   swap A,B    ; A=2, B=0
-  print AB
+  print
 
 
 ; 3: test swap A,C
@@ -40,7 +40,7 @@
   swap A,C
   inc A
   swap A,C
-  print AB
+  print
 
 
 ; 4: test swap A,D
@@ -48,7 +48,7 @@
   swap A,D
   inc A
   swap A,D
-  print AB
+  print
 
 
 ; 5: test swap A,E
@@ -56,7 +56,7 @@
   swap A,E
   inc A
   swap A,E
-  print AB
+  print
 
 
 ; 6: test clr A
@@ -67,7 +67,7 @@
   clr A
 
   swap A,B
-  print AB
+  print
 
 
 ; 7: test mov #X, A
@@ -81,7 +81,7 @@
   dec A
 
   swap A,B
-  print AB
+  print
 
 
 ; 8: test add D,A, sub D,A
@@ -109,7 +109,7 @@
   sub D,A   ; should be 64-64=0
 
   swap A,B
-  print AB
+  print
 
 
 ; -- 10-19 --
@@ -124,7 +124,7 @@
   jmp jmptest
 
 jmptest
-  print AB
+  print
 
 
 ; 11: JN. Also tests that DEC A can produce a negative result
@@ -138,7 +138,7 @@ jmptest
 jntest
   inc A
   swap A,B
-  print AB
+  print
 
 
 ; 12: jmp far, with and without bank switch
@@ -149,14 +149,14 @@ jntest
   jmp far jmpfar1
   inc A       ; report error if jump not taken
   swap A,B
-  print AB
+  print
   halt
 
 jmpfar1
   jmp far jmpfar2
   inc A
   swap A,B
-  print AB
+  print
   halt
 
 ; this is used for far JSR/RET test -- weird to put it in the middle of this test, but
@@ -170,12 +170,12 @@ jmpfar2
   jmp far jmpfar3
   inc A
   swap A,B
-  print AB
+  print
   halt
 
 jmpfar3
   swap A,B
-  print AB
+  print
 
 
 ; 13: use JN in a loop. Ensure executed 10 times.
@@ -198,7 +198,7 @@ t13done
   sub D,A    ; result=10-number of iterations counted
 
   swap A,B
-  print AB
+  print
 
 
 ; 14: JSR/RET 
@@ -219,7 +219,7 @@ t14next
  dec A        ; error 99 if jsr does not jump
  
  swap A,B
- print AB
+ print
 
 
 ; 15: JZ
@@ -234,7 +234,7 @@ t14next
 
 t15out
   swap A,B
-  print AB
+  print
 
 
 ; 16: JIL
@@ -257,12 +257,12 @@ t16ok
 
 t16out
   swap A,B
-  print AB
+  print
 
 
 ; -- 20-29 --
-; RF and memory access
-; MOV, LOADACC, STOREACC
+; RF and memory access, I/O
+; MOV, LOADACC, STOREACC, READ
 
 ; 20: test storeacc/loadacc, swapall
 ; TODO this is sort of elaborate and may be better as 2x, x>0
@@ -331,11 +331,26 @@ t20clear
 t20out
   swap A,B
   mov 20,A
-  print AB
+  print
+
+t21
+  read     ; read 01020 into LS (clear other digits)
+  swapall  ; A=01, B=02
+  dec A    ; A=00
+  jz t21aok
+  jmp t21out
+t21aok
+  swap A,B ; A=02
+  dec A
+  dec A    ; A=00
+t21out
+  mov A,B
+  mov 21,A
+  print
 
 ; -- DONE --
   mov 99,A
-  print AB
+  print
   halt
 
 

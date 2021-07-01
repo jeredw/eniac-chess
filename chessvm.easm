@@ -70,6 +70,7 @@ enable SUB_FARGO      #  6 pas,  4 ts (OP_JMPFAR, OP_JSR, OP_RET)
 enable SUB_DISCFT     #  0 pas,  1 ts (SUB_FARGO)
 # - misc
 enable OP_PRINT       #  3 pas,  4 ts
+enable OP_READ        #  0 pas,  2 ts
 enable SUB_CONSUME_OP #  2 pas,  2 ts (OP_JN, OP_MOVIMMA)
 enable SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA6, OP_CLRA, OP_MOVIMMA)
 
@@ -914,8 +915,9 @@ $loadpc {p-preinc-fetch}
 # -- {p-await-fetchread}
 # Nothing happens, just waiting for ft
 # because main is idle this cycle, use ct as a dummy, don't care what it sends
-p {p-await-fetchread} c.1i
-p c.1o {p-fetchread}
+# FIXME this is dodgy unless we decide to initialize ct to 0!
+p {p-await-fetchread} c.22i
+p c.22o {p-fetchread}
 
 
 # -- {p-fetchread} read ft line of instructions
@@ -1511,6 +1513,7 @@ defmacro mov-decoding
   # with LS are encoded as 3x to conserve pulse amplifiers.  There is nothing
   # happening on d-main during decode, so use spare constant transceivers as
   # dummies, don't care what they send.
+  # FIXME this is dodgy unless we decide to initialize ct to 0!
   p p.A3o c.23i
   p c.23o {p-opmovRFA}
   p p.A4o c.24i
@@ -1592,8 +1595,9 @@ p {p-op04} {p-opswapAE}
 
 # TODO All swap ops start with 0x, so we could try the same trick as with MOV
 # ops, but this would break nop... do we want to renumber nop?
-#p p.A1o c.22i
-#p c.22o {p-opswap}
+# FIXME this is dodgy unless we decide to initialize ct to 0!
+#p p.A1o c.21i
+#p c.21o {p-opswap}
 $pulseamp {p-opswapAB} {p-opswap}
 $pulseamp {p-opswapAC} {p-opswap}
 $pulseamp {p-opswapAD} {p-opswap}
@@ -1936,30 +1940,57 @@ endif # OP_JIL
 if OP_PRINT
 
 # - PRINT - 
-# Save a13, RF-printAB->a13, restore
+# Save a-print, RF-printAB->a-print, restore
 # Really the only trick here is that we can only print from a13,
 # and during the transfer we shift RF right so we print 0AABB not AABBC
 p {p-op92} {p-opprint}
 
 # PRINT->EX, clear
-$sendc {p-opprint} a13 {t-opprint} A {p-opprint-2}
+$sendc {p-opprint} {a-print} {t-opprint} A {p-opprint-2}
 $loadex {p-opprint}
 
 # RF-printAB->a13. Puts AB in lower 4 digits of upper half of accumulator
 $send-rf {p-opprint-2}
-$rec {p-opprint-2} a13 {t-printAB} {i-printAB} i.pi # trigger print
+$rec {p-opprint-2} {a-print} {t-printAB} {i-printAB} i.pi # trigger print
 
-# prints high half accumulator 13 
-s pr.2 P            
+# prints high half accumulator 13
+s pr.2 P
 p i.po {p-opprint-3}
 
 # restore contents of MEM13
-$clear {p-opprint-3} a13 {t-opprint-3} {p-opprint-4}
+$clear {p-opprint-3} {a-print} {t-opprint-3} {p-opprint-4}
 
 $storeex {p-opprint-4}
-$rec {p-opprint-4} a13 {t-opprint-4} {i-main} {p-fetch}
+$rec {p-opprint-4} {a-print} {t-opprint-4} {i-main} {p-fetch}
 
 endif # OP_PRINT
+
+
+if OP_READ
+
+# - READ -
+p {p-op91} {p-opread}
+
+# read in a new card into constant transmitter
+p {p-opread} i.Ri
+# clear LS to receive card data
+$clear {p-opread} {a-ls} {t-opread} {p-opread-2}
+
+# wait for card to read
+p {p-opread-2} i.Rl
+
+# when data is ready, read Al into LS (FFGGH)
+# XXX It'd make sense to read 10 digits and replace LS, but ct output wiring
+# crosses over the right 5 digits to the left 5 so that we can get four
+# constants out of JK switches.  If we were willing to rely on initializing
+# constants from a card at reset time, we could get rid of that hack and be
+# able to read 10 digits at once here.
+p i.Ro c.1i
+s c.s1 Al
+p c.1o {p-fetch}
+$recx i.Ro {a-ls} {t-opread-n} {i-main}
+
+endif
 
 
 # - HALT -
@@ -2052,6 +2083,8 @@ insert-deferred
 
 # -- CURRENT PROGRAM --
 include vmtest.e
+# ibm cards (one card per line, 80 cols)
+f r vmtest.deck
 
 # Start the machine
 b i

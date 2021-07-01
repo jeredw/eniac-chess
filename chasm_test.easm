@@ -266,9 +266,9 @@ s f1.RB18L2 9
 s f1.RB18L1 9
 
 # address=119  PC=0919
-s f1.RA19L6 9  # read AB
+s f1.RA19L6 9  # read 
 s f1.RA19L5 1
-s f1.RA19L4 9  # print AB
+s f1.RA19L4 9  # print 
 s f1.RA19L3 2
 s f1.RA19L2 9  # nextline 
 s f1.RA19L1 4

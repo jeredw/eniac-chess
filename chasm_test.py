@@ -829,13 +829,13 @@ class TestV4(AssemblerTestCase):
     self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
   def testReadAB(self):
-    self.isa.dispatch("", "read", "AB")
+    self.isa.dispatch("", "read", "")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 91})
 
   def testRead_ErrorInvalidArgument(self):
     self.isa.dispatch("", "read", "bogus")
-    self.assertEqual(self.out.errors, ["file:1: invalid argument 'bogus'"])
+    self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
   def testClrA(self):
     self.isa.dispatch("", "clr", "A")
@@ -847,13 +847,13 @@ class TestV4(AssemblerTestCase):
     self.assertEqual(self.out.errors, ["file:1: invalid argument 'bogus'"])
 
   def testPrintAB(self):
-    self.isa.dispatch("", "print", "AB")
+    self.isa.dispatch("", "print", "")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 92})
 
   def testPrint_ErrorInvalidArgument(self):
     self.isa.dispatch("", "print", "bogus")
-    self.assertEqual(self.out.errors, ["file:1: invalid argument 'bogus'"])
+    self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
   def testNextline(self):
     self.isa.dispatch("", "nextline", "")

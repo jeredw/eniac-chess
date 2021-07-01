@@ -1,5 +1,6 @@
 chsim
 chsim_test
+eniacsim
 *.pyc
 images/
 perft

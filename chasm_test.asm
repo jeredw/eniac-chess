@@ -88,8 +88,8 @@ test_each_instruction
   jsr faraway
   ret
   ;jnz target
-  read AB
-  print AB
+  read
+  print
   nextline
   halt
 
