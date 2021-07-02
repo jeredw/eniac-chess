@@ -51,8 +51,8 @@ else
   enable SUB_MOVSWAP  #  2 pas,  6 ts (OP_SWAP6, OP_MOVXA6)
 endif
 endif
-disable SUB_MOVAX5    # 10 pas, 21 ts(!)
-disable SUB_MOVAX11   # 14 pas, 19 ts(!)
+disable SUB_MOVAX5    #  7 pas, 17 ts
+disable SUB_MOVAX11   # 11 pas, 11 ts
 # - arithmetic (15 pas, 10 ts)
 enable OP_MOVIMMA     #  3 pas,  2 ts
 enable OP_INC         #  0 pas,  1 ts
@@ -226,11 +226,10 @@ endmacro
 s {a-ex}.op{r-loadex-clearA} {i-clearA}
 
 # sends EX to main and clears
+$sendcx {p-storeex} {a-ex} {t-storeex} A
 defmacro storeex prog
-  $pulseamp $prog {a-ex}.{t-storeex}i
+  $pulseamp $prog {p-storeex}
 endmacro
-s {a-ex}.op{t-storeex} A
-s {a-ex}.cc{t-storeex} C
 
 
 # - Register File -
@@ -285,10 +284,10 @@ defmacro loadrf prog
   $pulseamp $prog {p-loadrf}
 endmacro
 
+$sendx {p-send-rf} {a-rf} {t-send-rf} A
 defmacro send-rf prog
-  $pulseamp $prog {a-rf}.{t-send-rf}i
+  $pulseamp $prog {p-send-rf}
 endmacro
-s {a-rf}.op{t-send-rf} A
 
 defmacro sendc-rf prog
   $pulseamp $prog {a-rf}.{t-sendc-rf}i
@@ -314,11 +313,10 @@ s ad.permute.{ad-movaf-selectA} 0,10,9,0,0,0,0,0,0,0,0
 p ad.permute.{ad-movaf-selectA} {a-ls}.{i-selectA}
 
 # sends LS
+$sendcx {p-sendc-ls} {a-ls} {t-sendc-ls} A
 defmacro sendc-ls prog
-  $pulseamp $prog {a-ls}.{t-sendc-ls}i
+  $pulseamp $prog {p-sendc-ls}
 endmacro
-s {a-ls}.op{t-sendc-ls} A
-s {a-ls}.op{t-sendc-ls} C
 endif
 
 if SUB_MOVAX5
@@ -1390,8 +1388,6 @@ if SUB_MOVAX11
 # dummies for its other callers.  We also need a bunch of pas since we run out
 # of t's on LS.
 #
-# TODO Could probably save 5 ts here by using ft dummies.  Maybe we can be
-# smarter about LS programs too.
 # TODO We could also do something like
 #   swapall       ; 3
 #   swap A,[BCDE] ; 4
@@ -1413,14 +1409,14 @@ endmacro
 # send LS FGHIJ and receive in EX with F clear
 $sendc-ls {p-sub-movAF}
 $loadex {p-sub-movAF}
-$dummy-exclude {p-sub-movAF} {p-sub-movAF-2} -a8
+$dummy {p-sub-movAF} {p-sub-movAF-2}
 
 # get LS 0GHIJ back in LS
-$storeex {p-sub-movAF-2}
+$i-dummy {p-sub-movAF} {p-storeex}
 $rec {p-sub-movAF-2} {a-ls} {t-sub-movAF-2} {i-main} {p-sub-movAF-3}
 
 # read RF A into F position in LS
-$send-rf {p-sub-movAF-3}
+$i-dummy {p-sub-movAF-2} {p-send-rf}
 $recx {p-sub-movAF-3} {a-ls} {t-sub-movAF-3} {i-selectA}
 
 
@@ -1434,11 +1430,11 @@ defmacro swapf prog
 endmacro
 
 $movswap {p-sub-swapf}
-$dummy-exclude {p-sub-swapf} {p-sub-swapf-2} -a8,{a-movswap}
+$dummy-exclude {p-sub-swapf} {p-sub-swapf-2} -a8,a18,{a-movswap}
 
 $sendc-ls {p-sub-swapf-2}
 # trigger p-movswapAX
-$dummy-exclude {p-sub-swapf-2} {p-sub-swapf-3} -a8,{a-movswap}
+$dummy-exclude {p-sub-swapf-2} {p-sub-swapf-3} -a8,a18,{a-movswap}
 
 $recx {p-sub-swapf-3} {a-ls} {t-sub-swapf-3} {i-main}
 
@@ -1452,16 +1448,29 @@ $pulseamp {p-sub-movAG} {p-sub-movAX}
 $pulseamp {p-sub-movAH} {p-sub-movAX}
 $pulseamp {p-sub-movAI} {p-sub-movAX}
 $pulseamp {p-sub-movAJ} {p-sub-movAX}
+
 $manual-dummy {p-sub-movAX} a8 {t-sub-movAX} 4 {p-sub-movAX-5}
-$manual-dummy {p-sub-movAX-5} a8 {t-sub-movAX-5} 3 {p-sub-movAX-8}
-$dummy-delay-exclude {p-sub-movAG} 1 {p-movswapAB} -a8,{a-movswap}
-$dummy-delay-exclude {p-sub-movAH} 1 {p-movswapAC} -a8,{a-movswap}
-$dummy-delay-exclude {p-sub-movAI} 1 {p-movswapAD} -a8,{a-movswap}
-$dummy-delay-exclude {p-sub-movAJ} 1 {p-movswapAE} -a8,{a-movswap}
-$dummy-delay-exclude {p-sub-movAG} 9 {p-movswapAB} -a8,{a-movswap}
-$dummy-delay-exclude {p-sub-movAH} 9 {p-movswapAC} -a8,{a-movswap}
-$dummy-delay-exclude {p-sub-movAI} 9 {p-movswapAD} -a8,{a-movswap}
-$dummy-delay-exclude {p-sub-movAJ} 9 {p-movswapAE} -a8,{a-movswap}
+p {p-sub-movAX} f2.11i
+s f2.rp11 3
+p f2.11o {p-sub-movAX-8}
+
+$i-dummy {p-sub-movAG} {p-movswapAB}
+$i-dummy {p-sub-movAH} {p-movswapAC}
+$i-dummy {p-sub-movAI} {p-movswapAD}
+$i-dummy {p-sub-movAJ} {p-movswapAE}
+
+p {p-sub-movAG} f3.11i
+s f3.rp11 3
+p f3.11o {p-movswapAB}
+p {p-sub-movAH} f3.10i
+s f3.rp10 3
+p f3.10o {p-movswapAC}
+p {p-sub-movAI} f3.9i
+s f3.rp9 3
+p f3.9o {p-movswapAD}
+p {p-sub-movAJ} f3.8i
+s f3.rp8 3
+p f3.8o {p-movswapAE}
 
 $swapf {p-sub-movAX}
 $movaf {p-sub-movAX-5}
@@ -1505,7 +1514,7 @@ p ad.permute.{ad-not$X} {a-movA$YX}.{i-not$X}
 # 1. -
 # 2.     -notX-> MOVAX
 # 3.     -AtoX-> MOVAX
-$dummy-exclude {p-sub-movA$X} {p-sub-movA$X-2} -{a-movA$YX}
+$i-dummy {p-sub-movA$X} {p-sub-movA$X-2}
 $rec {p-sub-movA$X-2} {a-movA$YX} {t-movA$X-2} {i-not$X} {p-sub-movA$X-3}
 $recx {p-sub-movA$X-3} {a-movA$YX} {r-movA$X-3} {i-Ato$X}
 endmacro
@@ -1555,7 +1564,7 @@ $rec {p-sub-movAX} {a-ex} {t-sub-movAX} {i-main} {p-sub-movAX-2}
 $sendc {p-sub-movAX-2} {a-ls} {t-sub-movAX-2} A {p-sub-movAX-3}
 $send {p-sub-movAX-3} {a-rf} {t-sub-movAX-3} A {p-sub-movAX-4}
 $rec {p-sub-movAX-4} {a-ls} {t-sub-movAX-4} {i-main} {p-sub-movAX-5}
-$storeex {p-sub-movAX-5}
+$i-dummy {p-sub-movAX-4} {p-storeex}
 
 # Used to trigger the common sequence for all the movs.
 $pulseamp {p-sub-movAFG} {p-sub-movAX}
@@ -1724,7 +1733,7 @@ $dummy {p-opswapall} {p-opswapall-2}
 
 # LS->RF
 if SUB_MOVAX11
-  $sendc-ls {p-opswapall-2}
+  $dummy {p-opswapall} {p-sendc-ls}
   $dummy {p-opswapall-2} {p-opswapall-3}
 else
   $sendc {p-opswapall-2} {a-ls} {t-opswapall-2} A {p-opswapall-3}
