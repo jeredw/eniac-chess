@@ -52,6 +52,7 @@ else
 endif
 endif
 disable SUB_MOVAX5    # 10 pas, 21 ts(!)
+disable SUB_MOVAX11   # 14 pas, 19 ts(!)
 # - arithmetic (15 pas, 10 ts)
 enable OP_MOVIMMA     #  3 pas,  2 ts
 enable OP_INC         #  0 pas,  1 ts
@@ -305,6 +306,20 @@ $acc-main ls
 p {d-main} ad.permute.{ad-ls-signonly}
 s ad.permute.{ad-ls-signonly} 11,0,0,0,0,0,0,0,0,0,0
 p ad.permute.{ad-ls-signonly} {a-ls}.{i-signonly}
+
+if SUB_MOVAX11
+# selectA input: aa bb cc dd ee -> aa 00 00 00 00, used in MOV A,F
+p {d-main} ad.permute.{ad-movaf-selectA}
+s ad.permute.{ad-movaf-selectA} 0,10,9,0,0,0,0,0,0,0,0
+p ad.permute.{ad-movaf-selectA} {a-ls}.{i-selectA}
+
+# sends LS
+defmacro sendc-ls prog
+  $pulseamp $prog {a-ls}.{t-sendc-ls}i
+endmacro
+s {a-ls}.op{t-sendc-ls} A
+s {a-ls}.op{t-sendc-ls} C
+endif
 
 if SUB_MOVAX5
 # clears LS
@@ -1333,7 +1348,7 @@ if SUB_MOVSWAP
 # 1. MOVSWAP -> EX
 # 2. nop          [ (RF or LS) -mov[BCDE]-> MOVSWAP ]
 # 3. send MOVSWAP [ MOVSWAP -selectA-> RF  or  MOVSWAP -> RF ]
-# 4. EX -> MOVSWAP, goto fetch
+# 4. EX -> MOVSWAP, (if not SUB_MOVAX11: goto fetch)
 defmacro movswap prog
   $pulseamp $prog {p-sub-movswap}
 endmacro
@@ -1351,9 +1366,108 @@ $sendc {p-sub-movswap-3} {a-movswap} {t-sub-movswap-3} A {p-sub-movswap-4}
 
 # Restore movswap and go to fetch
 $storeex {p-sub-movswap-4}
-$rec {p-sub-movswap-4} {a-movswap} {t-sub-movswap-4} {i-main} {p-fetch}
+if SUB_MOVAX11
+  # Do not fall through to fetch because $movswap is used for SUB_MOVAX11
+  $recx {p-sub-movswap-4} {a-movswap} {t-sub-movswap-4} {i-main}
+else
+  $rec {p-sub-movswap-4} {a-movswap} {t-sub-movswap-4} {i-main} {p-fetch}
+endif
 
 endif # SUB_MOVSWAP
+
+
+if SUB_MOVAX11
+
+# The idea here is to build mov A,F which is cheap, reuse SUB_MOVSWAP to get
+# SWAP F,[GHIJ], and then implement mov A,GHIJ as
+#   swap F,[GHIJ] ; 4
+#   mov A,F       ; 3
+#   swap F,[GHIJ] ; 4
+#
+# This still isn't cheap, though:  we need 10 dummies for the outer sequence, 8
+# of which trigger the right exchange for swap twice.  mov A,F and swap F take
+# at least 3 t's, $movswap can no longer fall through to p-fetch so we need
+# dummies for its other callers.  We also need a bunch of pas since we run out
+# of t's on LS.
+#
+# TODO Could probably save 5 ts here by using ft dummies.  Maybe we can be
+# smarter about LS programs too.
+# TODO We could also do something like
+#   swapall       ; 3
+#   swap A,[BCDE] ; 4
+#   mov F,A       ; 6
+#   swap A,[BCDE] ; 4
+#   swapall       ; 3
+# and could then reuse existing ops.  But we'd still need to modify those ops to
+# dummy back to fetch, would need long dummies around mov F,A and for sequencing,
+# and this costs 20 cycles...
+
+# - MOV A,F -
+# 1. LS -clearA-> EX
+# 2. EX -> LS
+# 3. RF -selectA-> LS
+defmacro movaf prog
+  $pulseamp $prog {p-sub-movAF}
+endmacro
+
+# send LS FGHIJ and receive in EX with F clear
+$sendc-ls {p-sub-movAF}
+$loadex {p-sub-movAF}
+$dummy-exclude {p-sub-movAF} {p-sub-movAF-2} -a8
+
+# get LS 0GHIJ back in LS
+$storeex {p-sub-movAF-2}
+$rec {p-sub-movAF-2} {a-ls} {t-sub-movAF-2} {i-main} {p-sub-movAF-3}
+
+# read RF A into F position in LS
+$send-rf {p-sub-movAF-3}
+$recx {p-sub-movAF-3} {a-ls} {t-sub-movAF-3} {i-selectA}
+
+
+# - SWAP F,[GHIJ] -
+#  1. MOVSWAP -> EX
+#  2. LS -mov[BCDE]-> MOVSWAP
+#  3. MOVSWAP -> LS
+#  4. EX -> MOVSWAP
+defmacro swapf prog
+  $pulseamp $prog {p-sub-swapf}
+endmacro
+
+$movswap {p-sub-swapf}
+$dummy-exclude {p-sub-swapf} {p-sub-swapf-2} -a8,{a-movswap}
+
+$sendc-ls {p-sub-swapf-2}
+# trigger p-movswapAX
+$dummy-exclude {p-sub-swapf-2} {p-sub-swapf-3} -a8,{a-movswap}
+
+$recx {p-sub-swapf-3} {a-ls} {t-sub-swapf-3} {i-main}
+
+
+# - MOV A,[GHIJ] -
+# 1-4.  swap F,[GHIJ]
+# 5-7.  mov A,F
+# 8-11. swap F,[GHIJ]
+
+$pulseamp {p-sub-movAG} {p-sub-movAX}
+$pulseamp {p-sub-movAH} {p-sub-movAX}
+$pulseamp {p-sub-movAI} {p-sub-movAX}
+$pulseamp {p-sub-movAJ} {p-sub-movAX}
+$manual-dummy {p-sub-movAX} a8 {t-sub-movAX} 4 {p-sub-movAX-5}
+$manual-dummy {p-sub-movAX-5} a8 {t-sub-movAX-5} 3 {p-sub-movAX-8}
+$dummy-delay-exclude {p-sub-movAG} 1 {p-movswapAB} -a8,{a-movswap}
+$dummy-delay-exclude {p-sub-movAH} 1 {p-movswapAC} -a8,{a-movswap}
+$dummy-delay-exclude {p-sub-movAI} 1 {p-movswapAD} -a8,{a-movswap}
+$dummy-delay-exclude {p-sub-movAJ} 1 {p-movswapAE} -a8,{a-movswap}
+$dummy-delay-exclude {p-sub-movAG} 9 {p-movswapAB} -a8,{a-movswap}
+$dummy-delay-exclude {p-sub-movAH} 9 {p-movswapAC} -a8,{a-movswap}
+$dummy-delay-exclude {p-sub-movAI} 9 {p-movswapAD} -a8,{a-movswap}
+$dummy-delay-exclude {p-sub-movAJ} 9 {p-movswapAE} -a8,{a-movswap}
+
+$swapf {p-sub-movAX}
+$movaf {p-sub-movAX-5}
+$swapf {p-sub-movAX-8}
+
+endif # SUB_MOVAX11
 
 
 if SUB_MOVAX5
@@ -1609,7 +1723,12 @@ $loadex {p-opswapall}
 $dummy {p-opswapall} {p-opswapall-2}
 
 # LS->RF
-$sendc {p-opswapall-2} {a-ls} {t-opswapall-2} A {p-opswapall-3}
+if SUB_MOVAX11
+  $sendc-ls {p-opswapall-2}
+  $dummy {p-opswapall-2} {p-opswapall-3}
+else
+  $sendc {p-opswapall-2} {a-ls} {t-opswapall-2} A {p-opswapall-3}
+endif
 $loadrf {p-opswapall-2}
 
 # EX->LS
@@ -1661,6 +1780,9 @@ p {p-op34} {p-opmovFA}
 # Manually placed so they don't overlap with the multicycle sel dummies.
 $manual-dummy {p-opmovXA} a19 {t-opmovXA} 2 {p-opmovXA-3}
 $manual-dummy {p-opmovXA-3} a19 {t-opmovXA-3} 2 {p-opmovXA-5}
+if SUB_MOVAX11
+$manual-dummy {p-opmovXA-5} a19 {t-opmovXA-5} 2 {p-fetch}
+endif
 # NB only one of these two may be active so fine if same accum
 $manual-dummy {p-opmovRFA} a20 {t-opmovRFA} 3 {p-opmovRFA-4}
 $manual-dummy {p-opmovLSA} a20 {t-opmovLSA} 3 {p-opmovLSA-4}
@@ -1718,6 +1840,9 @@ $pulseamp {p-opswapAE} {p-opswap}
 # Manually placed so they don't overlap with the multicycle sel dummies.
 $manual-dummy {p-opswap} a20 {t-opswap} 1 {p-opswap-2}
 $manual-dummy {p-opswap-2} a20 {t-opswap-2} 1 {p-opswap-3}
+if SUB_MOVAX11
+$manual-dummy {p-opswap-3} a20 {t-opswap-3} 2 {p-fetch}
+endif
 $dummy-exclude {p-opswapAB} {p-movswapAB} -a20,a18,{a-movswap}
 $dummy-exclude {p-opswapAC} {p-movswapAC} -a20,a18,{a-movswap}
 $dummy-exclude {p-opswapAD} {p-movswapAD} -a20,a18,{a-movswap}
