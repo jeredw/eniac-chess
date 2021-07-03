@@ -112,6 +112,21 @@
   print
 
 
+; 9: test add with negative RF
+  inc A
+  swap A,B
+
+  mov 1,A   ; set D=1
+  swap A,D
+  clr A
+  dec A     ; set A=M99
+  ; if RF sign were sent to EX, this would crash!
+  add D,A   ; add P01 to A
+
+  swap A,B
+  print
+
+
 ; -- 10-19 --
 ; Jumps, conditionals, bank switching, subroutines
 ; JMP, JN, JZ, JIL, JMP FAR, JSR, RET
@@ -264,9 +279,19 @@ t16out
 ; RF and memory access, I/O
 ; MOV, LOADACC, STOREACC, READ
 
-; 20: test storeacc/loadacc, swapall
-; TODO this is sort of elaborate and may be better as 2x, x>0
-t20acc .equ 4 ; which accum
+; 20: test swapall when RF has - sign
+  clr A
+  dec A       ; set A to M99
+  ; if RF sign were sent to EX, this would crash
+  swapall     ; swap into LS
+  swapall     ; swap back into RF
+  inc A       ; should increment A from M99 to P00
+  swap A,B
+  mov 20,A
+  print
+
+; 21: test storeacc/loadacc, swapall
+t21acc .equ 4 ; which accum
 
   mov 43,A
   mov A,B     ; B=43
@@ -278,49 +303,49 @@ t20acc .equ 4 ; which accum
   mov A,E     ; E=46
   mov 42,A    ; A=42
   swapall     ; LS <-> RF
-  mov t20acc,A
+  mov t21acc,A
   storeacc A  ; store mem4 [42 43 44 45 46]
-  jsr t20clear
+  jsr t21clear
   swapall     ; clear LS
-  jsr t20clear; clear RF
-  mov t20acc,A
+  jsr t21clear; clear RF
+  mov t21acc,A
   loadacc A   ; load mem4 again
   mov 42,A    ; D=42
   mov A,D
   mov F,A
   ;.dw 93      ; XXX 3-cycle mov has MOV F,A=93
   sub D,A     ; A-=42 (== 0)
-  jz t20aok
-  jmp t20out
-t20aok
+  jz t21aok
+  jmp t21out
+t21aok
   mov 43,A    ; D=43
   mov A,D
   mov G,A
   sub D,A     ; A-=43 (== 0)
-  jz t20bok
-  jmp t20out
-t20bok
+  jz t21bok
+  jmp t21out
+t21bok
   mov 44,A    ; D=44
   mov A,D
   mov H,A
   sub D,A     ; A-=44 (== 0)
-  jz t20cok
-  jmp t20out
-t20cok
+  jz t21cok
+  jmp t21out
+t21cok
   mov 45,A    ; D=45
   mov A,D
   mov I,A
   sub D,A     ; A-=45 (== 0)
-  jz t20dok
-  jmp t20out
-t20dok
+  jz t21dok
+  jmp t21out
+t21dok
   mov 46,A    ; D=46
   mov A,D
   mov J,A
   sub D,A     ; A-=46 (== 0)
-  jmp t20out
+  jmp t21out
 
-t20clear
+t21clear
   clr A       ; clear all regs
   mov A,B
   mov A,C
@@ -328,24 +353,26 @@ t20clear
   mov A,E
   ret
 
-t20out
+t21out
   swap A,B
-  mov 20,A
+  mov 21,A
   print
 
-t21
+
+; 22: test READ
+t22
   read     ; read 01020 into LS (clear other digits)
   swapall  ; A=01, B=02
   dec A    ; A=00
-  jz t21aok
-  jmp t21out
-t21aok
+  jz t22aok
+  jmp t22out
+t22aok
   swap A,B ; A=02
   dec A
   dec A    ; A=00
-t21out
+t22out
   mov A,B
-  mov 21,A
+  mov 22,A
   print
 
 ; -- DONE --

@@ -226,6 +226,8 @@ endmacro
 s {a-ex}.op{r-loadex-clearA} {i-clearA}
 
 # sends EX to main and clears
+# EX.PM must be P here or we will misfire opcode discrimination
+$assert {p-storeex} {a-ex}~Pxxxxxxxxxx
 $sendcx {p-storeex} {a-ex} {t-storeex} A
 defmacro storeex prog
   $pulseamp $prog {p-storeex}
@@ -359,7 +361,10 @@ p {d-ftselacc} {a-memcyc1014}.{i-ftselacc}
 
 
 # - MEM2 -
+# MEM2 is used as a temporary for ops involving RF which can be negative, so it
+# must not have any discrimination programs.
 {a-mem2}=a8
+{a-rftmp}=a8
 $acc-main mem2
 
 
@@ -1723,26 +1728,33 @@ endif # OP_STOREACC
 if OP_SWAPALL
 
 # - SWAPALL -
-# Exchange RF and LS. Nothing fancy here.
+# Exchange RF and LS through RFTMP (RF may be negative).
 p {p-op12} {p-opswapall}
 
-# RF->EX, clear
-$sendc-rf {p-opswapall}
+# RFTMP->EX
+$sendc {p-opswapall} {a-rftmp} {t-sub-rftmp} A {p-opswapall-2}
 $loadex {p-opswapall}
-$dummy {p-opswapall} {p-opswapall-2}
+
+# RF->RFTMP, clear
+$sendc-rf {p-opswapall-2}
+$rec {p-opswapall-2} {a-rftmp} {t-opswapall-2} {i-main} {p-opswapall-3}
 
 # LS->RF
 if SUB_MOVAX11
-  $dummy {p-opswapall} {p-sendc-ls}
-  $dummy {p-opswapall-2} {p-opswapall-3}
+  $dummy {p-opswapall-2} {p-sendc-ls}
+  $dummy {p-opswapall-3} {p-opswapall-4}
 else
-  $sendc {p-opswapall-2} {a-ls} {t-opswapall-2} A {p-opswapall-3}
+  $sendc {p-opswapall-3} {a-ls} {t-opswapall-2} A {p-opswapall-4}
 endif
-$loadrf {p-opswapall-2}
+$loadrf {p-opswapall-3}
 
-# EX->LS
-$storeex {p-opswapall-3}
-$rec {p-opswapall-3} {a-ls} {t-opswapall-3} {i-main} {p-fetch}
+# RFTMP->LS
+$sendc {p-opswapall-4} {a-rftmp} {t-opswapall-4} A {p-opswapall-5}
+$recx {p-opswapall-4} {a-ls} {t-opswapall-4} {i-main}
+
+# EX->RFTMP, goto fetch
+$storeex {p-opswapall-5}
+$rec {p-opswapall-5} {a-rftmp} {t-opswapall-5} {i-main} {p-fetch}
 
 endif # OP_SWAPALL
 
@@ -2022,17 +2034,30 @@ endif # OP_DEC
 if OP_ADD
 
 # - ADD D,A -
+# 1. RFTMP -> EX
+# 2. RF -> RFTMP
+# 3. RFTMP -selDA-> RF
+# 4. EX -> RFTMP
 p {p-op70} {p-opadd}
 
-# RF -> EX
-$send-rf {p-opadd}
+# RFTMP -> EX
+$sendc {p-opadd} {a-rftmp} {t-opadd} A {p-opadd-2}
 $loadex {p-opadd}
-$dummy {p-opadd} {p-opadd-2}
 
-# EX -selDA-> RF
-$storeex {p-opadd-2}
-$pulseamp {p-opadd-2} {p-rf-selDA}
-$dummy {p-opadd-2} {p-fetch}
+# RF -> RFTMP
+$send-rf {p-opadd-2}
+$rec {p-opadd-2} {a-rftmp} {t-opadd-2} {i-main} {p-opadd-3}
+
+# RFTMP -selDA-> RF
+$sendc {p-opadd-3} {a-rftmp} {t-opadd-3} A {p-opadd-4}
+$pulseamp {p-opadd-3} {p-rf-selDA}
+
+# EX -> RFTMP
+$storeex {p-opadd-4}
+$recx {p-opadd-4} {a-rftmp} {r-opadd-4} {i-main}
+# XXX out of dummies!
+#$dummy-exclude {p-opadd-4} {p-fetch} -{a-rftmp}
+$manual-dummy {p-opadd-4} {a-rf} {t-opadd-4} 1 {p-fetch}
 
 endif # OP_ADD
 
@@ -2040,7 +2065,7 @@ endif # OP_ADD
 if OP_SUB
 
 # - SUB D,A -
-# 1. RF.S -> EX
+# 1. RF.S -> EX  # NB does not send sign!
 # 2. EX -> selDA -> RF
 # 3. P01 -> RF
 # 4. M00 -> RF  # ideally we'd send M01, but don't have it

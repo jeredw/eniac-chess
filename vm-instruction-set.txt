@@ -158,6 +158,7 @@ b - ftselacc: read from FT output
 
 A8
 MEM2:
+RFTMP
 A - main
 a = main
 
@@ -685,8 +686,10 @@ DEC A
 
 
 ADD D,A   (A += D)
-1. RF -> EX
-2. EX -selDA-> RF, clear
+1. RFTMP -> EX            # can't use EX directly because RF may be -
+2. RF -> RFTMP
+3. RFTMP -selDA-> RF, clear
+4. EX -> RFTMP
 
 
 SUB D,A   (A -= D, treating D as +)
