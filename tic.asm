@@ -12,8 +12,7 @@
 ; best_score: 49=lose, 50=draw, 51=win
 ;             values 48 and 52 used as min/max inits for minimax
 ; best_move: 0-8=square w best value, 99=none
-; The stack pointer is stored in acc 0, field E. Throughout
-; the search loop, it is often kept around in E.
+; The stack pointer, abbreviated SP, is kept in E.
   .isa v4
   .org 100
 
@@ -54,8 +53,6 @@ game
 
 setup_search
   ; set up the initial search stack frame
-  mov 4,A
-  jsr putsp     ; SP=4 (i.e. one entry, this one)
   mov NO_MOVE,A
   swap A,D      ; DI=best_move=NO_MOVE
   mov 48,A
@@ -66,18 +63,17 @@ setup_search
   swapall       ;
   mov 3,A       ; write to top of stack
   storeacc A    ;
+  inc A         ; SP=4 (i.e. one entry, this one)
 
 search
-  jsr getsp     ; get saved stack ptr
-  dec A
+  dec A         ; compare SP with 3
   dec A
   dec A
   jn bug        ; stack underflow
   jz search_out ; if empty (i.e. 3), done
-  inc A         ; inc stack ptr to to net -1 
+  inc A         ; inc SP to net -1
   inc A
-  mov A,E       ; stash stack ptr in E
-  jsr putsp     ; pop
+  mov A,E       ; E=SP
   ; load search state from stack
   loadacc A     ; F=player, G=last_move, H=best_score, I=best_move
 
@@ -96,7 +92,7 @@ cur_depth
   mov G,A       ; A=last_move index
   jsr move      ; erase last trial move
 
-  mov E,A       ; get saved stack pointer
+  mov E,A       ; A=SP
   loadacc A     ; reload frame
   mov F,A       ; get player (1=X, 2=O)
   dec A
@@ -104,7 +100,7 @@ cur_depth
 cd_o
   mov H,A       ; D=best_score
   swap A,D      ;
-  mov E,A       ; E has saved stack ptr
+  mov E,A       ; A=SP
   inc A
   loadacc A     ; sp+1th stack frame
   mov H,A       ; value = best score from last stack frame
@@ -114,7 +110,7 @@ cd_o
 cd_x
   mov H,A       ; D=best_score
   swap A,D      ;
-  mov E,A       ; E has saved stack ptr
+  mov E,A       ; A=SP
   inc A
   loadacc A     ; sp+1th stack frame
   mov H,A       ; value = best score from last stack frame
@@ -130,7 +126,7 @@ cd_x
 better
   mov H,A       ; new best score
   swap A,C      ; C=value (i.e. better score)
-  mov E,A       ; get saved stack ptr
+  mov E,A       ; A=SP
   loadacc A     ; reload current frame
   mov G,A       ; D=last_move
   swap A,D      ;
@@ -142,7 +138,7 @@ better
   mov I,A       ;
   swap A,D      ;
   swapall
-  mov E,A       ; saved stack ptr
+  mov E,A       ; A=SP
   storeacc A    ; update stack frame
 
 nextmove
@@ -162,7 +158,7 @@ new_depth
   jz initmove
 
 draw
-  swap A,E      ; get stashed sp
+  swap A,E      ; get sp
   loadacc A     ; get cur stack frame
   swapall
   swap A,C      ; put draw score = 50 into best_score
@@ -172,7 +168,7 @@ draw
   storeacc A    ; update stack
   jmp search
 xwin
-  swap A,E      ; get stashed sp
+  swap A,E      ; get sp
   loadacc A     ; get cur stack frame
   swapall
   swap A,C      ; put win score = 51 into best_score
@@ -182,7 +178,7 @@ xwin
   storeacc A    ; update stack
   jmp search
 owin
-  swap A,E      ; get stashed sp
+  swap A,E      ; get sp
   loadacc A     ; get cur stack frame
   swapall
   swap A,C      ; put win score = 49 into best_score
@@ -196,15 +192,18 @@ initmove
   mov 8,A       ; start search from square 8
 
 ; on entry to checkmove, A is the square we want to search
-; E has the stashed stack frame ptr
 checkmove
-  jn search     ; if A<0 no more moves at this depth
+  jn asearch    ; if A<0 no more moves at this depth
   mov A,D       ; stash A since peek destroys it
   jsr peek
   jz domove     ; if square is empty do it
   swap A,D      ; get stashed move #
   dec A         ; try previous square
   jmp checkmove
+asearch
+  clr A         ; otherwise sign messes SP up
+  swap A,E
+  jmp search
 
 ; D has the square to move to
 domove
@@ -216,7 +215,7 @@ domove
   jsr move      ; mark square for player
 
   ; push a new stack entry to remember iteration state
-  mov E,A       ; saved stack ptr
+  mov E,A       ; A=SP
   loadacc A     ; load current stack frame (already has best* updated)
   swapall
   swap A,B
@@ -224,7 +223,7 @@ domove
   swap A,B
   swapall
   storeacc A    ; push new entry
-  inc A         ; increment stack pointer
+  inc A         ; increment SP
   mov A,E       ; save sp+1 in E
 
   mov F,A       ; test player#
@@ -240,11 +239,9 @@ newx
   swap A,B
   mov 1,A       ; player A=1
   swapall       ; 
-  mov J,A       ; get saved stack ptr
+  mov J,A       ; A=SP
   storeacc A
   inc A         ; push
-  jsr putsp
-
   jmp search
 newo
   ; set up new frame for O
@@ -256,11 +253,9 @@ newo
   swap A,B
   mov 2,A       ; player A=2
   swapall       ; 
-  mov J,A       ; get saved stack ptr
+  mov J,A       ; A=SP
   storeacc A
   inc A         ; push
-  jsr putsp
-
   jmp search
 
 search_out
@@ -496,29 +491,6 @@ peek_C
   mov H,A
   ret
 
-; get stack pointer in A; clobbers LS
-getsp
-  clr A           ; acc 0 has SP
-  loadacc A
-  mov J,A         ; get saved SP
-  ret
-
-; save stack pointer
-; A=stack pointer
-; clobbers LS, B
-putsp
-  swap A,B        ; stash stack pointer in B
-  clr A
-  loadacc A       ; loadacc 0
-  swapall
-  swap A,E        ; put G (i.e. B) into E position
-  mov G,A         ;
-  swap A,E        ;
-  swapall
-  storeacc A
-  mov J,A         ; get saved sp back in A
-  ret
-  
   .org 310
 
 ; return A=0 if there are open squares, else nonzero
