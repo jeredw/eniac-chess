@@ -16,7 +16,7 @@ print(line1 + line2 + line3)
 
 while True:
   # waiting for a card now for human move
-  text = input('square 0-8?')
+  text = input('square 1-9?')
   square = int(text)
   with open('/tmp/tic.card', 'w') as f:
     f.write(f'{square:02}000' + ' '*75)

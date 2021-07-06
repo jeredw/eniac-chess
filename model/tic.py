@@ -2,12 +2,12 @@
 # Simple model for eniac-tac-toe program
 
 print('eniac-tac-toe model')
-print('squares are 0-8 from top to bottom, left to right')
+print('squares are 1-9 from top to bottom, left to right')
 
 board = [0 for _ in range(9)]
 stack = [[0, 0, 0, 0, 'unused'] for _ in range(10)]
 
-NO_MOVE = 99
+NO_MOVE = 0
 
 def isdraw(b):
   return all(sq != 0 for sq in b)
@@ -43,8 +43,8 @@ while True:
   # human plays o
   o_move = input('move?')
   o_move_pos = int(o_move)
-  assert board[o_move_pos] == 0
-  board[o_move_pos] = 2
+  assert board[o_move_pos-1] == 0
+  board[o_move_pos-1] = 2
   print_board(board)
   print()
   if iswin(board, player=2):
@@ -57,12 +57,12 @@ while True:
   # eniac to move
   # stack layout
   # 0: 1   # player: 1=X, 2=O
-  # 1: 99  # last_move: 0-8 = last move tried, 99 = none yet
+  # 1: 0   # last_move: 1-9 = last move tried, 0 = none yet
   # 2: 48  # best_score: 49 = lose, 50 = draw, 51 = win
-  # 3: 99  # best_move: 0-8 = square with best value, 99 = none
+  # 3: 0   # best_move: 1-9 = square with best value, 0 = none
   # 4: depth
   # 5: comment
-  stack[0] = [1, 99, 48, 99, 1, 'start']
+  stack[0] = [1, NO_MOVE, 48, NO_MOVE, 1, 'start']
   i = 1
   k = 0
   max_i = i
@@ -81,10 +81,10 @@ while True:
       elif isdraw(board):
         stack[i][2] = 50
         continue
-      last_move = 8
+      last_move = 9
     else:
       # Iterate over moves at current depth
-      board[last_move] = 0
+      board[last_move-1] = 0
       # The "previous" stack frame will have the best recursive move score
       value = stack[i+1][2]
       assert value != 0
@@ -101,14 +101,14 @@ while True:
       stack[i][3] = best_move
       # Now try the next move.
       last_move -= 1
-    while last_move >= 0:
-      if board[last_move] != 0:
+    while last_move > 0:
+      if board[last_move-1] != 0:
         last_move -= 1
       else:
         break
-    if last_move == -1:
+    if last_move == 0:
       continue
-    board[last_move] = player
+    board[last_move-1] = player
     stack[i] = [player, last_move, best_score, best_move, depth,
                 f'iter player={player} move={last_move} best={best_move} ({best_score})']
     i += 1
@@ -118,14 +118,14 @@ while True:
     else:
       other_player = 1
       other_best_score = 48
-    stack[i] = [other_player, 99, other_best_score, 99, depth + 1,
-                f'recurse player={other_player} best=99 ({other_best_score})']
+    stack[i] = [other_player, NO_MOVE, other_best_score, NO_MOVE, depth + 1,
+                f'recurse player={other_player} best=0 ({other_best_score})']
     i += 1
     max_i = max(i, max_i)
 
   # place an X at the final "best_move" position
   print(f'eniac move:{stack[0][3]} ({k} {max_i})')
-  board[stack[0][3]] = 1
+  board[stack[0][3]-1] = 1
   print_board(board)
   if iswin(board, player=1):
     print('eniac wins')

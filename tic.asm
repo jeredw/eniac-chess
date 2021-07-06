@@ -1,39 +1,36 @@
 ; eniac-tac-toe: tic tac toe search program for ENIAC chess vm
 ; The board is stored in A,B,C in accs 0,1,2, indexed as
-;  012
-;  345
-;  678
+;  123
+;  456
+;  789
 ; where each position contains 0=open, 1=X, or 2=O
 ; Remaining accumulators (3+) are used to keep a software
 ; stack for minimax search. Each entry has format
 ;  F=player G=last_move H=best_score I=best_move
 ; player: 1=X, 2=O
-; last_move: 0-8=last move tried, 99=none
+; last_move: 1-9=last move tried, 0=none
 ; best_score: 49=lose, 50=draw, 51=win
 ;             values 48 and 52 used as min/max inits for minimax
-; best_move: 0-8=square w best value, 99=none
+; best_move: 1-9=square w best value, 0=none
 ; The stack pointer, abbreviated SP, is kept in E.
   .isa v4
   .org 100
 
-; this value means no move has been tried yet
-NO_MOVE .equ 99
-
   ; Slightly faster initial game state for testing...
-  ;mov 2,A
-  ;swap A,B ; B=play O
-  ;mov 1,A  ; A=1
-  ;jsr move
-  ;mov 1,A
-  ;swap A,B ; B=play X
-  ;mov 8,A  ; A=1
-  ;jsr move
+  mov 2,A
+  swap A,B ; B=play O
+  mov 2,A  ; A=top middle
+  jsr move
+  mov 1,A
+  swap A,B ; B=play X
+  mov 9,A  ; A=bottom right
+  jsr move
 
   ; eniac goes first and always plays X in the center
   ; (avoiding a really long search of the entire game)
   mov 1,A
   swap A,B  ; B=play X
-  mov 4,A   ; A=center square
+  mov 5,A   ; A=center square
   jsr move
   jsr printb
 
@@ -53,12 +50,12 @@ game
 
 setup_search
   ; set up the initial search stack frame
-  mov NO_MOVE,A
-  swap A,D      ; DI=best_move=NO_MOVE
+  clr A
+  swap A,D      ; DI=best_move=none
   mov 48,A
   swap A,C      ; CH=best_score=48
-  mov NO_MOVE,A
-  swap A,B      ; BG=last_move=NO_MOVE
+  clr A
+  swap A,B      ; BG=last_move=none
   mov 1,A       ; AF=player=X
   swapall       ;
   mov 3,A       ; write to top of stack
@@ -77,13 +74,10 @@ search
   ; load search state from stack
   loadacc A     ; F=player, G=last_move, H=best_score, I=best_move
 
-  ; check if last_move is NO_MOVE
+  ; check if last_move is none (i.e. 0)
   ; this signals the start of a search at new depth
-  mov NO_MOVE,A ; D=99
-  swap A,D      ;
   mov G,A       ; A=last_move
-  sub D,A       ;
-  jz new_depth  ; if last_move==99, new recursive search
+  jz new_depth  ; if last_move is 0, new recursive search
 cur_depth
   ; iterating over possible moves at current depth
   ; clear out the square for last trial move
@@ -189,11 +183,11 @@ owin
   jmp search
 
 initmove
-  mov 8,A       ; start search from square 8
+  mov 9,A       ; start search from square 9
 
 ; on entry to checkmove, A is the square we want to search
 checkmove
-  jn asearch    ; if A<0 no more moves at this depth
+  jz asearch    ; if A is 0 no more moves at this depth
   mov A,D       ; stash A since peek destroys it
   jsr peek
   jz domove     ; if square is empty do it
@@ -201,7 +195,6 @@ checkmove
   dec A         ; try previous square
   jmp checkmove
 asearch
-  clr A         ; otherwise sign messes SP up
   swap A,E
   jmp search
 
@@ -231,11 +224,11 @@ domove
   jz newo       ; if player is X, create new O frame
 newx
   ; set up new frame for X
-  mov NO_MOVE,A ; best_move D=NO_MOVE
+  clr A         ; best_move D=none
   swap A,D
   mov 48,A      ; best_score C=48
   swap A,C
-  mov NO_MOVE,A ; last_move B=NO_MOVE
+  clr A         ; last_move B=none
   swap A,B
   mov 1,A       ; player A=1
   swapall       ; 
@@ -245,11 +238,11 @@ newx
   jmp search
 newo
   ; set up new frame for O
-  mov NO_MOVE,A ; best_move D=NO_MOVE
+  clr A         ; best_move D=none
   swap A,D
   mov 52,A      ; best_score C=52
   swap A,C
-  mov NO_MOVE,A ; last_move B=NO_MOVE
+  clr A         ; last_move B=none
   swap A,B
   mov 2,A       ; player A=2
   swapall       ; 
@@ -351,9 +344,10 @@ printb_out
   .org 200
 
 ; put a word in the board array
-; A: board location (0-8)
+; A: board location (1-9)
 ; B: what to put there
 move
+  dec A
   jz move_0A
   dec A
   jz move_0B
@@ -428,9 +422,10 @@ move_C
   ret
 
 ; peek in board array
-; A=index
+; A=board location (1-9)
 ; return board data in A
 peek
+  dec A
   jz peek_0A
   dec A
   jz peek_0B
