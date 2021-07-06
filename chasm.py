@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass
 
 def usage():
-  print("chasm.py infiles...")
+  print("chasm.py in.asm out.e")
 
 # These REs are all we need for the grammar of the assembly language.
 COMMENT = re.compile(r";.*")
@@ -139,7 +139,7 @@ class Output(object):
                                  what)
     self.errors.append(message)
     if self.print_errors:  # Disabled for unit tests to avoid spam
-      print(message)
+      print(message, file=sys.stderr)
 
   def org(self, output_row):
     """Change output location."""
@@ -586,8 +586,8 @@ class V4(PrimitiveParsing):
     return f"{op} {arg}"
 
 
-def print_easm(out):
-  print(f"# isa={out.context.isa_version}")
+def print_easm(out, f):
+  print(f"# isa={out.context.isa_version}", file=f)
   for ft in range(1, 3+1):
     for row in range(100):
       # omit rows which are all zero
@@ -595,7 +595,7 @@ def print_easm(out):
         continue
       logical_address = 100 * ft + row
       pc = 100 * out.context.isa.encode_ft_number(ft) + row
-      print(f"# address={logical_address}  PC={pc:04}")
+      print(f"# address={logical_address}  PC={pc:04}", file=f)
       for word_index in range(6):
         value = out.get(ft, row, word_index)
         bank = "A" if word_index < 3 else "B"
@@ -606,21 +606,24 @@ def print_easm(out):
           word *= 10
           if digit == 0 and value.comment:
             s += f"  # {value.comment}"
-          print(s)
-      print()
+          print(s, file=f)
+      print(file=f)
 
 
 def main():
-  if len(sys.argv) == 1:
+  if len(sys.argv) != 3:
     usage()
     sys.exit(1)
+  infile = sys.argv[1]
+  outfile = sys.argv[2]
   asm = Assembler()
-  for filename in sys.argv[1:]:
-    with open(filename) as f:
-      text = f.read()
-    out = asm.assemble(filename, text)
-  if not out.errors:
-    print_easm(out)
+  with open(infile) as f:
+    text = f.read()
+    out = asm.assemble(infile, text)
+  if out.errors:
+    sys.exit(2)
+  with open(outfile, 'w') as f:
+    print_easm(out, f)
 
 if __name__ == "__main__":
   main()

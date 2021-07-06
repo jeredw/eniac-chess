@@ -2361,5 +2361,8 @@ include vmtest.e
 # ibm cards (one card per line, 80 cols)
 f r vmtest.deck
 
+# To run tic tac toe, comment out vmtest, uncomment this, and use runtic.py
+#include tic.e
+
 # Start the machine
 b i
