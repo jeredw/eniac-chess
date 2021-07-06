@@ -331,7 +331,7 @@ printb_loop
   swapall
   inc A
   dec A       ; -2 to test for A=2
-  dec A       ; XXX sub D,A/add D,A hits an assert!
+  dec A       ;
   dec A
   jz printb_out
   inc A
@@ -501,7 +501,7 @@ isfull_loop
   jz isfull_no    ; if C==0 return 0
   swapall
   dec A
-  jn isfull_yes   ; if all squares occupied return P02
+  jn isfull_yes   ; if all squares occupied return P01
   jmp isfull_loop
 isfull_no
   swapall
@@ -596,7 +596,7 @@ colbxxx_out
   clr A
   loadacc A       ; load row 0
   swapall
-  swap A,B
+  swap A,C
   dec A           ; if A=='X' goto _1
   jz colcxxx_1    ;
   jmp colcxxx_out ; return nonzero
@@ -779,7 +779,7 @@ colbooo_out
   clr A
   loadacc A       ; load row 0
   swapall
-  swap A,B
+  swap A,C
   dec A           ; if A=='O' goto _1
   dec A           ;
   jz colcooo_1    ;
