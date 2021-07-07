@@ -25,10 +25,10 @@ endif
 # - base (11 pas, 19 ts)
 enable RESET_SEQUENCE #  2 pas,  2 ts
 enable CONTROL_CYCLE  #  9 pas, 17 ts
-# - memory (13 pas, 56 ts)
+# - memory (13 pas, 54 ts)
 enable OP_LOADACC     #  1 pas,  1 ts
 enable OP_STOREACC    #  1 pas,  5 ts
-enable SUB_MEMCYC     #  7 pas, 44 ts (OP_LOADACC, OP_STOREACC)
+enable SUB_MEMCYC     #  7 pas, 42 ts (OP_LOADACC, OP_STOREACC)
 enable OP_SWAPALL     #  4 pas,  6 ts
 # - word access (14 pas, 28 ts)
 enable WORD_ACCESS
@@ -63,7 +63,7 @@ enable OP_DEC         #  1 pas,  0 ts
 enable OP_ADD         #  4 pas,  4 ts
 enable OP_SUB         #  6 pas,  3 ts
 enable OP_CLRA        #  1 pas,  1 ts
-# - control flow (19 pas, 27 ts)
+# - control flow (19 pas, 30 ts)
 enable OP_JMPFAR      #  1 pas,  2 ts
 enable OP_JSR         #  1 pas,  2 ts
 enable OP_RET         #  1 pas,  2 ts
@@ -75,17 +75,25 @@ enable SUB_DISCJX     #  2 pas,  2 ts (OP_JZ, OP_JIL)
 enable SUB_JX         #  3 pas,  6 ts (OP_JN, OP_JZ, OP_JIL)
 enable SUB_JMP        #  1 pas,  4 ts (OP_JMP, SUB_JX)
 enable SUB_FARGO      #  6 pas,  4 ts (OP_JMPFAR, OP_JSR, OP_RET)
-enable SUB_DISCFT     #  0 pas,  1 ts (SUB_FARGO)
-# - misc (8 pas, 14 ts)
+enable SUB_DISCFT     #  0 pas,  4 ts (SUB_FARGO)
+# - misc (8 pas, 12 ts)
 enable OP_PRINT       #  3 pas,  4 ts
 enable OP_READ        #  0 pas,  2 ts
 enable SUB_CONSUME_OP #  2 pas,  2 ts (OP_MOVIMMA, SUB_JX)
 enable SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA6, OP_CLRA, OP_MOVIMMA)
-# storeex             #  0 pas,  1 ts (*)
-# loadrf              #  0 pas,  1 ts (*)
-# send-rf             #  0 pas,  1 ts (*)
-# sendc-rf            #  0 pas,  1 ts (*)
-# sendc-ls            #  0 pas,  1 ts (*)
+# loadpc              #  0 pas,  0 ts
+# loadex              #  0 pas,  0 ts
+# loadex-clearA       #  0 pas,  0 ts
+# storeex             #  0 pas,  1 ts
+# rf-selBA*           #  0 pas,  0 ts (* if OP_MOVXA3)
+# rf-selCA*           #  0 pas,  0 ts (* if OP_MOVXA3)
+# rf-selDA            #  0 pas,  0 ts
+# rf-selEA            #  0 pas,  0 ts
+# send-rf             #  0 pas,  1 ts
+# sendc-rf            #  0 pas,  1 ts
+# loadrf*             #  0 pas,  0 ts (1 if OP_MOVXA3)
+# clearls*            #  0 pas,  0 ts (1 if SUB_MOVAX5)
+# sendc-ls*           #  0 pas,  0 ts (1 if SUB_MOVAX11)
 
 
 # ENIAC-VM for playing chess
@@ -163,12 +171,13 @@ p ad.d.{ad-pc-loadPC2}.-8 {a-pc}.{i-loadPC2}
 # fetch input: from d-fetch-i1, used for loading I1 into SS field
 p {d-fetch-i1} {a-pc}.{i-fetch-i1}
 
-# Several sequences will want to load pc from the main bus so share that
-# program via pulse amp
+# shared programs
+$recx {p-loadpc} {a-pc} {r-loadpc} {i-main}
+
+# helper macros
 defmacro loadpc prog
-  $pulseamp $prog {a-pc}.{r-loadpc}i
+  $pulseamp $prog {p-loadpc}
 endmacro
-s {a-pc}.op{r-loadpc} {i-main}
 
 
 # - Instruction Register -
@@ -219,24 +228,24 @@ p ad.permute.{ad-clearPC2} {a-ex}.{i-clearPC2}
 # fetch input: from d-fetch-i1, used for loading I1 into left two digits
 p {d-fetch-i1} {a-ex}.{i-fetch-i1}
 
+# shared programs
+$recx {p-loadex} {a-ex} {r-loadex} {i-main}
+$recx {p-loadex-clearA} {a-ex} {r-loadex-clearA} {i-clearA}
+# EX.PM must be P for storeex or we will misfire opcode discrimination
+$assert {p-storeex} {a-ex}~Pxxxxxxxxxx
+$sendcx {p-storeex} {a-ex} {t-storeex} A
 
-# predefine programs that load ex from and store ex to main -- we use these everywhere
-# go through pulseamps so other uses don't flow backwards
+# load EX from main
 defmacro loadex prog
-  $pulseamp $prog {a-ex}.{r-loadex}i
+  $pulseamp $prog {p-loadex}
 endmacro
-s {a-ex}.op{r-loadex} {i-main}
 
 # loads EX with A field (sign=P, digits 10 and 9) clear
 defmacro loadex-clearA prog
-  $pulseamp $prog {a-ex}.{r-loadex-clearA}i
+  $pulseamp $prog {p-loadex-clearA}
 endmacro
-s {a-ex}.op{r-loadex-clearA} {i-clearA}
 
 # sends EX to main and clears
-# EX.PM must be P here or we will misfire opcode discrimination
-$assert {p-storeex} {a-ex}~Pxxxxxxxxxx
-$sendcx {p-storeex} {a-ex} {t-storeex} A
 defmacro storeex prog
   $pulseamp $prog {p-storeex}
 endmacro
@@ -267,43 +276,55 @@ if OP_MOVXA3
 p {d-main} ad.permute.{ad-rf-selBA}
 s ad.permute.{ad-rf-selBA} 0,8,7,0,0,0,0,0,0,0,0
 p ad.permute.{ad-rf-selBA} {a-rf}.{i-selBA}
-$recx {p-rf-selBA} {a-rf} {r-rf-selBA} {i-selBA}
 
 # i-selCA input: XX XX aa XX XX -> aa 00 00 00 00, used for MOV CH,A
 p {d-main} ad.permute.{ad-rf-selCA}
 s ad.permute.{ad-rf-selCA} 0,6,5,0,0,0,0,0,0,0,0
 p ad.permute.{ad-rf-selCA} {a-rf}.{i-selCA}
-$recx {p-rf-selCA} {a-rf} {r-rf-selCA} {i-selCA}
 endif
 
 # i-selDA input: XX XX XX aa XX -> aa 00 00 00 00, used for MOV DI,A
 p {d-main} ad.permute.{ad-rf-selDA}
 s ad.permute.{ad-rf-selDA} 0,4,3,0,0,0,0,0,0,0,0
 p ad.permute.{ad-rf-selDA} {a-rf}.{i-selDA}
-$recx {p-rf-selDA} {a-rf} {r-rf-selDA} {i-selDA}
 
 # i-selEA input: XX XX XX XX aa -> aa 00 00 00 00, used for MOV EJ,A/MOV #X,A
 p {d-main} ad.permute.{ad-rf-selEA}
 s ad.permute.{ad-rf-selEA} 0,2,1,0,0,0,0,0,0,0,0
 p ad.permute.{ad-rf-selEA} {a-rf}.{i-selEA}
+
+# shared programs
+if OP_MOVXA3
+$recx {p-rf-selBA} {a-rf} {r-rf-selBA} {i-selBA}
+$recx {p-rf-selCA} {a-rf} {r-rf-selCA} {i-selCA}
+endif
+$recx {p-rf-selDA} {a-rf} {r-rf-selDA} {i-selDA}
 $recx {p-rf-selEA} {a-rf} {r-rf-selEA} {i-selEA}
 
-# load/store macros
+$sendx {p-send-rf} {a-rf} {t-send-rf} A
+$sendcx {p-sendc-rf} {a-rf} {t-sendc-rf} A
+
+if OP_MOVXA3
 $recx {p-loadrf} {a-rf} {t-loadrf} {i-main}
+else
+$recx {p-loadrf} {a-rf} {r-loadrf} {i-main}
+endif
+
+# helper macros
+# receive rf from main
 defmacro loadrf prog
   $pulseamp $prog {p-loadrf}
 endmacro
 
-$sendx {p-send-rf} {a-rf} {t-send-rf} A
+# send rf on main
 defmacro send-rf prog
   $pulseamp $prog {p-send-rf}
 endmacro
 
+# send rf on main and clear
 defmacro sendc-rf prog
-  $pulseamp $prog {a-rf}.{t-sendc-rf}i
+  $pulseamp $prog {p-sendc-rf}
 endmacro
-s {a-rf}.op{t-sendc-rf} A
-s {a-rf}.cc{t-sendc-rf} C
 
 
 # - Load/Store -
@@ -321,21 +342,29 @@ if SUB_MOVAX11
 p {d-main} ad.permute.{ad-movaf-selectA}
 s ad.permute.{ad-movaf-selectA} 0,10,9,0,0,0,0,0,0,0,0
 p ad.permute.{ad-movaf-selectA} {a-ls}.{i-selectA}
+endif
 
-# sends LS
+# shared programs
+if SUB_MOVAX5
+$clearx {p-clearls} {a-ls} {r-clear}
+endif
+if SUB_MOVAX11
 $sendcx {p-sendc-ls} {a-ls} {t-sendc-ls} A
-defmacro sendc-ls prog
-  $pulseamp $prog {p-sendc-ls}
+endif
+
+# helper macros
+if SUB_MOVAX5
+# clear ls
+defmacro clearls prog
+  $pulseamp $prog {p-clearls}
 endmacro
 endif
 
-if SUB_MOVAX5
-# clears LS
-defmacro clearls prog
-  $pulseamp $prog {a-ls}.{r-clear}i
+if SUB_MOVAX11
+# send on main and clear
+defmacro sendc-ls prog
+  $pulseamp $prog {p-sendc-ls}
 endmacro
-s {a-ls}.op{r-clear} 0
-s {a-ls}.cc{r-clear} C
 endif
 
 
@@ -527,8 +556,10 @@ p ad.permute.{ad-movAD} {a-movswap}.{i-movAD}
 p {d-main} ad.permute.{ad-movAE}
 s ad.permute.{ad-movAE} 11,2,1,8,7,6,5,4,3,10,9
 p ad.permute.{ad-movAE} {a-movswap}.{i-movAE}
+endif
 
-# shared swap programs
+# shared programs
+if SUB_MOVSWAP
 $recx {p-movswapAA} {a-movswap} {t-movswapAA} {i-main}
 $recx {p-movswapAB} {a-movswap} {r-movswapAB} {i-movAB}
 $recx {p-movswapAC} {a-movswap} {r-movswapAC} {i-movAC}
@@ -583,9 +614,11 @@ endmacro
 
 # Strictly speaking only discft3 needs both i-ftsg1 and i-ftsg2 inputs but we
 # are not constrained on inputs for these accumulators.
+if SUB_DISCFT
 $discftaccum discft1 1
 $discftaccum discft2 2
 $discftaccum discft3 3
+endif
 
 # discft1 is also used to form intitial PC address on reset
 # resetPC input: takes M0 from bus, sets initial PC to 0900
