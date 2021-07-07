@@ -22,22 +22,25 @@ set a20 2020202020
 endif
 
 # use 'enable' or 'disable' to condition assembly of the corresponding sequence
+# - base (11 pas, 19 ts)
 enable RESET_SEQUENCE #  2 pas,  2 ts
 enable CONTROL_CYCLE  #  9 pas, 17 ts
-# - memory (13 pas, 53 ts)
+# - memory (13 pas, 56 ts)
 enable OP_LOADACC     #  1 pas,  1 ts
 enable OP_STOREACC    #  1 pas,  5 ts
 enable SUB_MEMCYC     #  7 pas, 44 ts (OP_LOADACC, OP_STOREACC)
-enable OP_SWAPALL     #  4 pas,  3 ts
+enable OP_SWAPALL     #  4 pas,  6 ts
 # - word access (14 pas, 28 ts)
+enable WORD_ACCESS
+disable FAST_MOV      #  0 pas,  1 ts (to fit)
 disable OP_MOVXA6
 disable OP_SWAP6
 disable SUB_MOVSWAP
 disable OP_MOVXA3
 disable OP_MOVFA3
 disable OP_SWAP
-enable WORD_ACCESS
-disable FAST_MOV      #  0 pas,  1 ts (to fit)
+disable SUB_MOVAX5
+disable SUB_MOVAX11
 if WORD_ACCESS
 if FAST_MOV
   # 3-cycle mov datapath
@@ -50,22 +53,22 @@ else
   enable OP_SWAP6     #  7 pas,  8 ts
   enable SUB_MOVSWAP  #  2 pas,  6 ts (OP_SWAP6, OP_MOVXA6)
 endif
-endif
 disable SUB_MOVAX5    #  7 pas, 17 ts
 disable SUB_MOVAX11   # 11 pas, 11 ts
+endif
 # - arithmetic (15 pas, 10 ts)
 enable OP_MOVIMMA     #  3 pas,  2 ts
-enable OP_INC         #  0 pas,  1 ts
-enable OP_DEC         #  1 pas,  1 ts
-enable OP_ADD         #  4 pas,  2 ts
+enable OP_INC         #  0 pas,  0 ts
+enable OP_DEC         #  1 pas,  0 ts
+enable OP_ADD         #  4 pas,  4 ts
 enable OP_SUB         #  6 pas,  3 ts
 enable OP_CLRA        #  1 pas,  1 ts
-# - control flow (18 pas, 28 ts)
+# - control flow (19 pas, 27 ts)
 enable OP_JMPFAR      #  1 pas,  2 ts
 enable OP_JSR         #  1 pas,  2 ts
 enable OP_RET         #  1 pas,  2 ts
 enable OP_JMP         #  0 pas,  0 ts
-enable OP_JN          #  1 pas,  3 ts
+enable OP_JN          #  2 pas,  2 ts
 enable OP_JZ          #  1 pas,  1 ts
 enable OP_JIL         #  1 pas,  1 ts
 enable SUB_DISCJX     #  2 pas,  2 ts (OP_JZ, OP_JIL)
@@ -73,11 +76,16 @@ enable SUB_JX         #  3 pas,  6 ts (OP_JN, OP_JZ, OP_JIL)
 enable SUB_JMP        #  1 pas,  4 ts (OP_JMP, SUB_JX)
 enable SUB_FARGO      #  6 pas,  4 ts (OP_JMPFAR, OP_JSR, OP_RET)
 enable SUB_DISCFT     #  0 pas,  1 ts (SUB_FARGO)
-# - misc (8 pas, 9 ts)
+# - misc (8 pas, 14 ts)
 enable OP_PRINT       #  3 pas,  4 ts
 enable OP_READ        #  0 pas,  2 ts
-enable SUB_CONSUME_OP #  2 pas,  2 ts (OP_JN, OP_MOVIMMA)
+enable SUB_CONSUME_OP #  2 pas,  2 ts (OP_MOVIMMA, SUB_JX)
 enable SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA6, OP_CLRA, OP_MOVIMMA)
+# storeex             #  0 pas,  1 ts (*)
+# loadrf              #  0 pas,  1 ts (*)
+# send-rf             #  0 pas,  1 ts (*)
+# sendc-rf            #  0 pas,  1 ts (*)
+# sendc-ls            #  0 pas,  1 ts (*)
 
 
 # ENIAC-VM for playing chess
