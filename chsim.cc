@@ -1,17 +1,22 @@
 #include <assert.h>
-#include <stdint.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <utility>
 #include <algorithm>
+#include <readline/readline.h>
+#include <readline/history.h>
+#include <signal.h>
 
-typedef uint64_t u64;
-
-struct State {
+struct VM {
   int isa_version = 0;
-  int load_pc = 390;
-  int store_pc = 392;
+  bool halted = false;
 
+  // Fetch state
+  int pc = 100;
+  int old_pc = 0;
+  int ir[6]{};
+  int ir_index = 6;
   // Register file
   int rf[5]{};
   int &a = rf[0];
@@ -19,12 +24,6 @@ struct State {
   int &c = rf[2];
   int &d = rf[3];
   int &e = rf[4];
-  // PC and stack
-  int pc = 100;
-  int stack[2]{};
-  int sp = 0;
-  // Current row of instructions
-  u64 ir = 0;
   // Load store scratch
   int ls[5]{};
   int &f = ls[0];
@@ -33,257 +32,372 @@ struct State {
   int &i = ls[3];
   int &j = ls[4];
   // Memory
-  int m[15][5]{};
+  int mem[15][5]{};
 
   // ROM, essentially
-  u64 function_table[400]{};
+  int function_table[400][6]{};
 };
 
 static void usage() {
-  fprintf(stderr, "Usage: chsim program.lst\n");
+  fprintf(stderr, "Usage: chsim program.e\n");
 }
 
-static inline u64 pack(u64 a, u64 b, u64 c, u64 d, u64 e, u64 f) {
-  return a | (b << 8) | (c << 16) | (d << 24) | (e << 32) | (f << 40);
-}
-
-static bool read_state_from_file(const char* filename, State* state) {
+static bool read_program(const char* filename, VM* vm) {
   FILE* fp = fopen(filename, "r");
   if (!fp) {
+    fprintf(stderr, "could not open %s\n", filename);
     return false;
   }
   char line[128];
-  if (!fgets(line, 128, fp) || strcmp(line, "; isa=v4") != 0) {
-    fprintf(stderr, "unrecognized input format\n");
-    fclose(fp);
-    return false;
-  }
-  state->isa_version = 4;
   int line_number = 2;
+  if (!fgets(line, 128, fp) || strcmp(line, "# isa=v4\n") != 0) {
+    fprintf(stderr, "expecting # isa=v4\n");
+    goto error;
+  }
+  vm->isa_version = 4;
   while (fgets(line, 128, fp)) {
-    int index;
-    int a, b, c, d, e, f;
-    if (sscanf(line, "%d: %02d%02d%02d%02d%02d%02d",
-               &index, &f, &e, &d, &c, &b, &a) != 2) {
-      fprintf(stderr, "%s:%d: expecting addr:value\n",
-              filename, line_number);
-      fclose(fp);
-      return false;
+    if (line[0] == '#' || line[0] == '\n') {
+      continue;
     }
-    if (index < 100 || index > 399) {
-      fprintf(stderr, "%s:%d: invalid function table index: '%d'\n",
-              filename, line_number, index);
-      fclose(fp);
-      return false;
+    int ft, row, index, digit;
+    char bank;
+    if (sscanf(line, "s f%d.R%c%dL%d %d", &ft, &bank, &row, &index, &digit) != 5) {
+      fprintf(stderr, "%s:%d: unrecognized directive\n", filename, line_number);
+      goto error;
     }
-    state->function_table[index] = pack(a, b, c, d, e, f);
+    if (ft < 1 || ft > 3) {
+      fprintf(stderr, "%s:%d: expecting ft 1-3 %d\n", filename, line_number, ft);
+      goto error;
+    }
+    if (bank != 'A' && bank != 'B') {
+      fprintf(stderr, "%s:%d: expecting ft bank A or B %c\n", filename, line_number, bank);
+      goto error;
+    }
+    if (row < 0 || row >= 100) {
+      fprintf(stderr, "%s:%d: expecting ft row 0-99 %d\n", filename, line_number, row);
+      goto error;
+    }
+    if (index < 1 || index > 6) {
+      fprintf(stderr, "%s:%d: expecting ft row index 1-6 %d\n", filename, line_number, index);
+      goto error;
+    }
+    if (digit < 0 || digit > 9) {
+      fprintf(stderr, "%s:%d: expecting ft digit %d\n", filename, line_number, digit);
+      goto error;
+    }
+    int row_index = ft * 100 + row;
+    int word_index = (bank == 'A' ? 0 : 3) + (6 - index) / 2;
+    int shifted_digit = index % 2 == 0 ? 10 * digit : digit;
+    vm->function_table[row_index][word_index] += shifted_digit;
+    assert(0 <= vm->function_table[row_index][word_index]);
+    assert(vm->function_table[row_index][word_index] <= 99);
     line_number++;
   }
   fclose(fp);
   return true;
+
+error:
+  fclose(fp);
+  return false;
 }
 
-static inline void jsr(State* state, int addr) {
-  state->stack[state->sp] = state->pc;
-  state->sp ^= 1;
-  state->pc = addr;
-  state->ir = 0;
+static inline int near_address(int pc, int target) {
+  return 100 * (pc / 100) + target;
 }
 
-static inline int near_address(State* state) {
-  return 100 * (state->pc / 100) + (state->ir & 0xff);
+static inline int far_address(int bank, int target) {
+  assert(bank == 9 || bank == 90 || bank == 99);
+  if (bank == 9)
+    return 100 + target;
+  else if (bank == 90)
+    return 200 + target;
+  else
+    return 300 + target;
 }
 
-static inline int far_address(State* state) {
-  return 100 * ((state->ir >> 8) % 10) + (state->ir & 0xff);
-}
-
-static void assert_sanity(State* state) {
-  assert(state->a >= 0 && state->a < 100);
-  assert(state->b >= 0 && state->b < 100);
-  assert(state->c >= 0 && state->c < 100);
-  assert(state->d >= 0 && state->d < 100);
-  assert(state->e >= 0 && state->e < 100);
-  assert(state->f >= 0 && state->f < 100);
-  assert(state->g >= 0 && state->g < 100);
-  assert(state->h >= 0 && state->h < 100);
-  assert(state->i >= 0 && state->i < 100);
-  assert(state->j >= 0 && state->j < 100);
-  assert(state->pc >= 100 && state->pc < 400);
-  assert(state->stack[0] >= 0 && state->stack[0] < 400);
-  assert(state->stack[1] >= 0 && state->stack[1] < 400);
-  assert(state->sp == 0 || state->sp == 1);
-  assert(state->ir <= 0xff'ff'ff'ff'ffull);
+static void assert_sanity(VM* vm) {
+  assert(vm->a >= -100 && vm->a < 100);
+  assert(vm->b >= 0 && vm->b < 100);
+  assert(vm->c >= 0 && vm->c < 100);
+  assert(vm->d >= 0 && vm->d < 100);
+  assert(vm->e >= 0 && vm->e < 100);
+  assert(vm->f >= -100 && vm->f < 100);
+  assert(vm->g >= 0 && vm->g < 100);
+  assert(vm->h >= 0 && vm->h < 100);
+  assert(vm->i >= 0 && vm->i < 100);
+  assert(vm->j >= 0 && vm->j < 100);
+  assert(vm->pc >= 100 && vm->pc < 400);
+  assert(vm->old_pc == 0 || (vm->old_pc >= 100 && vm->old_pc < 400));
+  assert(vm->ir_index >= 0 && vm->ir_index <= 6);
   for (int i = 0; i < 15; i++) {
     for (int j = 0; j < 5; j++) {
-      assert(state->m[i][j] >= 0 && state->m[i][j] < 100);
+      assert(vm->mem[i][j] >= 0 && vm->mem[i][j] < 100);
     }
   }
 }
 
-static void step(State* state) {
-  // If IR is empty, fetch the next ft row and inc PC.
-  // Note this copies 6 words, but the shift below fixes that.
-  if (state->ir == 0) {
-    state->ir = state->function_table[state->pc];
-    state->pc++;
+static void swap_with_a_sign(int& a, int& x) {
+  int tmp = a;
+  assert(x >= 0);
+  a = a < 0 ? -x : x;
+  x = abs(tmp);
+}
+
+static int consume_op(VM* vm) {
+  if (vm->ir_index == 6) {
+    vm->ir_index = 0;
+    std::copy(vm->function_table[vm->pc], vm->function_table[vm->pc] + 6, vm->ir);
+    vm->pc++;
+    if (vm->pc == 200 || vm->pc == 300) {
+      fprintf(stderr, "function table wrapping unsupported\n");
+      return 95; // halt
+    }
   }
-  int opcode = state->ir & 0xff;
-  state->ir >>= 8;
+  vm->ir[vm->ir_index]++;
+  for (int i = vm->ir_index; i < 6; i++) {
+    if (vm->ir[i] == 100) {
+      vm->ir[i] = 0;
+      if (i < 5)
+        ++vm->ir[i + 1];
+    }
+  }
+  int op = vm->ir[vm->ir_index];
+  vm->ir_index++;
+  return op;
+}
+
+static void step(VM* vm) {
+  if (vm->halted) return;
+  int opcode = consume_op(vm) - 1;
   switch (opcode) {
     case 0: break; // nop
-    case 1: std::swap(state->a, state->b); break; // swap A, B
-    case 2: std::swap(state->a, state->c); break; // swap A, C
-    case 3: std::swap(state->a, state->d); break; // swap A, D
-    case 4: std::swap(state->a, state->e); break; // swap A, E
-    case 5: std::swap(state->a, state->f); break; // swap A, F
+    case 1: swap_with_a_sign(vm->a, vm->b); break; // swap A, B
+    case 2: swap_with_a_sign(vm->a, vm->c); break; // swap A, C
+    case 3: swap_with_a_sign(vm->a, vm->d); break; // swap A, D
+    case 4: swap_with_a_sign(vm->a, vm->e); break; // swap A, E
     case 10: // loadacc A
-      assert(0 <= state->a && state->a < 15);
-      std::copy(state->m[state->a], state->m[state->a] + 5, state->ls);
+      assert(0 <= vm->a && vm->a < 15);
+      std::copy(vm->mem[vm->a], vm->mem[vm->a] + 5, vm->ls);
       break;
     case 11: // storeacc A
-      assert(0 <= state->a && state->a < 15);
-      std::copy(state->ls, state->ls + 5, state->m[state->a]);
+      assert(0 <= vm->a && vm->a < 15);
+      vm->f = abs(vm->f);
+      std::copy(vm->ls, vm->ls + 5, vm->mem[vm->a]);
       break;
-    case 12: std::swap(state->rf, state->ls); break; // swapall
-    case 13: { // scanall
-      int value_to_find = state->a;
-      state->a = 99;
-      for (int i = 0; i < 5; i++) {
-        if (state->ls[i] == value_to_find) {
-          state->a = i;
-          break;
-        }
-        state->ls[i] = 0;
+    case 12: std::swap(vm->rf, vm->ls); break; // swapall
+    case 20: vm->a = vm->b; break; // mov B, A
+    case 21: vm->a = vm->c; break; // mov C, A
+    case 22: vm->a = vm->d; break; // mov D, A
+    case 23: vm->a = vm->e; break; // mov E, A
+    case 34: vm->a = abs(vm->f); break; // mov F, A
+    case 30: vm->a = vm->g; break; // mov G, A
+    case 31: vm->a = vm->h; break; // mov H, A
+    case 32: vm->a = vm->i; break; // mov I, A
+    case 33: vm->a = vm->j; break; // mov J, A
+    case 40: vm->a = consume_op(vm); break; // mov imm, A
+    case 52: // inc A
+      vm->a++;
+      if (vm->a == 100)
+        vm->a = -100;
+      break;
+    case 53: // dec A
+      vm->a--;
+      if (vm->a == -101)
+        vm->a = 99;
+      break;
+    case 70: // add D,A
+      vm->a += vm->d;
+      if (vm->a >= 100)
+        vm->a -= 200;
+      break;
+    case 72:
+      vm->a -= vm->d;
+      if (vm->a >= 100)
+        vm->a -= 200;
+      if (vm->a < -100)
+        vm->a += 200;
+      break;
+    case 73: { // jmp
+      int target = consume_op(vm);
+      vm->pc = near_address(vm->pc, target);
+      vm->ir_index = 6;
+      break;
+    }
+    case 74: { // jmp far
+      int target = consume_op(vm);
+      assert(vm->ir_index <= 5);
+      int bank = vm->ir[vm->ir_index];
+      vm->pc = far_address(bank, target);
+      vm->ir_index = 6;
+      break;
+    }
+    case 80: { // jn
+      int target = consume_op(vm);
+      if (vm->a < 0) {
+        vm->pc = near_address(vm->pc, target);
+        vm->ir_index = 6;
       }
       break;
     }
-    case 14: { // ftl
-      u64 data = state->function_table[state->a + 300];
-      state->f = data & 0xff;
-      state->g = (data >> 8) & 0xff;
-      state->h = (data >> 16) & 0xff;
-      state->i = (data >> 24) & 0xff;
-      state->j = (data >> 32) & 0xff;
-      break;
-    }
-    case 15: { // ftlookup
-      int offset = (state->a + (state->ir & 0xff)) % 100;
-      u64 data = state->function_table[offset + 300];
-      state->a = (data >> 40) & 0xff;
-      break;
-    }
-    case 20: state->a = state->b; break; // mov A, B
-    case 21: state->a = state->c; break; // mov A, C
-    case 22: state->a = state->d; break; // mov A, D
-    case 23: state->a = state->e; break; // mov A, E
-    case 24: state->a = state->f; break; // mov A, F
-    case 25: state->a = state->g; break; // mov A, G
-    case 30: state->a = state->h; break; // mov A, H
-    case 31: state->a = state->i; break; // mov A, I
-    case 32: state->a = state->j; break; // mov A, J
-    case 34: state->ir = (state->ir & ~0xff) | (state->g % 5); break; // indexswap
-    case 40: // mov A, imm
-      state->a = state->ir & 0xff;
-      state->ir >>= 8;
-      break;
-    case 41: // mov D, imm
-      state->d = state->ir & 0xff;
-      state->ir >>= 8;
-      break;
-    case 42: // mov A, [addr]
-      state->b = state->ir & 0xff;
-      [[fallthrough]];
-    case 43: // mov A, [B]
-      jsr(state, state->load_pc);
-      break;
-    case 44: // mov [addr], A
-      state->b = state->ir & 0xff;
-      jsr(state, state->store_pc);
-      break;
-    case 45: state->a = state->b / 5; break; // indexacc
-    case 50: state->a = (state->a + 1) % 100; break; // inc A
-    case 51: state->b = (state->b + 1) % 100; break; // inc B
-    case 52: state->a = (state->a + 99) % 100; break; // dec A
-    case 70: state->a = (state->a + state->d) % 100; break; // add A,D
-    case 71: state->a = (100 - state->a) % 100; break; // neg A
-    case 72: state->a = (state->a + (100 - state->d)) % 100; break; // sub A,D
-    case 73: // jmp
-      state->pc = near_address(state);
-      state->ir = 0;
-      break;
-    case 74: // jmp far
-      state->pc = far_address(state);
-      state->ir = 0;
-      break;
-    case 75: // jmp +A
-      state->pc += state->a;
-      state->ir = 0;
-      break;
-    case 80: // jn
-      if (state->a >= 50) {
-        state->pc = near_address(state);
-        state->ir = 0;
-      } else {
-        state->ir >>= 8;
+    case 81: { // jz
+      int target = consume_op(vm);
+      if (vm->a == 0 || vm->a == -100) {
+        vm->pc = near_address(vm->pc, target);
+        vm->ir_index = 6;
       }
       break;
-    case 81: // jz
-      if (state->a == 0) {
-        state->pc = near_address(state);
-        state->ir = 0;
-      } else {
-        state->ir >>= 8;
-      }
-      break;
+    }
     case 82: { // jil
-      int d1 = state->a % 10;
-      int d2 = (state->a / 10) % 10;
+      int target = consume_op(vm);
+      int d1 = abs(vm->a) % 10;
+      int d2 = (abs(vm->a) / 10) % 10;
       if (d1 == 0 || d1 == 9 || d2 == 0 || d2 == 9) {
-        state->pc = near_address(state);
-        state->ir = 0;
-      } else {
-        state->ir >>= 8;
+        vm->pc = near_address(vm->pc, target);
+        vm->ir_index = 6;
       }
       break;
     }
-    case 83: // loop
-      state->c = (state->c + 99) % 100;
-      if (state->c != 0) {
-        state->pc = near_address(state);
-        state->ir = 0;
-      } else {
-        state->ir >>= 8;
-      }
+    case 84: { // jsr
+      vm->old_pc = vm->pc;
+      int target = consume_op(vm);
+      assert(vm->ir_index <= 5);
+      int bank = vm->ir[vm->ir_index];
+      vm->pc = far_address(bank, target);
+      vm->ir_index = 6;
       break;
-    case 84: // jsr
-      jsr(state, far_address(state));
-      break;
+    }
     case 85: // ret
-      state->sp ^= 1;
-      state->pc = state->stack[state->sp];
-      state->ir = 0;
+      vm->pc = vm->old_pc;
+      vm->old_pc = 0;
+      vm->ir_index = 6;
       break;
-    case 90: // jnz
-      if (state->a != 0) {
-        state->pc = near_address(state);
-        state->ir = 0;
-      } else {
-        state->ir >>= 8;
+    case 90: vm->a = 0; break; // clr A
+    case 91: { // read
+      int f, g, h1;
+      while (scanf("%02d%02d%d", &f, &g, &h1) != 3) {
+        fprintf(stderr, "expect ffggh e.g. 01020\n");
       }
+      vm->f = f;
+      vm->g = g;
+      vm->h = 10 * h1 + (vm->h % 10);
       break;
-    case 91: // read AB
-      break;
-    case 92: // print AB
-      break;
-    case 94: // nextline
-      state->ir = 0;
+    }
+    case 92: // print
+      printf("%c%02d%02d\n", vm->a < 0 ? 'R' : '0', abs(vm->a), vm->b);
       break;
     case 95: // halt
-      state->ir = 95;
+      vm->halted = true;
+      break;
+    case -1: // sled
+      break;
+    default: // invalid opcode
+      vm->halted = true;
       break;
   }
-  assert_sanity(state);
+  assert_sanity(vm);
+}
+
+static void disassemble_near_jump(char *buf, size_t size, const char* name, const char* fmt, VM *vm) {
+  if (vm->ir_index <= 5) {
+    int target = consume_op(vm);
+    snprintf(buf, size, fmt, near_address(vm->pc, target));
+  } else {
+    snprintf(buf, size, "???  # misaligned %s", name);
+  }
+}
+
+static void disassemble_immediate(char *buf, size_t size, const char* name, const char* fmt, VM *vm) {
+  if (vm->ir_index <= 5) {
+    int operand = consume_op(vm);
+    snprintf(buf, size, fmt, operand);
+  } else {
+    snprintf(buf, size, "???  # misaligned %s", name);
+  }
+}
+
+static void disassemble_far_jump(char *buf, size_t size, const char* name, const char* fmt, VM *vm) {
+  if (vm->ir_index <= 4) {
+    int target = consume_op(vm);
+    int bank = vm->ir[vm->ir_index];
+    snprintf(buf, size, fmt, far_address(bank, target));
+  } else {
+    snprintf(buf, size, "???  # misaligned %s", name);
+  }
+}
+
+// Pass VM state by value because IR updates needed for operand decoding are destructive.
+// Returns true if op should be skipped over while single stepping.
+static bool disassemble(char* buf, size_t size, VM vm) {
+  int opcode = consume_op(&vm) - 1;
+  switch (opcode) {
+    case 0: snprintf(buf, size, "nop");
+            return true;
+    case 1: snprintf(buf, size, "swap A,B"); break;
+    case 2: snprintf(buf, size, "swap A,C"); break;
+    case 3: snprintf(buf, size, "swap A,D"); break;
+    case 4: snprintf(buf, size, "swap A,E"); break;
+    case 10: snprintf(buf, size, "loadacc A"); break;
+    case 11: snprintf(buf, size, "storeacc A"); break;
+    case 12: snprintf(buf, size, "swapall"); break;
+    case 20: snprintf(buf, size, "mov B,A"); break;
+    case 21: snprintf(buf, size, "mov C,A"); break;
+    case 22: snprintf(buf, size, "mov D,A"); break;
+    case 23: snprintf(buf, size, "mov E,A"); break;
+    case 34: snprintf(buf, size, "mov F,A"); break;
+    case 30: snprintf(buf, size, "mov G,A"); break;
+    case 31: snprintf(buf, size, "mov H,A"); break;
+    case 32: snprintf(buf, size, "mov I,A"); break;
+    case 33: snprintf(buf, size, "mov J,A"); break;
+    case 40: disassemble_immediate(buf, size, "mov imm,A", "mov %d,A", &vm); break;
+    case 52: snprintf(buf, size, "inc A"); break;
+    case 53: snprintf(buf, size, "dec A"); break;
+    case 70: snprintf(buf, size, "add D,A"); break;
+    case 72: snprintf(buf, size, "sub D,A"); break;
+    case 73: disassemble_near_jump(buf, size, "jmp XX", "jmp %d", &vm); break;
+    case 74: disassemble_far_jump(buf, size, "jmp XXXX", "jmp %d", &vm); break;
+    case 80: disassemble_near_jump(buf, size, "jn XX", "jn %d", &vm); break;
+    case 81: disassemble_near_jump(buf, size, "jz XX", "jz %d", &vm); break;
+    case 82: disassemble_near_jump(buf, size, "jil XX", "jil %d", &vm); break;
+    case 84: disassemble_far_jump(buf, size, "jsr XXXX", "jsr %d", &vm); break;
+    case 85: snprintf(buf, size, "ret"); break;
+    case 90: snprintf(buf, size, "clr A"); break;
+    case 91: snprintf(buf, size, "read"); break;
+    case 92: snprintf(buf, size, "print"); break;
+    case 95: snprintf(buf, size, "halt"); break;
+    case -1: snprintf(buf, size, "sled");
+             return true;
+    default:
+      snprintf(buf, size, "???  # invalid opcode %02d", opcode);
+      break;
+  }
+  return false;
+}
+
+static bool dump_regs(VM* vm) {
+  char dis[128];
+  bool should_skip = disassemble(dis, sizeof(dis)-1, *vm);
+  if (should_skip) return true;
+  printf("PC  RR  A  B  C  D  E  F  G  H  I  J  %*s\n", 1 + 2 * vm->ir_index, "v");
+  printf("%03d %03d %02d %02d %02d %02d %02d %02d %02d %02d %02d %02d %02d%02d%02d%02d%02d%02d...\n",
+         vm->pc, vm->old_pc,
+         vm->a, vm->b, vm->c, vm->d, vm->e,
+         vm->f, vm->g, vm->h, vm->i, vm->j,
+         vm->ir[0], vm->ir[1], vm->ir[2], vm->ir[3], vm->ir[4], vm->ir[5]);
+  printf("  %s%s\n", dis, vm->halted ? " [halted]" : "");
+  return false;
+}
+
+static void dump_memory(VM *vm) {
+  printf("   A B C D E\n");
+  for (int i = 0; i < sizeof(vm->mem) / sizeof(vm->mem[0]); i++) {
+    printf("%02d %02d%02d%02d%02d%02d\n",
+           i, vm->mem[i][0], vm->mem[i][1], vm->mem[i][2], vm->mem[i][3], vm->mem[i][4]);
+  }
+}
+
+static bool should_stop = false;
+static void stop(int) {
+  should_stop = true;
 }
 
 #ifndef TEST  // Defined by chsim_test.cc for unit testing.
@@ -292,11 +406,41 @@ int main(int argc, char *argv[]) {
     usage();
     exit(1);
   }
-  State state;
-  if (!read_state_from_file(argv[1], &state)) {
+  VM vm;
+  if (!read_program(argv[1], &vm)) {
     exit(1);
   }
-  step(&state);
+  signal(SIGINT, stop);
+  while (true) {
+    char* command = readline("> ");
+    if (strcmp(command, "h") == 0) {
+      printf("supported commands:\n");
+      printf("h - print help\n");
+      printf("q - quit\n");
+      printf("r - print vm registers\n");
+      printf("m - print vm memory\n");
+      printf("g - run (until halt or ^C)\n");
+      printf("n - step one instruction and print\n");
+    } else if (strcmp(command, "q") == 0) {
+      break;
+    } else if (strcmp(command, "r") == 0) {
+      dump_regs(&vm);
+    } else if (strcmp(command, "n") == 0) {
+      while (1) {
+        bool should_skip = dump_regs(&vm);
+        step(&vm);
+        if (!should_skip || vm.halted) break;
+      }
+    } else if (strcmp(command, "m") == 0) {
+      dump_memory(&vm);
+    } else if (strcmp(command, "g") == 0) {
+      should_stop = false;
+      while (!should_stop && !vm.halted) {
+        step(&vm);
+      }
+    }
+    free(command);
+  }
   return 0;
 }
 #endif  // TEST

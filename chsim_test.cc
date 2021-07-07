@@ -13,87 +13,74 @@ static struct TEST_CASE_NAME(x, class) : test_case { \
 } TEST_CASE_NAME(x, instance);\
 void TEST_CASE_NAME(x, class)::run()
 
+#define FT(row, f0, f1, f2, f3, f4, f5)\
+  vm.function_table[row][0] = f0;\
+  vm.function_table[row][1] = f1;\
+  vm.function_table[row][2] = f2;\
+  vm.function_table[row][3] = f3;\
+  vm.function_table[row][4] = f4;\
+  vm.function_table[row][5] = f5;\
+
 #define assert_array_eq(actual, expected) assert(!memcmp(actual, expected, 5 * sizeof(int)))
 
-TEST_CASE(pack) {
-  assert(pack(6, 5, 4, 3, 2, 1) == 0x010203040506ULL);
-}
-
 TEST_CASE(step_fetch) {
-  State state;
-  state.function_table[100] = pack(0, 0, 0, 0, 0, 1);
-  state.function_table[101] = pack(95, 0, 0, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 101);
-  assert(state.ir == 0x0100000000);
-  step(&state);
-  assert(state.pc == 101);
-  assert(state.ir == 0x01000000);
-  step(&state);
-  assert(state.pc == 101);
-  assert(state.ir == 0x010000);
-  step(&state);
-  assert(state.pc == 101);
-  assert(state.ir == 0x0100);
-  step(&state);
-  assert(state.pc == 101);
-  assert(state.ir == 0x01);
-  step(&state);
-  assert(state.pc == 101);
-  assert(state.ir == 0);
-  step(&state);
-  assert(state.pc == 102);
-  assert(state.ir == 95);
+  VM vm;
+  FT(100, 0, 0, 0, 0, 0, 1);
+  FT(101, 95, 0, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.pc == 101);
+  step(&vm);
+  assert(vm.pc == 101);
+  step(&vm);
+  assert(vm.pc == 101);
+  step(&vm);
+  assert(vm.pc == 101);
+  step(&vm);
+  assert(vm.pc == 101);
+  step(&vm);
+  assert(vm.pc == 101);
+  step(&vm);
+  assert(vm.pc == 102);
 }
 
 TEST_CASE(step_swap_a_b) {
-  State state;
-  state.a = 0;
-  state.b = 1;
-  state.function_table[100] = pack(1, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-  assert(state.b == 0);
+  VM vm;
+  vm.a = 0;
+  vm.b = 1;
+  FT(100, 1, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 1);
+  assert(vm.b == 0);
 }
 
 TEST_CASE(step_swap_a_c) {
-  State state;
-  state.a = 0;
-  state.c = 1;
-  state.function_table[100] = pack(2, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-  assert(state.c == 0);
+  VM vm;
+  vm.a = 0;
+  vm.c = 1;
+  FT(100, 2, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 1);
+  assert(vm.c == 0);
 }
 
 TEST_CASE(step_swap_a_d) {
-  State state;
-  state.a = 0;
-  state.d = 1;
-  state.function_table[100] = pack(3, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-  assert(state.d == 0);
+  VM vm;
+  vm.a = 0;
+  vm.d = 1;
+  FT(100, 3, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 1);
+  assert(vm.d == 0);
 }
 
 TEST_CASE(step_swap_a_e) {
-  State state;
-  state.a = 0;
-  state.e = 1;
-  state.function_table[100] = pack(4, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-  assert(state.e == 0);
-}
-
-TEST_CASE(step_swap_a_f) {
-  State state;
-  state.a = 0;
-  state.f = 1;
-  state.function_table[100] = pack(5, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-  assert(state.f == 0);
+  VM vm;
+  vm.a = 0;
+  vm.e = 1;
+  FT(100, 4, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 1);
+  assert(vm.e == 0);
 }
 
 const int seq[15][5] = {
@@ -109,530 +96,266 @@ const int seq[15][5] = {
 
 TEST_CASE(step_loadacc) {
   for (int i = 0; i < 15; i++) {
-    State state;
-    memcpy(state.m, seq, sizeof(seq));
-    assert_array_eq(state.m[i], seq[i]);
-    state.a = i;
-    state.function_table[100] = pack(10, 95, 0, 0, 0, 0);
-    step(&state);
-    assert_array_eq(state.ls, state.m[i]);
+    VM vm;
+    memcpy(vm.mem, seq, sizeof(seq));
+    assert_array_eq(vm.mem[i], seq[i]);
+    vm.a = i;
+    FT(100, 10, 95, 0, 0, 0, 0);
+    step(&vm);
+    assert_array_eq(vm.ls, vm.mem[i]);
   }
 }
 
 TEST_CASE(step_storeacc) {
   int ls[5] = {42, 42, 42, 42, 42};
   for (int i = 0; i < 15; i++) {
-    State state;
-    memcpy(state.m, seq, sizeof(seq));
-    memcpy(state.ls, ls, sizeof(ls));
-    state.a = i;
-    state.function_table[100] = pack(11, 95, 0, 0, 0, 0);
-    step(&state);
-    assert_array_eq(state.m[i], ls);
+    VM vm;
+    memcpy(vm.mem, seq, sizeof(seq));
+    memcpy(vm.ls, ls, sizeof(ls));
+    vm.a = i;
+    FT(100, 11, 95, 0, 0, 0, 0);
+    step(&vm);
+    assert_array_eq(vm.mem[i], ls);
   }
 }
 
 TEST_CASE(step_swapall) {
   int rf[5] = {0, 1, 2, 3, 4};
   int ls[5] = {42, 42, 42, 42, 42};
-  State state;
-  memcpy(state.ls, ls, sizeof(ls));
-  memcpy(state.rf, rf, sizeof(rf));
-  state.function_table[100] = pack(12, 95, 0, 0, 0, 0);
-  step(&state);
-  assert_array_eq(state.rf, ls);
-  assert_array_eq(state.ls, rf);
+  VM vm;
+  memcpy(vm.ls, ls, sizeof(ls));
+  memcpy(vm.rf, rf, sizeof(rf));
+  FT(100, 12, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert_array_eq(vm.rf, ls);
+  assert_array_eq(vm.ls, rf);
 }
 
-TEST_CASE(step_scanall) {
-  int ls[5] = {10, 20, 30, 40, 50};
-  {
-    State state;
-    memcpy(state.ls, ls, sizeof(ls));
-    state.function_table[100] = pack(13, 95, 0, 0, 0, 0);
-    state.a = 42;
-    step(&state);
-    assert(state.a == 99);
-  }
-  {
-    State state;
-    memcpy(state.ls, ls, sizeof(ls));
-    state.function_table[100] = pack(13, 95, 0, 0, 0, 0);
-    state.a = 10;
-    step(&state);
-    assert(state.a == 0);
-  }
-  {
-    State state;
-    memcpy(state.ls, ls, sizeof(ls));
-    state.function_table[100] = pack(13, 95, 0, 0, 0, 0);
-    state.a = 20;
-    step(&state);
-    assert(state.a == 1);
-  }
-  {
-    State state;
-    memcpy(state.ls, ls, sizeof(ls));
-    state.function_table[100] = pack(13, 95, 0, 0, 0, 0);
-    state.a = 30;
-    step(&state);
-    assert(state.a == 2);
-  }
-  {
-    State state;
-    memcpy(state.ls, ls, sizeof(ls));
-    state.function_table[100] = pack(13, 95, 0, 0, 0, 0);
-    state.a = 40;
-    step(&state);
-    assert(state.a == 3);
-  }
-  {
-    State state;
-    memcpy(state.ls, ls, sizeof(ls));
-    state.function_table[100] = pack(13, 95, 0, 0, 0, 0);
-    state.a = 50;
-    step(&state);
-    assert(state.a == 4);
-  }
+TEST_CASE(step_mov_b_a) {
+  VM vm;
+  vm.a = 0;
+  vm.b = 1;
+  FT(100, 20, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 1);
+  assert(vm.b == 1);
 }
 
-TEST_CASE(step_ftl) {
-  State state;
-  state.function_table[100] = pack(14, 95, 0, 0, 0, 0);
-  state.function_table[320] = pack(1, 2, 3, 4, 5, 6);
-  state.a = 20;
-  step(&state);
-  assert(state.f == 1);
-  assert(state.g == 2);
-  assert(state.h == 3);
-  assert(state.i == 4);
-  assert(state.j == 5);
+TEST_CASE(step_mov_c_a) {
+  VM vm;
+  vm.a = 0;
+  vm.c = 1;
+  FT(100, 21, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 1);
+  assert(vm.c == 1);
 }
 
-TEST_CASE(step_ftlookup) {
-  State state;
-  state.function_table[100] = pack(15, 10, 95, 0, 0, 0);
-  state.function_table[320] = pack(1, 2, 3, 4, 5, 6);
-  state.a = 10;
-  step(&state);
-  assert(state.a == 6);
+TEST_CASE(step_mov_d_a) {
+  VM vm;
+  vm.a = 0;
+  vm.d = 1;
+  FT(100, 22, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 1);
+  assert(vm.d == 1);
 }
 
-TEST_CASE(step_mov_a_b) {
-  State state;
-  state.a = 0;
-  state.b = 1;
-  state.function_table[100] = pack(20, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-  assert(state.b == 1);
+TEST_CASE(step_mov_e_a) {
+  VM vm;
+  vm.a = 0;
+  vm.e = 1;
+  FT(100, 23, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 1);
+  assert(vm.e == 1);
 }
 
-TEST_CASE(step_mov_a_c) {
-  State state;
-  state.a = 0;
-  state.c = 1;
-  state.function_table[100] = pack(21, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-  assert(state.c == 1);
+TEST_CASE(step_mov_f_a) {
+  VM vm;
+  vm.a = 0;
+  vm.f = 1;
+  FT(100, 34, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 1);
+  assert(vm.f == 1);
 }
 
-TEST_CASE(step_mov_a_d) {
-  State state;
-  state.a = 0;
-  state.d = 1;
-  state.function_table[100] = pack(22, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-  assert(state.d == 1);
+TEST_CASE(step_mov_g_a) {
+  VM vm;
+  vm.a = 0;
+  vm.g = 1;
+  FT(100, 30, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 1);
+  assert(vm.g == 1);
 }
 
-TEST_CASE(step_mov_a_e) {
-  State state;
-  state.a = 0;
-  state.e = 1;
-  state.function_table[100] = pack(23, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-  assert(state.e == 1);
+TEST_CASE(step_mov_h_a) {
+  VM vm;
+  vm.a = 0;
+  vm.h = 1;
+  FT(100, 31, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 1);
+  assert(vm.h == 1);
 }
 
-TEST_CASE(step_mov_a_f) {
-  State state;
-  state.a = 0;
-  state.f = 1;
-  state.function_table[100] = pack(24, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-  assert(state.f == 1);
+TEST_CASE(step_mov_i_a) {
+  VM vm;
+  vm.a = 0;
+  vm.i = 1;
+  FT(100, 32, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 1);
+  assert(vm.i == 1);
 }
 
-TEST_CASE(step_mov_a_g) {
-  State state;
-  state.a = 0;
-  state.g = 1;
-  state.function_table[100] = pack(25, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-  assert(state.g == 1);
+TEST_CASE(step_mov_j_a) {
+  VM vm;
+  vm.a = 0;
+  vm.j = 1;
+  FT(100, 33, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 1);
+  assert(vm.j == 1);
 }
 
-TEST_CASE(step_mov_a_h) {
-  State state;
-  state.a = 0;
-  state.h = 1;
-  state.function_table[100] = pack(30, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-  assert(state.h == 1);
-}
-
-TEST_CASE(step_mov_a_i) {
-  State state;
-  state.a = 0;
-  state.i = 1;
-  state.function_table[100] = pack(31, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-  assert(state.i == 1);
-}
-
-TEST_CASE(step_mov_a_j) {
-  State state;
-  state.a = 0;
-  state.j = 1;
-  state.function_table[100] = pack(32, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-  assert(state.j == 1);
-}
-
-TEST_CASE(step_indexswap) {
-  State state;
-  state.function_table[100] = pack(34, 0, 0, 0, 0, 0);
-  state.g = 12;
-  step(&state);
-  assert(state.ir == 2);
-}
-
-TEST_CASE(step_mov_a_imm) {
-  State state;
-  state.function_table[100] = pack(40, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.a == 42);
-  assert(state.ir == 95);
-}
-
-TEST_CASE(step_mov_d_imm) {
-  State state;
-  state.function_table[100] = pack(41, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.d == 42);
-  assert(state.ir == 95);
-}
-
-TEST_CASE(step_mov_a_addr) {
-  State state;
-  state.load_pc = 300;
-  state.function_table[100] = pack(42, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.b == 42);
-  assert(state.stack[0] == 101);
-  assert(state.sp == 1);
-  assert(state.pc == 300);
-  assert(state.ir == 0);
-}
-
-TEST_CASE(step_mov_a_mb) {
-  State state;
-  state.load_pc = 300;
-  state.function_table[100] = pack(43, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.stack[0] == 101);
-  assert(state.sp == 1);
-  assert(state.pc == 300);
-  assert(state.ir == 0);
-}
-
-TEST_CASE(step_mov_addr_a) {
-  State state;
-  state.store_pc = 320;
-  state.a = 20;
-  state.function_table[100] = pack(44, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.a == 20);
-  assert(state.b == 42);
-  assert(state.stack[0] == 101);
-  assert(state.sp == 1);
-  assert(state.pc == 320);
-  assert(state.ir == 0);
-}
-
-TEST_CASE(step_indexacc) {
-  State state;
-  state.function_table[100] = pack(45, 95, 0, 0, 0, 0);
-  state.b = 23;
-  step(&state);
-  assert(state.a == 4);
+TEST_CASE(step_mov_imm_a) {
+  VM vm;
+  FT(100, 40, 41, 95, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 42);
 }
 
 TEST_CASE(step_inc_a) {
-  State state;
-  state.a = 0;
-  state.function_table[100] = pack(50, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 1);
-}
-
-TEST_CASE(step_inc_b) {
-  State state;
-  state.b = 0;
-  state.function_table[100] = pack(51, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.b == 1);
+  VM vm;
+  vm.a = 0;
+  FT(100, 52, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 1);
 }
 
 TEST_CASE(step_dec_a) {
-  State state;
-  state.a = 20;
-  state.function_table[100] = pack(52, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 19);
+  VM vm;
+  vm.a = 20;
+  FT(100, 53, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 19);
 }
 
 TEST_CASE(step_add) {
-  State state;
-  state.a = 10;
-  state.d = 72;
-  state.function_table[100] = pack(70, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 82);
-}
-
-TEST_CASE(step_neg) {
-  State state;
-  state.a = 10;
-  state.function_table[100] = pack(71, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 100 - 10);
+  VM vm;
+  vm.a = 10;
+  vm.d = 72;
+  FT(100, 70, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == 82);
 }
 
 TEST_CASE(step_sub) {
-  State state;
-  state.a = 10;
-  state.d = 32;
-  state.function_table[100] = pack(72, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.a == 100 - 22);
+  VM vm;
+  vm.a = 10;
+  vm.d = 32;
+  FT(100, 72, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.a == -22);
 }
 
 TEST_CASE(step_jmp) {
-  State state;
-  state.pc = 200;
-  state.function_table[200] = pack(73, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 242);
-  assert(state.ir == 0);
+  VM vm;
+  vm.pc = 200;
+  FT(200, 73, 41, 95, 0, 0, 0);
+  step(&vm);
+  assert(vm.pc == 242);
 }
 
 TEST_CASE(step_jmp_far) {
-  State state;
-  state.pc = 200;
-  state.function_table[200] = pack(74, 42, 3, 95, 0, 0);
-  step(&state);
-  assert(state.pc == 342);
-  assert(state.ir == 0);
-}
-
-TEST_CASE(step_jmp_computed) {
-  State state;
-  state.pc = 200;
-  state.a = 20;
-  state.function_table[200] = pack(75, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 221);
-  assert(state.ir == 0);
+  VM vm;
+  vm.pc = 200;
+  FT(200, 74, 41, 99, 95, 0, 0);
+  step(&vm);
+  assert(vm.pc == 342);
 }
 
 TEST_CASE(step_jn_not_taken) {
-  State state;
-  state.pc = 100;
-  state.a = 42;
-  state.function_table[100] = pack(80, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 101);
-  assert(state.ir == pack(95, 0, 0, 0, 0, 0));
+  VM vm;
+  vm.pc = 100;
+  vm.a = 42;
+  FT(100, 80, 41, 95, 0, 0, 0);
+  step(&vm);
+  assert(vm.pc == 101);
 }
 
 TEST_CASE(step_jn_taken) {
-  State state;
-  state.pc = 100;
-  state.a = 99;
-  state.function_table[100] = pack(80, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 142);
-  assert(state.ir == 0);
+  VM vm;
+  vm.pc = 100;
+  vm.a = -1;
+  FT(100, 80, 41, 95, 0, 0, 0);
+  step(&vm);
+  assert(vm.pc == 142);
 }
 
 TEST_CASE(step_jz_not_taken) {
-  State state;
-  state.pc = 100;
-  state.a = 1;
-  state.function_table[100] = pack(81, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 101);
-  assert(state.ir == pack(95, 0, 0, 0, 0, 0));
+  VM vm;
+  vm.pc = 100;
+  vm.a = 1;
+  FT(100, 81, 41, 95, 0, 0, 0);
+  step(&vm);
+  assert(vm.pc == 101);
 }
 
 TEST_CASE(step_jz_taken) {
-  State state;
-  state.pc = 100;
-  state.a = 0;
-  state.function_table[100] = pack(81, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 142);
-  assert(state.ir == 0);
+  VM vm;
+  vm.pc = 100;
+  vm.a = 0;
+  FT(100, 81, 41, 95, 0, 0, 0);
+  step(&vm);
+  assert(vm.pc == 142);
 }
 
 TEST_CASE(step_jil_not_taken) {
-  State state;
-  state.pc = 100;
-  state.a = 11;
-  state.function_table[100] = pack(82, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 101);
-  assert(state.ir == pack(95, 0, 0, 0, 0, 0));
+  VM vm;
+  vm.pc = 100;
+  vm.a = 11;
+  FT(100, 82, 41, 95, 0, 0, 0);
+  step(&vm);
+  assert(vm.pc == 101);
 }
 
 TEST_CASE(step_jil_taken) {
-  State state;
-  state.pc = 100;
-  state.a = 91;
-  state.function_table[100] = pack(82, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 142);
-  assert(state.ir == 0);
-}
-
-TEST_CASE(step_loop_not_taken) {
-  State state;
-  state.pc = 100;
-  state.c = 1;
-  state.function_table[100] = pack(83, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.c == 0);
-  assert(state.pc == 101);
-  assert(state.ir == pack(95, 0, 0, 0, 0, 0));
-}
-
-TEST_CASE(step_loop_taken) {
-  State state;
-  state.pc = 100;
-  state.c = 2;
-  state.function_table[100] = pack(83, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.c == 1);
-  assert(state.pc == 142);
-  assert(state.ir == 0);
+  VM vm;
+  vm.pc = 100;
+  vm.a = 91;
+  FT(100, 82, 41, 95, 0, 0, 0);
+  step(&vm);
+  assert(vm.pc == 142);
 }
 
 TEST_CASE(step_jsr) {
-  State state;
-  state.pc = 100;
-  state.function_table[100] = pack(84, 42, 3, 95, 0, 0);
-  step(&state);
-  assert(state.stack[0] == 101);
-  assert(state.sp == 1);
-  assert(state.pc == 342);
-  assert(state.ir == 0);
+  VM vm;
+  vm.pc = 100;
+  FT(100, 84, 41, 99, 95, 0, 0);
+  step(&vm);
+  assert(vm.old_pc == 101);
+  assert(vm.pc == 342);
 }
 
 TEST_CASE(step_ret) {
-  State state;
-  state.sp = 1;
-  state.pc = 342;
-  state.stack[0] = 101;
-  state.function_table[342] = pack(85, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 101);
-  assert(state.sp == 0);
-  assert(state.ir == 0);
-}
-
-TEST_CASE(step_nested_jsr) {
-  State state;
-  state.pc = 100;
-  state.function_table[100] = pack(84, 0, 2, 0, 0, 0);
-  state.function_table[101] = pack(84, 0, 3, 0, 0, 0);
-  state.function_table[200] = pack(84, 0, 3, 0, 0, 0);
-  state.function_table[201] = pack(85, 95, 0, 0, 0, 0);
-  state.function_table[300] = pack(85, 95, 0, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 200);
-  assert(state.stack[0] == 101);
-  assert(state.sp == 1);
-  assert(state.ir == 0);
-  step(&state);
-  assert(state.pc == 300);
-  assert(state.stack[1] == 201);
-  assert(state.sp == 0);
-  assert(state.ir == 0);
-  step(&state);
-  assert(state.pc == 201);
-  assert(state.sp == 1);
-  assert(state.ir == 0);
-  step(&state);
-  assert(state.pc == 101);
-  assert(state.sp == 0);
-  assert(state.ir == 0);
-  step(&state);
-  assert(state.pc == 300);
-  assert(state.stack[0] == 102);
-  assert(state.sp == 1);
-  assert(state.ir == 0);
-  step(&state);
-  assert(state.pc == 102);
-  assert(state.sp == 0);
-  assert(state.ir == 0);
-}
-
-TEST_CASE(step_jnz_not_taken) {
-  State state;
-  state.pc = 100;
-  state.a = 0;
-  state.function_table[100] = pack(90, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 101);
-  assert(state.ir == pack(95, 0, 0, 0, 0, 0));
-}
-
-TEST_CASE(step_jnz_taken) {
-  State state;
-  state.pc = 100;
-  state.a = 1;
-  state.function_table[100] = pack(90, 42, 95, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 142);
-  assert(state.ir == 0);
-}
-
-TEST_CASE(step_nextline) {
-  State state;
-  state.pc = 100;
-  state.function_table[100] = pack(94, 0, 0, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 101);
-  assert(state.ir == 0);
+  VM vm;
+  vm.pc = 342;
+  vm.old_pc = 101;
+  FT(342, 85, 95, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.pc == 101);
 }
 
 TEST_CASE(step_halt) {
-  State state;
-  state.pc = 100;
-  state.function_table[100] = pack(95, 0, 0, 0, 0, 0);
-  step(&state);
-  assert(state.pc == 101);
-  assert(state.ir == 95);
+  VM vm;
+  vm.pc = 100;
+  FT(100, 95, 0, 0, 0, 0, 0);
+  step(&vm);
+  assert(vm.halted);
 }
 
 int main() {
