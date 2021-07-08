@@ -31,9 +31,9 @@ enable OP_STOREACC    #  1 pas,  5 ts
 enable SUB_MEMCYC     #  7 pas, 42 ts (OP_LOADACC, OP_STOREACC)
 enable OP_SWAPALL     #  4 pas,  6 ts
 # - word access (14 pas, 28 ts)
-enable OP_MOVXA6    #  5 pas, 14 ts
-enable OP_SWAP6     #  7 pas,  8 ts
-enable SUB_MOVSWAP  #  2 pas,  6 ts (OP_SWAP6, OP_MOVXA6)
+enable OP_SWAP        #  7 pas,  8 ts
+enable OP_MOVXA       #  5 pas, 14 ts
+enable SUB_MOVSWAP    #  2 pas,  6 ts (OP_SWAP, OP_MOVXA)
 # - arithmetic (15 pas, 9 ts)
 enable OP_MOVIMMA     #  3 pas,  1 ts
 enable OP_INC         #  0 pas,  0 ts
@@ -58,7 +58,7 @@ enable SUB_DISCFT     #  0 pas,  1 ts (SUB_FARGO)
 enable OP_PRINT       #  3 pas,  4 ts
 enable OP_READ        #  0 pas,  2 ts
 enable SUB_CONSUME_OP #  2 pas,  3 ts (OP_MOVIMMA, SUB_JX)
-enable SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA6, OP_CLRA, OP_MOVIMMA)
+enable SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA, OP_CLRA, OP_MOVIMMA)
 # loadpc              #  0 pas,  0 ts
 # loadex              #  0 pas,  0 ts
 # loadex-clearA       #  0 pas,  0 ts
@@ -238,7 +238,7 @@ p {a-rf}.S ad.permute.{ad-drop-rf-sign}
 s ad.permute.{ad-drop-rf-sign} 0,10,9,8,7,6,5,4,3,2,0
 p ad.permute.{ad-drop-rf-sign} {d-main}
 
-if OP_MOVXA6
+if OP_MOVXA
 # i-selectA input: aa 00 XX XX XX -> aa 00 00 00 00
 p {d-main} ad.permute.{ad-rf-selectA}
 s ad.permute.{ad-rf-selectA} 0,10,9,0,0,0,0,0,0,0,0
@@ -1293,38 +1293,6 @@ endif # SUB_MOVSWAP
 
 # -- OPCODE IMPLEMENTATIONS --
 
-#$break {p-op00}  # NOP
-#$break {p-op01}  # SWAP A,B
-#$break {p-op02}  # SWAP A,C
-#$break {p-op03}  # SWAP A,D
-#$break {p-op04}  # SWAP A,E
-#$break {p-op10}  # LOADACC
-#$break {p-op11}  # STOREACC
-#$break {p-op12}  # SWAPALL
-#$break {p-op20}  # MOV B,A
-#$break {p-op21}  # MOV C,A
-#$break {p-op22}  # MOV D,A
-#$break {p-op23}  # MOV E,A
-#$break {p-op30}  # MOV G,A
-#$break {p-op31}  # MOV H,A
-#$break {p-op32}  # MOV I,A
-#$break {p-op33}  # MOV J,A
-#$break {p-op34}  # MOV F,A
-#$break {p-op40}  # MOV #xx,A
-#$break {p-op52}  # INC A
-#$break {p-op53}  # DEC A
-#$break {p-op70}  # ADD D,A
-#$break {p-op72}  # SUB D,A
-#$break {p-op73}  # JMP xx
-#$break {p-op74}  # JMP xxxx
-#$break {p-op80}  # JN xx
-#$break {p-op84}  # JSR xxxx
-#$break {p-op85}  # RET
-#$break {p-op90}  # CLR A
-#$break {p-op92}  # PRINT
-#$break {p-op93}  # MOV F,A
-#$break {p-op95}  # HALT
-
 
 # - NOP -
 p {p-op00} {p-fetch}
@@ -1384,11 +1352,10 @@ $recx {p-opstoreacc-5} {a-ls} {r-opstoreacc-4} {i-signonly}
 endif # OP_STOREACC
 
 
-
-if OP_SWAPALL
-
 # - SWAPALL -
+if OP_SWAPALL
 # Exchange RF and LS through RFTMP (RF may be negative).
+
 p {p-op12} {p-opswapall}
 
 # RFTMP->EX
@@ -1414,42 +1381,38 @@ $rec {p-opswapall-5} {a-rftmp} {t-opswapall-5} {i-main} {p-fetch}
 endif # OP_SWAPALL
 
 
-defmacro mov-decoding
-  # All mov opcodes for A with RF are encoded as 2x, and all mov opcodes for A
-  # with LS are encoded as 3x to conserve pulse amplifiers.  There is nothing
-  # happening on d-main during decode, so use spare constant transceivers as
-  # dummies, don't care what they send.
-  # FIXME this is dodgy unless we decide to initialize ct to 0!
-  p p.A3o c.23i
-  p c.23o {p-opmovRFA}
-  p p.A4o c.24i
-  p c.24o {p-opmovLSA}
-
-  p {p-op20} {p-opmovBA}
-  p {p-op21} {p-opmovCA}
-  p {p-op22} {p-opmovDA}
-  p {p-op23} {p-opmovEA}
-  p {p-op30} {p-opmovGA}
-  p {p-op31} {p-opmovHA}
-  p {p-op32} {p-opmovIA}
-  p {p-op33} {p-opmovJA}
-
-  # all the mov ops
-  $pulseamp {p-opmovRFA} {p-opmovXA}
-  $pulseamp {p-opmovLSA} {p-opmovXA}
-endmacro
-
-
-if OP_MOVXA6
-
 # - MOV [BCDEFGHIJ],A -
+if OP_MOVXA
 # 1. $clearA-1
 # 2. $clearA-2
 # 3. MOVSWAP -> EX
 # 4. (RF or LS) -mov[BCDE]-> MOVSWAP
 # 5. MOVSWAP -selectA-> RF
 # 6. EX -> MOVSWAP
-$mov-decoding
+
+# All mov opcodes for A with RF are encoded as 2x, and all mov opcodes for A
+# with LS are encoded as 3x to conserve pulse amplifiers.  There is nothing
+# happening on d-main during decode, so use spare constant transceivers as
+# dummies, don't care what they send.
+# FIXME this is dodgy unless we decide to initialize ct to 0!
+p p.A3o c.23i
+p c.23o {p-opmovRFA}
+p p.A4o c.24i
+p c.24o {p-opmovLSA}
+
+p {p-op20} {p-opmovBA}
+p {p-op21} {p-opmovCA}
+p {p-op22} {p-opmovDA}
+p {p-op23} {p-opmovEA}
+p {p-op30} {p-opmovGA}
+p {p-op31} {p-opmovHA}
+p {p-op32} {p-opmovIA}
+p {p-op33} {p-opmovJA}
+
+# all the mov ops
+$pulseamp {p-opmovRFA} {p-opmovXA}
+$pulseamp {p-opmovLSA} {p-opmovXA}
+
 p {p-op34} {p-opmovFA}
 
 # Manually placed so they don't overlap with the multicycle sel dummies.
@@ -1487,13 +1450,14 @@ $recx {p-opmovXA-5} {a-rf} {t-opmovXA-6} {i-selectA}
 endif
 
 
-if OP_SWAP6
-
-# Shared sequence with OP_MOVXA6
+# - SWAP A,[BCDE] -
+if OP_SWAP
+# Shared sequence with OP_MOVXA
 # 1. MOVSWAP -> EX
 # 2. (RF) -mov[BCDE]-> MOVSWAP
 # 3. MOVSWAP -> RF
 # 4. EX -> MOVSWAP
+
 p {p-op01} {p-opswapAB}
 p {p-op02} {p-opswapAC}
 p {p-op03} {p-opswapAD}
@@ -1529,9 +1493,9 @@ $loadrf {p-opswap-3}
 endif
 
 
+# - CLR A -
 if OP_CLRA
 
-# - CLR A -
 p {p-op90} {p-opclrA}
 
 # Use clear A subroutine
@@ -1541,9 +1505,9 @@ $dummy-delay {p-opclrA} 2 {p-fetch}
 endif # OP_CLRA
 
 
+# - MOV #XX,A -
 if OP_MOVIMMA
 
-# - MOV #XX,A -
 p {p-op40} {p-opmovimmA}
 
 # First clear A
@@ -1557,9 +1521,9 @@ $pulseamp {p-opmovimmA-3} {p-rf-selEA}  # save lowest word into A
 endif # OP_MOVIMMA
 
 
+# - INC -
 if OP_INC
 
-# - INC -
 p {p-op52} {p-opinc}
 
 # Send P01000 on d-main
@@ -1573,9 +1537,9 @@ $recx {p-opinc} {a-rf} {r-opinc} {i-main}
 endif # OP_INC
 
 
+# - DEC -
 if OP_DEC
 
-# - DEC -
 p {p-op53} {p-opdec}
 
 # Send M99000 on d-main
@@ -1589,13 +1553,13 @@ $loadrf {p-opdec}
 endif # OP_DEC
 
 
-if OP_ADD
-
 # - ADD D,A -
+if OP_ADD
 # 1. RFTMP -> EX
 # 2. RF -> RFTMP
 # 3. RFTMP -selDA-> RF
 # 4. EX -> RFTMP
+
 p {p-op70} {p-opadd}
 
 # RFTMP -> EX
@@ -1620,13 +1584,13 @@ $manual-dummy {p-opadd-4} {a-rf} {t-opadd-4} 1 {p-fetch}
 endif # OP_ADD
 
 
-if OP_SUB
-
 # - SUB D,A -
+if OP_SUB
 # 1. RF.S -> EX  # NB does not send sign!
 # 2. EX -> selDA -> RF
 # 3. P01 -> RF
 # 4. M00 -> RF  # ideally we'd send M01, but don't have it
+
 p {p-op72} {p-opsub}
 
 # RF.S -> EX
@@ -1652,17 +1616,17 @@ $dummy {p-opsub-4} {p-fetch}
 endif # OP_SUB
 
 
+# - JMP XX -
 if OP_JMP
 
-# - JMP XX -
 p {p-op73} {p-sub-jmp}
 
 endif # OP_JMP
 
 
+# - JMP XXXX -
 if OP_JMPFAR
 
-# - JMP XXXX -
 p {p-op74} {p-opjmpfar}
 
 $fargo {p-opjmpfar}
@@ -1678,9 +1642,9 @@ $recx {p-opjmpfar-3} {a-newpc} {r-opjmpfar-3} {i-keep-r}
 endif # OP_JMPFAR
 
 
+# - JSR XXXX -
 if OP_JSR
 
-# - JSR XXXX -
 p {p-op84} {p-opjsr}
 
 $fargo {p-opjsr}
@@ -1696,9 +1660,9 @@ $recx {p-opjsr-3} {a-newpc} {r-opjsr-3} {i-shiftl4-pc}
 endif # OP_JSR
 
 
+# - RET -
 if OP_RET
 
-# - RET -
 p {p-op85} {p-opret}
 
 $fargo {p-opret}
@@ -1710,9 +1674,9 @@ $recx {p-opret-3} {a-newpc} {t-opret-3} {i-shiftr4-pc}
 endif # OP_RET
 
 
+# - JN XX -
 if OP_JN
 
-# - JN XX -
 p {p-op80} {p-opjn}
 
 # save DISCJX
@@ -1729,12 +1693,12 @@ p {p-opjn-3} {p-sub-jx}
 endif # OP_JN
 
 
-if OP_JZ
-
 # - JZ XX -
+if OP_JZ
 # XXX Note that this treats M00 as P00.  A somewhat insane way to fix M00 might
 # be to wire RF PM to discjx i-shiftA.1, but this has unclear electrical
 # implications, and would complicate jil.
+
 p {p-op81} {p-opjz}
 
 # reuse discjx sequence
@@ -1749,9 +1713,9 @@ $recx {p-opjz-6} {a-discjx} {r-opjz-6} {i-ftjzsign}
 endif # OP_JZ
 
 
+# - JIL XX -
 if OP_JIL
 
-# - JIL XX -
 p {p-op82} {p-opjil}
 
 # reuse discjx sequence
@@ -1766,12 +1730,12 @@ $recx {p-opjil-6} {a-discjx} {r-opjil-6} {i-ftjilsign}
 endif # OP_JIL
 
 
-if OP_PRINT
-
 # - PRINT - 
+if OP_PRINT
 # Save a-print, RF-printAB->a-print, restore
 # Really the only trick here is that we can only print from a13,
 # and during the transfer we shift RF right so we print 0AABB not AABBC
+
 p {p-op92} {p-opprint}
 
 # PRINT->EX, clear
@@ -1795,9 +1759,9 @@ $rec {p-opprint-4} {a-print} {t-opprint-4} {i-main} {p-fetch}
 endif # OP_PRINT
 
 
+# - READ -
 if OP_READ
 
-# - READ -
 p {p-op91} {p-opread}
 
 # read in a new card into constant transmitter
@@ -1871,6 +1835,7 @@ $jil-rank 6 M P P P P P P P P M
 $jil-rank 7 M P P P P P P P P M
 $jil-rank 8 M P P P P P P P P M
 $jil-rank 9 M M M M M M M M M M
+
 
 # -- ACCUMULATOR DECODE --
 # lookup table used to trigger accumulators on loadacc / storeacc
