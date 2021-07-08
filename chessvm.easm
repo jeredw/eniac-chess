@@ -31,31 +31,9 @@ enable OP_STOREACC    #  1 pas,  5 ts
 enable SUB_MEMCYC     #  7 pas, 42 ts (OP_LOADACC, OP_STOREACC)
 enable OP_SWAPALL     #  4 pas,  6 ts
 # - word access (14 pas, 28 ts)
-enable WORD_ACCESS
-disable FAST_MOV      #  0 pas,  1 ts (to fit)
-disable OP_MOVXA6
-disable OP_SWAP6
-disable SUB_MOVSWAP
-disable OP_MOVXA3
-disable OP_MOVFA3
-disable OP_SWAP
-disable SUB_MOVAX5
-disable SUB_MOVAX11
-if WORD_ACCESS
-if FAST_MOV
-  # 3-cycle mov datapath
-  enable OP_MOVXA3    #  6 pas, 14 ts (4-cycle with 5 pas, 12 ts)
-  enable OP_MOVFA3    #  4 pas,  6 ts
-  enable OP_SWAP      # 11 pas, 12 ts
-else
-  # 6-cycle mov datapath permitting shared SWAP
-  enable OP_MOVXA6    #  5 pas, 14 ts
-  enable OP_SWAP6     #  7 pas,  8 ts
-  enable SUB_MOVSWAP  #  2 pas,  6 ts (OP_SWAP6, OP_MOVXA6)
-endif
-disable SUB_MOVAX5    #  7 pas, 17 ts
-disable SUB_MOVAX11   # 11 pas, 11 ts
-endif
+enable OP_MOVXA6    #  5 pas, 14 ts
+enable OP_SWAP6     #  7 pas,  8 ts
+enable SUB_MOVSWAP  #  2 pas,  6 ts (OP_SWAP6, OP_MOVXA6)
 # - arithmetic (15 pas, 9 ts)
 enable OP_MOVIMMA     #  3 pas,  1 ts
 enable OP_INC         #  0 pas,  0 ts
@@ -85,15 +63,11 @@ enable SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA6, OP_CLRA, OP_MOVIMMA)
 # loadex              #  0 pas,  0 ts
 # loadex-clearA       #  0 pas,  0 ts
 # storeex             #  0 pas,  1 ts
-# rf-selBA*           #  0 pas,  0 ts (* if OP_MOVXA3)
-# rf-selCA*           #  0 pas,  0 ts (* if OP_MOVXA3)
 # rf-selDA            #  0 pas,  0 ts
 # rf-selEA            #  0 pas,  0 ts
 # send-rf             #  0 pas,  1 ts
 # sendc-rf            #  0 pas,  1 ts
-# loadrf*             #  0 pas,  0 ts (1 if OP_MOVXA3)
-# clearls*            #  0 pas,  0 ts (1 if SUB_MOVAX5)
-# sendc-ls*           #  0 pas,  0 ts (1 if SUB_MOVAX11)
+# loadrf              #  0 pas,  0 ts
 
 
 # ENIAC-VM for playing chess
@@ -271,18 +245,6 @@ s ad.permute.{ad-rf-selectA} 0,10,9,0,0,0,0,0,0,0,0
 p ad.permute.{ad-rf-selectA} {a-rf}.{i-selectA}
 endif
 
-if OP_MOVXA3
-# i-selBA input: XX aa XX XX XX -> aa 00 00 00 00, used for MOV BG,A
-p {d-main} ad.permute.{ad-rf-selBA}
-s ad.permute.{ad-rf-selBA} 0,8,7,0,0,0,0,0,0,0,0
-p ad.permute.{ad-rf-selBA} {a-rf}.{i-selBA}
-
-# i-selCA input: XX XX aa XX XX -> aa 00 00 00 00, used for MOV CH,A
-p {d-main} ad.permute.{ad-rf-selCA}
-s ad.permute.{ad-rf-selCA} 0,6,5,0,0,0,0,0,0,0,0
-p ad.permute.{ad-rf-selCA} {a-rf}.{i-selCA}
-endif
-
 # i-selDA input: XX XX XX aa XX -> aa 00 00 00 00, used for MOV DI,A
 p {d-main} ad.permute.{ad-rf-selDA}
 s ad.permute.{ad-rf-selDA} 0,4,3,0,0,0,0,0,0,0,0
@@ -294,21 +256,13 @@ s ad.permute.{ad-rf-selEA} 0,2,1,0,0,0,0,0,0,0,0
 p ad.permute.{ad-rf-selEA} {a-rf}.{i-selEA}
 
 # shared programs
-if OP_MOVXA3
-$recx {p-rf-selBA} {a-rf} {r-rf-selBA} {i-selBA}
-$recx {p-rf-selCA} {a-rf} {r-rf-selCA} {i-selCA}
-endif
 $recx {p-rf-selDA} {a-rf} {r-rf-selDA} {i-selDA}
 $recx {p-rf-selEA} {a-rf} {r-rf-selEA} {i-selEA}
 
 $sendx {p-send-rf} {a-rf} {t-send-rf} A
 $sendcx {p-sendc-rf} {a-rf} {t-sendc-rf} A
 
-if OP_MOVXA3
-$recx {p-loadrf} {a-rf} {t-loadrf} {i-main}
-else
 $recx {p-loadrf} {a-rf} {r-loadrf} {i-main}
-endif
 
 # helper macros
 # receive rf from main
@@ -336,36 +290,6 @@ $acc-main ls
 p {d-main} ad.permute.{ad-ls-signonly}
 s ad.permute.{ad-ls-signonly} 11,0,0,0,0,0,0,0,0,0,0
 p ad.permute.{ad-ls-signonly} {a-ls}.{i-signonly}
-
-if SUB_MOVAX11
-# selectA input: aa bb cc dd ee -> aa 00 00 00 00, used in MOV A,F
-p {d-main} ad.permute.{ad-movaf-selectA}
-s ad.permute.{ad-movaf-selectA} 0,10,9,0,0,0,0,0,0,0,0
-p ad.permute.{ad-movaf-selectA} {a-ls}.{i-selectA}
-endif
-
-# shared programs
-if SUB_MOVAX5
-$clearx {p-clearls} {a-ls} {r-clear}
-endif
-if SUB_MOVAX11
-$sendcx {p-sendc-ls} {a-ls} {t-sendc-ls} A
-endif
-
-# helper macros
-if SUB_MOVAX5
-# clear ls
-defmacro clearls prog
-  $pulseamp $prog {p-clearls}
-endmacro
-endif
-
-if SUB_MOVAX11
-# send on main and clear
-defmacro sendc-ls prog
-  $pulseamp $prog {p-sendc-ls}
-endmacro
-endif
 
 
 # - MEM0 -
@@ -414,26 +338,6 @@ $acc-main mem3
 {a-mem4}=a10
 {a-swapBCDE}=a10
 $acc-main mem4
-
-if OP_SWAP
-# Used for swap A,BCDE; OP_SWAP6 shares with MOV instead.
-
-p {d-main} ad.permute.{ad-swapAB}
-s ad.permute.{ad-swapAB} 11,8,7,10,9,6,5,4,3,2,1
-p ad.permute.{ad-swapAB} {a-swapBCDE}.{i-swapAB}
-
-p {d-main} ad.permute.{ad-swapAC}
-s ad.permute.{ad-swapAC} 11,6,5,8,7,10,9,4,3,2,1
-p ad.permute.{ad-swapAC} {a-swapBCDE}.{i-swapAC}
-
-p {d-main} ad.permute.{ad-swapAD}
-s ad.permute.{ad-swapAD} 11,4,3,8,7,6,5,10,9,2,1
-p ad.permute.{ad-swapAD} {a-swapBCDE}.{i-swapAD}
-
-p {d-main} ad.permute.{ad-swapAE}
-s ad.permute.{ad-swapAE} 11,2,1,8,7,6,5,4,3,10,9
-p ad.permute.{ad-swapAE} {a-swapBCDE}.{i-swapAE}
-endif
 
 
 # - MEM5 -
@@ -527,18 +431,6 @@ p {d-ftselacc} {a-memcyc09}.{i-ftselacc}
 {a-movswap}=a17
 {a-movfa}=a17
 $acc-main mem11
-
-if OP_MOVFA3
-# clearA input: S aa bb cc dd ee -> P 00 bb cc dd ee, used in MOV F,A
-p {d-main} ad.permute.{ad-movfa-clearA}
-s ad.permute.{ad-movfa-clearA} 0,0,0,8,7,6,5,4,3,2,1
-p ad.permute.{ad-movfa-clearA} {a-movfa}.{i-clearA}
-
-# selectA input: aa bb cc dd ee -> aa 00 00 00 00, used in MOV F,A
-p {d-main} ad.permute.{ad-movfa-selectA}
-s ad.permute.{ad-movfa-selectA} 0,10,9,0,0,0,0,0,0,0,0
-p ad.permute.{ad-movfa-selectA} {a-movfa}.{i-selectA}
-endif
 
 if SUB_MOVSWAP
 p {d-main} ad.permute.{ad-movAB}
@@ -1222,24 +1114,12 @@ $connect-memcyc09 0
 $connect-memcyc09 1
 $connect-memcyc09 2
 $connect-memcyc09 3
-if OP_SWAP6
-  $connect-memcyc09 4
-endif
+$connect-memcyc09 4
 $connect-memcyc09 5
 $connect-memcyc09 6
 $connect-memcyc09 7
 $connect-memcyc09 8
 $connect-memcyc09 9
-
-if OP_SWAP
-  # a-mem4 is also used for SWAP which needs all its t- programs, so memcyc4 must
-  # use r- programs with dummies elsewhere.
-  $select-memcyc09-acc 4
-  $dummy-delay-exclude {p-memcyc4} 2 {p-memcyc4-2} -{a-memcyc09},{a-mem4}
-  $sendcx {p-memcyc4-2} {a-mem4} {r-memcyc-2} A
-  $dummy-exclude {p-memcyc4-2} {p-memcyc4-3} -{a-memcyc09},{a-mem4}
-  $recx {p-memcyc4-3} {a-mem4} {r-memcyc-3} {i-main}
-endif
 
 
 # similar for 10-14
@@ -1388,7 +1268,7 @@ if SUB_MOVSWAP
 # 1. MOVSWAP -> EX
 # 2. nop          [ (RF or LS) -mov[BCDE]-> MOVSWAP ]
 # 3. send MOVSWAP [ MOVSWAP -selectA-> RF  or  MOVSWAP -> RF ]
-# 4. EX -> MOVSWAP, (if not SUB_MOVAX11: goto fetch)
+# 4. EX -> MOVSWAP, goto fetch
 defmacro movswap prog
   $pulseamp $prog {p-sub-movswap}
 endmacro
@@ -1406,214 +1286,9 @@ $sendc {p-sub-movswap-3} {a-movswap} {t-sub-movswap-3} A {p-sub-movswap-4}
 
 # Restore movswap and go to fetch
 $storeex {p-sub-movswap-4}
-if SUB_MOVAX11
-  # Do not fall through to fetch because $movswap is used for SUB_MOVAX11
-  $recx {p-sub-movswap-4} {a-movswap} {t-sub-movswap-4} {i-main}
-else
-  $rec {p-sub-movswap-4} {a-movswap} {t-sub-movswap-4} {i-main} {p-fetch}
-endif
+$rec {p-sub-movswap-4} {a-movswap} {t-sub-movswap-4} {i-main} {p-fetch}
 
 endif # SUB_MOVSWAP
-
-
-if SUB_MOVAX11
-
-# The idea here is to build mov A,F which is cheap, reuse SUB_MOVSWAP to get
-# SWAP F,[GHIJ], and then implement mov A,GHIJ as
-#   swap F,[GHIJ] ; 4
-#   mov A,F       ; 3
-#   swap F,[GHIJ] ; 4
-#
-# This still isn't cheap, though:  we need 10 dummies for the outer sequence, 8
-# of which trigger the right exchange for swap twice.  mov A,F and swap F take
-# at least 3 t's, $movswap can no longer fall through to p-fetch so we need
-# dummies for its other callers.  We also need a bunch of pas since we run out
-# of t's on LS.
-#
-# TODO We could also do something like
-#   swapall       ; 3
-#   swap A,[BCDE] ; 4
-#   mov F,A       ; 6
-#   swap A,[BCDE] ; 4
-#   swapall       ; 3
-# and could then reuse existing ops.  But we'd still need to modify those ops to
-# dummy back to fetch, would need long dummies around mov F,A and for sequencing,
-# and this costs 20 cycles...
-
-# - MOV A,F -
-# 1. LS -clearA-> EX
-# 2. EX -> LS
-# 3. RF -selectA-> LS
-defmacro movaf prog
-  $pulseamp $prog {p-sub-movAF}
-endmacro
-
-# send LS FGHIJ and receive in EX with F clear
-$sendc-ls {p-sub-movAF}
-$loadex {p-sub-movAF}
-$dummy {p-sub-movAF} {p-sub-movAF-2}
-
-# get LS 0GHIJ back in LS
-$i-dummy {p-sub-movAF} {p-storeex}
-$rec {p-sub-movAF-2} {a-ls} {t-sub-movAF-2} {i-main} {p-sub-movAF-3}
-
-# read RF A into F position in LS
-$i-dummy {p-sub-movAF-2} {p-send-rf}
-$recx {p-sub-movAF-3} {a-ls} {t-sub-movAF-3} {i-selectA}
-
-
-# - SWAP F,[GHIJ] -
-#  1. MOVSWAP -> EX
-#  2. LS -mov[BCDE]-> MOVSWAP
-#  3. MOVSWAP -> LS
-#  4. EX -> MOVSWAP
-defmacro swapf prog
-  $pulseamp $prog {p-sub-swapf}
-endmacro
-
-$movswap {p-sub-swapf}
-$dummy-exclude {p-sub-swapf} {p-sub-swapf-2} -a8,a18,{a-movswap}
-
-$sendc-ls {p-sub-swapf-2}
-# trigger p-movswapAX
-$dummy-exclude {p-sub-swapf-2} {p-sub-swapf-3} -a8,a18,{a-movswap}
-
-$recx {p-sub-swapf-3} {a-ls} {t-sub-swapf-3} {i-main}
-
-
-# - MOV A,[GHIJ] -
-# 1-4.  swap F,[GHIJ]
-# 5-7.  mov A,F
-# 8-11. swap F,[GHIJ]
-
-$pulseamp {p-sub-movAG} {p-sub-movAX}
-$pulseamp {p-sub-movAH} {p-sub-movAX}
-$pulseamp {p-sub-movAI} {p-sub-movAX}
-$pulseamp {p-sub-movAJ} {p-sub-movAX}
-
-$manual-dummy {p-sub-movAX} a8 {t-sub-movAX} 4 {p-sub-movAX-5}
-p {p-sub-movAX} f2.11i
-s f2.rp11 3
-p f2.11o {p-sub-movAX-8}
-
-$i-dummy {p-sub-movAG} {p-movswapAB}
-$i-dummy {p-sub-movAH} {p-movswapAC}
-$i-dummy {p-sub-movAI} {p-movswapAD}
-$i-dummy {p-sub-movAJ} {p-movswapAE}
-
-p {p-sub-movAG} f3.11i
-s f3.rp11 3
-p f3.11o {p-movswapAB}
-p {p-sub-movAH} f3.10i
-s f3.rp10 3
-p f3.10o {p-movswapAC}
-p {p-sub-movAI} f3.9i
-s f3.rp9 3
-p f3.9o {p-movswapAD}
-p {p-sub-movAJ} f3.8i
-s f3.rp8 3
-p f3.8o {p-movswapAE}
-
-$swapf {p-sub-movAX}
-$movaf {p-sub-movAX-5}
-$swapf {p-sub-movAX-8}
-
-endif # SUB_MOVAX11
-
-
-if SUB_MOVAX5
-
-# - MOVAX -
-# To use trigger p-sub-movAX e.g. p-sub-movAG moves A to G
-# XXX doesn't fit
-# 1. MOVAX -> EX
-# 2. LS -notX-> MOVAX
-# 3. RF -AtoX-> MOVAX
-# 4. MOVAX -> LS
-# 5. EX -> MOVAX
-
-# This sequence relies on 2 accumulator inputs per target register, one to
-# select everything but that register "notX" and one to move A into the X
-# position "AtoX". Spread these 2 * 5 = 10 inputs across 3 accums.
-# X          which target reg inputs being defined
-# YX         FG, HI or J (which target registers on this accum)
-# AtoXwiring permute adapter wiring for AtoX input
-# notXwiring permute adapter wiring for notX input
-defmacro acc-movax acc X YX AtoXwiring notXwiring
-{a-movA$YX}=$acc
-
-# AtoX input: select digits 10,9 in X register position
-p {d-main} ad.permute.{ad-Ato$X}
-s ad.permute.{ad-Ato$X} $AtoXwiring
-p ad.permute.{ad-Ato$X} {a-movA$YX}.{i-Ato$X}
-
-# notX input: select digits besides X register
-p {d-main} ad.permute.{ad-not$X}
-s ad.permute.{ad-not$X} $notXwiring
-p ad.permute.{ad-not$X} {a-movA$YX}.{i-not$X}
-
-# 2-step sequence receive on notX then AtoX
-# 1. -
-# 2.     -notX-> MOVAX
-# 3.     -AtoX-> MOVAX
-$i-dummy {p-sub-movA$X} {p-sub-movA$X-2}
-$rec {p-sub-movA$X-2} {a-movA$YX} {t-movA$X-2} {i-not$X} {p-sub-movA$X-3}
-$recx {p-sub-movA$X-3} {a-movA$YX} {r-movA$X-3} {i-Ato$X}
-endmacro
-
-#          acc X YX AtoXwiring             notXwiring
-$acc-movax a8  F FG 0,10,9,0,0,0,0,0,0,0,0 0,0,0,8,7,6,5,4,3,2,1
-$acc-movax a8  G FG 0,0,0,10,9,0,0,0,0,0,0 0,10,9,0,0,6,5,4,3,2,1
-$acc-movax a9  H HI 0,0,0,0,0,10,9,0,0,0,0 0,10,9,8,7,0,0,4,3,2,1
-$acc-movax a9  I HI 0,0,0,0,0,0,0,10,9,0,0 0,10,9,8,7,6,5,0,0,2,1
-$acc-movax a10 J J  0,0,0,0,0,0,0,0,0,10,9 0,10,9,8,7,6,5,4,3,0,0
-
-# Shared sequence to save and restore temp accums. Only one instance is needed
-# per accumulator.
-# 1. MOVAX ->    
-# 2. -
-# 3. -
-# 4. MOVAX ->    
-# 5.     ->  MOVAX
-defmacro acc-movax-save-restore YX rt
-$sendcx {p-movA$YX} {a-movA$YX} {r-movA$YX} A
-$dummy-delay-exclude {p-movA$YX} 3 {p-movA$YX-4} -{a-movA$YX}
-
-$sendc {p-movA$YX-4} {a-movA$YX} {t-movA$YX-4} A {p-movA$YX-5}
-$recx {p-movA$YX-5} {a-movA$YX} {$rt-movA$YX-5} {i-main}
-endmacro
-
-$acc-movax-save-restore FG t
-$acc-movax-save-restore HI t
-# FG and HI each use two r- programs for $acc-movax, and one for memcycle, so
-# can fit only one more. But J can fit 2 more r- programs.
-$acc-movax-save-restore J r
-
-# Used to trigger save/restore for the accum used for this mov.
-$pulseamp {p-sub-movAF} {p-sub-movAFG}
-$pulseamp {p-sub-movAG} {p-sub-movAFG}
-$pulseamp {p-sub-movAH} {p-sub-movAHI}
-$pulseamp {p-sub-movAI} {p-sub-movAHI}
-
-# A single shared sequence for all the movs
-# register and accum specific parts are triggered by pulse amps
-# 1.       -> EX
-# 2. LS ->     
-# 3. RF ->      
-# 4.       -> LS
-# 5. EX ->      
-$rec {p-sub-movAX} {a-ex} {t-sub-movAX} {i-main} {p-sub-movAX-2}
-$sendc {p-sub-movAX-2} {a-ls} {t-sub-movAX-2} A {p-sub-movAX-3}
-$send {p-sub-movAX-3} {a-rf} {t-sub-movAX-3} A {p-sub-movAX-4}
-$rec {p-sub-movAX-4} {a-ls} {t-sub-movAX-4} {i-main} {p-sub-movAX-5}
-$i-dummy {p-sub-movAX-4} {p-storeex}
-
-# Used to trigger the common sequence for all the movs.
-$pulseamp {p-sub-movAFG} {p-sub-movAX}
-$pulseamp {p-sub-movAHI} {p-sub-movAX}
-$pulseamp {p-sub-movAJ} {p-sub-movAX}
-
-endif # SUB_MOVAX5
 
 
 # -- OPCODE IMPLEMENTATIONS --
@@ -1655,54 +1330,6 @@ endif # SUB_MOVAX5
 p {p-op00} {p-fetch}
 
 
-if OP_SWAP
-
-# - SWAP A,[BCDE] -
-# First two cycles of each instruction is per-op, last two cycles shared
-# 1. per-op: swapBCDE->EX
-# 2. per-op: RF-swapA[BCDE]->swapBCDE, this is where the actual swap is
-# 3. shared: swapBCDE->RF  $memcyc4-2
-# 4. shared: EX->swapBCDE  $memcyc4-3
-# This uses 10 programs total, rather than 16 if we do all sequences separately
-
-p {p-op01} {p-opswapAB}
-p {p-op02} {p-opswapAC}
-p {p-op03} {p-opswapAD}
-p {p-op04} {p-opswapAE}
-
-defmacro swapBCDE-op reg
-  # swapBCDE->EX, save swapBCDE
-  $sendc {p-opswapA$reg} {a-swapBCDE} {t-swapA$reg} A {p-opswapA$reg-2}
-  $loadex {p-opswapA$reg}
-
-  # RF->swapBCDE, on swap input -- actually does the swap
-  $sendc-rf {p-opswapA$reg-2}
-  $rec {p-opswapA$reg-2} {a-swapBCDE} {t-opswapA$reg-2} {i-swapA$reg} {p-opswapBCDE}
-endmacro
-$swapBCDE-op B
-$swapBCDE-op C
-$swapBCDE-op D
-$swapBCDE-op E
-
-# The rest of the swap sequence has to done with dummies, we used 8 transcievers
-# We need to send+clear swapBCDE, and then restore it from d-main, but this is
-# exactly the memory cycle sequence so reuse that (a-swapBCDE == a-mem4).
-$pulseamp {p-opswapBCDE} {p-memcyc4-2}
-
-# swapBCDE->RF, saves swapped values back to RF
-$dummy-exclude {p-opswapBCDE} {p-opswapBCDE-2} -{a-swapBCDE}
-# p-memcyc4-2 sends a-swapBCDE
-$loadrf {p-opswapBCDE}
-
-# EX->swapBCDE, restore swapBCDE
-$dummy-exclude {p-opswapBCDE-2} {p-fetch} -{a-swapBCDE}
-$storeex {p-opswapBCDE-2}
-# p-memcyc4-3 receives a-swapBCDE
-
-endif # OP_SWAP
-
-
-
 # - LOADACC -
 if OP_LOADACC
 # LOADACC is identical to STOREACC except 
@@ -1714,11 +1341,7 @@ p {p-op10} {p-oploadacc}
 $pulseamp {p-oploadacc} {p-sub-memcyc} # XXX pa not currently needed but maybe on word access?
 
 # clear LS, we'll want that empty to recieve acc value
-if SUB_MOVAX5
-  $clearls {p-oploadacc}
-else
-  $clearx {p-oploadacc} {a-ls} {r-clear}
-endif
+$clearx {p-oploadacc} {a-ls} {r-clear}
 
 # XXX good for FT dummy
 $dummy-delay {p-oploadacc} 8 {p-oploadacc-2}
@@ -1777,12 +1400,7 @@ $sendc-rf {p-opswapall-2}
 $rec {p-opswapall-2} {a-rftmp} {t-opswapall-2} {i-main} {p-opswapall-3}
 
 # LS->RF
-if SUB_MOVAX11
-  $dummy {p-opswapall-2} {p-sendc-ls}
-  $dummy {p-opswapall-3} {p-opswapall-4}
-else
-  $sendc {p-opswapall-3} {a-ls} {t-opswapall-2} A {p-opswapall-4}
-endif
+$sendc {p-opswapall-3} {a-ls} {t-opswapall-2} A {p-opswapall-4}
 $loadrf {p-opswapall-3}
 
 # RFTMP->LS
@@ -1796,7 +1414,6 @@ $rec {p-opswapall-5} {a-rftmp} {t-opswapall-5} {i-main} {p-fetch}
 endif # OP_SWAPALL
 
 
-# Common to OP_MOVXA3 + OP_MOVXA6 wiring
 defmacro mov-decoding
   # All mov opcodes for A with RF are encoded as 2x, and all mov opcodes for A
   # with LS are encoded as 3x to conserve pulse amplifiers.  There is nothing
@@ -1838,9 +1455,6 @@ p {p-op34} {p-opmovFA}
 # Manually placed so they don't overlap with the multicycle sel dummies.
 $manual-dummy {p-opmovXA} a19 {t-opmovXA} 2 {p-opmovXA-3}
 $manual-dummy {p-opmovXA-3} a19 {t-opmovXA-3} 2 {p-opmovXA-5}
-if SUB_MOVAX11
-$manual-dummy {p-opmovXA-5} a19 {t-opmovXA-5} 2 {p-fetch}
-endif
 # NB only one of these two may be active so fine if same accum
 $manual-dummy {p-opmovRFA} a20 {t-opmovRFA} 3 {p-opmovRFA-4}
 $manual-dummy {p-opmovLSA} a20 {t-opmovLSA} 3 {p-opmovLSA-4}
@@ -1898,9 +1512,6 @@ $pulseamp {p-opswapAE} {p-opswap}
 # Manually placed so they don't overlap with the multicycle sel dummies.
 $manual-dummy {p-opswap} a20 {t-opswap} 1 {p-opswap-2}
 $manual-dummy {p-opswap-2} a20 {t-opswap-2} 1 {p-opswap-3}
-if SUB_MOVAX11
-$manual-dummy {p-opswap-3} a20 {t-opswap-3} 2 {p-fetch}
-endif
 $dummy-exclude {p-opswapAB} {p-movswapAB} -a20,a18,{a-movswap}
 $dummy-exclude {p-opswapAC} {p-movswapAC} -a20,a18,{a-movswap}
 $dummy-exclude {p-opswapAD} {p-movswapAD} -a20,a18,{a-movswap}
@@ -1916,89 +1527,6 @@ $sendc-rf {p-opswap-2}
 $loadrf {p-opswap-3}
 
 endif
-
-
-if OP_MOVXA3
-
-# - MOV [BCDEGHIJ],A -
-# Four inputs on RF let us share almost the same sequence for most MOVs, except
-# MOV F,A which needs an extra input.  We could get 2-cycle MOVs for [BCD] by
-# wiring movBA, movCA, movDA inputs on RF instead.
-# 1. RF -clearA-> EX
-# 2. EX -> RF, don't clear
-# 3. EX -sel[BCDE]A-> RF, clear
-#    (or: LS -sel[BCDE]A -> RF, clear EX)
-$mov-decoding
-
-# Manually placed so they don't overlap with the multicycle sel dummies.
-$manual-dummy {p-opmovXA} a19 {t-opmovXA} 1 {p-opmovXA-2}
-# NB only one of these two may be active so fine if same accum
-$manual-dummy {p-opmovRFA} a20 {t-opmovRFA} 2 {p-opmovRFA-3}
-$manual-dummy {p-opmovLSA} a20 {t-opmovLSA} 2 {p-opmovLSA-3}
-
-# Decode which select inputs to use, e.g. mov B,A and mov G,A each select the
-# same field to move into A. only one sel dummy can be active so fine if same
-# accum
-$dummy-delay-exclude {p-opmovBA} 2 {p-rf-selBA} -a20,a19
-$dummy-delay-exclude {p-opmovCA} 2 {p-rf-selCA} -a20,a19
-$dummy-delay-exclude {p-opmovDA} 2 {p-rf-selDA} -a20,a19
-$dummy-delay-exclude {p-opmovEA} 2 {p-rf-selEA} -a20,a19
-$dummy-delay-exclude {p-opmovGA} 2 {p-rf-selBA} -a20,a19
-$dummy-delay-exclude {p-opmovHA} 2 {p-rf-selCA} -a20,a19
-$dummy-delay-exclude {p-opmovIA} 2 {p-rf-selDA} -a20,a19
-$dummy-delay-exclude {p-opmovJA} 2 {p-rf-selEA} -a20,a19
-
-# RF -clearA-> EX
-$sendc-rf {p-opmovXA}
-$loadex-clearA {p-opmovXA}
-
-# EX -> RF, don't clear
-$send {p-opmovXA-2} {a-ex} {t-opmovXA-2} A {p-opmovXA-3}
-$loadrf {p-opmovXA-2}
-
-# EX -sel[BCDE]A-> RF, clear
-$storeex {p-opmovRFA-3}
-# Alternatively LS -sel[BCDE]A->RF, clear EX
-$sendx {p-opmovLSA-3} {a-ls} {r-opmovLSA-3} A
-$clearx {p-opmovLSA-3} {a-ex} {t-opmovLSA-3}
-$dummy {p-opmovXA-3} {p-fetch}
-
-endif # OP_MOVXA3
-
-
-if OP_MOVFA3
-
-# - MOV F,A -
-# Separate from other MOVs because RF doesn't have enough inputs to select A.
-# TODO This is kinda expensive but seems important... is there a cheaper way?
-# 1. MOVFA -> EX
-# 2. RF -clearA-> MOVFA
-# 3. LS -selectA-> MOVFA
-# 4. MOVFA -> RF
-# 5. EX -> MOVFA
-p {p-op93} {p-opmovFA}
-
-# Stash MOVFA in EX
-$sendc {p-opmovFA} {a-movfa} {t-opmovFA} A {p-opmovFA-2}
-$loadex {p-opmovFA}
-
-# Get 0BCDE in MOVFA and clear RF
-$sendc-rf {p-opmovFA-2}
-$rec {p-opmovFA-2} {a-movfa} {t-opmovFA-2} {i-clearA} {p-opmovFA-3}
-
-# Get F0000 in MOVFA
-$sendx {p-opmovFA-3} {a-ls} {t-opmovFA-3} A
-$rec {p-opmovFA-3} {a-movfa} {t-opmovFA-3} {i-selectA} {p-opmovFA-4}
-
-# Replace RF with FBCDE and clear MOVFA
-$sendc {p-opmovFA-4} {a-movfa} {t-opmovFA-4} A {p-opmovFA-5}
-$loadrf {p-opmovFA-4}
-
-# Restore stashed MOVFA
-$storeex {p-opmovFA-5}
-$rec {p-opmovFA-5} {a-movfa} {t-opmovFA-5} {i-main} {p-fetch}
-
-endif # OP_MOVFA3
 
 
 if OP_CLRA
@@ -2040,11 +1568,7 @@ s c.s29 Jr
 p c.29o {p-fetch}
 
 # Increment A field of RF
-if FAST_MOV
-  $recx {p-opinc} {a-rf} {t-opinc} {i-main}
-else
-  $recx {p-opinc} {a-rf} {r-opinc} {i-main}
-endif
+$recx {p-opinc} {a-rf} {r-opinc} {i-main}
 
 endif # OP_INC
 
@@ -2279,11 +1803,7 @@ p {p-op91} {p-opread}
 # read in a new card into constant transmitter
 p {p-opread} i.Ri
 # clear LS to receive card data
-if SUB_MOVAX5
-  $clearls {p-opread}
-else
-  $clear {p-opread} {a-ls} {t-opread} {p-opread-2}
-endif
+$clear {p-opread} {a-ls} {t-opread} {p-opread-2}
 
 # wait for card to read
 p {p-opread-2} i.Rl
