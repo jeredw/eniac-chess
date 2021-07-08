@@ -958,9 +958,6 @@ $triggerft 3
 # Meanwhile, clear IR (needed only on jumps, otherwise already zero here from overflow)
 $clear {p-fetchtrig} {a-ir} {t-fetchtrig} {p-fetcharg}
 
-# wait 4 cycles until argument ready 
-$dummy-delay {p-fetchtrig} 4 {p-fetchread}
-
 
 # -- {p-fetcharg} ft argument request
 # - FT <- bottom two digits of PC (a1)
