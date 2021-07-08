@@ -5,14 +5,14 @@
 02 - swap A,C
 03 - swap A,D
 04 - swap A,E
-05 - swap A,F     ? imeplementable??
+05 -
 
 10 - loadacc A    ; acc A -> FGHIJ
 11 - storeacc A   ; FGHIJ -> acc A
 12 - swapall      ; ABCDE <-> FGHIJ
-13 - scanall      ; destructively search FGHIJ for index of A, to A, -1 if not found
-14 - ftload A     ; FGHIJ = ft3[A] first 10 digits
-15 - ftlookup A,#XX ; A <- ft3[A+XX] last 2 digits
+13 -
+14 -
+15 -
 
 20 - mov B,A
 21 - mov C,A
@@ -29,38 +29,38 @@
 35 - (reserved for future LS<->RF mov)
 
 40 - mov XX,A
-41 - mov XX,D   
-42 - mov [XX],A
-43 - mov [B],A
-44 - mov A,[XX]
-45 - mov A,[B]
+41 -
+42 -
+43 -
+44 -
+45 -
 
 50 - (reserved for 9x decode)
 51 - (reserved for 8x decode)
 52 - inc A
 53 - dec A
-54 - inc B
+54 -
 55 - (reserved for 7x decode)
 
 70 - add D,A
-71 - neg A
+71 -
 72 - sub D,A      ; aka compare
 73 - jmp XX       ; within current function table
 74 - jmp far XXXX ; to any function table
-75 - jmp +A
+75 -
 
 80 - jn XX        ; jump if A<0 
 81 - jz XX        ; jump if A==0
 82 - jil XX       ; jump if A is an illegal board square: D2 or D1 is 0 or 9
-83 - loop XX      ; dec C; jump if C!=0
+83 -
 84 - jsr XXXX     ; always far
 85 - ret
 
 90 - clr A
 91 - read         ; read 5 digits from card into LS (FFGGH)
 92 - print        ; print 5 digits from RF (0AABB)
-93 -              ; XXX 3-cycle mov puts MOV F,A here
-94 - nextline     ; go immediately to line fetch
+93 -
+94 -
 95 - halt
 
 
@@ -108,7 +108,7 @@ S - exS, used in control cycle
 AS - op discriminate
 a - main
 b - rotate-ir: I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, used in control cycle
-g - clearA: aa bb cc dd ee -> 00 bb cc dd ee, used in control cycle
+g - clearA: S aa bb cc dd ee -> 0 00 bb cc dd ee, used in control cycle and MOV
 d - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
 e - fetch-i1: from FT for instruction fetch
 
@@ -120,10 +120,9 @@ layout: PM AA BB CC DD EE
 A - main
 S - main, deleting PM and digit 1, used for SUB D,A
 a - main
-b - selBA: XX bb XX XX XX -> bb 00 00 00 00, used for MOV B,A
-g - selCA: XX XX cc XX XX -> cc 00 00 00 00, used for MOV C,A
-d - selDA: XX XX XX dd XX -> dd 00 00 00 00, used for MOV D,A/ADD D,A
-e - selEA: XX XX XX XX ee -> ee 00 00 00 00, used for MOV E,A/MOV #X,A
+b - selectA: X aa XX XX XX XX -> 0 aa 00 00 00 00, used for MOV X,A
+g - selDA:   X XX XX XX dd XX -> 0 dd 00 00 00 00, used for ADD D,A
+d - selEA:   X XX XX XX XX ee -> 0 ee 00 00 00 00, used for MOV #XX,A
 
 
 LS:
@@ -160,7 +159,7 @@ A8
 MEM2:
 RFTMP
 A - main
-a = main
+a - main
 
 
 A9
@@ -171,9 +170,8 @@ a - main
 
 A10
 MEM4:
-SWAPBCDE:
-a - nop
-b-e - swapA[BCDE]
+A - main
+a - main
 
 
 A11
@@ -196,6 +194,7 @@ e - shiftl4-pc: XX XXXX PPPP -> XX PPPP 0000
 A13
 MEM7
 a - main
+b - printAB: S aabbX XXXXX -> S 0aabb XXXXX
 
 
 A14
@@ -224,7 +223,6 @@ A - main
 S - trigger memcyc 0-9
 a - main 
 b - ftselacc: assemble 10 digits from FT output
-g - shiftr8 - put A in low digits. Used to send A as arg to FT
 
 
 A17
@@ -232,9 +230,10 @@ MEM11:
 MOVSWAP:
 A - main
 a - main
-b - clearA: aa bb cc dd ee -> 00 bb cc dd ee
-g - selectA: aa XX XX XX XX -> aa 00 00 00 00
-e - selA (preserve sign)
+b - movAB: S aa bb XX XX XX -> S bb aa XX XX XX
+g - movAC: S aa XX cc XX XX -> S cc XX aa XX XX
+d - movAD: S aa XX XX dd XX -> S dd XX XX aa XX
+e - movAE: S aa XX XX XX ee -> S ee XX XX XX aa
 
 
 A18
@@ -591,39 +590,9 @@ MOV A,[B]  (aka STORE)
 # XXX A problem here is where to compute the address for STOREACC.  Likely
 # requires the option 2 rewiring hack.
 
-MOV A,[BCDE] and MOV A,[FGHIJ]
-Option 0:  (Used as part of STOREWORD)
-1. sel[FGHIJ] -> EX, clear
-2. RF -movAX-> sel[FGHIJ], don't clear
-3. (BCDE:RF or FGHIJ:LS) -notX-> sel[FGHIJ], clear
-4. sel[FGHIJ] -> (BCDE:RF or FGHIJ:LS)
-5. EX -> sel[FGHIJ]
-
 
 MOV [BCDE],A and MOV [FGHIJ],A
-Option 0: 5-cycle sequence
-1. sel[FGHIJ] -> EX, clear
-2. (BCDE:RF or FGHIJ:LS) -movXA-> sel[FGHIJ], don't clear
-3. RF -notA-> sel[FGHIJ], clear
-4. sel[FGHIJ] -> RF
-5. EX -> sel[FGHIJ]
-
-Option 1: 3-cycle sequence
-1. RF -clearA-> EX
-2. EX -> RF, don't clear
-3. EX -sel[BCDE]A-> RF, clear
-   (or: LS -sel[BCDE]A -> RF, clear EX)
-# but needs separate sequence for MOV F,A,
-# which is super expensive :(
-1. MOVFA -> EX
-2. RF -clearA-> MOVFA
-3. LS -selectA-> MOVFA
-4. MOVFA -> RF
-5. EX -> MOVFA
-# also not shared with SWAP
-
-Option 2: 6-cycle sequence (works for all regs)
-Can share with SWAP
+(Shared with SWAP)
 1. $clearA-1
 2. $clearA-2
 3. MOVSWAP -> EX
@@ -640,25 +609,11 @@ SWAP A,[BCDE]
 4. EX -> MOVSWAP
 
 
-SWAP A,F
-??
-M -> EX, clear
-LS -sel A-> PC, LS -mask A-> M, clear  ?? PC sel A?
-M -> LS, clear
-RF -mask A-> M, RF -sel A->LS, clear
-M -> RF, PC ->sel A-> RF ?? PC sel A?
-EX->M, clear
-
-
-MOV A,#X
-?? need selA input on RF
-1. RF -clearA-> EX, clear   
-2. EX -> RF, clear
-3. IR -S-> EX, clear      # assumes IR<0 so disc is not triggered
-4. EX -S-selA-> RF, EX -S-fill99exS-> IR, clear   
-
-The +1 from EX->S both advances 99-I2 to 100-I2 in IR, and converts 100-I1 to I1 in RF
-MOV A,#0 will fail because it will overflow a +1 to I2 on previous fetch cycle (100-0 = 100)
+MOV #XX,A
+1. $clearA-1
+2. $clearA-2
+3. $consume-op-1  -rf-selEA-> RF
+4. $consume-op-2
 
 
 CLR A
@@ -668,17 +623,6 @@ CLR A
 
 INC A
 CT sends P 01 00 00 00 00 -> RF
-
-
-INC B
-?? works unless B=99, then changes sign of A!
-1. MEM12 -> EX, clear
-2. RF -swapB-> MEM12, clear
-3. MEM12 += CT P 01 00 00 00 00
-4. MEM12 -> RF, clear
-2. RF -swapB-> MEM12, clear
-4. MEM12 -> RF, clear
-1. EX->MEM12, clear
 
 
 DEC A
@@ -697,14 +641,6 @@ SUB D,A   (A -= D, treating D as +)
 2. EX -selDA-> RF, clear  # A += 99-D
 3. P01000 -> RF           # A += 100-D
 4. M00000 -> RF           # Fix sign (don't have M01 constant)
-
-
-NEG A
-1. MEM14 -> EX, clear
-2. RF -> MEM14, clear
-3. MEM14 -clearA-> RF         # clearA must clear sign
-4. MEM14 -S-> RF, clear       # S keeps only A and sign
-5. RF += P 01 00 00 00 00, EX->MEM14, clear
 
 
 JMP XXXX 
@@ -784,11 +720,6 @@ RET
 6. (send NEWPC)             $discft-2
 goto fetchline
  . EX -> NEWPC  # parallel with p-fetchline
-
-
-NEXTLINE
-goto fetchline
-
 
 
 

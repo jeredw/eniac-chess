@@ -238,12 +238,10 @@ p {a-rf}.S ad.permute.{ad-drop-rf-sign}
 s ad.permute.{ad-drop-rf-sign} 0,10,9,8,7,6,5,4,3,2,0
 p ad.permute.{ad-drop-rf-sign} {d-main}
 
-if OP_MOVXA
 # i-selectA input: aa 00 XX XX XX -> aa 00 00 00 00
 p {d-main} ad.permute.{ad-rf-selectA}
 s ad.permute.{ad-rf-selectA} 0,10,9,0,0,0,0,0,0,0,0
 p ad.permute.{ad-rf-selectA} {a-rf}.{i-selectA}
-endif
 
 # i-selDA input: XX XX XX aa XX -> aa 00 00 00 00, used for MOV DI,A
 p {d-main} ad.permute.{ad-rf-selDA}
@@ -258,10 +256,8 @@ p ad.permute.{ad-rf-selEA} {a-rf}.{i-selEA}
 # shared programs
 $recx {p-rf-selDA} {a-rf} {r-rf-selDA} {i-selDA}
 $recx {p-rf-selEA} {a-rf} {r-rf-selEA} {i-selEA}
-
 $sendx {p-send-rf} {a-rf} {t-send-rf} A
 $sendcx {p-sendc-rf} {a-rf} {t-sendc-rf} A
-
 $recx {p-loadrf} {a-rf} {r-loadrf} {i-main}
 
 # helper macros
@@ -336,7 +332,6 @@ $acc-main mem3
 
 # - MEM4 -
 {a-mem4}=a10
-{a-swapBCDE}=a10
 $acc-main mem4
 
 
@@ -432,7 +427,6 @@ p {d-ftselacc} {a-memcyc09}.{i-ftselacc}
 {a-movfa}=a17
 $acc-main mem11
 
-if SUB_MOVSWAP
 p {d-main} ad.permute.{ad-movAB}
 s ad.permute.{ad-movAB} 11,8,7,10,9,6,5,4,3,2,1
 p ad.permute.{ad-movAB} {a-movswap}.{i-movAB}
@@ -448,7 +442,6 @@ p ad.permute.{ad-movAD} {a-movswap}.{i-movAD}
 p {d-main} ad.permute.{ad-movAE}
 s ad.permute.{ad-movAE} 11,2,1,8,7,6,5,4,3,10,9
 p ad.permute.{ad-movAE} {a-movswap}.{i-movAE}
-endif
 
 # shared programs
 if SUB_MOVSWAP
