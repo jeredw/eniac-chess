@@ -22,9 +22,9 @@ set a20 2020202020
 endif
 
 # use 'enable' or 'disable' to condition assembly of the corresponding sequence
-# - base (11 pas, 21 ts)
+# - base (11 pas, 20 ts)
 enable RESET_SEQUENCE #  2 pas,  2 ts
-enable CONTROL_CYCLE  #  9 pas, 19 ts
+enable CONTROL_CYCLE  #  9 pas, 18 ts
 # - memory (13 pas, 54 ts)
 enable OP_LOADACC     #  1 pas,  1 ts
 enable OP_STOREACC    #  1 pas,  5 ts
@@ -1010,7 +1010,7 @@ s ad.permute.{ad-fetchB} 0,2,1,4,3,6,5,0,0,0,0
 p ad.permute.{ad-fetchB} {d-fetch}
 
 # Increment IR to make the rightmost instruction I2+1 instead of I2
-$recinc {p-fetchread} {a-ir} {t-fetchread} {i-fetch} {p-nofetch}
+$recincx {p-fetchread} {a-ir} {r-fetchread} {i-fetch}
 
 # A6A5 00 00 00 00 -> EX,PC
 p {d-fA} ad.permute.{ad-fetch-ex}
@@ -1018,7 +1018,7 @@ s ad.permute.{ad-fetch-ex} 0,6,5,0,0,0,0,0,0,0,0
 p ad.permute.{ad-fetch-ex} {d-fetch-i1}
 
 # Get I1+1 in the top of EX and PC, and increment PC
-$recx {p-fetchread} {a-ex} {t-fetchread} {i-fetch-i1}
+$rec {p-fetchread} {a-ex} {t-fetchread} {i-fetch-i1} {p-nofetch}
 $recincx {p-fetchread} {a-pc} {r-fetchread} {i-fetch-i1}
 
 endif # CONTROL_CYCLE
