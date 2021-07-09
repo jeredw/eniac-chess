@@ -11,9 +11,11 @@
 # a     accumulator, 1-20
 # p     program line, 1-1 to 26-11
 # d     data trunk, 1-20
+# f     function table, 1-3
 # r     accumulator receiver, 1-5 on each accumulator
 # t     accumulator transciever, 6-12 on each accumulator
 # t     selective clear transceiver, 1-6 on init unit
+# t     function table transceiver, 1-11 on each function table
 # ad    adapter, 1-40 (simulator limitation) for each type
 # pa    pulse amplifier channel, 8x11
 # da    debug assertions
@@ -74,6 +76,7 @@ class SymbolTable:
       'd':      Resource('digit trunks', 20, {}),
       'p':      Resource('program lines', 26*11, {}),
       'a':      Resource('accumulators', 20, {}),
+      'f':      Resource('function tables', 3, {}),
       'i.t':    Resource('selective clear transceivers', 6, {}),
       'ad.s':   Resource('shift adapters', 80, {}),
       'ad.d':   Resource('deleter adapters', 80, {}),
@@ -89,10 +92,16 @@ class SymbolTable:
     self.sym_acc = [ 
       { 
         'r':    Resource('receiver programs', 4, {}),
-        't':    Resource('transciever programs', 8, {}),
+        't':    Resource('transceiver programs', 8, {}),
         'i':    Resource('accumulator inputs', 5, {})
       } 
       for i in range(20) ]
+    # per ft
+    self.sym_ft = [
+      {
+        't':    Resource('ft transceiver programs', 11, {}),
+      }
+      for i in range(3) ]
 
   def _lookup(self, r:Resource, name:str):
     # is this symbol defined already?
@@ -123,6 +132,11 @@ class SymbolTable:
     r = self.sym_acc[acc_idx][resource_type]
     return self._lookup(r, name)
 
+  def lookup_ft(self, ft_idx, resource_type, name):
+    '''Lookup/allocate a named resource on a particular ft'''
+    r = self.sym_ft[ft_idx][resource_type]
+    return self._lookup(r, name)
+
   def summarize_resource_usage(self):
     def bitmap(alloc):
       result = ["."] * alloc.limit
@@ -146,7 +160,14 @@ class SymbolTable:
     t_summary = f"{num_ts_used}/{num_ts_avail}"
     ct = self.sym_global['i.t']
     ct_summary = f"{len(ct.symbols)}/{ct.limit}"
-    print(f"pas {pa_summary} ts {t_summary} its {ct_summary}")
+    num_fts_used = 0
+    num_fts_avail = 0
+    for ft in range(3):
+      transceivers = self.sym_ft[ft]['t']
+      num_fts_used += len(transceivers.symbols)
+      num_fts_avail += transceivers.limit
+    ft_summary = f'{num_fts_used}/{num_fts_avail}'
+    print(f"pas {pa_summary} ts {t_summary} its {ct_summary} fts {ft_summary}")
     for row in range(10):
       print(f"{per_acc[2*row]}   {per_acc[2*row+1]}")
 
@@ -298,6 +319,60 @@ class Assembler(object):
     return text, symbols
 
 
+  # Translates a literal ft number or named ft into fX
+  # Handles cases:
+  #   f1
+  #   f{f-name}
+  # returns text, symbols pair
+  def lookup_ft(self, ft):
+    if '{f-' in ft:
+      # it's a name like {f-foo}
+      name = ft[1:-1] # strip braces
+      n = self.symbols.lookup('f', name)
+      fttext = 'f' + str(n+1)
+      return fttext, {name: fttext }
+    else:
+      # it's a literal like 'f1'
+      return ft, {}
+
+
+  # Translates [prefix]{transciever}[suffix] into text, symbol
+  # using prefix and suffix. Handles cases:
+  #   rp{t-name}
+  #   11i
+  #   {t-name}i
+  # returns text,symbols pair
+  def lookup_ft_arg(self, fttext, arg):
+    if 't-' in arg:
+      m = re.match('(?P<prefix>[^{\d]*)(?P<name>{t-[A-Za-z0-9-]+})(?P<suffix>.*)', arg)
+
+      prefix = m.group('prefix')
+      suffix = m.group('suffix')
+      name = m.group('name')[1:-1]    # strip braces
+      ft_idx = int(fttext[1:])-1      # strip 'f', convert to 0-based
+
+      n = self.symbols.lookup_ft(ft_idx, 't', name)
+      argtext = prefix + str(1+n) + suffix
+      return argtext, {name: argtext}
+    else:
+      # literal
+      return arg, {}
+
+
+  def patch_ft(self, arg):
+    m = re.match('(?P<ft>(f\d|{f-[A-Za-z0-9-]+}))\.(?P<terminal>((\d\d?|{t-[A-Za-z0-9-]+})[io]|[AB]|arg))', arg)
+    if not m:
+      raise SyntaxError('bad ft terminal')
+
+    fttext, symbols = self.lookup_ft(m.group('ft'))
+    argtext, symbols2 = self.lookup_ft_arg(fttext, m.group('terminal'))
+    symbols.update(symbols2)
+
+    # put it all back together
+    text = fttext + '.' + argtext
+    return text, symbols
+
+
   def patch_init(self, arg):
     # patch selective clear transceiver
     m = re.match(r'i\.C(?P<prefix>[io])(?P<terminal>\d|{t-[A-Za-z0-9-]+})', arg)
@@ -336,10 +411,11 @@ class Assembler(object):
         re.compile(r"{p-[A-Za-z0-9-]+}"): self.patch_p,       # named program line
         re.compile(r"ad\..+"):            self.patch_adapter, # adapter
         re.compile(r"(a\d\d?|{a-[A-Za-z0-9-]+})\..+"): self.patch_accum,   # accumulator, more complex handling
+        re.compile(r"(f\d|{f-[A-Za-z0-9-]+})\..+"): self.patch_ft,   # ft transceiver
         re.compile(r"{pa-[ab]-[A-Za-z0-9-]+}"): self.patch_pulseamp, # pulse amplifiers
         re.compile(r"debug\..+"):         self.patch_debug,   # debug resource
         re.compile(r"i\.C.+"):            self.patch_init,    # initiating unit (selective clear)
-        re.compile(r".+"):                self.arg_literal    # function table, constants, etc. (all else)
+        re.compile(r".+"):                self.arg_literal    # constants, etc. (all else)
     }
 
     for pattern, handler in patch_dispatch.items():
@@ -399,6 +475,25 @@ class Assembler(object):
     comment = self.symbols_to_comment(symbols1, symbols2, comment)
     return format_comment(leading_ws + ' ' + arg1 + ' ' + arg2, comment)
 
+  # e.g. s {f-name}.rp{t-name} n
+  def line_s_ft(self, leading_ws, arg1, arg2, comment):
+
+    # do we need to lookup accumulator name?
+    fttext = None
+    m = re.match(r'(?P<ft>(f\d|{f-[A-Za-z0-9-]+}))\.(?P<prog>.+)', arg1)
+    if not m:
+      raise SyntaxError('bad ft switch setting')
+
+    fttext, symbols1 = self.lookup_ft(m.group('ft'))
+    progtext, symbols2 = self.lookup_ft_arg(fttext, m.group('prog'))
+    symbols1.update(symbols2)
+    arg1 = fttext + '.' + progtext
+
+    symbols2 = {}
+
+    comment = self.symbols_to_comment(symbols1, symbols2, comment)
+    return format_comment(leading_ws + ' ' + arg1 + ' ' + arg2, comment)
+
 
   # e.g. s ad.permute.{ad-my-permuter} 11.10.9.8.7.6.5.4.3.2.1
   def line_s_permute(self, leading_ws, arg1, arg2, comment):
@@ -440,6 +535,9 @@ class Assembler(object):
     if re.match(r'a\d\d?|{a-[A-Za-z0-9-]+}',arg1):
       return self.line_s_accum(leading_ws, arg1, arg2, comment)
 
+    if re.match(r'f\d|{f-[A-Za-z0-9-]+}',arg1):
+      return self.line_s_ft(leading_ws, arg1, arg2, comment)
+
     if re.match(r'ad\.permute\.{ad-[0-9a-zA-Z-]+}',arg1):
       return self.line_s_permute(leading_ws, arg1, arg2, comment)
       
@@ -454,7 +552,7 @@ class Assembler(object):
 
   # Handles symbol assignments e.g. {p-foo}=3-1
   def line_assign(self, line, **kwargs):
-    m = re.match(r'{(?P<name>[apd]-[A-Za-z0-9-]+)}\s*=\s*(?P<value>a?\d\d?(-\d\d?)?)\s*(#.*)?', line)
+    m = re.match(r'{(?P<name>[apdf]-[A-Za-z0-9-]+)}\s*=\s*(?P<value>[af]?\d\d?(-\d\d?)?)\s*(#.*)?', line)
     if not m:
       raise SyntaxError('bad assignment value')
     name = m.group('name')
@@ -469,6 +567,10 @@ class Assembler(object):
       if not re.match(r'a\d\d?',value):
         raise SyntaxError('bad accumulator value')
       value = int(value[1:])-1          # 'a1' -> 0
+    elif res_type=='f':
+      if not re.match(r'f\d',value):
+        raise SyntaxError('bad ft value')
+      value = int(value[1:])-1          # 'f1' -> 0
     else:
       if not re.match(r'\d\d?-\d\d?',value):
         raise SyntaxError('bad program line value')
@@ -670,7 +772,7 @@ class Assembler(object):
     line_dispatch = {
       re.compile(r'\s*p\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'): self.line_p,
       re.compile(r'\s*s\s+([^\s]+)\s+([^\s]+)\s*(#.*)?'): self.line_s,
-      re.compile(r'\s*{[apd]-[A-Za-z0-9-]+}\s*=.+'):      self.line_assign,
+      re.compile(r'\s*{[apdf]-[A-Za-z0-9-]+}\s*=.+'):     self.line_assign,
       re.compile(r'\s*defmacro.*'):                       self.line_defmacro,
       re.compile(r'\s*\$([^\s]+).*'):                     self.line_domacro,
       re.compile(r'\s*include.*'):                        self.line_include,

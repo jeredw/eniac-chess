@@ -828,10 +828,10 @@ $send {p-fetchline} {a-discft3} {t-fetchline} S {p-fetchtrig} # save r for r-mem
 
 # FT settings
 defmacro triggerft num
-  p {p-trigger-ft$num} f$num.1i
-  s f$num.rp1 1                    # send once in p-fetchread
+  p {p-trigger-ft$num} f$num.{t-fetchline}i
+  s f$num.rp{t-fetchline} 1   # send once in p-fetchread
   # TODO switch to A+2 addressing to minimize overlap with accumulator decode
-  s f$num.op1 A0                   # send uncomplemented, don't offset argument
+  s f$num.op{t-fetchline} A0  # send uncomplemented, don't offset argument
 endmacro
 $triggerft 1
 $triggerft 2
@@ -1144,8 +1144,8 @@ $send-rf {p-sub-memcyc-2}
 $rec {p-sub-memcyc-2} {a-discmemcyc} {t-sub-memcyc-2} {i-splitA} {p-sub-memcyc-3}
 
 # trigger FT this cycle
-p {p-sub-memcyc-2} f3.2i
-s f3.op2 A-2
+p {p-sub-memcyc-2} f3.{t-sub-memcyc}i
+s f3.op{t-sub-memcyc} A-2
 
 # Discriminate: are we reading from 0-9 (pos) or 10-14 (neg)?
 # Always triggers {p-sub-memcyc-4} next cycle, but wait 2 cycles before triggering 
@@ -1218,16 +1218,16 @@ $send-rf {p-sub-discjx-2}
 $rec {p-sub-discjx-2} {a-discjx} {t-sub-discjx-2} {i-shiftA} {p-sub-discjx-3}
 
 # trigger ft2
-p {p-sub-discjx-2} f2.2i
-s f2.rp2 1
-s f2.op2 A0
+p {p-sub-discjx-2} f2.{t-sub-discjx}i
+s f2.rp{t-sub-discjx} 1
+s f2.op{t-sub-discjx} A0
 
 # send ft arg
 $sendx {p-sub-discjx-3} {a-discjx} {r-sub-discjx-3} A
 
 # caller receives ft sign in p-sub-discjx-6
 # continue to conditional jump sub in cycle 7
-p f2.2o {p-sub-jx}
+p f2.{t-sub-discjx}o {p-sub-jx}
 
 endif
 
