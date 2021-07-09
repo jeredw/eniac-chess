@@ -119,6 +119,23 @@ defmacro dummy-exclude inpr outpr exclude
   $dummy-delay-exclude $inpr 1 $outpr $exclude
 endmacro
 
+# Dummy to trigger outpr delay cycles after inpr using fts
+# usage: $ft-dummy-exclude {p-in} 5 {p-out} -f1
+# note delay must be >= 5
+defmacro ft-dummy-exclude inpr delay outpr exclude
+  defer allocate-ft-dummy %name $exclude
+  defer p {$inpr} {f-%name}.{t-%name}i
+  defer s {f-%name}.rp{t-%name} ${4 $delay -}
+  defer p {f-%name}.{t-%name}o {$outpr}
+endmacro
+
+# Dummy to trigger outpr delay cycles after inpr using fts
+# note delay must be >= 5
+defmacro ft-dummy inpr delay outpr
+  $ft-dummy-exclude $inpr $delay $outpr ${}
+endmacro
+
+
 # $discriminate
 #
 # Triggers outp if acc>=0 and outm if acc<0. Works by sending additively and

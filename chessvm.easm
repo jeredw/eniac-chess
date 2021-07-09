@@ -1159,9 +1159,7 @@ $rec {p-sub-memcyc-4} {a-discmemcyc} {t-sub-memcyc-4} {i-main} {p-sub-memcyc-5}
 $storeex {p-sub-memcyc-4}
 
 # Now wait 5 cycles until the address is decoded, and acc memory cycle step 2
-# Use RF program as it's not a memory accumulator or LS
-# XXX could really be an FT dummy
-$manual-dummy {p-sub-memcyc-5} {a-rf} {t-sub-memcyc5} 5 {p-sub-memcyc-6}
+$ft-dummy-exclude {p-sub-memcyc-5} 5 {p-sub-memcyc-6} -f3
 
 
 # POSITIVE (0-9) and NEGATIVE (10-14) branches of discriminate differ only on which acc

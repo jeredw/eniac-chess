@@ -623,11 +623,26 @@ class Assembler(object):
       self.uniqueid += 1
       return temps[name]
 
+    # simple arithmetic expressions (rpn)
+    def evaluate_expr(m):
+      expr = m.group('expr').split()
+      s = []
+      for x in expr:
+        if x == '+':   s.append(s.pop() + s.pop())
+        elif x == '-': s.append(s.pop() - s.pop())
+        elif x == '*': s.append(s.pop() * s.pop())
+        elif x == '/': s.append(s.pop() // s.pop())
+        else:          s.append(int(x))
+      assert len(s) == 1
+      return str(s[0])
+
     # output macro lines with appropriate substitutions
     for line in macro.lines:
       line = re.sub(r'%(?P<name>[A-Za-z0-9-]+)', lookup_temp, line)
       for name, value in arg_values.items():
+        if value == '${}': value = ''
         line = line.replace(f'${name}', value)
+      line = re.sub(r'\${(?P<expr>[^}]+)}', evaluate_expr, line)
       # in case people want to say $macro {arg} instead of $macro arg
       line = line.replace('{{', '{')
       line = line.replace('}}', '}')
@@ -733,6 +748,46 @@ class Assembler(object):
     return f'# dummy {name} = {accum}.{transceiver}i (excluded {excluded_accums})'
 
 
+  def line_allocate_ft_dummy(self, line, **kwargs):
+    # allocate an ft transceiver to a dummy program
+    # allocate-ft-dummy foo -{f1},{f2}
+    m = re.match(r'\s*allocate-ft-dummy\s+(?P<name>[A-Za-z0-9-]+)\s+(?P<args>[^#]*)(#.*)?', line)
+    if not m:
+      raise SyntaxError('bad allocate-ft-dummy directive')
+    name = m.group('name')
+
+    allowed_fts = set('f' + str(n+1) for n in range(3))
+    excluded_fts = set()
+    args = m.group('args').strip().split()
+    for spec in args:
+      if not spec.startswith('-'):
+        raise SyntaxError(f"allocate-ft-dummy: expecting -ft found `{spec}'")
+      exclusions = spec[1:].split(',')
+      for exclusion in exclusions:
+        m = re.match(r'(?P<ft>(f\d|{f-[A-Za-z0-9-]+}))', exclusion)
+        if not m:
+          raise SyntaxError(f"allocate-ft-dummy: expecting ft found `{exclusion}'")
+        ft = m.group('ft')
+        fttext, _ = self.lookup_ft(m.group('ft'))
+        allowed_fts.discard(fttext)
+        excluded_fts.add(fttext)
+
+    transceiver = -1
+    # try fts in a deterministic order so dummies are somewhat consistent
+    for ft in reversed(sorted(allowed_fts, key=lambda name: int(name[1:]))):
+      try:
+        transceiver, _ = self.lookup_ft_arg(ft, f'{{t-{name}}}')
+        ft_index = int(ft[1:])-1  # 'f1' -> 0
+        self.symbols.define('f', f'f-{name}', ft_index)
+        break
+      except OutOfResources:
+        continue
+    if transceiver == -1:
+      raise OutOfResources(f'dummy transceivers exhausted for {allowed_fts}')
+
+    return f'# ft-dummy {name} = {ft}.{transceiver}i (excluded {excluded_fts})'
+
+
   def line_enable_disable(self, line, **kwargs):
     m = re.match(r'\s*(?P<cmd>enable|disable)\s+(?P<what>\S+)(?P<comment>\s*#.*)?', line)
     if not m:
@@ -779,6 +834,7 @@ class Assembler(object):
       re.compile(r'\s*defer.*'):                          self.line_defer,
       re.compile(r'\s*insert-deferred.*'):                self.line_insert_deferred,
       re.compile(r'\s*allocate-dummy.*'):                 self.line_allocate_dummy,
+      re.compile(r'\s*allocate-ft-dummy.*'):              self.line_allocate_ft_dummy,
       re.compile(r'\s*(enable|disable).*'):               self.line_enable_disable,
       re.compile(r'\s*if.*'):                             self.line_if,
       re.compile(r'\s*else.*'):                           self.line_else,
