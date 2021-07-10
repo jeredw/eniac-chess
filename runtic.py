@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from subprocess import run, PIPE, Popen
+import signal
 import time
 
 run('python chasm.py tic.asm tic.e', shell=True, check=True)
@@ -20,7 +21,9 @@ while True:
   square = int(text)
   with open('/tmp/tic.card', 'w') as f:
     f.write(f'{square:02}000' + ' '*75)
+  sim.send_signal(signal.SIGINT)
   sim.stdin.write('f r /tmp/tic.card\n'.encode())
+  sim.stdin.write('g\n'.encode())
   sim.stdin.flush()
   # sim prints board again after human moves
   line1 = sim.stdout.readline().decode() 
