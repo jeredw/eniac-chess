@@ -1,6 +1,9 @@
 # These define a basic language we use to specify "program" steps, 
 # in the ENIAC sense of pulse-triggered operations, akin to microcode for the VM.
 
+# -- SEND, RECEIVE, and CLEAR --
+# ENIAC is a register transfer machine. These are the building blocks
+
 # RECeive on given input
 defmacro rec inpr acc program input outpr
   p $inpr $acc.$programi
@@ -73,6 +76,11 @@ defmacro clearx inpr acc t
   s $acc.cc$t C
 endmacro
 
+# -- DUMMIES --
+# Used for converting digit pulses to program pulses (e.g. discrimination),
+# for sequencing and delays. We use easm's "allocate-dummy" command, along
+# with "defer" to ensure all other programs are allocated first
+
 # $manual-dummy program definition, with a given delay
 # Use this to manually place a dummy program somewhere if needed.
 defmacro manual-dummy inpr acc t delay outpr
@@ -119,6 +127,11 @@ defmacro dummy-exclude inpr outpr exclude
   $dummy-delay-exclude $inpr 1 $outpr $exclude
 endmacro
 
+# FT dummies: useful for long delays, plus we have a ton of ft programs (33!)
+# "Mention might also be made of the fact that the function table’s program controls 
+#  provide a convenient way of delaying a program pulse from 5 to 13 addition times."
+#   - Goldstine VII-24
+
 # Dummy to trigger outpr delay cycles after inpr using fts
 # usage: $ft-dummy-exclude {p-in} 5 {p-out} -f1
 # note delay must be >= 5
@@ -135,6 +148,7 @@ defmacro ft-dummy inpr delay outpr
   $ft-dummy-exclude $inpr $delay $outpr ${}
 endmacro
 
+# -- DISCRIMINATION --
 
 # $discriminate
 #
@@ -179,8 +193,9 @@ defmacro discriminate-pm inp acc dA dS outp outm
   $dummy-exclude {p-%name-pm-A} $outm -$acc
 endmacro
 
-# also need a version that delays for >1 cycles
-# this one uses a transceiver to output a program pulse (passp) on both conditions
+
+# Delay conditions for >1 cycles, also pass through to unconditional sequence
+# Uses a transceiver to output a program pulse (passp) on both conditions
 defmacro discriminatec-delay-passthru inp acc dA dS delay passp outp outm
   p $inp $acc.{t-%name}i
   s $acc.op{t-%name} AS
@@ -198,6 +213,15 @@ defmacro discriminatec-delay-passthru inp acc dA dS delay passp outp outm
   $dummy-delay-exclude {p-%name-pm-A} $delay $outm -$acc
 endmacro
 
+
+# -- MISC --
+# Sugar for permutations, breakpoints, assertions, pulseamps
+
+defmacro permute in permutation out
+  p $in ad.permute.{ad-%name}
+  s ad.permute.{ad-%name} $permutation
+  p ad.permute.{ad-%name} $out
+endmacro
 
 # Convenience helper for making debug assertions
 #   inp   - input program line

@@ -118,8 +118,9 @@ $recx {p-reset} {a-discft3} {r-reset} {i-main}
 # IR to M0 so we trigger a fetch
 $recx {p-reset} {a-ir} {r-reset} {i-main}
 
-# Set discft1 to 0900 which is the initial PC, then copy to PC (out of PC inputs)
-# resetPC input takes M0 from bus, sets initial PC to 0900
+# Set discft1 to 0900 which is the initial PC, then copy to PC 
+# (we need this extra step beecause we are out of PC inputs)
+# resetPC input takes M0 from bus and turns it into 0000000900
 $permuted-input {a-discft1} {d-main} {i-resetPC} 0,0,0,0,0,0,0,0,11,0,0
 $recx {p-reset} {a-discft1} {r-reset} {i-resetPC}
 
@@ -309,7 +310,6 @@ $send {p-fetchline} {a-discft3} {t-fetchline} S {p-fetchtrig} # save r for r-mem
 # FT settings
 defmacro triggerft num
   p {p-trigger-ft$num} f$num.{t-fetchline}i
-  s f$num.rp{t-fetchline} 1   # send once in p-fetchread
   # TODO switch to A+2 addressing to minimize overlap with accumulator decode
   s f$num.op{t-fetchline} A0  # send uncomplemented, don't offset argument
 endmacro
@@ -364,9 +364,8 @@ p c.22o {p-fetchread}
 p f1.A {d-fA}
 p f2.A {d-fA}
 p f3.A {d-fA}
-p {d-fA} ad.permute.{ad-fetchA}
-s ad.permute.{ad-fetchA} 0,0,0,0,0,0,0,2,1,4,3
-p ad.permute.{ad-fetchA} {d-fetch}
+
+$permute {d-fA} 0,0,0,0,0,0,0,2,1,4,3 {d-fetch}
 
 p f1.B ad.permute.{ad-fetchB}
 p f2.B ad.permute.{ad-fetchB}
@@ -378,9 +377,8 @@ p ad.permute.{ad-fetchB} {d-fetch}
 $recincx {p-fetchread} {a-ir} {r-fetchread} {i-fetch}
 
 # A6A5 00 00 00 00 -> EX,PC
-p {d-fA} ad.permute.{ad-fetch-ex}
-s ad.permute.{ad-fetch-ex} 0,6,5,0,0,0,0,0,0,0,0
-p ad.permute.{ad-fetch-ex} {d-fetch-i1}
+$permute {d-fA} 0,6,5,0,0,0,0,0,0,0,0 {d-fetch-i1}
+
 
 # Get I1+1 in the top of EX and PC, and increment PC
 $rec {p-fetchread} {a-ex} {t-fetchread} {i-fetch-i1} {p-nofetch}
