@@ -3,8 +3,8 @@ s cy.op 1a
 disable PRELOAD_MEMORY
 if PRELOAD_MEMORY
 # memory values to check that various instructions save and restore
-set a4  -1144668822
-set a5  -9988776655  # check that STOREACC maintains sign of DISCFTx
+set a4  0400000000
+set a5  9988776655  
 set a6  0606060606
 set a7  0707070707
 set a8  0808080808
@@ -29,6 +29,7 @@ enable CONTROL_CYCLE  #  9 pas, 18 ts
 enable OP_LOADACC     #  1 pas,  1 ts
 enable OP_STOREACC    #  1 pas,  5 ts
 enable SUB_MEMCYC     #  7 pas, 42 ts (OP_LOADACC, OP_STOREACC)
+enable OP_LOADWORD    #  ? pas, ?? ts (OP_LOADWORD)
 enable OP_SWAPALL     #  4 pas,  6 ts
 # - word access (14 pas, 28 ts)
 enable OP_SWAP        #  7 pas,  8 ts
@@ -111,6 +112,13 @@ defmacro acc-disc-main acc
   p {a-$acc}.S {d-$accS}
 
   p {d-main} {a-$acc}.{i-main}
+endmacro
+
+# Define a permuted input for an accumulator
+defmacro permuted-input acc bus input permutation
+  p $bus ad.permute.{ad-%name}
+  s ad.permute.{ad-%name} $permutation
+  p ad.permute.{ad-%name} $acc.$input
 endmacro
 
 
@@ -318,15 +326,25 @@ p {d-ftselacc} {a-memcyc1014}.{i-ftselacc}
 
 
 # - MEM2 -
-# MEM2 is used as a temporary for ops involving RF which can be negative, so it
-# must not have any discrimination programs.
+# Trigger MOV [FGHIJ],A on S outputs for LOADWORD
 {a-mem2}=a8
-{a-rftmp}=a8
+{a-loadword}=a8
 $acc-main mem2
+
+p {a-loadword}.S {d-loadword}
+
+# Move second digit of B into digit 1, to send to ft
+$permuted-input {a-loadword} {d-main} {i-windexB} 0,0,0,0,0,0,0,0,0,0,7
+
+# i-ftselacc: get 10 digits from FT
+p {d-ftselacc} {a-loadword}.{i-ftselacc}
 
 
 # - MEM3 -
+# MEM3 is used as a temporary for ops involving RF which can be negative, so it
+# must not have any discrimination programs.
 {a-mem3}=a9
+{a-rftmp}=a9
 $acc-main mem3
 
 
@@ -1078,7 +1096,7 @@ p ad.permute.{ad-decodeA} {d-ftselacc}
 p f3.B {d-ftselacc}
 
 # Create the memory cycle program for each acc
-# Start with a dummy triggered from memcyc[09|1014].S. Delays one cycle (delay=2, as delay-2 
+# Start with a dummy triggered from memcyc[09|1014].S. Delays one cycle (delay=2, as delay 1 
 # means very next cycle when triggered from digit pulses). Then send/clear, then receive. 
 # In this way the same program can be used for both load and store operations
 defmacro memcyc-prog x range
@@ -1297,12 +1315,12 @@ if OP_LOADACC
 
 p {p-op10} {p-oploadacc}
 
-$pulseamp {p-oploadacc} {p-sub-memcyc} # XXX pa not currently needed but maybe on word access?
+$pulseamp {p-oploadacc} {p-sub-memcyc}
 
 # clear LS, we'll want that empty to recieve acc value
 $clearx {p-oploadacc} {a-ls} {r-clear}
 
-# XXX good for FT dummy
+# XXX good for FT dummy, if 3 on own bus
 $dummy-delay {p-oploadacc} 8 {p-oploadacc-2}
 
 # MEMXX-> LS, receive accumulator value
@@ -1330,7 +1348,7 @@ $sendc {p-opstoreacc-3} {a-discmemcyc} {t-opstoreacc-3} A {p-opstoreacc-4}
 $recx {p-opstoreacc-3} {a-ls} {t-opstoreacc-3} {i-main} # ran out of r's
 
 # Wait until accumulator outputs a value, save only the sign
-# XXX good for FT dummy
+# XXX good for FT dummy, if f3 on own bus
 $dummy-delay {p-opstoreacc-3} 8 {p-opstoreacc-5}
 
 # Jump into sub-memcyc - no pulseamp needed because p-opstoreacc-4 triggers nothing else
@@ -1464,13 +1482,15 @@ $pulseamp {p-opswapAC} {p-opswap}
 $pulseamp {p-opswapAD} {p-opswap}
 $pulseamp {p-opswapAE} {p-opswap}
 
-# Manually placed so they don't overlap with the multicycle sel dummies.
-$manual-dummy {p-opswap} a20 {t-opswap} 1 {p-opswap-2}
-$manual-dummy {p-opswap-2} a20 {t-opswap-2} 1 {p-opswap-3}
-$dummy-exclude {p-opswapAB} {p-movswapAB} -a20,a18,{a-movswap}
-$dummy-exclude {p-opswapAC} {p-movswapAC} -a20,a18,{a-movswap}
-$dummy-exclude {p-opswapAD} {p-movswapAD} -a20,a18,{a-movswap}
-$dummy-exclude {p-opswapAE} {p-movswapAE} -a20,a18,{a-movswap}
+# Sequence operations that happen for every register
+$i-dummy {p-opswap} {p-opswap-2}
+$i-dummy {p-opswap-2} {p-opswap-3}
+
+# Sequence operations that happen for each register
+$i-dummy {p-opswapAB} {p-movswapAB}
+$i-dummy {p-opswapAC} {p-movswapAC}
+$i-dummy {p-opswapAD} {p-movswapAD}
+$i-dummy {p-opswapAE} {p-movswapAE}
 
 $movswap {p-opswap}
 
@@ -1510,6 +1530,70 @@ $consume-op {p-opmovimmA-3}
 $pulseamp {p-opmovimmA-3} {p-rf-selEA}  # save lowest word into A
 
 endif # OP_MOVIMMA
+
+
+# - MOV [B],A
+if OP_LOADWORD
+p {p-op41} {p-oploadword}
+#$break {p-oploadword}
+
+# We use the word index (B2 % 5) to trigger one of the five MOV [FGHIJ],A programs 
+# on long dummies, so it executes after LOADACC on the accumulator index 
+# Wire up the S outputs of LOADWORD (via d-loadword) to these programs
+
+defmacro connect-loadword-1 x prog
+  p {d-loadword} ad.s.{ad-loadword-$x}.-$x
+  p ad.s.{ad-loadword-$x}.-$x ad.dp.{ad-loadword-dp$x}.2
+  p ad.dp.{ad-loadword-dp$x}.2 {p-loadword-$prog}
+endmacro
+
+# Wire up two digit lines to each of FGHIJ. This computes digit % 5
+# Wait N cycles on ft1 to allow loadacc to execute first
+defmacro connect-loadword a b prog
+  $connect-loadword-1 $a $prog
+  $connect-loadword-1 $b $prog
+  $ft-dummy-exclude {p-loadword-$prog} 5 {p-$prog} -f2,f3
+endmacro
+
+$connect-loadword 0 5 op34  # MOV F,A
+$connect-loadword 1 6 op30  # MOV G,A
+$connect-loadword 2 7 op31  # MOV H,A
+$connect-loadword 3 8 op32  # MOV I,A
+$connect-loadword 4 9 op33  # MOV J,A
+
+
+# LOADWORD -> EX, clear
+$sendc {p-oploadword} {a-loadword} {t-oploadword} A {p-oploadword-2}
+$loadex {p-oploadword}
+
+# RF -windexB-> LOADWORD, trigger ft3
+# This puts second digit of B into digit 1 of LOADWORD, to send to FT
+$send-rf {p-oploadword-2}
+$rec {p-oploadword-2} {a-loadword} {t-oploadword-2} {i-windexB} {p-oploadword-3}
+
+# trigger FT this cycle
+p {p-oploadword-2} f3.{t-oploadword}i
+s f3.op{t-oploadword} A-2
+
+# LOADWORD -> ft3.arg, then wait two cycles for ft lookup
+$sendc {p-oploadword-3} {a-loadword} {t-oploadword-3} A {p-oploadword-4}
+s {a-loadword}.rp{t-oploadword-3} 3
+
+# ft3 -> LOADWORD
+$rec {p-oploadword-4} {a-loadword} {t-oploadword-4} {i-ftselacc} {p-oploadword-5}
+
+# send LOADWORD.S, trigger ft dummies for MOV [FGHIJ],A after loadacc
+$sendc {p-oploadword-5} {a-loadword} {t-oploadword-5} S {p-oploadword-6}
+
+# movs also need p-opmovLSA, time this on f2 as f1 has the word program 
+# NB: one cycle after LOADWORD so it lines up with triggered word program
+$ft-dummy-exclude {p-oploadword-6} 5 {p-opmovLSA} -f1,f3
+
+# EX -> LOADWORD
+$storeex {p-oploadword-6}
+$recx {p-oploadword-6} {a-loadword} {r-oploadword-6} {i-main}
+
+endif # OP_LOADWORD
 
 
 # - INC -

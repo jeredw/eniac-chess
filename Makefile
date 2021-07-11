@@ -16,3 +16,8 @@ test:
 
 clean:
 	rm -f chsim chsim_test chsim.o *.pyc
+
+vmtest: chasm.py vmtest.asm easm.py chessvm.easm
+	python chasm.py vmtest.asm vmtest.e
+	python easm.py chessvm.easm chessvm.e
+

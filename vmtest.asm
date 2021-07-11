@@ -10,6 +10,10 @@
            ;   tens/units digit is row within table
 
 
+; test loadword
+;  mov [B],A
+
+
 ; -- 00 - 09 -- 
 ; The basics needed to run tests, including arithmetic
 ; PRINT, INC, DEC, CLR, MOV #X,A, SWAP A,[BCDE], ADD, SUB
@@ -148,7 +152,7 @@ jmptest
   swap A,B
   dec A
   jn jntest
-  dec A      ; cause failure if jn not taken
+  dec A      ; error 99 if jn not taken
 
 jntest
   inc A
@@ -162,14 +166,14 @@ jntest
   swap A,B
 
   jmp far jmpfar1
-  inc A       ; report error if jump not taken
+  inc A       ; error 01 if jump not taken
   swap A,B
   print
   halt
 
 jmpfar1
   jmp far jmpfar2
-  inc A
+  mov 2,A     ; error 02 if jump not taken
   swap A,B
   print
   halt
@@ -313,7 +317,6 @@ t21acc .equ 4 ; which accum
   mov 42,A    ; D=42
   mov A,D
   mov F,A
-  ;.dw 93      ; XXX 3-cycle mov has MOV F,A=93
   sub D,A     ; A-=42 (== 0)
   jz t21aok
   jmp t21out

@@ -29,7 +29,7 @@
 35 - (reserved for future LS<->RF mov)
 
 40 - mov XX,A
-41 -
+41 - mov [B],A
 42 -
 43 -
 44 -
@@ -135,7 +135,7 @@ b - signonly: delete all digits, used to preserve sign of DISCFTx in STOREACC
 
 
 A6
-MEM0:
+MEM0
 DISCMEMCYC
 # Discriminate memory cycle 0-9 vs. 10-14
 AS - Discriminate memcyc
@@ -148,7 +148,6 @@ g - dropsign: used to clear sign of LS in STOREACC
 A7
 MEM1
 MEMCYC1014
-# Trigger mem cycle 10-14 on S outputs
 A - main
 S - trigger memcyc 10-14
 a - main
@@ -156,14 +155,17 @@ b - ftselacc: read from FT output
 
 
 A8
-MEM2:
-RFTMP
+MEM2
+LOADWORD 
 A - main
+S - Trigger MOV [FGHIJ],A on S outputs
 a - main
+b - windexB (word index): X A2A1 XX XX XX XX -> 0 00 00 00 00 0A1
 
 
 A9
 MEM3
+RFTMP
 A - main
 a - main
 
@@ -379,42 +381,6 @@ goto step 2 of LOADACC
 .
 11. main -signonly-> LS       # leaves LS contents intact, but saves memacc PM
 
-
-
-LOADNEXT
-# acc:word in B:C
-
-# if C1>=4, time to load
-RF -checkWord-> LN     ; x xx xx C2C1 xx xx -> C1 00 00 00 00 00
-LN += constant P 60 00 00 00 00
-disc LN, clear
-(LN<0 so C1>=4)                 ; load now
-  RF -checkWord2-> LN           ; x xx xx C2C1 xx xx -> C2 00 00 00 00 00
-  disc LN, clear
-  (LN<0 so C2!=0)               ; this is first load, C2 is +5
-    RF -loadC2->LN              ; x xx xx C2C1 xx xx -> 0 00 00 00 00 0C1
-    LN += constant P 00 00 00 00 05
-    ?? save back to C
-  (LN>0 so C2=0)
-    RF -loadC2-inc->LN          ; x xx xx C2C1 xx xx -> 0 00 00 00 00 0C1+1
-    RF += 00 00 01 00 00        ; faster than storing C1+1 back
-
-  ...
-  sub program loadacc
-  ...
-
-  RF -> EX, clear                   ; clear A in RF
-  EX -clearA-> RF, clear
-
-  # index the word of LS we want, using S outputs of LN
-  LN -> EX,clear
-  RF -selC1-> LN, stim FT3     ; use B1 to index FT
-  LN -> FT3, clear             
-  .
-  .
-  FT3 -loadAB-> LN             
-  send LN on S, clear               ; trigger appropriate receive program
-  EX -> LOADSEL
 
 
 
