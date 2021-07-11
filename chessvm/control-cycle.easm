@@ -2,8 +2,8 @@
 # Core of the machine that fetches and decodes each op.
 # Includes main loop, MP stepper config, and reset logic
 
-# - Setup MP as an opcode decoder -
-# Steppers use all 6 positions.
+# - MP DECODE -
+# Setup MP as an opcode decoder. Steppers use all 6 positions.
 s p.cA 6
 s p.cB 6
 s p.cC 6
@@ -101,9 +101,9 @@ $op-lines-gt55 H 9
 $op-lines-gt55 J 8
 $op-lines-gt55 K 7
 
-if RESET_SEQUENCE
 
 # -- RESET --
+if RESET_SEQUENCE
 # Builtin clearing should first set all accumulators to 0
 p i.io {p-reset}
 
@@ -119,18 +119,51 @@ $recx {p-reset} {a-discft3} {r-reset} {i-main}
 $recx {p-reset} {a-ir} {r-reset} {i-main}
 
 # Set discft1 to 0900 which is the initial PC, then copy to PC (out of PC inputs)
+# resetPC input takes M0 from bus, sets initial PC to 0900
+$permuted-input {a-discft1} {d-main} {i-resetPC} 0,0,0,0,0,0,0,0,11,0,0
 $recx {p-reset} {a-discft1} {r-reset} {i-resetPC}
 
-# Reset PC from discft1, clear, and fetch first instruction
+# Load PC from discft1, then fetch first instruction
 $sendc {p-reset-2} {a-discft1} {t-reset-2} A {p-fetch}
 $loadpc {p-reset-2}
 
 endif # RESET_SEQUENCE
 
 
+# -- FT DECODE --
+# The PM digits of a18, a19, and a20 select the current function table for
+# instruction fetch -- you can think of this as the current ROM bank. 
+# The Function Table Selection Group (FTSG), so named by Adele, is the upper two
+# digits of the PC and R registers. We use ft1 = 09, ft2 = 90, ft3 = 99.
+# This is translated by p-sub-discft using the inputs below into PM=P on the
+# selected ft, M otherwise. At fetch time we send on S on all three. This is how
+# we build a stateful demultiplexer that routes the fetch pulse to one FT only.
+
+defmacro discftaccum name ftnum
+  # S.PM is wired to a dummy program to trigger an FT
+  p {a-$name}.S ad.dp.{ad-$name-discft$ftnum}.11
+  p ad.dp.{ad-$name-discft$ftnum}.11 {p-trigger-ft$ftnum-pm}
+  $dummy-exclude {p-trigger-ft$ftnum-pm} {p-trigger-ft$ftnum} -{a-discft1},{a-discft2},{a-discft3}
+
+  # i-ftsg1 puts the ftsg1 digit in PM
+  $permuted-input {a-$name} {d-main} {i-ftsg1} 3,0,0,0,0,0,0,0,0,0,0
+
+  # i-ftsg2 puts the ftsg2 digit in PM
+  $permuted-input {a-$name} {d-main} {i-ftsg2} 4,0,0,0,0,0,0,0,0,0,0
+endmacro
+
+# Strictly speaking only discft3 needs both i-ftsg1 and i-ftsg2 inputs but we
+# are not constrained on inputs for these accumulators.
 if CONTROL_CYCLE
+$discftaccum discft1 1
+$discftaccum discft2 2
+$discftaccum discft3 3
+endif
+
+
 
 # -- CONTROL CYCLE --
+if CONTROL_CYCLE
 
 # -- p-fetch: begin next instruction
 # During this cycle:

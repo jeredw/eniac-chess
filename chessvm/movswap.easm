@@ -2,6 +2,7 @@
 # We use a fairly complex factoring of MOV and SWAP ops, designed to minimize
 # transceiver usage by sharing as much code as possible. The cost is execution time.
 
+
 # - MOVSWAP -
 if SUB_MOVSWAP
 # 1. MOVSWAP -> EX
@@ -26,6 +27,14 @@ $sendc {p-sub-movswap-3} {a-movswap} {t-sub-movswap-3} A {p-sub-movswap-4}
 # Restore movswap and go to fetch
 $storeex {p-sub-movswap-4}
 $rec {p-sub-movswap-4} {a-movswap} {t-sub-movswap-4} {i-main} {p-fetch}
+
+
+# shared programs -- each is used for both RF and LS operations
+$recx {p-movswapAA} {a-movswap} {t-movswapAA} {i-main}
+$recx {p-movswapAB} {a-movswap} {r-movswapAB} {i-movAB}
+$recx {p-movswapAC} {a-movswap} {r-movswapAC} {i-movAC}
+$recx {p-movswapAD} {a-movswap} {r-movswapAD} {i-movAD}
+$recx {p-movswapAE} {a-movswap} {t-movswapAE} {i-movAE}
 
 endif # SUB_MOVSWAP
 

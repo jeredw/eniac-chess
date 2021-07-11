@@ -56,9 +56,7 @@ p {d-main} ad.s.{ad-pc-shiftl8}.8
 p ad.s.{ad-pc-shiftl8}.8 {a-pc}.{i-shiftl8}
 
 # clear A input: XX RRRR PPPP -> 00 RRRR PPPP, wired to EX.S for control cycle
-p {d-exS} ad.permute.{ad-exS-clearA}
-s ad.permute.{ad-exS-clearA} 0,0,0,8,7,6,5,4,3,2,1
-p ad.permute.{ad-exS-clearA} {a-pc}.{i-exS-clearA}
+$permuted-input {a-pc} {d-exS} {i-exS-clearA} 0,0,0,8,7,6,5,4,3,2,1
 
 # loadPC2: SS RRRR PPPP -> 00 0000 00PP, used for JMP/JN/JZ/JIL
 p {d-main} ad.d.{ad-pc-loadPC2}.-8
@@ -91,9 +89,7 @@ p {d-fetch} {a-ir}.{i-fetch}
 
 # fill99 input: replace top 2 digits of IR with 99, clear P/M
 # the 99 comes from a constant M00000, the rest from EX sent on main
-p {d-main} ad.permute.{ad-fill99-main}
-s ad.permute.{ad-fill99-main} 0,11,11,8,7,6,5,4,3,2,1
-p ad.permute.{ad-fill99-main} {a-ir}.{i-fill99}
+$permuted-input {a-ir} {d-main} {i-fill99} 0,11,11,8,7,6,5,4,3,2,1
 
 
 # - Execution Register -
@@ -107,19 +103,13 @@ $acc-disc-main ex
 
 # rotate-ir input: I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2 for control cycle
 # Shift the instructions right, then we execute and clear I1, removing one from the queue
-p {d-main} ad.permute.{ad-ir}
-s ad.permute.{ad-ir} 11,2,1,10,9,8,7,6,5,4,3
-p ad.permute.{ad-ir} {a-ex}.{i-rotate-ir}
+$permuted-input {a-ex} {d-main} {i-rotate-ir} 11,2,1,10,9,8,7,6,5,4,3
 
 # clearA input: S aa bb cc dd ee -> 0 00 bb cc dd ee, used in control cycle and MOV
-p {d-main} ad.permute.{ad-ex-clearA}
-s ad.permute.{ad-ex-clearA} 0,0,0,8,7,6,5,4,3,2,1
-p ad.permute.{ad-ex-clearA} {a-ex}.{i-clearA}
+$permuted-input {a-ex} {d-main} {i-clearA} 0,0,0,8,7,6,5,4,3,2,1
 
 # clearPC2: SS RRRR PPPP -> SS RRRR PP00, used for JMP/JN/JZ/JIL
-p {d-main} ad.permute.{ad-clearPC2}
-s ad.permute.{ad-clearPC2} 11,10,9,8,7,6,5,4,3,0,0
-p ad.permute.{ad-clearPC2} {a-ex}.{i-clearPC2}
+$permuted-input {a-ex} {d-main} {i-clearPC2} 11,10,9,8,7,6,5,4,3,0,0
 
 # fetch input: from d-fetch-i1, used for loading I1 into left two digits
 p {d-fetch-i1} {a-ex}.{i-fetch-i1}
@@ -161,19 +151,13 @@ s ad.permute.{ad-drop-rf-sign} 0,10,9,8,7,6,5,4,3,2,0
 p ad.permute.{ad-drop-rf-sign} {d-main}
 
 # i-selectA input: aa 00 XX XX XX -> aa 00 00 00 00
-p {d-main} ad.permute.{ad-rf-selectA}
-s ad.permute.{ad-rf-selectA} 0,10,9,0,0,0,0,0,0,0,0
-p ad.permute.{ad-rf-selectA} {a-rf}.{i-selectA}
+$permuted-input {a-rf} {d-main} {i-selectA} 0,10,9,0,0,0,0,0,0,0,0
 
 # i-selDA input: XX XX XX aa XX -> aa 00 00 00 00, used for MOV DI,A
-p {d-main} ad.permute.{ad-rf-selDA}
-s ad.permute.{ad-rf-selDA} 0,4,3,0,0,0,0,0,0,0,0
-p ad.permute.{ad-rf-selDA} {a-rf}.{i-selDA}
+$permuted-input {a-rf} {d-main} {i-selDA} 0,4,3,0,0,0,0,0,0,0,0
 
 # i-selEA input: XX XX XX XX aa -> aa 00 00 00 00, used for MOV EJ,A/MOV #X,A
-p {d-main} ad.permute.{ad-rf-selEA}
-s ad.permute.{ad-rf-selEA} 0,2,1,0,0,0,0,0,0,0,0
-p ad.permute.{ad-rf-selEA} {a-rf}.{i-selEA}
+$permuted-input {a-rf} {d-main} {i-selEA} 0,2,1,0,0,0,0,0,0,0,0
 
 # shared programs
 $recx {p-rf-selDA} {a-rf} {r-rf-selDA} {i-selDA}
@@ -205,9 +189,7 @@ endmacro
 $acc-main ls
 
 # Load only the sign. used in STOREACC to preserve DISCFT acc signs
-p {d-main} ad.permute.{ad-ls-signonly}
-s ad.permute.{ad-ls-signonly} 11,0,0,0,0,0,0,0,0,0,0
-p ad.permute.{ad-ls-signonly} {a-ls}.{i-signonly}
+$permuted-input {a-ls} {d-main} {i-signonly} 11,0,0,0,0,0,0,0,0,0,0
 
 
 # - MEM0 -
@@ -217,14 +199,10 @@ p ad.permute.{ad-ls-signonly} {a-ls}.{i-signonly}
 $acc-disc-main discmemcyc
 
 # splitA: Prepare A for disc A<10, and lookup in FT. A1 -> PM, A2 -> digit 1
-p {d-main} ad.permute.{ad-discmemcyc}
-s ad.permute.{ad-discmemcyc} 10,0,0,0,0,0,0,0,0,0,9
-p ad.permute.{ad-discmemcyc} {a-discmemcyc}.{i-splitA}
+$permuted-input {a-discmemcyc} {d-main} {i-splitA} 10,0,0,0,0,0,0,0,0,0,9
 
 # drop sign, used to clear LS sign in STOREACC
-p {d-main} ad.permute.{ad-discmemcyc-dropsign}
-s ad.permute.{ad-discmemcyc-dropsign} 0,10,9,8,7,6,5,4,3,2,1
-p ad.permute.{ad-discmemcyc-dropsign} {a-discmemcyc}.{i-dropsign}
+$permuted-input {a-discmemcyc} {d-main} {i-dropsign} 0,10,9,8,7,6,5,4,3,2,1
 
 
 # - MEM1 -
@@ -285,24 +263,16 @@ $acc-main mem5
 $acc-main mem6
 
 # extract-pc input: XX XXXX PPPP -> 00 0000 PPPP
-p {d-main} ad.permute.{ad-extract-pc}
-s ad.permute.{ad-extract-pc} 0,0,0,0,0,0,0,4,3,2,1
-p ad.permute.{ad-extract-pc} {a-newpc}.{i-extract-pc}
+$permuted-input {a-newpc} {d-main} {i-extract-pc} 0,0,0,0,0,0,0,4,3,2,1
 
 # keep-r input: XX RRRR XXXX -> 00 RRRR 0000
-p {d-main} ad.permute.{ad-keep-r}
-s ad.permute.{ad-keep-r} 0,0,0,8,7,6,5,0,0,0,0
-p ad.permute.{ad-keep-r} {a-newpc}.{i-keep-r}
+$permuted-input {a-newpc} {d-main} {i-keep-r} 0,0,0,8,7,6,5,0,0,0,0
 
-# shiftr4-pc input: shift XX RRRR PPPP to 00 0000 RRRR
-p {d-main} ad.permute.{ad-shiftr4-pc}
-s ad.permute.{ad-shiftr4-pc} 0,0,0,0,0,0,0,8,7,6,5
-p ad.permute.{ad-shiftr4-pc} {a-newpc}.{i-shiftr4-pc}
+# shiftr4-pc input: shift XX RRRR PPPP to 00 0000 RRRR, for RET
+$permuted-input {a-newpc} {d-main} {i-shiftr4-pc} 0,0,0,0,0,0,0,8,7,6,5
 
-# shiftl4-pc input: shift XX XXXX PPPP to XX PPPP 0000
-p {d-main} ad.permute.{ad-shiftl4-pc}
-s ad.permute.{ad-shiftl4-pc} 0,0,0,4,3,2,1,0,0,0,0
-p ad.permute.{ad-shiftl4-pc} {a-newpc}.{i-shiftl4-pc}
+# shiftl4-pc input: shift XX XXXX PPPP to XX PPPP 0000, for JSR
+$permuted-input {a-newpc} {d-main} {i-shiftl4-pc} 0,0,0,4,3,2,1,0,0,0,0
 
 
 # - MEM7 - 
@@ -311,9 +281,7 @@ p ad.permute.{ad-shiftl4-pc} {a-newpc}.{i-shiftl4-pc}
 {a-print}=a13
 $acc-main mem7
 
-p {d-main} ad.permute.{ad-printAB}
-s ad.permute.{ad-printAB} 11,0,10,9,8,7,0,0,0,0,0
-p ad.permute.{ad-printAB} {a-mem7}.{i-printAB}
+$permuted-input {a-print} {d-main} {i-printAB} 11,0,10,9,8,7,0,0,0,0,0
 
 
 # - MEM8 -
@@ -328,9 +296,7 @@ $acc-main mem8
 $acc-disc-main discjx
 
 # i-shiftA: Used to shift RF A into digits 1+2 for ft arg
-p {d-main} ad.permute.{ad-discjx-shiftA}
-s ad.permute.{ad-discjx-shiftA} 0,0,0,0,0,0,0,0,0,10,9
-p ad.permute.{ad-discjx-shiftA} {a-discjx}.{i-shiftA}
+$permuted-input {a-discjx} {d-main} {i-shiftA} 0,0,0,0,0,0,0,0,0,10,9
 
 # i-ftjzsign: get sign for jz discrimination
 p f2.A ad.permute.{ad-ftjzsign}
@@ -357,93 +323,37 @@ p {a-memcyc09}.S {d-memcyc09S}
 p {d-ftselacc} {a-memcyc09}.{i-ftselacc}
 
 
-
 # - MEM11 -
 {a-mem11}=a17
 {a-movswap}=a17
 {a-movfa}=a17
 $acc-main mem11
 
-p {d-main} ad.permute.{ad-movAB}
-s ad.permute.{ad-movAB} 11,8,7,10,9,6,5,4,3,2,1
-p ad.permute.{ad-movAB} {a-movswap}.{i-movAB}
+$permuted-input {a-movswap} {d-main} {i-movAB} 11,8,7,10,9,6,5,4,3,2,1
 
-p {d-main} ad.permute.{ad-movAC}
-s ad.permute.{ad-movAC} 11,6,5,8,7,10,9,4,3,2,1
-p ad.permute.{ad-movAC} {a-movswap}.{i-movAC}
+$permuted-input {a-movswap} {d-main} {i-movAC} 11,6,5,8,7,10,9,4,3,2,1
 
-p {d-main} ad.permute.{ad-movAD}
-s ad.permute.{ad-movAD} 11,4,3,8,7,6,5,10,9,2,1
-p ad.permute.{ad-movAD} {a-movswap}.{i-movAD}
+$permuted-input {a-movswap} {d-main} {i-movAD} 11,4,3,8,7,6,5,10,9,2,1
 
-p {d-main} ad.permute.{ad-movAE}
-s ad.permute.{ad-movAE} 11,2,1,8,7,6,5,4,3,10,9
-p ad.permute.{ad-movAE} {a-movswap}.{i-movAE}
-
-# shared programs
-if SUB_MOVSWAP
-$recx {p-movswapAA} {a-movswap} {t-movswapAA} {i-main}
-$recx {p-movswapAB} {a-movswap} {r-movswapAB} {i-movAB}
-$recx {p-movswapAC} {a-movswap} {r-movswapAC} {i-movAC}
-$recx {p-movswapAD} {a-movswap} {r-movswapAD} {i-movAD}
-$recx {p-movswapAE} {a-movswap} {t-movswapAE} {i-movAE}
-endif
+$permuted-input {a-movswap} {d-main} {i-movAE} 11,2,1,8,7,6,5,4,3,10,9
 
 
 # - MEM12 -
 {a-mem12}=a18
+{a-discft1}=a18
+
 $acc-main mem12
 
 
 # - MEM13 -
 {a-mem13}=a19
+{a-discft2}=a19
+
 $acc-main mem13
 
 
 # - MEM14 -
 {a-mem14}=a20
-$acc-main mem14
-
-
-# - Function table decode -
-# The PM digits of a18, a19, and a20 select the current function table for
-# instruction fetch -- you can think of this as the current ROM bank. 
-# The Function Table Selection Group (FTSG), so named by Adele, is the upper two
-# digits of the PC and R registers. We use ft1 = 09, ft2 = 90, ft3 = 99.
-# This is translated by p-sub-discft using the inputs below into PM=P on the
-# selected ft, M otherwise. At fetch time we send on S on all three.
-
-{a-discft1}=a18
-{a-discft2}=a19
 {a-discft3}=a20
 
-defmacro discftaccum name ftnum
-  # S.PM is wired to a dummy program to trigger an FT
-  p {a-$name}.S ad.dp.{ad-$name-discft$ftnum}.11
-  p ad.dp.{ad-$name-discft$ftnum}.11 {p-trigger-ft$ftnum-pm}
-  $dummy-exclude {p-trigger-ft$ftnum-pm} {p-trigger-ft$ftnum} -{a-discft1},{a-discft2},{a-discft3}
-
-  # i-ftsg1 puts the ftsg1 digit in PM
-  p {d-main} ad.permute.{ad-$name-ftsg1}
-  s ad.permute.{ad-$name-ftsg1} 3,0,0,0,0,0,0,0,0,0,0
-  p ad.permute.{ad-$name-ftsg1} {a-$name}.{i-ftsg1}
-
-  # i-ftsg2 puts the ftsg2 digit in PM
-  p {d-main} ad.permute.{ad-$name-ftsg2}
-  s ad.permute.{ad-$name-ftsg2} 4,0,0,0,0,0,0,0,0,0,0
-  p ad.permute.{ad-$name-ftsg2} {a-$name}.{i-ftsg2}
-endmacro
-
-# Strictly speaking only discft3 needs both i-ftsg1 and i-ftsg2 inputs but we
-# are not constrained on inputs for these accumulators.
-if CONTROL_CYCLE
-$discftaccum discft1 1
-$discftaccum discft2 2
-$discftaccum discft3 3
-endif
-
-# discft1 is also used to form intitial PC address on reset
-# resetPC input: takes M0 from bus, sets initial PC to 0900
-p {d-main} ad.permute.{ad-pc-reset}
-s ad.permute.{ad-pc-reset} 0,0,0,0,0,0,0,0,11,0,0
-p ad.permute.{ad-pc-reset} {a-discft1}.{i-resetPC}
+$acc-main mem14
