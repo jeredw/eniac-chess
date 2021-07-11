@@ -1,0 +1,324 @@
+# - MEMORY -
+# Implements LOADACC, STOREACC, LOADWORD, STOREWORD
+
+# - Memory Cycle -
+# Implements LOADACC/STOREACC by decoding memacc index in A, triggering memory cycle
+# program on the appropriate accumulator. 
+if SUB_MEMCYC
+
+# Wiring to send rightmost 10 digits of f3, plus PMA, to d-ftselacc
+# used for loadacc, storeacc
+# PMA A4A3 A2A1 B6B5 B4B3 B2B1 -> d-ftselacc
+p f3.A ad.permute.{ad-decodeA}
+s ad.permute.{ad-decodeA} 11,4,3,2,1,0,0,0,0,0,0
+p ad.permute.{ad-decodeA} {d-ftselacc}
+p f3.B {d-ftselacc}
+
+# Create the memory cycle program for each acc
+# Start with a dummy triggered from memcyc[09|1014].S. Delays one cycle (delay=2, as delay 1 
+# means very next cycle when triggered from digit pulses). Then send/clear, then receive. 
+# In this way the same program can be used for both load and store operations
+defmacro memcyc-prog x range
+  $dummy-delay-exclude {p-memcyc$x} 2 {p-memcyc$x-2} -{a-memcyc$range}
+  $sendc {p-memcyc$x-2} {a-mem$x} {t-memcyc-2} A {p-memcyc$x-3}
+  $recx  {p-memcyc$x-3} {a-mem$x} {r-memcyc-3} {i-main}
+endmacro
+
+# Patch one digit of d-memcyc09S to a send reciever program on mem0..mem9
+# shift to get desired digit in 2 position, then use digit select adapter
+# 2 position because 1 position always generates 1'P pulse on S send. This
+# means trigger for 9 is stored in PM digit
+defmacro select-memcyc09-acc x
+  p {d-memcyc09S} ad.s.{ad-memcyc-$x}.-$x
+  p ad.s.{ad-memcyc-$x}.-$x ad.dp.{ad-memcyc-dp$x}.2
+  p ad.dp.{ad-memcyc-dp$x}.2 {p-memcyc$x}
+endmacro
+
+# Decode and allocate the memcyc programs for each acc
+defmacro connect-memcyc09 x 
+  $select-memcyc09-acc $x
+  $memcyc-prog $x 09
+endmacro
+
+$connect-memcyc09 0
+$connect-memcyc09 1
+$connect-memcyc09 2
+$connect-memcyc09 3
+$connect-memcyc09 4
+$connect-memcyc09 5
+$connect-memcyc09 6
+$connect-memcyc09 7
+$connect-memcyc09 8
+$connect-memcyc09 9
+
+
+# similar for 10-14
+defmacro select-memcyc1014-acc x minus10
+  p {d-memcyc1014S} ad.s.{ad-memcyc-$x}.-$minus10
+  p ad.s.{ad-memcyc-$x}.-$minus10 ad.dp.{ad-memcyc-dp$x}.2
+  p ad.dp.{ad-memcyc-dp$x}.2 {p-memcyc$x}
+endmacro
+
+# Decode and allocate the memcyc programs for each acc
+defmacro connect-memcyc1014 x minus10
+  $select-memcyc1014-acc $x $minus10
+  $memcyc-prog $x 1014
+endmacro
+
+$connect-memcyc1014 10 0
+$connect-memcyc1014 11 1
+$connect-memcyc1014 12 2
+$connect-memcyc1014 13 3
+$connect-memcyc1014 14 4
+
+
+# Start by saving DISCMEMCYC -> EX, clear
+$sendc {p-sub-memcyc} {a-discmemcyc} {t-sub-memcyc} A {p-sub-memcyc-2}
+$loadex {p-sub-memcyc}
+
+# send A to DISCMEMCYC, first digit into sign: X XX XX XX XX A2A1 -> A2 00 00 00 00 0A1
+$send-rf {p-sub-memcyc-2}
+$rec {p-sub-memcyc-2} {a-discmemcyc} {t-sub-memcyc-2} {i-splitA} {p-sub-memcyc-3}
+
+# trigger FT this cycle
+p {p-sub-memcyc-2} f3.{t-sub-memcyc}i
+s f3.op{t-sub-memcyc} A-2
+
+# Discriminate: are we reading from 0-9 (pos) or 10-14 (neg)?
+# Always triggers {p-sub-memcyc-4} next cycle, but wait 2 cycles before triggering 
+# conditional branches (p-sub-memcyc09 vs p-sub-memcyc1014), as the next op is shared
+# Since we're sending DISCMEMCYC.A to main anyway, ft arg is also loaded this cycle 
+$discriminatec-delay-passthru {p-sub-memcyc-3} {a-discmemcyc} {d-discmemcycA} {d-discmemcycS} 2 {p-sub-memcyc-4} {p-sub-memcyc09} {p-sub-memcyc1014}
+
+# Shared step post discriminate, executed regardless of branch taken
+# EX -> DISCMEMCYC, restore it
+$rec {p-sub-memcyc-4} {a-discmemcyc} {t-sub-memcyc-4} {i-main} {p-sub-memcyc-5}
+$storeex {p-sub-memcyc-4}
+
+# Now wait 5 cycles until the address is decoded, and acc memory cycle step 2
+$ft-dummy-exclude {p-sub-memcyc-5} 5 {p-sub-memcyc-6} -f3
+
+
+# POSITIVE (0-9) and NEGATIVE (10-14) branches of discriminate differ only on which acc
+defmacro sub-memcyc-branch x
+  # Save MEMCYC$x -> EX, clear
+  $sendc {p-sub-memcyc$x} {a-memcyc$x} {t-sub-memcyc$x} A {p-sub-memcyc$x-2}
+  $loadex {p-sub-memcyc$x}
+
+  # FT -> MEMCYC$x, read FT line when it's ready
+  $rec {p-sub-memcyc$x-2} {a-memcyc$x} {t-sub-memcyc$x-2} {i-ftselacc} {p-sub-memcyc$x-3}
+
+  # MEMCYC$x -S-> trigger memXX loadstore
+  # Now MEMCYC$x is all 9 except for a 0 for the accumulator we want. When we send on S,
+  # it will activate the loadstore program of one accumulator. Clear as we do this,
+  # so we can restore from EX later
+  $sendc {p-sub-memcyc$x-3} {a-memcyc$x} {t-sub-memcyc$x-3} S {p-sub-memcyc$x-4}
+
+  # restore MEMCYC$x
+  $recx {p-sub-memcyc$x-4} {a-memcyc$x} {r-sub-memcyc$x-4} {i-main}
+  $storeex {p-sub-memcyc$x-4}
+endmacro
+
+$sub-memcyc-branch 09
+$sub-memcyc-branch 1014
+
+# Now the "memory cycle" proper. Each mem acc will execute a sendc then rec
+# For load we do: main -> LS, LS -> main
+# For store just: LS - >main
+# Therefore put just the LS -> main in this shared program, we always want it
+
+# LS -> MEMXX, restore accumulator value, then next op
+$send {p-sub-memcyc-6} {a-ls} {t-sub-memcyc-7} A {p-fetch}
+
+endif # SUB_MEMCYC
+
+
+# - LOADACC -
+if OP_LOADACC
+# LOADACC is identical to STOREACC except 
+# - clear LS at the start of the cycle
+# - run main->LS in accumulator memory cycle, to read the value coming out
+
+p {p-op10} {p-oploadacc}
+
+$pulseamp {p-oploadacc} {p-sub-memcyc}
+
+# clear LS, we'll want that empty to recieve acc value
+$clearx {p-oploadacc} {a-ls} {r-clear}
+
+# XXX good for FT dummy, if 3 on own bus
+$dummy-delay {p-oploadacc} 8 {p-oploadacc-2}
+
+# MEMXX-> LS, receive accumulator value
+$recx {p-oploadacc-2} {a-ls} {r-oploadacc-2} {i-main}
+
+endif # OP_LOADACC
+
+
+# - STOREACC -
+# Basic memory cycle subprogram is already a store
+if OP_STOREACC
+
+p {p-op11} {p-opstoreacc}
+
+# Start by saving DISCMEMCYC -> EX, clear
+$sendc {p-opstoreacc} {a-discmemcyc} {t-opstoreacc} A {p-opstoreacc-2}
+$loadex {p-opstoreacc}
+
+# clear sign of LS by ping-pong to DISCMEMCYC through i-dropsign
+# this is necessary to preserve sign of DISsCFTx when storing there
+$sendc {p-opstoreacc-2} {a-ls} {t-opstoreacc-2} A {p-opstoreacc-3}
+$recx {p-opstoreacc-2} {a-discmemcyc} {r-opstoreacc-2} {i-dropsign}
+
+$sendc {p-opstoreacc-3} {a-discmemcyc} {t-opstoreacc-3} A {p-opstoreacc-4}
+$recx {p-opstoreacc-3} {a-ls} {t-opstoreacc-3} {i-main} # ran out of r's
+
+# Wait until accumulator outputs a value, save only the sign
+# XXX good for FT dummy, if f3 on own bus
+$dummy-delay {p-opstoreacc-3} 8 {p-opstoreacc-5}
+
+# Jump into sub-memcyc - no pulseamp needed because p-opstoreacc-4 triggers nothing else
+p {p-opstoreacc-4} {p-sub-memcyc-2}
+
+# Receive only sign on mem->LS, preserve sign when LS->mem next cycle
+$recx {p-opstoreacc-5} {a-ls} {r-opstoreacc-4} {i-signonly}
+
+
+endif # OP_STOREACC
+
+
+
+# - MOV [B],A
+if OP_LOADWORD
+p {p-op41} {p-oploadword}
+#$break {p-oploadword}
+
+# We use the word index (B2 % 5) to trigger one of the five MOV [FGHIJ],A programs 
+# on long dummies, so it executes after LOADACC on the accumulator index 
+# Wire up the S outputs of LOADWORD (via d-loadword) to these programs
+
+defmacro connect-loadword-1 x prog
+  p {d-loadword} ad.s.{ad-loadword-$x}.-$x
+  p ad.s.{ad-loadword-$x}.-$x ad.dp.{ad-loadword-dp$x}.2
+  p ad.dp.{ad-loadword-dp$x}.2 {p-loadword-$prog}
+endmacro
+
+# Wire up two digit lines to each of FGHIJ. This computes digit % 5
+# Wait N cycles on ft1 to allow loadacc to execute first
+defmacro connect-loadword a b prog
+  $connect-loadword-1 $a $prog
+  $connect-loadword-1 $b $prog
+  $ft-dummy-exclude {p-loadword-$prog} 5 {p-$prog} -f2,f3
+endmacro
+
+$connect-loadword 0 5 op34  # MOV F,A
+$connect-loadword 1 6 op30  # MOV G,A
+$connect-loadword 2 7 op31  # MOV H,A
+$connect-loadword 3 8 op32  # MOV I,A
+$connect-loadword 4 9 op33  # MOV J,A
+
+
+# LOADWORD -> EX, clear
+$sendc {p-oploadword} {a-loadword} {t-oploadword} A {p-oploadword-2}
+$loadex {p-oploadword}
+
+# RF -windexB-> LOADWORD, trigger ft3
+# This puts second digit of B into digit 1 of LOADWORD, to send to FT
+$send-rf {p-oploadword-2}
+$rec {p-oploadword-2} {a-loadword} {t-oploadword-2} {i-windexB} {p-oploadword-3}
+
+# trigger FT this cycle
+p {p-oploadword-2} f3.{t-oploadword}i
+s f3.op{t-oploadword} A-2
+
+# LOADWORD -> ft3.arg, then wait two cycles for ft lookup
+$sendc {p-oploadword-3} {a-loadword} {t-oploadword-3} A {p-oploadword-4}
+s {a-loadword}.rp{t-oploadword-3} 3
+
+# ft3 -> LOADWORD
+$rec {p-oploadword-4} {a-loadword} {t-oploadword-4} {i-ftselacc} {p-oploadword-5}
+
+# send LOADWORD.S, trigger ft dummies for MOV [FGHIJ],A after loadacc
+$sendc {p-oploadword-5} {a-loadword} {t-oploadword-5} S {p-oploadword-6}
+
+# movs also need p-opmovLSA, time this on f2 as f1 has the word program 
+# NB: one cycle after LOADWORD so it lines up with triggered word program$
+ft-dummy-exclude {p-oploadword-6} 5 {p-opmovLSA} -f1,f3
+
+# EX -> LOADWORD
+$storeex {p-oploadword-6}
+$rec {p-oploadword-6} {a-loadword} {t-oploadword-6} {i-main} {p-oploadword-7}
+
+# Now that we've started a timer for the word program, look up the accmulator index
+# Easiest way to get this is to double the address and take top 2 digits:
+#    0          B2         B1
+# +  0          B2         B1 
+#  -----------------------------
+#  B2>=5  2B2%10+B1>=5   2B1%10 
+#
+# Let's call these
+#    D3         D2         D1
+#
+# Then accidx = D3D2. If D3=PM, D2=10, D1=9 then the sign is set up to discriminate
+# Hence i-accidxB: X XX B2B1 XX XX XX XX -> 0 B2B1 00 00 00 00 and we add twice
+# But we need to send D2 to ft arg and it's in the wrong place. Instead of using
+# another acc with a shifting input, we shift DISCMEMCYC.S
+# This means we also need to send from RF negated
+
+# DISCMEMCYC -> EX
+$sendc {p-oploadword-7} {a-discmemcyc} {t-oploadword} A {p-oploadword-8}
+$loadex {p-oploadword}
+
+# RF -S-accidxB-> DISCMEMCYC, twice
+$sendc {p-oploadword-8} {a-rf} {t-oploadword-8} S {p-oploadword-9}
+s {a-rf}.rp{t-oploadword-8} 2
+$recx {p-oploadword-8} {a-discmemcyc} {t-oploadword-8} {i-main} 
+s {a-discmemcyc}.rp{t-oploadword-8} 2
+
+# trigger FT3 on second cycle
+$dummy {p-oploadword8} f3.i{t-loadword}
+s f3.op{t-loadword} A-2
+
+# Discriminate and clear. The program wiring is already set up from SUB_MEMCYC 
+# Note we send A output digit 1 to ft arg as well, but it's zero here
+# The actual index comes from S output
+# Pass through to p-sub-memcyc4 which moves EX back to DISCMEMCYC
+$sendc {p-oploadword-9} {a-discmemcyc} {t-oploadword-9} AS {p-sub-memcyc-4}
+
+# ...and we're done. The rest of LOADWORD will execute, then our MOV will run and fetch
+
+endif # OP_LOADWORD
+
+
+# -- ACCUMULATOR DECODE --
+# lookup table used to trigger accumulators on loadacc / storeacc
+# This is on FT3 but doesn't conflict with FTL values on I1 since it uses 10 of 12 digits
+defmacro acc-decode-line line x01 x02 x03 x04 x05 x06 x07 x08 x09 x10
+  s f3.RA$lineS  $x01
+  s f3.RA$lineL4 $x02
+  s f3.RA$lineL3 $x03
+  s f3.RA$lineL2 $x04
+  s f3.RA$lineL1 $x05
+  s f3.RB$lineL6 $x06
+  s f3.RB$lineL5 $x07
+  s f3.RB$lineL4 $x08
+  s f3.RB$lineL3 $x09
+  s f3.RB$lineL2 $x10
+  s f3.RB$lineL1 9      # use 2-10 + sign, digit 1 is not usable on S due to 1'P
+endmacro
+
+s f3.mpm1 T             # send individual line signs through
+
+# These are the 9s complements of 000..9..00 (we send from memcyc09/memcyc1014 on S)
+# Use rows -2..7 with A-2 addressing to minimize program overlap.
+$acc-decode-line -2 M 9 9 9 9 9 9 9 9 0
+$acc-decode-line -1 M 9 9 9 9 9 9 9 0 9
+$acc-decode-line  0 M 9 9 9 9 9 9 0 9 9
+$acc-decode-line  1 M 9 9 9 9 9 0 9 9 9
+$acc-decode-line  2 M 9 9 9 9 0 9 9 9 9
+$acc-decode-line  3 M 9 9 9 0 9 9 9 9 9
+$acc-decode-line  4 M 9 9 0 9 9 9 9 9 9
+$acc-decode-line  5 M 9 0 9 9 9 9 9 9 9
+$acc-decode-line  6 M 0 9 9 9 9 9 9 9 9
+$acc-decode-line  7 P 9 9 9 9 9 9 9 9 9
+

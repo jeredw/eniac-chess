@@ -1,0 +1,40 @@
+# - Constant transmitter -
+# So that we can use all the constant switches, connect both the left and the
+# right 5 constant digits to the leftmost wires of d-main where they're needed.
+# This is perhaps electrically questionable, but should work?  Provided the
+# right constants are positive, there should be no bus conflicts - if they were
+# negative, the constant transmitter would also drive 9s onto the same wires
+# for sign extension.
+p c.o ad.permute.{ad-constant-left}
+s ad.permute.{ad-constant-left} 11,10,9,8,7,6,0,0,0,0,0
+p ad.permute.{ad-constant-left} {d-main}
+p c.o ad.permute.{ad-constant-right}
+# (Delete sign so that eniacsim doesn't send two copies of the sign pulses...)
+s ad.permute.{ad-constant-right} 0,5,4,3,2,1,0,0,0,0,0
+p ad.permute.{ad-constant-right} {d-main}
+
+# M99000 used in control cycle, DEC
+s c.jl  M
+s c.j10 9
+s c.j9  9
+
+# M00000 used in control cycle to fill consumed op with 99, machine reset
+s c.kl  M
+s c.k10 0
+s c.k9  0
+
+# whenever you need a 9 on the bus, call sendM0 (goes through a pulseamp)
+defmacro sendM0 prog
+  $pulseamp $prog c.25i
+endmacro
+s c.s25 Kl
+
+# P43000 used in control cycle, to test opcode > 55. 43 = 99-55-1
+s c.kr P
+s c.k5 4
+s c.k4 3
+
+# P01000 used in control cycle, INC
+s c.jr P
+s c.j5 0
+s c.j4 1

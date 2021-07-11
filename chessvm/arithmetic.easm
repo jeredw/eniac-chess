@@ -1,0 +1,173 @@
+# -- ARITHMETIC --
+# Implements CLR, INC, DEC, ADD, SUB, and MOV XX,A
+
+
+# - CLEARA -
+if SUB_CLEARA
+# clear A register in RF
+defmacro clearA prog
+  $pulseamp $prog {p-sub-clearA}
+endmacro
+
+# RF -clearA-> EX
+$sendc {p-sub-clearA} {a-rf} {t-sub-clearA} A {p-sub-clearA-2}
+$loadex-clearA {p-sub-clearA}
+
+# EX -> RF
+$storeex {p-sub-clearA-2}
+$loadrf {p-sub-clearA-2}
+
+endif # SUB_CLEARA
+
+
+# - CLR A -
+if OP_CLRA
+
+p {p-op90} {p-opclrA}
+
+# Use clear A subroutine
+$clearA {p-opclrA}
+$dummy-delay {p-opclrA} 2 {p-fetch}
+
+endif # OP_CLRA
+
+
+# - INC -
+if OP_INC
+
+p {p-op52} {p-opinc}
+
+# Send P01000 on d-main
+p {p-opinc} c.29i
+s c.s29 Jr
+p c.29o {p-fetch}
+
+# Increment A field of RF
+$recx {p-opinc} {a-rf} {r-opinc} {i-main}
+
+endif # OP_INC
+
+
+# - DEC -
+if OP_DEC
+
+p {p-op53} {p-opdec}
+
+# Send M99000 on d-main
+p {p-opdec} c.30i
+s c.s30 Jl
+p c.30o {p-fetch}
+
+# Decrement A field of RF
+$loadrf {p-opdec}
+
+endif # OP_DEC
+
+
+# - ADD D,A -
+if OP_ADD
+# 1. RFTMP -> EX
+# 2. RF -> RFTMP
+# 3. RFTMP -selDA-> RF
+# 4. EX -> RFTMP
+
+p {p-op70} {p-opadd}
+
+# RFTMP -> EX
+$sendc {p-opadd} {a-rftmp} {t-opadd} A {p-opadd-2}
+$loadex {p-opadd}
+
+# RF -> RFTMP
+$send-rf {p-opadd-2}
+$rec {p-opadd-2} {a-rftmp} {t-opadd-2} {i-main} {p-opadd-3}
+
+# RFTMP -selDA-> RF
+$sendc {p-opadd-3} {a-rftmp} {t-opadd-3} A {p-opadd-4}
+$pulseamp {p-opadd-3} {p-rf-selDA}
+
+# EX -> RFTMP
+$storeex {p-opadd-4}
+$recx {p-opadd-4} {a-rftmp} {r-opadd-4} {i-main}
+# XXX out of dummies!
+#$dummy-exclude {p-opadd-4} {p-fetch} -{a-rftmp}
+$manual-dummy {p-opadd-4} {a-rf} {t-opadd-4} 1 {p-fetch}
+
+endif # OP_ADD
+
+
+# - SUB D,A -
+if OP_SUB
+# 1. RF.S -> EX  # NB does not send sign!
+# 2. EX -> selDA -> RF
+# 3. P01 -> RF
+# 4. M00 -> RF  # ideally we'd send M01, but don't have it
+
+p {p-op72} {p-opsub}
+
+# RF.S -> EX
+$send {p-opsub} {a-rf} {t-opsub} S {p-opsub-2}
+$loadex {p-opsub}
+
+# EX -selDA-> RF
+$storeex {p-opsub-2}
+$pulseamp {p-opsub-2} {p-rf-selDA}
+$dummy {p-opsub-2} {p-opsub-3}
+
+# P01 -> RF
+$loadrf {p-opsub-3}
+p {p-opsub-3} c.27i
+s c.s27 Jr
+p c.27o {p-opsub-4}
+
+# M00 -> RF
+$loadrf {p-opsub-4}
+$sendM0 {p-opsub-4}
+$dummy {p-opsub-4} {p-fetch}
+
+endif # OP_SUB
+
+
+# - CONSUME-OP -
+if SUB_CONSUME_OP
+# Consume opcode: used to read immediate operand
+# Sends IR on first cycle, I1 can be read off as needed
+# Rotates IR back to EX, shifts right, places 99 at left, adds 1
+# This mimics how the control cycle works in microcosm
+# Always retriggers p-fetch
+# Used by: MOVIMMA, JMP, JN, JZ, JIL, FTL
+
+defmacro consume-op prog
+  $pulseamp $prog {p-sub-consume-op}
+endmacro
+
+$assert {p-sub-consume-op} {a-ir}~Pxxxxxxxxxx  # so fetch/nofetch discrim does not trigger
+
+# IR -rotate-r-> EX
+$sendc {p-sub-consume-op} {a-ir} {t-consume-op} A {p-sub-consume-op-2}
+$recx {p-sub-consume-op} {a-ex} {t-consume-op} {i-rotate-ir}  # out of recievers
+
+# EX -fill99-> IR 
+# Put shifted instructions back in IR, filling top with 99, +1 to detect IR empty
+$storeex {p-sub-consume-op-2}
+$recinc {p-sub-consume-op-2} {a-ir} {t-consume-op-2} {i-fill99} {p-fetch}
+
+# fill99 requires an M0 on the bus
+$sendM0 {p-sub-consume-op-2}
+
+endif # SUB_CONSUME_OP
+
+
+# - MOV #XX,A -
+if OP_MOVIMMA
+
+p {p-op40} {p-opmovimmA}
+
+# First clear A
+$clearA {p-opmovimmA}
+$dummy-delay {p-opmovimmA} 2 {p-opmovimmA-3}
+
+# Consume the next word in IR, saving it into A, and then trigger p-fetch
+$consume-op {p-opmovimmA-3}
+$pulseamp {p-opmovimmA-3} {p-rf-selEA}  # save lowest word into A
+
+endif # OP_MOVIMMA

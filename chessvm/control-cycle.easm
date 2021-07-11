@@ -1,0 +1,357 @@
+# - Control Cycle -
+# Core of the machine that fetches and decodes each op.
+# Includes main loop, MP stepper config, and reset logic
+
+# - Setup MP as an opcode decoder -
+# Steppers use all 6 positions.
+s p.cA 6
+s p.cB 6
+s p.cC 6
+s p.cD 6
+s p.cE 6
+s p.cF 6
+s p.cG 6
+s p.cH 6
+s p.cJ 6
+s p.cK 6
+
+# This switch setting makes eniacsim disable/disassociate MP decade counters.
+#
+# Decade counters are a problem for decoding because they trigger a spurious
+# extra step whenever they overflow, and they count in a data-dependent way on
+# each program input (e.g. p.Ai, p.Bi, ...). Possibly some scheme could be
+# devised to guarantee decade counters are safe before p.Ai for decode - they
+# don't have an explicit clear control, but do clear on overflow.  But it's far
+# simpler just to unplug the things.
+#
+# Associator switches on the MP front panel don't permit disconnecting decade
+# counters, but the operating manual notes "To disassociate a decade from its
+# stepper pull out gate tube 63 in the stepper plug-in unit. See block diagram
+# PX-8-304."
+s p.gate63 unplug
+
+# Receive opcode at master programmer stepper direct inputs
+p {d-main} ad.dp.{ad-opcode-10}.10   # opcode 10's digit (0x-5x)
+p ad.dp.{ad-opcode-10}.10 p.Adi
+p {d-main} ad.dp.{ad-opcode-9}.9     # opcode 1's digit (0x-5x)
+p ad.dp.{ad-opcode-9}.9 p.Bdi
+p ad.dp.{ad-opcode-9}.9 p.Cdi
+p ad.dp.{ad-opcode-9}.9 p.Ddi
+p ad.dp.{ad-opcode-9}.9 p.Edi
+p ad.dp.{ad-opcode-9}.9 p.Fdi
+p ad.dp.{ad-opcode-9}.9 p.Gdi        # opcode 1's digit (0x-5x) or 10's digit (7x-9x)
+p ad.dp.{ad-opcode-10}.10 p.Hdi      # opcode 1's digit (7x-9x)
+p ad.dp.{ad-opcode-10}.10 p.Jdi
+p ad.dp.{ad-opcode-10}.10 p.Kdi
+
+# Trigger the appropriate ones digit for opcodes <= 55
+p p.A1o p.Bi
+p p.A2o p.Ci
+p p.A3o p.Di
+p p.A4o p.Ei
+p p.A5o p.Fi
+p p.A6o p.Gi
+
+if CONTROL_CYCLE
+# For opcodes>55, Gi is triggered both by A6o when decoding 5x, and explicitly
+# via a program control to decode the tens digit of 7x-9x.
+$pulseamp {p-mp-789x} p.Gi
+endif
+
+
+# Wire the outputs to individual opcode programs
+# outputs rotated with respect to digits as we decode I1+1
+defmacro op-lines-le55 stepper tens
+  p p.$stepper1o {p-op$tens5}
+  p p.$stepper2o {p-op$tens0}
+  p p.$stepper3o {p-op$tens1}
+  p p.$stepper4o {p-op$tens2}
+  p p.$stepper5o {p-op$tens3}
+  p p.$stepper6o {p-op$tens4}
+endmacro
+
+$op-lines-le55 B 0
+$op-lines-le55 C 1
+$op-lines-le55 D 2
+$op-lines-le55 E 3
+$op-lines-le55 F 4
+# G1o-G3o are used for 7x-9x.
+p p.G4o {p-op52}
+p p.G5o {p-op53}
+p p.G6o {p-op54}
+
+# Trigger the appropriate ones digit for opcodes >= 70.
+p p.G1o p.Hi
+p p.G2o p.Ji
+p p.G3o p.Ki
+
+# Rotated because we decode on PC.S for op>55, so this is 99-(OP+1) = 100-OP.
+# TODO Confirm MP steppers increment from 6 to 1 - we're assuming so here for
+# nicer opcode numbering.
+defmacro op-lines-gt55 stepper tens
+  p p.$stepper1o {p-op$tens2}
+  p p.$stepper2o {p-op$tens1}
+  p p.$stepper3o {p-op$tens0}
+  p p.$stepper4o {p-op$tens5}
+  p p.$stepper5o {p-op$tens4}
+  p p.$stepper6o {p-op$tens3}
+endmacro
+
+$op-lines-gt55 H 9
+$op-lines-gt55 J 8
+$op-lines-gt55 K 7
+
+if RESET_SEQUENCE
+
+# -- RESET --
+# Builtin clearing should first set all accumulators to 0
+p i.io {p-reset}
+
+# Reset PC, IR, and initial ft selector accumulators
+# Send M00000
+$sendM0 {p-reset}
+
+# Set discft2/discft3 signs to M so that ft1 is selected via discft1.PM = P
+$rec {p-reset} {a-discft2} {t-reset} {i-main} {p-reset-2}
+$recx {p-reset} {a-discft3} {r-reset} {i-main}
+
+# IR to M0 so we trigger a fetch
+$recx {p-reset} {a-ir} {r-reset} {i-main}
+
+# Set discft1 to 0900 which is the initial PC, then copy to PC (out of PC inputs)
+$recx {p-reset} {a-discft1} {r-reset} {i-resetPC}
+
+# Reset PC from discft1, clear, and fetch first instruction
+$sendc {p-reset-2} {a-discft1} {t-reset-2} A {p-fetch}
+$loadpc {p-reset-2}
+
+endif # RESET_SEQUENCE
+
+
+if CONTROL_CYCLE
+
+# -- CONTROL CYCLE --
+
+# -- p-fetch: begin next instruction
+# During this cycle:
+#  - discriminate, to decide whether to fetch new instructions, clear IR
+#  - read out the contents of IR into EX
+#  - send next instruction (I1) to PC (assume PC.SS is 0)
+$assert {p-fetch} {a-ex}~P0000000000
+$assert {p-fetch} {a-pc}~x00xxxxxxxx
+
+# If more instructions are needed, IR is M0, and control proceeds to p-fetchline.
+# Otherwise, IR is P I5 I4 I3 I2 I1+1 and we trigger p-nofetch-eat-op.
+$discriminatec {p-fetch} {a-ir} {d-irA} {d-irS} {p-nofetch-eat-op} {p-fetchline}
+
+# IR -> EX 
+# $discriminatec sends IR=I5 I4 I3 I2 I1+1 on d-main, and EX receives it permuted
+# as I1+1 I5 I4 I3 I2. This puts the next instruction in the left (first two
+# digits) of EX for opcode discrimination.
+$recx {p-fetch} {a-ex} {r-fetch} {i-rotate-ir}
+
+# IR -shiftl8-> PC
+# Also send first opcode to left of PC. This copy of the instruction will later be
+# sent to MP steppers for decoding.
+$recx {p-fetch} {a-pc} {r-fetch} {i-shiftl8}
+
+
+# -- {p-nofetch} no fetch needed, begin instruction decode
+$pulseamp {p-nofetch-eat-op} {p-nofetch}
+# PC has I1+1 at left
+# EX is P I1+1 I5 I4 I3 I2
+$assert {p-nofetch} {a-ex}~Pxxxxxxxxxx
+
+# Begin decode by adding 43 to EX, from constant transmitter
+
+# Send 43 from CT on d-main
+p {p-nofetch} c.26i 
+s c.s26 Kr
+p c.26o {p-disc-op}
+
+# EX += 43 for opcode discrimination next cycle
+# EX = I1+1
+# If I1 <= 55 then I1+1+43 < 100, EX still P
+# If I1 > 55 then I1+1+43 >= 100, EX now M
+$loadex {p-nofetch}
+
+# If we are eating an operand (removing it from IR) then we need to set
+# the top digits of IR to 99 after next instruction (delay 1 cycle)
+$dummy {p-nofetch-eat-op} {p-eat-op}
+
+
+# -- {p-disc-op} discriminate opcode I1>55, to switch between two decode pathways
+# EX starts P/M I1+44 I5 I4 I3 I2 and ends clear.
+# Also store I5..I2 back to IR, replacing just-dispatched opcode with 99 if p-eat-op.
+$assert {p-eat-op} {a-ir}~P0000000000
+
+# Discriminate based on sign of EX, already set based on whether I1 > 55. Clear EX.
+$discriminatec {p-disc-op} {a-ex} {d-exA} {d-exS} {p-ople55} {p-opgt55}
+
+# If we are consuming from IR, store EX back into IR without the op we are now decoding.
+# Replace first two digits with M from a constant, so the top of IR is
+# P99. Finally, increment so that an empty IR, P9999999999, wraps to M0000000000.
+# This also turns I2 into I2+1 at the right of IR.
+$recincx {p-eat-op} {a-ir} {r-disc-op} {i-fill99}
+# Send M00000 from the constant transmitter to fix IR.  EX doesn't send a sign
+# on d-main so there's no bus conflict.
+$sendM0 {p-eat-op}
+
+# Clear MP prior to decode.  Clearing isn't synchronous, so this needs to
+# happen "next cycle" i.e. during pulse 17 of p-disc-op.
+$dummy {p-disc-op} {p-clear-mp}
+p {p-clear-mp} p.Acdi
+p {p-clear-mp} p.Bcdi
+p {p-clear-mp} p.Ccdi
+p {p-clear-mp} p.Dcdi
+p {p-clear-mp} p.Ecdi
+p {p-clear-mp} p.Fcdi
+p {p-clear-mp} p.Gcdi
+p {p-clear-mp} p.Hcdi
+p {p-clear-mp} p.Jcdi
+p {p-clear-mp} p.Kcdi
+
+
+# -- p-ople55 - send tens digit of opcode to stepper A, ones digit to B-G
+# Also PC->EX to begin clearing SS 
+$assert {p-ople55} {a-ex}~P0000000000
+
+# Send PC on main and receive in EX with SS (opcode field) clear.
+$sendc {p-ople55} {a-pc} {t-ople55} A {p-ople55-2}
+$loadex-clearA {p-ople55}
+
+
+# -- p-ople55-2 - send input pulse to master programmer
+# sign of EX must be P to avoid misfiring p-ople55
+$assert {p-ople55-2} {a-pc}~P0000000000
+$assert {p-ople55-2} {a-ex}~P00xxxxxxxx
+
+# Send EX back to PC with opcode field clear to prep for instruction.
+# Note that this would trigger the MP steppers, but the opcode field contains
+# 00 here so this doesn't mess up decode.
+$sendcx {p-ople55-2} {a-ex} {t-ople55-2} A
+$loadpc {p-ople55-2}
+
+# Trigger master programmer
+p {p-ople55-2} p.Ai
+
+
+# -- p-opgt55 - send tens digit to mp G stepper, ones digit to H-K
+$assert {p-opgt55} {a-ex}~P0000000000
+
+# Send PC subtractively on main, stepping the MP, and receiving in EX.
+# Note that EX receives the 10's complement of PC, so will include an extra +1
+# from the 1pp. This is undone when sending EX back to PC subtractively next
+# cycle.
+$sendc {p-opgt55} {a-pc} {t-opgt55} S {p-opgt55-2}
+$loadex {p-opgt55}
+
+
+# -- p-opgt55-2 - send input pulse to master programmer
+# Sign of EX must be M to avoid misfiring p-ople55 (triggered from a-ex.S sign)
+$assert {p-opgt55-2} {a-ex}~Mxxxxxxxxxx
+
+# EX back to PC, with opcode field (SS) cleared
+# Note #1: This is arithmetically incorrect. PC receives the 9's complement of
+# EX with 0s in the opcode field, then an extra +1 from the 1pp. If PC were
+# Pxx00000000, this would give P0099999999 and the 1pp would cause a carry into
+# the opcode field leaving it P01... instead of P00. That can't happen because
+# PC.PPPP always begins with 09, 90, or 99, so there's no possibility of a
+# carry into digit 9.
+# Note #2: EX.S is not connected to d-main. If it were, this would cause
+# spurious MP inputs.
+$sendcx {p-opgt55-2} {a-ex} {r-opgt55-2} S
+$recx {p-opgt55-2} {a-pc} {r-opgt55-2} {i-exS-clearA}
+
+# Trigger master programmer.
+p {p-opgt55-2} {p-mp-789x}
+
+
+# -- {p-fetchline} no more instructons in IR, load new line from ft
+# Trigger the currently selected FT to send
+$sendx {p-fetchline} {a-discft1} {r-fetchline} S 
+$sendx {p-fetchline} {a-discft2} {r-fetchline} S
+$send {p-fetchline} {a-discft3} {t-fetchline} S {p-fetchtrig} # save r for r-memcyc 
+
+# FT settings
+defmacro triggerft num
+  p {p-trigger-ft$num} f$num.{t-fetchline}i
+  s f$num.rp{t-fetchline} 1   # send once in p-fetchread
+  # TODO switch to A+2 addressing to minimize overlap with accumulator decode
+  s f$num.op{t-fetchline} A0  # send uncomplemented, don't offset argument
+endmacro
+$triggerft 1
+$triggerft 2
+$triggerft 3
+
+
+# -- {p-fetchtrig}
+# FT is "stimulated" in this cycle, from discft1-3 S output
+# Meanwhile, clear IR (needed only on jumps, otherwise already zero here from overflow)
+$clear {p-fetchtrig} {a-ir} {t-fetchtrig} {p-fetcharg}
+
+
+# -- {p-fetcharg} ft argument request
+# - FT <- bottom two digits of PC (a1)
+$send {p-fetcharg} {a-pc} {t-fetcharg} A {p-preinc-fetch}
+p {d-main} f1.arg  # only bottom two digit lines connect so no deleter is required
+p {d-main} f2.arg
+p {d-main} f3.arg
+
+
+# -- {p-preinc-fetch} preincrement left field of EX and PC
+$assert {p-preinc-fetch} {a-ex}~P0000000000
+$assert {p-preinc-fetch} {a-pc}~P00xxxxxxxx
+
+# Send P01000 from the constant transmitter
+p {p-preinc-fetch} c.28i
+s c.s28 Jr
+p c.28o {p-await-fetchread}
+
+# Preload P01 into EX and PC so that when the FT sends I1, EX and PC will end
+# up I1+1 which is the precondition in p-nofetch.
+$loadex {p-preinc-fetch}
+$loadpc {p-preinc-fetch}
+
+
+# -- {p-await-fetchread}
+# Nothing happens, just waiting for ft
+# because main is idle this cycle, use ct as a dummy, don't care what it sends
+p {p-await-fetchread} c.22i
+p c.22o {p-fetchread}
+
+
+# -- {p-fetchread} read ft line of instructions
+#  - FT sends uncomplemented instructions on A and B
+#  - IR = P I6 I5 I4 I3 I2+1 = B2B1 B4B3 B6B5 A2A1 A4A3+1
+#  - EX = P I1+1 00 00 00 00 = A6A5+1 00 00 00 00
+#  - PC = P I1+1 xx xx xx PC+1
+
+# B2B1 B4B3 B6B5 A2A1 A4A3 -> IR
+p f1.A {d-fA}
+p f2.A {d-fA}
+p f3.A {d-fA}
+p {d-fA} ad.permute.{ad-fetchA}
+s ad.permute.{ad-fetchA} 0,0,0,0,0,0,0,2,1,4,3
+p ad.permute.{ad-fetchA} {d-fetch}
+
+p f1.B ad.permute.{ad-fetchB}
+p f2.B ad.permute.{ad-fetchB}
+p f3.B ad.permute.{ad-fetchB}
+s ad.permute.{ad-fetchB} 0,2,1,4,3,6,5,0,0,0,0
+p ad.permute.{ad-fetchB} {d-fetch}
+
+# Increment IR to make the rightmost instruction I2+1 instead of I2
+$recincx {p-fetchread} {a-ir} {r-fetchread} {i-fetch}
+
+# A6A5 00 00 00 00 -> EX,PC
+p {d-fA} ad.permute.{ad-fetch-ex}
+s ad.permute.{ad-fetch-ex} 0,6,5,0,0,0,0,0,0,0,0
+p ad.permute.{ad-fetch-ex} {d-fetch-i1}
+
+# Get I1+1 in the top of EX and PC, and increment PC
+$rec {p-fetchread} {a-ex} {t-fetchread} {i-fetch-i1} {p-nofetch}
+$recincx {p-fetchread} {a-pc} {r-fetchread} {i-fetch-i1}
+
+endif # CONTROL_CYCLE
+

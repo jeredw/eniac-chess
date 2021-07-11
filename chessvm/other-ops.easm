@@ -1,0 +1,96 @@
+# -- Other opcodes --
+# Implements NOP, SWAPALL, PRINT, READ, HALT
+
+# - NOP -
+p {p-op00} {p-fetch}
+
+
+# - SWAPALL -
+if OP_SWAPALL
+# Exchange RF and LS through RFTMP (RF may be negative).
+
+p {p-op12} {p-opswapall}
+
+# RFTMP->EX
+$sendc {p-opswapall} {a-rftmp} {t-sub-rftmp} A {p-opswapall-2}
+$loadex {p-opswapall}
+
+# RF->RFTMP, clear
+$sendc-rf {p-opswapall-2}
+$rec {p-opswapall-2} {a-rftmp} {t-opswapall-2} {i-main} {p-opswapall-3}
+
+# LS->RF
+$sendc {p-opswapall-3} {a-ls} {t-opswapall-2} A {p-opswapall-4}
+$loadrf {p-opswapall-3}
+
+# RFTMP->LS
+$sendc {p-opswapall-4} {a-rftmp} {t-opswapall-4} A {p-opswapall-5}
+$recx {p-opswapall-4} {a-ls} {t-opswapall-4} {i-main}
+
+# EX->RFTMP, goto fetch
+$storeex {p-opswapall-5}
+$rec {p-opswapall-5} {a-rftmp} {t-opswapall-5} {i-main} {p-fetch}
+
+endif # OP_SWAPALL
+
+
+# - PRINT - 
+if OP_PRINT
+# Save a-print, RF-printAB->a-print, restore
+# Really the only trick here is that we can only print from a13,
+# and during the transfer we shift RF right so we print 0AABB not AABBC
+
+p {p-op92} {p-opprint}
+
+# PRINT->EX, clear
+$sendc {p-opprint} {a-print} {t-opprint} A {p-opprint-2}
+$loadex {p-opprint}
+
+# RF-printAB->a13. Puts AB in lower 4 digits of upper half of accumulator
+$send-rf {p-opprint-2}
+$rec {p-opprint-2} {a-print} {t-printAB} {i-printAB} i.pi # trigger print
+
+# prints high half accumulator 13
+s pr.2 P
+p i.po {p-opprint-3}
+
+# restore contents of MEM13
+$clear {p-opprint-3} {a-print} {t-opprint-3} {p-opprint-4}
+
+$storeex {p-opprint-4}
+$rec {p-opprint-4} {a-print} {t-opprint-4} {i-main} {p-fetch}
+
+endif # OP_PRINT
+
+
+# - READ -
+if OP_READ
+
+p {p-op91} {p-opread}
+
+# read in a new card into constant transmitter
+p {p-opread} i.Ri
+# clear LS to receive card data
+$clear {p-opread} {a-ls} {t-opread} {p-opread-2}
+
+# wait for card to read
+p {p-opread-2} i.Rl
+
+# when data is ready, read Al into LS (FFGGH)
+# XXX It'd make sense to read 10 digits and replace LS, but ct output wiring
+# crosses over the right 5 digits to the left 5 so that we can get four
+# constants out of JK switches.  If we were willing to rely on initializing
+# constants from a card at reset time, we could get rid of that hack and be
+# able to read 10 digits at once here.
+p i.Ro c.1i
+s c.s1 Al
+p c.1o {p-fetch}
+$recx i.Ro {a-ls} {t-opread-n} {i-main}
+
+endif
+
+
+# - HALT -
+# Wire halt to quit the simulator so we can run programs and exit when they're
+# done.
+# p {p-op95} debug.quit

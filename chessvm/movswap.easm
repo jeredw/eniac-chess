@@ -1,0 +1,147 @@
+# -- MOVs and SWAPs --
+# We use a fairly complex factoring of MOV and SWAP ops, designed to minimize
+# transceiver usage by sharing as much code as possible. The cost is execution time.
+
+# - MOVSWAP -
+if SUB_MOVSWAP
+# 1. MOVSWAP -> EX
+# 2. nop          [ (RF or LS) -mov[BCDE]-> MOVSWAP ]
+# 3. send MOVSWAP [ MOVSWAP -selectA-> RF  or  MOVSWAP -> RF ]
+# 4. EX -> MOVSWAP, goto fetch
+defmacro movswap prog
+  $pulseamp $prog {p-sub-movswap}
+endmacro
+
+# Save movswap
+$sendcx {p-sub-movswap} {a-movswap} {t-sub-movswap} A
+$loadex {p-sub-movswap}
+$manual-dummy {p-sub-movswap} a18 {t-sub-movswap} 2 {p-sub-movswap-3}
+
+# Get desired field of RF or LS in A position
+# (not shared)
+
+# Update RF
+$sendc {p-sub-movswap-3} {a-movswap} {t-sub-movswap-3} A {p-sub-movswap-4}
+
+# Restore movswap and go to fetch
+$storeex {p-sub-movswap-4}
+$rec {p-sub-movswap-4} {a-movswap} {t-sub-movswap-4} {i-main} {p-fetch}
+
+endif # SUB_MOVSWAP
+
+
+# - MOV [BCDEFGHIJ],A -
+if OP_MOVXA
+# 1. $clearA-1
+# 2. $clearA-2
+# 3. MOVSWAP -> EX
+# 4. (RF or LS) -mov[BCDE]-> MOVSWAP
+# 5. MOVSWAP -selectA-> RF
+# 6. EX -> MOVSWAP
+
+# All mov opcodes for A with RF are encoded as 2x, and all mov opcodes for A
+# with LS are encoded as 3x to conserve pulse amplifiers.  There is nothing
+# happening on d-main during decode, so use spare constant transceivers as
+# dummies, don't care what they send.
+# FIXME this is dodgy unless we decide to initialize ct to 0!
+p p.A3o c.23i
+p c.23o {p-opmovRFA}
+p p.A4o c.24i
+p c.24o {p-opmovLSA}
+
+p {p-op20} {p-opmovBA}
+p {p-op21} {p-opmovCA}
+p {p-op22} {p-opmovDA}
+p {p-op23} {p-opmovEA}
+p {p-op30} {p-opmovGA}
+p {p-op31} {p-opmovHA}
+p {p-op32} {p-opmovIA}
+p {p-op33} {p-opmovJA}
+
+# all the mov ops
+$pulseamp {p-opmovRFA} {p-opmovXA}
+$pulseamp {p-opmovLSA} {p-opmovXA}
+
+p {p-op34} {p-opmovFA}
+
+# Manually placed so they don't overlap with the multicycle sel dummies.
+$manual-dummy {p-opmovXA} a19 {t-opmovXA} 2 {p-opmovXA-3}
+$manual-dummy {p-opmovXA-3} a19 {t-opmovXA-3} 2 {p-opmovXA-5}
+# NB only one of these two may be active so fine if same accum
+$manual-dummy {p-opmovRFA} a20 {t-opmovRFA} 3 {p-opmovRFA-4}
+$manual-dummy {p-opmovLSA} a20 {t-opmovLSA} 3 {p-opmovLSA-4}
+
+# Decode which swap inputs to use, only one can be active so fine if same accum
+$dummy-delay-exclude {p-opmovBA} 3 {p-movswapAB} -a20,a19,a18,{a-movswap}
+$dummy-delay-exclude {p-opmovCA} 3 {p-movswapAC} -a20,a19,a18,{a-movswap}
+$dummy-delay-exclude {p-opmovDA} 3 {p-movswapAD} -a20,a19,a18,{a-movswap}
+$dummy-delay-exclude {p-opmovEA} 3 {p-movswapAE} -a20,a19,a18,{a-movswap}
+$dummy-delay-exclude {p-opmovFA} 3 {p-movswapAA} -a20,a19,a18,{a-movswap}
+$dummy-delay-exclude {p-opmovGA} 3 {p-movswapAB} -a20,a19,a18,{a-movswap}
+$dummy-delay-exclude {p-opmovHA} 3 {p-movswapAC} -a20,a19,a18,{a-movswap}
+$dummy-delay-exclude {p-opmovIA} 3 {p-movswapAD} -a20,a19,a18,{a-movswap}
+$dummy-delay-exclude {p-opmovJA} 3 {p-movswapAE} -a20,a19,a18,{a-movswap}
+
+# clear A
+$clearA {p-opmovXA}
+
+# invoke mov/swap sequence
+$movswap {p-opmovXA-3}
+
+# Get desired field of RF or LS in A position
+$send-rf {p-opmovRFA-4}
+$sendx {p-opmovLSA-4} {a-ls} {r-opmovLSA-4} A
+# dummy triggers p-movswapAX
+
+# Update A in RF
+$recx {p-opmovXA-5} {a-rf} {t-opmovXA-6} {i-selectA}
+
+endif
+
+
+# - SWAP A,[BCDE] -
+if OP_SWAP
+# Shared sequence with OP_MOVXA
+# 1. MOVSWAP -> EX
+# 2. (RF) -mov[BCDE]-> MOVSWAP
+# 3. MOVSWAP -> RF
+# 4. EX -> MOVSWAP
+
+p {p-op01} {p-opswapAB}
+p {p-op02} {p-opswapAC}
+p {p-op03} {p-opswapAD}
+p {p-op04} {p-opswapAE}
+
+# TODO All swap ops start with 0x, so we could try the same trick as with MOV
+# ops, but this would break nop... do we want to renumber nop?
+# FIXME this is dodgy unless we decide to initialize ct to 0!
+#p p.A1o c.21i
+#p c.21o {p-opswap}
+$pulseamp {p-opswapAB} {p-opswap}
+$pulseamp {p-opswapAC} {p-opswap}
+$pulseamp {p-opswapAD} {p-opswap}
+$pulseamp {p-opswapAE} {p-opswap}
+
+# Sequence operations that happen for every register
+$i-dummy {p-opswap} {p-opswap-2}
+$i-dummy {p-opswap-2} {p-opswap-3}
+
+# Sequence operations that happen for each register
+$i-dummy {p-opswapAB} {p-movswapAB}
+$i-dummy {p-opswapAC} {p-movswapAC}
+$i-dummy {p-opswapAD} {p-movswapAD}
+$i-dummy {p-opswapAE} {p-movswapAE}
+
+$movswap {p-opswap}
+
+# Swap desired words of RF
+$sendc-rf {p-opswap-2}
+# dummy triggers p-movswapAX
+
+# Update RF
+$loadrf {p-opswap-3}
+
+endif
+
+
+

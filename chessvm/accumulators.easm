@@ -1,0 +1,449 @@
+# -- ACCUMULATOR LAYOUT --
+# Defines all accumulators and patches to and from data trunks
+# That patching encodes the possible permutations on acc inputs and outputs,
+# as well as digit-to-program triggers for discrimination and 1-of-N decoding.
+# Listed centrally here to make it easier to track allocation.
+
+# Main data bus, used for most transfers
+{d-main}=1
+
+# macro to setup main bus connections - no "a-" before acc
+defmacro acc-main acc
+  p {a-$acc}.A {d-main}
+  p {d-main} {a-$acc}.{i-main}
+endmacro
+
+# main bus connections for acc used for discrimination. We need to remove sign,
+# and create another bus for the S output. Otherwise any sign pulse on d-main would
+# trigger one of our discrimination programs. 
+defmacro acc-disc-main acc
+  p {a-$acc}.A {d-$accA}
+  # XXX does a.d.{x}.-0 delete sign?
+  p {d-$accA} ad.permute.{ad-drop-$acc-sign}
+  s ad.permute.{ad-drop-$acc-sign} 0,10,9,8,7,6,5,4,3,2,1
+  p ad.permute.{ad-drop-$acc-sign} {d-main}
+
+  p {a-$acc}.S {d-$accS}
+
+  p {d-main} {a-$acc}.{i-main}
+endmacro
+
+# Define a permuted input for an accumulator
+defmacro permuted-input acc bus input permutation
+  p $bus ad.permute.{ad-%name}
+  s ad.permute.{ad-%name} $permutation
+  p ad.permute.{ad-%name} $acc.$input
+endmacro
+
+
+# - Program counter -
+# Layout: SS RRRR PPPP
+# Current program counter PPPP and return address RRRR, plus a temp SS used for op decode
+# Four digit address is FFLL: FF = which ft (09=ft1, 90=ft2, 99=ft3), LL = ft line
+
+{a-pc}=a1
+$acc-main pc
+
+# A - mp steppers, op<=55
+# S - mp steppers, op>55
+# Decode needs the digits of the SS field to be swapped.
+p {a-pc}.S ad.permute.{ad-swap-pc-ss-digits}
+s ad.permute.{ad-swap-pc-ss-digits} 11,9,10,8,7,6,5,4,3,2,1
+p ad.permute.{ad-swap-pc-ss-digits} {d-main}
+
+# shiftl8 input: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
+p {d-main} ad.s.{ad-pc-shiftl8}.8
+p ad.s.{ad-pc-shiftl8}.8 {a-pc}.{i-shiftl8}
+
+# clear A input: XX RRRR PPPP -> 00 RRRR PPPP, wired to EX.S for control cycle
+p {d-exS} ad.permute.{ad-exS-clearA}
+s ad.permute.{ad-exS-clearA} 0,0,0,8,7,6,5,4,3,2,1
+p ad.permute.{ad-exS-clearA} {a-pc}.{i-exS-clearA}
+
+# loadPC2: SS RRRR PPPP -> 00 0000 00PP, used for JMP/JN/JZ/JIL
+p {d-main} ad.d.{ad-pc-loadPC2}.-8
+p ad.d.{ad-pc-loadPC2}.-8 {a-pc}.{i-loadPC2}
+
+# fetch input: from d-fetch-i1, used for loading I1 into SS field
+p {d-fetch-i1} {a-pc}.{i-fetch-i1}
+
+# shared programs
+$recx {p-loadpc} {a-pc} {r-loadpc} {i-main}
+
+# helper macros
+defmacro loadpc prog
+  $pulseamp $prog {p-loadpc}
+endmacro
+
+
+# - Instruction Register -
+# Layout: P I6 I5 I4 I3 I2
+# Holds up to 5 instructions queued to execute after loading from a function
+# table line. Fills in 99 from the left as instructions are executed. When empty, 
+# this will be 9999999999 and then +1 flips to M0, easy to detect
+# So we use the sign of IR to decide whether we need to fetch (discriminate on IR)
+
+{a-ir}=a2
+$acc-disc-main ir
+
+# fetch input: from d-fetch, used for loading new line of instructions permuted from function table
+p {d-fetch} {a-ir}.{i-fetch}
+
+# fill99 input: replace top 2 digits of IR with 99, clear P/M
+# the 99 comes from a constant M00000, the rest from EX sent on main
+p {d-main} ad.permute.{ad-fill99-main}
+s ad.permute.{ad-fill99-main} 0,11,11,8,7,6,5,4,3,2,1
+p ad.permute.{ad-fill99-main} {a-ir}.{i-fill99}
+
+
+# - Execution Register -
+# Empty at the beginning of every opcode program
+# Typically the only temp space in the machine, so used extensively to save
+# contents of other accumulators while they are used functionally
+# Also used to disc opcode >55
+
+{a-ex}=a3
+$acc-disc-main ex
+
+# rotate-ir input: I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2 for control cycle
+# Shift the instructions right, then we execute and clear I1, removing one from the queue
+p {d-main} ad.permute.{ad-ir}
+s ad.permute.{ad-ir} 11,2,1,10,9,8,7,6,5,4,3
+p ad.permute.{ad-ir} {a-ex}.{i-rotate-ir}
+
+# clearA input: S aa bb cc dd ee -> 0 00 bb cc dd ee, used in control cycle and MOV
+p {d-main} ad.permute.{ad-ex-clearA}
+s ad.permute.{ad-ex-clearA} 0,0,0,8,7,6,5,4,3,2,1
+p ad.permute.{ad-ex-clearA} {a-ex}.{i-clearA}
+
+# clearPC2: SS RRRR PPPP -> SS RRRR PP00, used for JMP/JN/JZ/JIL
+p {d-main} ad.permute.{ad-clearPC2}
+s ad.permute.{ad-clearPC2} 11,10,9,8,7,6,5,4,3,0,0
+p ad.permute.{ad-clearPC2} {a-ex}.{i-clearPC2}
+
+# fetch input: from d-fetch-i1, used for loading I1 into left two digits
+p {d-fetch-i1} {a-ex}.{i-fetch-i1}
+
+# shared programs
+$recx {p-loadex} {a-ex} {r-loadex} {i-main}
+$recx {p-loadex-clearA} {a-ex} {r-loadex-clearA} {i-clearA}
+# EX.PM must be P for storeex or we will misfire opcode discrimination
+$assert {p-storeex} {a-ex}~Pxxxxxxxxxx
+$sendcx {p-storeex} {a-ex} {t-storeex} A
+
+# load EX from main
+defmacro loadex prog
+  $pulseamp $prog {p-loadex}
+endmacro
+
+# loads EX with A field (sign=P, digits 10 and 9) clear
+defmacro loadex-clearA prog
+  $pulseamp $prog {p-loadex-clearA}
+endmacro
+
+# sends EX to main and clears
+defmacro storeex prog
+  $pulseamp $prog {p-storeex}
+endmacro
+
+
+# - Register File -
+# Registers A-E of the virtual machine. A is our accumulator.
+{a-rf}=a4
+$acc-main rf
+
+# RF.S is used to negate fields of RF for arithmetic.  Discard sign to avoid
+# setting EX.PM to M, which might misfire discrimination.  A 1'p on digit 1
+# might cause the E field to carry into D; we don't need -E so just don't
+# connect digit 1.
+p {a-rf}.S ad.permute.{ad-drop-rf-sign}
+s ad.permute.{ad-drop-rf-sign} 0,10,9,8,7,6,5,4,3,2,0
+p ad.permute.{ad-drop-rf-sign} {d-main}
+
+# i-selectA input: aa 00 XX XX XX -> aa 00 00 00 00
+p {d-main} ad.permute.{ad-rf-selectA}
+s ad.permute.{ad-rf-selectA} 0,10,9,0,0,0,0,0,0,0,0
+p ad.permute.{ad-rf-selectA} {a-rf}.{i-selectA}
+
+# i-selDA input: XX XX XX aa XX -> aa 00 00 00 00, used for MOV DI,A
+p {d-main} ad.permute.{ad-rf-selDA}
+s ad.permute.{ad-rf-selDA} 0,4,3,0,0,0,0,0,0,0,0
+p ad.permute.{ad-rf-selDA} {a-rf}.{i-selDA}
+
+# i-selEA input: XX XX XX XX aa -> aa 00 00 00 00, used for MOV EJ,A/MOV #X,A
+p {d-main} ad.permute.{ad-rf-selEA}
+s ad.permute.{ad-rf-selEA} 0,2,1,0,0,0,0,0,0,0,0
+p ad.permute.{ad-rf-selEA} {a-rf}.{i-selEA}
+
+# shared programs
+$recx {p-rf-selDA} {a-rf} {r-rf-selDA} {i-selDA}
+$recx {p-rf-selEA} {a-rf} {r-rf-selEA} {i-selEA}
+$sendx {p-send-rf} {a-rf} {t-send-rf} A
+$sendcx {p-sendc-rf} {a-rf} {t-sendc-rf} A
+$recx {p-loadrf} {a-rf} {r-loadrf} {i-main}
+
+# helper macros
+# receive rf from main
+defmacro loadrf prog
+  $pulseamp $prog {p-loadrf}
+endmacro
+
+# send rf on main
+defmacro send-rf prog
+  $pulseamp $prog {p-send-rf}
+endmacro
+
+# send rf on main and clear
+defmacro sendc-rf prog
+  $pulseamp $prog {p-sendc-rf}
+endmacro
+
+
+# - Load/Store -
+# Registers F-J of the virtual machine. 
+{a-ls}=a5
+$acc-main ls
+
+# Load only the sign. used in STOREACC to preserve DISCFT acc signs
+p {d-main} ad.permute.{ad-ls-signonly}
+s ad.permute.{ad-ls-signonly} 11,0,0,0,0,0,0,0,0,0,0
+p ad.permute.{ad-ls-signonly} {a-ls}.{i-signonly}
+
+
+# - MEM0 -
+# Discriminate memory cycle 0-9 vs. 10-14
+{a-mem0}=a6
+{a-discmemcyc}=a6
+$acc-disc-main discmemcyc
+
+# splitA: Prepare A for disc A<10, and lookup in FT. A1 -> PM, A2 -> digit 1
+p {d-main} ad.permute.{ad-discmemcyc}
+s ad.permute.{ad-discmemcyc} 10,0,0,0,0,0,0,0,0,0,9
+p ad.permute.{ad-discmemcyc} {a-discmemcyc}.{i-splitA}
+
+# drop sign, used to clear LS sign in STOREACC
+p {d-main} ad.permute.{ad-discmemcyc-dropsign}
+s ad.permute.{ad-discmemcyc-dropsign} 0,10,9,8,7,6,5,4,3,2,1
+p ad.permute.{ad-discmemcyc-dropsign} {a-discmemcyc}.{i-dropsign}
+
+
+# - MEM1 -
+# Trigger mem cycle 10-14 on S outputs
+{a-mem1}=a7
+{a-memcyc1014}=a7
+$acc-main mem1
+
+p {a-memcyc1014}.S {d-memcyc1014S}
+
+# i-ftselacc: get 10 digits from FT, for loadacc/storeacc
+p {d-ftselacc} {a-memcyc1014}.{i-ftselacc}
+
+
+# - MEM2 -
+# Trigger MOV [FGHIJ],A on S outputs for LOADWORD
+{a-mem2}=a8
+{a-loadword}=a8
+$acc-main mem2
+
+p {a-loadword}.S {d-loadword}
+
+# Move second digit of B into digit 1, to compute word index
+# X A2A1 XX XX XX XX -> 0 00 00 00 00 0A1
+$permuted-input {a-loadword} {d-main} {i-windexB} 0,0,0,0,0,0,0,0,0,0,7
+
+# Double B into high digits, to compute acc index
+# X XX B2B1 XX XX XX XX -> 0 B2B1 00 00 00 00
+$permuted-input {a-loadword} {d-main} {i-accidxB} 0,8,7,0,0,0,0,0,0,0,0
+
+# i-ftselacc: get 10 digits from FT
+p {d-ftselacc} {a-loadword}.{i-ftselacc}
+
+
+# - MEM3 -
+# MEM3 is used as a temporary for ops involving RF which can be negative, so it
+# must not have any discrimination programs.
+{a-mem3}=a9
+{a-rftmp}=a9
+$acc-main mem3
+
+
+# - MEM4 -
+{a-mem4}=a10
+$acc-main mem4
+
+
+# - MEM5 -
+{a-mem5}=a11
+$acc-main mem5
+
+
+# - MEM6 -
+# Programs to compute new PC for JMP FAR/JSR/RET.
+{a-mem6}=a12
+{a-newpc}=a12
+
+$acc-main mem6
+
+# extract-pc input: XX XXXX PPPP -> 00 0000 PPPP
+p {d-main} ad.permute.{ad-extract-pc}
+s ad.permute.{ad-extract-pc} 0,0,0,0,0,0,0,4,3,2,1
+p ad.permute.{ad-extract-pc} {a-newpc}.{i-extract-pc}
+
+# keep-r input: XX RRRR XXXX -> 00 RRRR 0000
+p {d-main} ad.permute.{ad-keep-r}
+s ad.permute.{ad-keep-r} 0,0,0,8,7,6,5,0,0,0,0
+p ad.permute.{ad-keep-r} {a-newpc}.{i-keep-r}
+
+# shiftr4-pc input: shift XX RRRR PPPP to 00 0000 RRRR
+p {d-main} ad.permute.{ad-shiftr4-pc}
+s ad.permute.{ad-shiftr4-pc} 0,0,0,0,0,0,0,8,7,6,5
+p ad.permute.{ad-shiftr4-pc} {a-newpc}.{i-shiftr4-pc}
+
+# shiftl4-pc input: shift XX XXXX PPPP to XX PPPP 0000
+p {d-main} ad.permute.{ad-shiftl4-pc}
+s ad.permute.{ad-shiftl4-pc} 0,0,0,4,3,2,1,0,0,0,0
+p ad.permute.{ad-shiftl4-pc} {a-newpc}.{i-shiftl4-pc}
+
+
+# - MEM7 - 
+# MEM7 is a13 and is used for printing, has an input that shifts AB into printing position
+{a-mem7}=a13
+{a-print}=a13
+$acc-main mem7
+
+p {d-main} ad.permute.{ad-printAB}
+s ad.permute.{ad-printAB} 11,0,10,9,8,7,0,0,0,0,0
+p ad.permute.{ad-printAB} {a-mem7}.{i-printAB}
+
+
+# - MEM8 -
+{a-mem8}=a14
+$acc-main mem8
+
+
+# - MEM9 -
+# Used for JN/JZ/JIL
+{a-mem9}=a15
+{a-discjx}=a15
+$acc-disc-main discjx
+
+# i-shiftA: Used to shift RF A into digits 1+2 for ft arg
+p {d-main} ad.permute.{ad-discjx-shiftA}
+s ad.permute.{ad-discjx-shiftA} 0,0,0,0,0,0,0,0,0,10,9
+p ad.permute.{ad-discjx-shiftA} {a-discjx}.{i-shiftA}
+
+# i-ftjzsign: get sign for jz discrimination
+p f2.A ad.permute.{ad-ftjzsign}
+s ad.permute.{ad-ftjzsign} 11,0,0,0,0,0,0,0,0,0,0
+p ad.permute.{ad-ftjzsign} {d-ftjzsign}
+p {d-ftjzsign} {a-discjx}.{i-ftjzsign}
+
+# i-ftjilsign: get sign for jil discrimination
+p f2.B ad.permute.{ad-ftjilsign}
+s ad.permute.{ad-ftjilsign} 11,0,0,0,0,0,0,0,0,0,0
+p ad.permute.{ad-ftjilsign} {d-ftjilsign}
+p {d-ftjilsign} {a-discjx}.{i-ftjilsign}
+
+
+# - MEM10 -
+# Trigger mem cycle 0-9 on S outputs
+{a-mem10}=a16
+{a-memcyc09}=a16
+$acc-main mem10
+
+p {a-memcyc09}.S {d-memcyc09S}
+
+# i-ftselacc: get 10 digits from FT, for loadacc/storeacc
+p {d-ftselacc} {a-memcyc09}.{i-ftselacc}
+
+
+
+# - MEM11 -
+{a-mem11}=a17
+{a-movswap}=a17
+{a-movfa}=a17
+$acc-main mem11
+
+p {d-main} ad.permute.{ad-movAB}
+s ad.permute.{ad-movAB} 11,8,7,10,9,6,5,4,3,2,1
+p ad.permute.{ad-movAB} {a-movswap}.{i-movAB}
+
+p {d-main} ad.permute.{ad-movAC}
+s ad.permute.{ad-movAC} 11,6,5,8,7,10,9,4,3,2,1
+p ad.permute.{ad-movAC} {a-movswap}.{i-movAC}
+
+p {d-main} ad.permute.{ad-movAD}
+s ad.permute.{ad-movAD} 11,4,3,8,7,6,5,10,9,2,1
+p ad.permute.{ad-movAD} {a-movswap}.{i-movAD}
+
+p {d-main} ad.permute.{ad-movAE}
+s ad.permute.{ad-movAE} 11,2,1,8,7,6,5,4,3,10,9
+p ad.permute.{ad-movAE} {a-movswap}.{i-movAE}
+
+# shared programs
+if SUB_MOVSWAP
+$recx {p-movswapAA} {a-movswap} {t-movswapAA} {i-main}
+$recx {p-movswapAB} {a-movswap} {r-movswapAB} {i-movAB}
+$recx {p-movswapAC} {a-movswap} {r-movswapAC} {i-movAC}
+$recx {p-movswapAD} {a-movswap} {r-movswapAD} {i-movAD}
+$recx {p-movswapAE} {a-movswap} {t-movswapAE} {i-movAE}
+endif
+
+
+# - MEM12 -
+{a-mem12}=a18
+$acc-main mem12
+
+
+# - MEM13 -
+{a-mem13}=a19
+$acc-main mem13
+
+
+# - MEM14 -
+{a-mem14}=a20
+$acc-main mem14
+
+
+# - Function table decode -
+# The PM digits of a18, a19, and a20 select the current function table for
+# instruction fetch -- you can think of this as the current ROM bank. 
+# The Function Table Selection Group (FTSG), so named by Adele, is the upper two
+# digits of the PC and R registers. We use ft1 = 09, ft2 = 90, ft3 = 99.
+# This is translated by p-sub-discft using the inputs below into PM=P on the
+# selected ft, M otherwise. At fetch time we send on S on all three.
+
+{a-discft1}=a18
+{a-discft2}=a19
+{a-discft3}=a20
+
+defmacro discftaccum name ftnum
+  # S.PM is wired to a dummy program to trigger an FT
+  p {a-$name}.S ad.dp.{ad-$name-discft$ftnum}.11
+  p ad.dp.{ad-$name-discft$ftnum}.11 {p-trigger-ft$ftnum-pm}
+  $dummy-exclude {p-trigger-ft$ftnum-pm} {p-trigger-ft$ftnum} -{a-discft1},{a-discft2},{a-discft3}
+
+  # i-ftsg1 puts the ftsg1 digit in PM
+  p {d-main} ad.permute.{ad-$name-ftsg1}
+  s ad.permute.{ad-$name-ftsg1} 3,0,0,0,0,0,0,0,0,0,0
+  p ad.permute.{ad-$name-ftsg1} {a-$name}.{i-ftsg1}
+
+  # i-ftsg2 puts the ftsg2 digit in PM
+  p {d-main} ad.permute.{ad-$name-ftsg2}
+  s ad.permute.{ad-$name-ftsg2} 4,0,0,0,0,0,0,0,0,0,0
+  p ad.permute.{ad-$name-ftsg2} {a-$name}.{i-ftsg2}
+endmacro
+
+# Strictly speaking only discft3 needs both i-ftsg1 and i-ftsg2 inputs but we
+# are not constrained on inputs for these accumulators.
+if CONTROL_CYCLE
+$discftaccum discft1 1
+$discftaccum discft2 2
+$discftaccum discft3 3
+endif
+
+# discft1 is also used to form intitial PC address on reset
+# resetPC input: takes M0 from bus, sets initial PC to 0900
+p {d-main} ad.permute.{ad-pc-reset}
+s ad.permute.{ad-pc-reset} 0,0,0,0,0,0,0,0,11,0,0
+p ad.permute.{ad-pc-reset} {a-discft1}.{i-resetPC}
