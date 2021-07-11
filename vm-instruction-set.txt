@@ -161,7 +161,8 @@ A - main
 S - Trigger MOV [FGHIJ],A on S outputs
 a - main
 b - windexB (word index): X A2A1 XX XX XX XX -> 0 00 00 00 00 0A1
-
+b = accidxB: (acc index): X XX B2B1 XX XX XX -> 0 B2B1 00 00 00 00
+g - ftselacc: read from FT output
 
 A9
 MEM3

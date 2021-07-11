@@ -29,7 +29,7 @@ enable CONTROL_CYCLE  #  9 pas, 18 ts
 enable OP_LOADACC     #  1 pas,  1 ts
 enable OP_STOREACC    #  1 pas,  5 ts
 enable SUB_MEMCYC     #  7 pas, 42 ts (OP_LOADACC, OP_STOREACC)
-enable OP_LOADWORD    #  ? pas, ?? ts (OP_LOADWORD)
+disable OP_LOADWORD    #  ? pas, ?? ts (OP_LOADWORD)
 enable OP_SWAPALL     #  4 pas,  6 ts
 # - word access (14 pas, 28 ts)
 enable OP_SWAP        #  7 pas,  8 ts
@@ -333,8 +333,13 @@ $acc-main mem2
 
 p {a-loadword}.S {d-loadword}
 
-# Move second digit of B into digit 1, to send to ft
+# Move second digit of B into digit 1, to compute word index
+# X A2A1 XX XX XX XX -> 0 00 00 00 00 0A1
 $permuted-input {a-loadword} {d-main} {i-windexB} 0,0,0,0,0,0,0,0,0,0,7
+
+# Double B into high digits, to compute acc index
+# X XX B2B1 XX XX XX XX -> 0 B2B1 00 00 00 00
+$permuted-input {a-loadword} {d-main} {i-accidxB} 0,8,7,0,0,0,0,0,0,0,0
 
 # i-ftselacc: get 10 digits from FT
 p {d-ftselacc} {a-loadword}.{i-ftselacc}
@@ -1586,12 +1591,51 @@ $rec {p-oploadword-4} {a-loadword} {t-oploadword-4} {i-ftselacc} {p-oploadword-5
 $sendc {p-oploadword-5} {a-loadword} {t-oploadword-5} S {p-oploadword-6}
 
 # movs also need p-opmovLSA, time this on f2 as f1 has the word program 
-# NB: one cycle after LOADWORD so it lines up with triggered word program
-$ft-dummy-exclude {p-oploadword-6} 5 {p-opmovLSA} -f1,f3
+# NB: one cycle after LOADWORD so it lines up with triggered word program$
+ft-dummy-exclude {p-oploadword-6} 5 {p-opmovLSA} -f1,f3
 
 # EX -> LOADWORD
 $storeex {p-oploadword-6}
-$recx {p-oploadword-6} {a-loadword} {r-oploadword-6} {i-main}
+$rec {p-oploadword-6} {a-loadword} {t-oploadword-6} {i-main} {p-oploadword-7}
+
+# Now that we've started a timer for the word program, look up the accmulator index
+# Easiest way to get this is to double the address and take top 2 digits:
+#    0          B2         B1
+# +  0          B2         B1 
+#  -----------------------------
+#  B2>=5  2B2%10+B1>=5   2B1%10 
+#
+# Let's call these
+#    D3         D2         D1
+#
+# Then accidx = D3D2. If D3=PM, D2=10, D1=9 then the sign is set up to discriminate
+# Hence i-accidxB: X XX B2B1 XX XX XX XX -> 0 B2B1 00 00 00 00 and we add twice
+# But we need to send D2 to ft arg and it's in the wrong place. Instead of using
+# another acc with a shifting input, we shift DISCMEMCYC.S
+# This means we also need to send from RF negated
+
+# DISCMEMCYC -> EX
+$sendc {p-oploadword-7} {a-discmemcyc} {t-oploadword} A {p-oploadword-8}
+$loadex {p-oploadword}
+
+# RF -S-accidxB-> DISCMEMCYC, twice
+$sendc {p-oploadword-8} {a-rf} {t-oploadword-8} S {p-oploadword-9}
+s {a-rf}.rp{t-oploadword-8} 2
+$recx {p-oploadword-8} {a-discmemcyc} {t-oploadword-8} {i-main} 
+s {a-discmemcyc}.rp{t-oploadword-8} 2
+
+# trigger FT3 on second cycle
+$dummy {p-oploadword8} f3.i{t-loadword}
+s f3.op{t-loadword} A-2
+
+# Discriminate and clear. The program wiring is already set up from SUB_MEMCYC 
+# Note we send A output digit 1 to ft arg as well, but it's zero here
+# The actual index comes from S output
+# Pass through to p-sub-memcyc4 which moves EX back to DISCMEMCYC
+$sendc {p-oploadword-9} {a-discmemcyc} {t-oploadword-9} AS {p-sub-memcyc-4}
+
+# ...and we're done. The rest of LOADWORD will execute, then our MOV will run and fetch
+ 
 
 endif # OP_LOADWORD
 
