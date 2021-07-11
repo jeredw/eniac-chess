@@ -22,6 +22,7 @@
 # db    debug breakpoints
 # dd    debug dumps
 import sys
+import os
 import re
 import math
 from dataclasses import dataclass
@@ -674,14 +675,26 @@ class Assembler(object):
 
 
   def line_include(self, line, **kwargs):
-    # include another source file
-    m = re.match(r'\s*include\s+(?P<path>.*)(#.*)?', line)
+    # include another source file. 
+    # Look first in current directory, then relative to path of source file
+    m = re.match(r'\s*include\s+(?P<filename>.*)(#.*)?', line)
     if not m:
       raise SyntaxError('bad include directive')
-    path = m.group('path')
-    text = open(path).read()
-    outlines = self._scan(path, text)
-    return f'# begin {path}\n{outlines}\n# end {path}\n'
+
+    filename = m.group('filename')
+    if os.path.isfile(filename):
+      text = open(filename).read()
+    else:
+      path = os.path.dirname(kwargs['filename'])
+      filename2 = path + '/' + filename
+      if os.path.isfile(filename2): 
+        text = open(filename2).read()
+        filename = filename2
+      else:
+        raise Exception(f'Could not find include file {filename} or {filename2}')
+
+    outlines = self._scan(filename, text)
+    return f'# begin {filename}\n{outlines}\n# end {filename}\n'
 
 
   def line_defer(self, line, **kwargs):
