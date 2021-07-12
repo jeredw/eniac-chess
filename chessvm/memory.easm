@@ -4,14 +4,13 @@
 # - Memory Cycle -
 # Implements LOADACC/STOREACC by decoding memacc index in A, triggering memory cycle
 # program on the appropriate accumulator. 
+# Uses f3 (for lookups) and f2 (dummy)
 if SUB_MEMCYC
 
 # Wiring to send rightmost 10 digits of f3, plus PMA, to d-ftselacc
 # used for loadacc, storeacc
 # PMA A4A3 A2A1 B6B5 B4B3 B2B1 -> d-ftselacc
-p f3.A ad.permute.{ad-decodeA}
-s ad.permute.{ad-decodeA} 11,4,3,2,1,0,0,0,0,0,0
-p ad.permute.{ad-decodeA} {d-ftselacc}
+$permute f3.A 11,4,3,2,1,0,0,0,0,0,0 {d-ftselacc}
 p f3.B {d-ftselacc}
 
 # Create the memory cycle program for each acc
@@ -95,8 +94,8 @@ $discriminatec-delay-passthru {p-sub-memcyc-3} {a-discmemcyc} {d-discmemcycA} {d
 $rec {p-sub-memcyc-4} {a-discmemcyc} {t-sub-memcyc-4} {i-main} {p-sub-memcyc-5}
 $storeex {p-sub-memcyc-4}
 
-# Now wait 5 cycles until the address is decoded, and acc memory cycle step 2
-$ft-dummy-exclude {p-sub-memcyc-5} 5 {p-sub-memcyc-6} -f3
+# Now wait 5 cycles on ft2 until the address is decoded, and acc memory cycle step 2
+$ft-dummy-exclude {p-sub-memcyc-5} 5 {p-sub-memcyc-6} -f3,f1
 
 
 # POSITIVE (0-9) and NEGATIVE (10-14) branches of discriminate differ only on which acc
@@ -146,10 +145,9 @@ $pulseamp {p-oploadacc} {p-sub-memcyc}
 # clear LS, we'll want that empty to recieve acc value
 $clearx {p-oploadacc} {a-ls} {r-clear}
 
-# XXX good for FT dummy, if 3 on own bus
-$dummy-delay-exclude {p-oploadacc} 8 {p-oploadacc-2} -a8
 
-# MEMXX-> LS, receive accumulator value
+# wait for the memcycle then MEMXX-> LS, receive accumulator value
+$ft-dummy-exclude {p-oploadacc} 8 {p-oploadacc-2} -f3,f2
 $recx {p-oploadacc-2} {a-ls} {r-oploadacc-2} {i-main}
 
 endif # OP_LOADACC
@@ -174,8 +172,8 @@ $sendc {p-opstoreacc-3} {a-discmemcyc} {t-opstoreacc-3} A {p-opstoreacc-4}
 $recx {p-opstoreacc-3} {a-ls} {t-opstoreacc-3} {i-main} # ran out of r's
 
 # Wait until accumulator outputs a value, save only the sign
-# XXX good for FT dummy, if f3 on own bus
-$dummy-delay-exclude {p-opstoreacc-3} 8 {p-opstoreacc-5} -a8
+#$dummy-delay-exclude {p-opstoreacc-3} 8 {p-opstoreacc-5} -a8
+$ft-dummy-exclude {p-opstoreacc-3} 8 {p-opstoreacc-5} -f3,f2
 
 # Jump into sub-memcyc - no pulseamp needed because p-opstoreacc-4 triggers nothing else
 p {p-opstoreacc-4} {p-sub-memcyc-2}
