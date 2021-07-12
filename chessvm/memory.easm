@@ -4,7 +4,7 @@
 # - Memory Cycle -
 # Implements LOADACC/STOREACC by decoding memacc index in A, triggering memory cycle
 # program on the appropriate accumulator. 
-# Uses f3 (for lookups) and f2 (dummy)
+# Uses f3 (for lookups) and f2 (dummy). Does not return to fetch.
 if SUB_MEMCYC
 
 # Wiring to send rightmost 10 digits of f3, plus PMA, to d-ftselacc
@@ -126,8 +126,8 @@ $sub-memcyc-branch 1014
 # For store just: LS - >main
 # Therefore put just the LS -> main in this shared program, we always want it
 
-# LS -> MEMXX, restore accumulator value, then next op
-$send {p-sub-memcyc-6} {a-ls} {t-sub-memcyc-7} A {p-fetch}
+# LS -> MEMXX, restore accumulator value
+$sendx {p-sub-memcyc-6} {a-ls} {r-sub-memcyc-7} A
 
 endif # SUB_MEMCYC
 
@@ -148,7 +148,10 @@ $clearx {p-oploadacc} {a-ls} {r-clear}
 
 # wait for the memcycle then MEMXX-> LS, receive accumulator value
 $ft-dummy-exclude {p-oploadacc} 8 {p-oploadacc-2} -f3,f2
-$recx {p-oploadacc-2} {a-ls} {r-oploadacc-2} {i-main}
+$rec {p-oploadacc-2} {a-ls} {t-oploadacc-2} {i-main} {p-oploadacc-3}
+
+# wait one cycle for LS->MEMXX then fetch
+$i-dummy {p-oploadacc-3} {p-fetch}
 
 endif # OP_LOADACC
 
@@ -181,6 +184,8 @@ p {p-opstoreacc-4} {p-sub-memcyc-2}
 # Receive only sign on mem->LS, preserve sign when LS->mem next cycle
 $recx {p-opstoreacc-5} {a-ls} {r-opstoreacc-4} {i-signonly}
 
+# out of transcievers on a-ls, so also trigger a dummy to wait out memcycle
+$dummy-delay {p-opstoreacc-5} 2 {p-fetch}
 
 endif # OP_STOREACC
 

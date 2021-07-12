@@ -132,10 +132,10 @@ $pulseamp {p-opswapAD} {p-opswap}
 $pulseamp {p-opswapAE} {p-opswap}
 
 # Sequence operations that happen for every register
-$i-dummy {p-opswap} {p-opswap-2}
+$dummy {p-opswap} {p-opswap-2}
 $i-dummy {p-opswap-2} {p-opswap-3}
 
-# Sequence operations that happen for each register
+# Sequence operations that happen for each register (only one, so all i-dummy is fine)
 $i-dummy {p-opswapAB} {p-movswapAB}
 $i-dummy {p-opswapAC} {p-movswapAC}
 $i-dummy {p-opswapAD} {p-movswapAD}
