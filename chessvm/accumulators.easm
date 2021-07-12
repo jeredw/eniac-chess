@@ -203,8 +203,6 @@ $permuted-input {a-ls} {d-main} {i-signonly} 11,0,0,0,0,0,0,0,0,0,0
 {a-discmemcyc}=a6
 $acc-disc-main discmemcyc
 
-# splitA: Prepare A for disc A<10, and lookup in FT. A1 -> PM, A2 -> digit 1
-$permuted-input {a-discmemcyc} {d-main} {i-splitA} 10,0,0,0,0,0,0,0,0,0,9
 
 # drop sign, used to clear LS sign in STOREACC
 $permuted-input {a-discmemcyc} {d-main} {i-dropsign} 0,10,9,8,7,6,5,4,3,2,1

@@ -1,17 +1,24 @@
 # - MEMORY -
 # Implements LOADACC, STOREACC, LOADWORD, STOREWORD
 
-# - Memory Cycle -
-# Implements LOADACC/STOREACC by decoding memacc index in A, triggering memory cycle
-# program on the appropriate accumulator. 
-# Uses f3 (for lookups) and f2 (dummy). Does not return to fetch.
-if SUB_MEMCYC
 
-# Wiring to send rightmost 10 digits of f3, plus PMA, to d-ftselacc
-# used for loadacc, storeacc
+# - Wiring - 
+
+# Send rightmost 10 digits of f3, plus PMA, to d-ftselacc. 
 # PMA A4A3 A2A1 B6B5 B4B3 B2B1 -> d-ftselacc
 $permute f3.A 11,4,3,2,1,0,0,0,0,0,0 {d-ftselacc}
 p f3.B {d-ftselacc}
+
+# DISCMEMCYC.A already goes to d-main, so we can send acc idx to ft.arg from digit 1. 
+# For LOADWORD we need to be able to send acc index from digit 10, so go through S.
+$permute {a-discmemcyc}.S 0,0,0,0,0,0,0,0,0,0,10 {d-main}
+
+
+# - Accumulator memory cycles -
+if ACC_MEMCYC
+# Implements LOADACC/STOREACC by decoding memacc index in A, triggering memory cycle
+# program on the appropriate accumulator. 
+# Uses f3 (for lookups) and f2 (dummy). Does not return to fetch.
 
 # Create the memory cycle program for each acc
 # Start with a dummy triggered from memcyc[09|1014].S. Delays one cycle (delay=2, as delay 1 
@@ -22,6 +29,7 @@ defmacro memcyc-prog x range
   $sendc {p-memcyc$x-2} {a-mem$x} {t-memcyc-2} A {p-memcyc$x-3}
   $recx  {p-memcyc$x-3} {a-mem$x} {r-memcyc-3} {i-main}
 endmacro
+
 
 # Patch one digit of d-memcyc09S to a send reciever program on mem0..mem9
 # shift to get desired digit in 2 position, then use digit select adapter
@@ -50,7 +58,6 @@ $connect-memcyc09 7
 $connect-memcyc09 8
 $connect-memcyc09 9
 
-
 # similar for 10-14
 defmacro select-memcyc1014-acc x minus10
   p {d-memcyc1014S} ad.s.{ad-memcyc-$x}.-$minus10
@@ -58,7 +65,6 @@ defmacro select-memcyc1014-acc x minus10
   p ad.dp.{ad-memcyc-dp$x}.2 {p-memcyc$x}
 endmacro
 
-# Decode and allocate the memcyc programs for each acc
 defmacro connect-memcyc1014 x minus10
   $select-memcyc1014-acc $x $minus10
   $memcyc-prog $x 1014
@@ -70,13 +76,22 @@ $connect-memcyc1014 12 2
 $connect-memcyc1014 13 3
 $connect-memcyc1014 14 4
 
+endif # ACC_MEMCYC
+
+
+# - SUB_MEMCYC - 
+if SUB_MEMCYC
+# This is the main memory access sequence. Trigger the memory cycle on the acc indexed in A
 
 # Start by saving DISCMEMCYC -> EX, clear
 $sendc {p-sub-memcyc} {a-discmemcyc} {t-sub-memcyc} A {p-sub-memcyc-2}
 $loadex {p-sub-memcyc}
 
-# send A to DISCMEMCYC, first digit into sign: X XX XX XX XX A2A1 -> A2 00 00 00 00 0A1
+# send A to DISCMEMCYC, first digit into sign: 9 XX XX XX XX A2A1 -> A2 90 00 00 00 0A1
+# Need a 9 in digit 10 so a-discmemcyc.S does not clash on d-main. This comes from the CT
+$permute {d-main} 10,11,0,0,0,0,0,0,0,0,9 {a-discmemcyc}.{i-splitA}
 $send-rf {p-sub-memcyc-2}
+$sendM0 {p-sub-memcyc-2}
 $rec {p-sub-memcyc-2} {a-discmemcyc} {t-sub-memcyc-2} {i-splitA} {p-sub-memcyc-3}
 
 # trigger FT this cycle

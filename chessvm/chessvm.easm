@@ -42,8 +42,9 @@ enable CONTROL_CYCLE  #  9 pas, 18 ts
 # - memory (13 pas, 54 ts)
 enable OP_LOADACC     #  1 pas,  1 ts
 enable OP_STOREACC    #  1 pas,  5 ts
-enable SUB_MEMCYC     #  7 pas, 42 ts (OP_LOADACC, OP_STOREACC)
-disable OP_LOADWORD    #  ? pas, ?? ts (OP_LOADWORD)
+enable ACC_MEMCYC
+enable SUB_MEMCYC     
+disable OP_LOADWORD   
 enable OP_SWAPALL     #  4 pas,  6 ts
 # - word access (14 pas, 28 ts)
 enable OP_SWAP        #  7 pas,  8 ts
