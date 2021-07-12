@@ -25,9 +25,9 @@ s p.cK 6
 # simpler just to unplug the things.
 #
 # Associator switches on the MP front panel don't permit disconnecting decade
-# counters, but the operating manual notes "To disassociate a decade from its
-# stepper pull out gate tube 63 in the stepper plug-in unit. See block diagram
-# PX-8-304."
+# counters, but this is possible by unplugging a tube: "To disassociate a
+# decade from its stepper pull out gate tube 63 in the stepper plug-in unit.
+# See block diagram PX-8-304." - ENIAC Operating Manual, PX-8-301
 s p.gate63 unplug
 
 # Receive opcode at master programmer stepper direct inputs
@@ -86,8 +86,9 @@ p p.G2o p.Ji
 p p.G3o p.Ki
 
 # Rotated because we decode on PC.S for op>55, so this is 99-(OP+1) = 100-OP.
-# TODO Confirm MP steppers increment from 6 to 1 - we're assuming so here for
-# nicer opcode numbering.
+# Take advantage of the fact that MP steppers increment from 6 to 1 for nicer
+# opcode numbering:  "The stepper will count modulo c, where c is the setting
+# of the stepper clear switch." - ENIAC Operating Manual, PX-8-302
 defmacro op-lines-gt55 stepper tens
   p p.$stepper1o {p-op$tens2}
   p p.$stepper2o {p-op$tens1}
