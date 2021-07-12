@@ -84,8 +84,13 @@ endmacro
 {a-ir}=a2
 $acc-disc-main ir
 
-# fetch input: from d-fetch, used for loading new line of instructions permuted from function table
-p {d-fetch} {a-ir}.{i-fetch}
+# fetch from d-fetch-12, used for loading new line of instructions 
+# permuted from function tables 1 and 2
+p {d-fetch-12} {a-ir}.{i-fetch-12}
+
+# fetch from d-fetch-3, used for loading new line of instructions 
+# permuted from function table 3
+p {d-fetch-3} {a-ir}.{i-fetch-3}
 
 # fill99 input: replace top 2 digits of IR with 99, clear P/M
 # the 99 comes from a constant M00000, the rest from EX sent on main
@@ -357,3 +362,13 @@ $acc-main mem13
 {a-discft3}=a20
 
 $acc-main mem14
+
+
+# - Function tables -
+# Not accumulators, but they have some global wiring that is shared
+
+p {d-main} f1.arg  # only bottom two digit lines connect so no deleter is required
+p {d-main} f2.arg
+p {d-main} f3.arg
+
+

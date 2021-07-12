@@ -90,12 +90,6 @@ defmacro manual-dummy inpr acc t delay outpr
   p $acc.{$t}o {$outpr}
 endmacro
 
-# Allocates an initiate unit clear transceiver for use as a dummy.
-defmacro i-dummy inpr outpr
-  p {$inpr} i.Ci{t-%name}
-  p i.Co{t-%name} {$outpr}
-endmacro
-
 # Dummy to trigger outpr delay cycles after inpr
 # Does not use a1-a5 nor other accums listed in exclude
 # usage: $dummy-delay-exclude {p-in} 2 {p-out} -{a-foo},{a-bar},{a-baz}
@@ -127,6 +121,7 @@ defmacro dummy-exclude inpr outpr exclude
   $dummy-delay-exclude $inpr 1 $outpr $exclude
 endmacro
 
+
 # FT dummies: useful for long delays, plus we have a ton of ft programs (33!)
 # "Mention might also be made of the fact that the function table’s program controls 
 #  provide a convenient way of delaying a program pulse from 5 to 13 addition times."
@@ -147,6 +142,15 @@ endmacro
 defmacro ft-dummy inpr delay outpr
   $ft-dummy-exclude $inpr $delay $outpr ${}
 endmacro
+
+
+# We can also use the six selective clear programs on the initiating unit as dummies 
+# because we don't set the SC switches on any accumulators
+defmacro i-dummy inpr outpr
+  p {$inpr} i.Ci{t-%name}
+  p i.Co{t-%name} {$outpr}
+endmacro
+
 
 # -- DISCRIMINATION --
 

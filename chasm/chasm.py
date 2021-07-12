@@ -144,13 +144,13 @@ class Output(object):
   def org(self, output_row):
     """Change output location."""
     self.output_row = output_row
-    self.word_of_output_row = 0
+    self.word_of_output_row = self.row_start()
     self.operand_correction = 0
 
   def pad_to_new_row(self):
     """Aligns output to start of a new function table row."""
     # If already at the start of a row, no need to pad.
-    while self.word_of_output_row != 0:
+    while self.word_of_output_row != self.row_start():
       self.emit(99)
 
   def emit(self, *values, comment=""):
@@ -159,8 +159,8 @@ class Output(object):
     Places values on the same function table row, if necessary padding out the
     current row with 99s and moving to a new row to guarantee this.
     """
-    assert len(values) <= 6
-    assert 0 <= self.word_of_output_row < 6
+    assert len(values) <= self.row_length()
+    assert self.row_start() <= self.word_of_output_row < 6
     space_left_in_row = 6 - self.word_of_output_row
     if len(values) > space_left_in_row:
       # values don't all fit, pad row with 99s and move to new row.
@@ -205,8 +205,8 @@ class Output(object):
             self.operand_correction = 99
       self.word_of_output_row += 1
       if self.word_of_output_row == 6:
-        self.word_of_output_row = 0
         self.output_row += 1
+        self.word_of_output_row = self.row_start()
         if self.output_row == 300:
           self.output_row = 308  # skip table at start of ft3
         self.operand_correction = 0
@@ -223,6 +223,13 @@ class Output(object):
     if self.output_row is not None:
       return self.output_row // 100
     return 0
+
+  # helpers to handle skipping first word for ft3
+  def row_length(self):
+    return 5 if self.function_table()==3 else 6
+
+  def row_start(self):
+    return 1 if self.function_table()==3 else 0
 
 
 class PrimitiveParsing(object):

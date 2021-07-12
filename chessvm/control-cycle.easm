@@ -171,8 +171,10 @@ if CONTROL_CYCLE
 #  - discriminate, to decide whether to fetch new instructions, clear IR
 #  - read out the contents of IR into EX
 #  - send next instruction (I1) to PC (assume PC.SS is 0)
-$assert {p-fetch} {a-ex}~P0000000000
-$assert {p-fetch} {a-pc}~x00xxxxxxxx
+
+# Digit 9 normally 0, but it will 1 when executing from ft3 (see p-fetchread-f3)
+$assert {p-fetch} {a-ex}~P0x00000000  
+$assert {p-fetch} {a-pc}~x0xxxxxxxxx
 
 # If more instructions are needed, IR is M0, and control proceeds to p-fetchline.
 # Otherwise, IR is P I5 I4 I3 I2 I1+1 and we trigger p-nofetch-eat-op.
@@ -307,7 +309,10 @@ $sendx {p-fetchline} {a-discft1} {r-fetchline} S
 $sendx {p-fetchline} {a-discft2} {r-fetchline} S
 $send {p-fetchline} {a-discft3} {t-fetchline} S {p-fetchtrig} # save r for r-memcyc 
 
-# FT settings
+# -- {p-fetchtrig}
+# FT is "stimulated" in this cycle, from discft[123].S output
+
+# Trigger FT from trigger lines from disctft[123].S
 defmacro triggerft num
   p {p-trigger-ft$num} f$num.{t-fetchline}i
   # TODO switch to A+2 addressing to minimize overlap with accumulator decode
@@ -317,19 +322,23 @@ $triggerft 1
 $triggerft 2
 $triggerft 3
 
+# Trigger a dummy to read arg 4 cycles later, for f[12] and f3 separately
+# f3 is on a different output bus for two reasons:
+#  - Word I1 of f3 is the vm programmers's FTL data, don't execute it
+#  - we need to use f[12] for ft dummies in memory ops, while reading from f3
+$pulseamp {p-trigger-ft1} {p-fetchwait-f12}
+$pulseamp {p-trigger-ft2} {p-fetchwait-f12}
+$dummy-delay {p-fetchwait-f12} 4 {p-fetchread-f12}
 
-# -- {p-fetchtrig}
-# FT is "stimulated" in this cycle, from discft1-3 S output
-# Meanwhile, clear IR (needed only on jumps, otherwise already zero here from overflow)
+$dummy-delay {p-trigger-ft3} 4 {p-fetchread-f3}
+
+# Also clear IR (needed only on jumps, otherwise already zero here from overflow)
 $clear {p-fetchtrig} {a-ir} {t-fetchtrig} {p-fetcharg}
 
 
 # -- {p-fetcharg} ft argument request
 # - FT <- bottom two digits of PC (a1)
 $send {p-fetcharg} {a-pc} {t-fetcharg} A {p-preinc-fetch}
-p {d-main} f1.arg  # only bottom two digit lines connect so no deleter is required
-p {d-main} f2.arg
-p {d-main} f3.arg
 
 
 # -- {p-preinc-fetch} preincrement left field of EX and PC
@@ -339,50 +348,53 @@ $assert {p-preinc-fetch} {a-pc}~P00xxxxxxxx
 # Send P01000 from the constant transmitter
 p {p-preinc-fetch} c.28i
 s c.s28 Jr
-p c.28o {p-await-fetchread}
 
 # Preload P01 into EX and PC so that when the FT sends I1, EX and PC will end
 # up I1+1 which is the precondition in p-nofetch.
+# Also increment PC to go next line of instructions
 $loadex {p-preinc-fetch}
-$loadpc {p-preinc-fetch}
+$recincx {p-preinc-fetch} {a-pc} {t-preinc-fetch} {i-main}
 
 
-# -- {p-await-fetchread}
-# Nothing happens, just waiting for ft
-# because main is idle this cycle, use ct as a dummy, don't care what it sends
-p {p-await-fetchread} c.22i
-p c.22o {p-fetchread}
-
-
-# -- {p-fetchread} read ft line of instructions
+# -- {p-fetchread-f12} read ft line of instructions from FT 1 and 2
+# Triggered by timed dummy 
 #  - FT sends uncomplemented instructions on A and B
 #  - IR = P I6 I5 I4 I3 I2+1 = B2B1 B4B3 B6B5 A2A1 A4A3+1
 #  - EX = P I1+1 00 00 00 00 = A6A5+1 00 00 00 00
 #  - PC = P I1+1 xx xx xx PC+1
 
 # B2B1 B4B3 B6B5 A2A1 A4A3 -> IR
-p f1.A {d-fA}
-p f2.A {d-fA}
-p f3.A {d-fA}
-
-$permute {d-fA} 0,0,0,0,0,0,0,2,1,4,3 {d-fetch}
+p f1.A {d-f12A}
+p f2.A {d-f12A}
+$permute {d-f12A} 0,0,0,0,0,0,0,2,1,4,3 {d-fetch-12}
 
 p f1.B ad.permute.{ad-fetchB}
 p f2.B ad.permute.{ad-fetchB}
-p f3.B ad.permute.{ad-fetchB}
 s ad.permute.{ad-fetchB} 0,2,1,4,3,6,5,0,0,0,0
-p ad.permute.{ad-fetchB} {d-fetch}
+p ad.permute.{ad-fetchB} {d-fetch-12}
 
 # Increment IR to make the rightmost instruction I2+1 instead of I2
-$recincx {p-fetchread} {a-ir} {r-fetchread} {i-fetch}
+$recincx {p-fetchread-f12} {a-ir} {t-fetchread-f12} {i-fetch-12}
 
 # A6A5 00 00 00 00 -> EX,PC
-$permute {d-fA} 0,6,5,0,0,0,0,0,0,0,0 {d-fetch-i1}
+$permute {d-f12A} 0,6,5,0,0,0,0,0,0,0,0 {d-fetch-i1}
+
+# Get I1+1 in the top of EX and PC
+$rec {p-fetchread-f12} {a-ex} {t-fetchread-f12} {i-fetch-i1} {p-nofetch}
+$recx {p-fetchread-f12} {a-pc} {r-fetchread-f12} {i-fetch-i1}
 
 
-# Get I1+1 in the top of EX and PC, and increment PC
-$rec {p-fetchread} {a-ex} {t-fetchread} {i-fetch-i1} {p-nofetch}
-$recincx {p-fetchread} {a-pc} {r-fetchread} {i-fetch-i1}
+# -- {p-fetchread-f3} read ft line of instructions from FT3
+# We read from a different bus, and also do not read I1 (f3.A digits 6,5)
+# I1 is programmer-supplied data for the FTL instruction
+
+# B2B1 B4B3 B6B5 A2A1 A4A3 -> IR
+$permute f3.A 0,0,0,0,0,0,0,2,1,4,3 {d-fetch-3}
+$permute f3.B 0,2,1,4,3,6,5,0,0,0,0 {d-fetch-3}
+
+# Load into IR but do not increment, as EX,PC are already 01. 
+# Then jump to fetch which will transfer IR->EX,PC and that +1 will be applied
+$rec {p-fetchread-f3} {a-ir} {t-fetchread-f3} {i-fetch-3} {p-fetch}
 
 endif # CONTROL_CYCLE
 

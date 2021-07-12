@@ -13,10 +13,10 @@
 # -- CONFIGURATION -- 
 # Flags used for debugging and resource accounting
 
-disable PRELOAD_MEMORY
+enable PRELOAD_MEMORY
 if PRELOAD_MEMORY
 # memory values to check that various instructions save and restore
-set a4  0400000000
+#set a4  0400000000
 set a5  9988776655  
 set a6  0606060606
 set a7  0707070707
@@ -26,6 +26,7 @@ set a10 1010101010
 set a11 1111111111
 set a12 1212121212 
 set a13 1313131313 
+set a14 1414141414
 set a15 1515151515
 set a16 1616161616
 set a17 1717171717
@@ -110,3 +111,5 @@ f r asm/vmtest.deck
 
 # Start the machine
 b i
+s cy.op 1a
+

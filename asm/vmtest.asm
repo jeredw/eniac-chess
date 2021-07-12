@@ -140,9 +140,12 @@
 ; 10: JMP
 .align
   mov 10,A
+  swap A,B
   jmp jmptest
+  dec A      ; error 99 if jmp not taken
 
 jmptest
+  swap A,B
   print
 
 
@@ -178,7 +181,7 @@ jmpfar1
   print
   halt
 
-; this is used for far JSR/RET test -- weird to put it in the middle of this test, but
+; this is used for far JSR/RET test -- weird to put it in the middle of this test, whatevs
 inca
  inc A        ; error 01 if ret does not jump
  ret
@@ -197,7 +200,23 @@ jmpfar3
   print
 
 
-; 13: use JN in a loop. Ensure executed 10 times.
+; 13: execution from ft3
+; On ft3, first two digits (I1) are used for lookup tables, not instructions
+; As usual this tests both chasm and the vm implementation
+  inc A
+  swap A,B
+  jmp far jmpft3
+  print
+  halt
+
+.org 310
+jmpft3:
+  inc A     ; will fail test if chasm puts first op in I1 not I2
+  dec A
+  swap A,B
+  print
+
+; 14: use JN in a loop. Ensure executed 10 times.
 ; A=loop counter (counts down), B = testnum, D=count iterations (counts up)
   inc A
   swap A,B
@@ -205,14 +224,15 @@ jmpfar3
   clr A
   swap A,D   ; clear
   mov 9,A
-t13loop
+
+t14loop
   swap A,D
   inc A
   swap A,D
   dec A  
-  jn t13done
-  jmp t13loop
-t13done
+  jn t14done
+  jmp t14loop
+t14done
   mov 10,A
   sub D,A    ; result=10-number of iterations counted
 
@@ -220,20 +240,20 @@ t13done
   print
 
 
-; 14: JSR/RET 
+; 15: JSR/RET 
   inc A
   swap A,B
 
-  jsr t14sub  ; test near 
+  jsr t15sub  ; test near 
 
   dec A       ; error 99 if jsr does not jump
-  jmp t14next
+  jmp t15next
 
-t14sub
+t15sub
  inc A        ; error 01 if ret does not jump
  ret
 
-t14next
+t15next
  jsr inca     ; now test far
  dec A        ; error 99 if jsr does not jump
  
@@ -241,40 +261,40 @@ t14next
  print
 
 
-; 15: JZ
+; 16: JZ
 .align
   inc A
   swap A, B
 
   ;mov 42,A
   clr A
-  jz t15out
+  jz t16out
   dec A       ; fail if jz not taken
 
-t15out
+t16out
   swap A,B
   print
 
 
-; 16: JIL
+; 17: JIL
 .align
   inc A
   swap A, B
 
   mov 11,A    ; 11=legal, fall through
-  jil t16out
+  jil t17out
   mov 88,A    ; 88=legal, fall through
-  jil t16out
+  jil t17out
   mov 64,A    ; 64=legal, fall through
-  jil t16out
-  mov 89,A    ; 89=illegal, goto t16ok
-  jil t16ok
-  jmp t16out
+  jil t17out
+  mov 89,A    ; 89=illegal, goto t17ok
+  jil t17ok
+  jmp t17out
 
-t16ok
+t17ok
   clr A
 
-t16out
+t17out
   swap A,B
   print
 
