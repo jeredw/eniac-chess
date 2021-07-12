@@ -3,8 +3,8 @@ from subprocess import run, PIPE, Popen
 import signal
 import time
 
-run('python chasm.py tic.asm tic.e', shell=True, check=True)
-run('python easm.py chessvm.easm chessvm.e', shell=True, check=True)
+run('python chasm/chasm.py asm/tic.asm tic.e', shell=True, check=True)
+run('python easm/easm.py chessvm/chessvm.easm chessvm.e', shell=True, check=True)
 sim = Popen('./eniacsim -q -W chessvm.e', shell=True, stdin=PIPE, stdout=PIPE)
 
 sim.stdin.write('g\n'.encode())

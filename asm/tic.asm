@@ -341,7 +341,7 @@ printb_loop
 printb_out
   ret
 
-  .org 200
+  .org 310
 
 ; put a word in the board array
 ; A: board location (1-9)
@@ -486,7 +486,7 @@ peek_C
   mov H,A
   ret
 
-  .org 310
+  .org 200
 
 ; return A=0 if there are open squares, else nonzero
 isfull
