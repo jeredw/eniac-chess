@@ -10,10 +10,6 @@
            ;   tens/units digit is row within table
 
 
-; test loadword
-;  mov [B],A
-
-
 ; -- 00 - 09 -- 
 ; The basics needed to run tests, including arithmetic
 ; PRINT, INC, DEC, CLR, MOV #X,A, SWAP A,[BCDE], ADD, SUB
@@ -181,10 +177,12 @@ jmpfar1
   print
   halt
 
-; this is used for far JSR/RET test -- weird to put it in the middle of this test, whatevs
+
+; Simple subroutine for JSR/RET test
 inca
- inc A        ; error 01 if ret does not jump
+ inc A
  ret
+
 
 ; continue in new bank
 .org 200      ; tests chasm encoding of bank:line as 90:00 = 8999
@@ -209,12 +207,38 @@ jmpfar3
   print
   halt
 
+
+; Useful subroutines for memory tests
+
+clearRF
+  clr A       
+  mov A,B     ; tests chasm psuedo-instructions
+  mov A,C
+  mov A,D
+  mov A,E
+  ret
+
+fillLS        ; set LS = 42 43 44 45 46. Destroys RF
+  mov 43,A
+  mov A,B     ; B=43
+  inc A
+  mov A,C     ; C=44
+  inc A
+  mov A,D     ; D=45
+  inc A
+  mov A,E     ; E=46
+  mov 42,A    ; A=42
+  swapall     ; LS <-> RF
+  ret
+
+
 .org 310
 jmpft3:
   inc A     ; will fail test if chasm puts first op in I1 not I2
   dec A
   swap A,B
   print
+
 
 ; 14: use JN in a loop. Ensure executed 10 times.
 ; A=loop counter (counts down), B = testnum, D=count iterations (counts up)
@@ -317,21 +341,12 @@ t17out
 ; 21: test storeacc/loadacc, swapall
 t21acc .equ 4 ; which accum
 
-  mov 43,A
-  mov A,B     ; B=43
-  inc A
-  mov A,C     ; C=44
-  inc A
-  mov A,D     ; D=45
-  inc A
-  mov A,E     ; E=46
-  mov 42,A    ; A=42
-  swapall     ; LS <-> RF
+  jsr fillLS
   mov t21acc,A
   storeacc A  ; store mem4 [42 43 44 45 46]
-  jsr t21clear
+  jsr clearRF
   swapall     ; clear LS
-  jsr t21clear; clear RF
+  jsr clearRF
   mov t21acc,A
   loadacc A   ; load mem4 again
   mov 42,A    ; D=42
@@ -368,34 +383,67 @@ t21dok
   sub D,A     ; A-=46 (== 0)
   jmp t21out
 
-t21clear
-  clr A       ; clear all regs
-  mov A,B
-  mov A,C
-  mov A,D
-  mov A,E
-  ret
-
 t21out
   swap A,B
   mov 21,A
   print
 
 
-; 22: test READ
-t22
+; 22: test LOADWORD
+  jsr fillLS
+  clr A
+  storeacc A
+  inc A
+  swap A,B
+  mov [B],A   ; load address 01 == 43
+  swap A,D
+  mov 43,A
+  sub D,A
+  jz t22ok01
+  jmp t22out
+
+t22ok01
+  mov 9,A
+  storeacc A  ; should still be 42 43 44 45 46
+  mov 49,A
+  swap A,B
+  mov [B],A   ; load address 49 == 46
+  swap A,D
+  mov 46,A
+  sub D,A
+  jz t22ok49
+  jmp t22out
+
+t22ok49
+  mov 14,A
+  storeacc A  ; should still be 42 43 44 45 46
+  mov 72,A
+  swap A,B
+  mov [B],A   ; load address 72 == 44
+  swap A,D
+  mov 44,A
+  sub D,A
+
+t22out
+  swap A,B
+  mov 22,A
+  print
+
+
+; 23: test READ
+t23
   read     ; read 01020 into LS (clear other digits)
   swapall  ; A=01, B=02
   dec A    ; A=00
-  jz t22aok
-  jmp t22out
-t22aok
+  jz t23aok
+  jmp t23out
+t23aok
   swap A,B ; A=02
   dec A
   dec A    ; A=00
-t22out
+t23out
   mov A,B
-  mov 22,A
+  mov 23,A
   print
 
 ; -- DONE --

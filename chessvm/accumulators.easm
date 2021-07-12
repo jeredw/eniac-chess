@@ -203,9 +203,17 @@ $permuted-input {a-ls} {d-main} {i-signonly} 11,0,0,0,0,0,0,0,0,0,0
 {a-discmemcyc}=a6
 $acc-disc-main discmemcyc
 
-
 # drop sign, used to clear LS sign in STOREACC
 $permuted-input {a-discmemcyc} {d-main} {i-dropsign} 0,10,9,8,7,6,5,4,3,2,1
+
+# Acc index for LOADACC/STOREACC: 9 XX XX XX XX A2A1 -> A2 90 00 00 00 0A1
+# A2 in sign to discriminate 0-9 vs 1014, A1 in low digit to send to FT
+# Also need a 9 in digit 10 so a-discmemcyc.S does not clash on d-main
+$permute {d-main} 10,11,0,0,0,0,0,0,0,0,9 {a-discmemcyc}.{i-splitA}
+
+# Double B into high digits, to compute acc index for LOADWORD
+# X XX B2B1 XX XX XX XX -> 0 B2B1 00 00 00 00
+$permute {d-main} 0,8,7,0,0,0,0,0,0,0,0 {a-discmemcyc}.{i-accidxB}
 
 
 # - MEM1 -
@@ -231,10 +239,6 @@ p {a-loadword}.S {d-loadword}
 # Move second digit of B into digit 1, to compute word index
 # X A2A1 XX XX XX XX -> 0 00 00 00 00 0A1
 $permuted-input {a-loadword} {d-main} {i-windexB} 0,0,0,0,0,0,0,0,0,0,7
-
-# Double B into high digits, to compute acc index
-# X XX B2B1 XX XX XX XX -> 0 B2B1 00 00 00 00
-$permuted-input {a-loadword} {d-main} {i-accidxB} 0,8,7,0,0,0,0,0,0,0,0
 
 # i-ftselacc: get 10 digits from FT
 p {d-ftselacc} {a-loadword}.{i-ftselacc}

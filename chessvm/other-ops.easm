@@ -11,6 +11,9 @@ if OP_SWAPALL
 
 p {p-op12} {p-opswapall}
 
+# trigger fetch via ft dummy to save final ts
+$ft-dummy {p-opswapall} 5 {p-fetch}
+
 # RFTMP->EX
 $sendc {p-opswapall} {a-rftmp} {t-sub-rftmp} A {p-opswapall-2}
 $loadex {p-opswapall}
@@ -29,7 +32,7 @@ $recx {p-opswapall-4} {a-ls} {t-opswapall-4} {i-main}
 
 # EX->RFTMP, goto fetch
 $storeex {p-opswapall-5}
-$rec {p-opswapall-5} {a-rftmp} {t-opswapall-5} {i-main} {p-fetch}
+$recx {p-opswapall-5} {a-rftmp} {r-opswapall-5} {i-main}
 
 endif # OP_SWAPALL
 

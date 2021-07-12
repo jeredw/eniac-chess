@@ -13,13 +13,13 @@
 # -- CONFIGURATION -- 
 # Flags used for debugging and resource accounting
 
-enable PRELOAD_MEMORY
+disable PRELOAD_MEMORY
 if PRELOAD_MEMORY
 # memory values to check that various instructions save and restore
-#set a4  0400000000
+set a4  8806000000
 set a5  9988776655  
 set a6  0606060606
-set a7  0707070707
+set a7  0717273747
 set a8  0808080808
 set a9  0909090909
 set a10 1010101010
@@ -44,7 +44,7 @@ enable OP_LOADACC     #  1 pas,  1 ts
 enable OP_STOREACC    #  1 pas,  5 ts
 enable ACC_MEMCYC
 enable SUB_MEMCYC     
-disable OP_LOADWORD   
+enable OP_LOADWORD   
 enable OP_SWAPALL     #  4 pas,  6 ts
 # - word access (14 pas, 28 ts)
 enable OP_SWAP        #  7 pas,  8 ts
