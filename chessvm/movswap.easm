@@ -132,7 +132,7 @@ $pulseamp {p-opswapAD} {p-opswap}
 $pulseamp {p-opswapAE} {p-opswap}
 
 # Sequence operations that happen for every register
-$dummy {p-opswap} {p-opswap-2}
+$dummy-exclude {p-opswap} {p-opswap-2} -a18
 $i-dummy {p-opswap-2} {p-opswap-3}
 
 # Sequence operations that happen for each register (only one, so all i-dummy is fine)

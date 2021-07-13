@@ -212,7 +212,11 @@ p {p-opstoreacc-4} {p-sub-memcyc-2}
 $recx {p-opstoreacc-5} {a-ls} {r-opstoreacc-4} {i-signonly}
 
 # out of transcievers on a-ls, so also trigger a dummy to wait out memcycle
-$dummy-delay {p-opstoreacc-5} 2 {p-fetch}
+# XXX using sketchy ct dummies to avoid conflict with memcycle
+p {p-opstoreacc-5} c.22i
+p c.22o {p-opstoreacc-6}
+p {p-opstoreacc-6} c.21i
+p c.21o {p-fetch}
 
 endif # OP_STOREACC
 

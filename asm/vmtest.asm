@@ -446,6 +446,25 @@ t23out
   mov 23,A
   print
 
+
+; 24: exercise all accs for loadacc/storeacc
+; goal is to detect timing and dummy placement issues which will fail by
+; assertion, so no need to verify any data
+t24
+  mov 14,A
+t24loop
+  loadacc A
+  storeacc A
+  dec A
+  jn t24out
+  jmp t24loop
+t24out
+  clr A
+  swap A,B
+  mov 24,A
+  print
+  
+
 ; -- DONE --
   mov 99,A
   print
