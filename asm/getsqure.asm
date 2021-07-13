@@ -26,18 +26,18 @@ getsquare
 getsqloop
 
   ; check addr x4 
-  mov B,A  		; dec B to update piece index
+  mov B,A         ; dec B to update piece index
   dec A
   swap A,B
-  mov J,A  		; load x4 word
-  sub D,A       ; compare to square index
+  mov J,A         ; load x4 word
+  sub D,A         ; compare to square index
   jz found     
 
   ; check addr x3
   mov B,A
   dec A
   swap A,B
-  mov I,A  		; load x3 word
+  mov I,A  		    ; load x3 word
   sub D,A
   jz found     
 
@@ -45,7 +45,7 @@ getsqloop
   mov B,A
   dec A
   swap A,B
-  mov H,A  		; load x2 word
+  mov H,A  		    ; load x2 word
   sub D,A
   jz found     
 
@@ -54,31 +54,48 @@ getsqloop
   dec A
 checkstart
   swap A,B
-  mov G,A  		; load x1 word
+  mov G,A  		    ; load x1 word
   sub D,A
   jz found     
 
-  ; check addr x3
+  ; check addr x0
   mov B,A
   dec A
   swap A,B
-  mov F,A  		; load x0 word
+  mov F,A  		    ; load x0 word
   sub D,A
   jz found     
 
 ; dec C and load next accumulator value, or exit
-  swap A,C 		; load loop counter/acc idx
+  swap A,C 		    ; load loop counter/acc idx
   dec A
-  jn notfound	; A already -1 here, convenient
+  jn notfound	    ; A already -1 here, convenient
   loadacc A
-  swap A,C 		; save loop counter
+  swap A,C 		    ; save loop counter
   jmp getsqloop  
 
 found
-  swap A,B  	; put piece index in A
+  mov B,A  	      ; put piece index in A
   ret
 
 notfound
-  ret 			; A=-1 for empty
+  ret 		        ; A=-1 for empty
+
+
+; SHORT version, doesn't unroll the acummulator access loop
+getsquare2
+  swap A,D
+  mov 31,A
+  swap A,B
+loop2
+  mov [B],A
+  sub D,A
+  jz found
+  mov B,A
+  dec A
+  jn notfound
+  swap A,B
+  jmp loop2
+
   
 
