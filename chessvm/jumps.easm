@@ -121,7 +121,7 @@ if OP_JMPFAR
 p {p-op74} {p-opjmpfar}
 
 $fargo {p-opjmpfar}
-$dummy {p-opjmpfar} {p-opjmpfar-2}
+$c-dummy {p-opjmpfar} {p-opjmpfar-2}
 
 # Set new PC from IR
 $assert {p-opjmpfar-2} {a-ir}~Pxxxxxxxxxx
@@ -139,7 +139,7 @@ if OP_JSR
 p {p-op84} {p-opjsr}
 
 $fargo {p-opjsr}
-$dummy {p-opjsr} {p-opjsr-2}
+$c-dummy {p-opjsr} {p-opjsr-2}
 
 # Set new PC from IR
 $assert {p-opjsr-2} {a-ir}~Pxxxxxxxxxx

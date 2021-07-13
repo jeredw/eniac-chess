@@ -109,7 +109,7 @@ $loadex {p-opsub}
 # EX -selDA-> RF
 $storeex {p-opsub-2}
 $pulseamp {p-opsub-2} {p-rf-selDA}
-$dummy {p-opsub-2} {p-opsub-3}
+$c-dummy {p-opsub-2} {p-opsub-3}
 
 # P01 -> RF
 $loadrf {p-opsub-3}

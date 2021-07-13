@@ -323,8 +323,7 @@ $dummy {p-oploadword-9} {p-sub-memcyc-3}
 $rec {p-oploadword-10} {a-ls} {t-oploadword-10} {i-main} {p-oploadword-11}
 
 # When memcycle completes, trigger p-opmovLSA which is required to do MOV [FGHIJ],A
-# XXX manually placing on EX because all others are full
-$manual-dummy {p-oploadword-11} {a-ex} {t-oploadword-11} 1 {p-opmovLSA}
+$c-dummy {p-oploadword-11} {p-opmovLSA}
 
 
 endif # OP_LOADWORD
