@@ -17,14 +17,14 @@
   .org 100
 
   ; Slightly faster initial game state for testing...
-  mov 2,A
-  swap A,B ; B=play O
-  mov 2,A  ; A=top middle
-  jsr move
-  mov 1,A
-  swap A,B ; B=play X
-  mov 9,A  ; A=bottom right
-  jsr move
+  ;mov 2,A
+  ;swap A,B ; B=play O
+  ;mov 2,A  ; A=top middle
+  ;jsr move
+  ;mov 1,A
+  ;swap A,B ; B=play X
+  ;mov 9,A  ; A=bottom right
+  ;jsr move
 
   ; eniac goes first and always plays X in the center
   ; (avoiding a really long search of the entire game)
