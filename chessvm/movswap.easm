@@ -52,11 +52,8 @@ if OP_MOVXA
 # with LS are encoded as 3x to conserve pulse amplifiers.  There is nothing
 # happening on d-main during decode, so use spare constant transceivers as
 # dummies, don't care what they send.
-# FIXME this is dodgy unless we decide to initialize ct to 0!
-p p.A3o c.23i
-p c.23o {p-opmovRFA}
-p p.A4o c.24i
-p c.24o {p-opmovLSA}
+$c-dummy p.A3o {p-opmovRFA}
+$c-dummy p.A4o {p-opmovLSA}
 
 p {p-op20} {p-opmovBA}
 p {p-op21} {p-opmovCA}
@@ -123,9 +120,7 @@ p {p-op04} {p-opswapAE}
 
 # TODO All swap ops start with 0x, so we could try the same trick as with MOV
 # ops, but this would break nop... do we want to renumber nop?
-# FIXME this is dodgy unless we decide to initialize ct to 0!
-#p p.A1o c.21i
-#p c.21o {p-opswap}
+#$c-dummy p.A1o {p-opswap}
 $pulseamp {p-opswapAB} {p-opswap}
 $pulseamp {p-opswapAC} {p-opswap}
 $pulseamp {p-opswapAD} {p-opswap}

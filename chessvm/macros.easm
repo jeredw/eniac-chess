@@ -152,6 +152,19 @@ defmacro i-dummy inpr outpr
 endmacro
 
 
+# Constant transceivers for unused constants can also act as dummy programs.
+# These will transmit on main, but we assume the constant relays will hold zero
+# at power on as they are normally open ("Table 8-4 - Activation of Constant
+# Transmitter Storage Relays" VIII-31 and the ENIAC patent, Fig. 54c), so there
+# would be no bus conflicts in practice.  Note though that constant relays are
+# not reset by initial clearing (Table 2.2, page II-12) - it may be more robust
+# to explicitly read an initial zero card.
+defmacro c-dummy inpr outpr
+  p $inpr c.{t-%name}i
+  p c.{t-%name}o $outpr
+endmacro
+
+
 # -- DISCRIMINATION --
 
 # $discriminate

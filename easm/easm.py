@@ -16,6 +16,7 @@
 # t     accumulator transciever, 6-12 on each accumulator
 # t     selective clear transceiver, 1-6 on init unit
 # t     function table transceiver, 1-11 on each function table
+# t     constant transceiver, 2-25 (1, 26-30 are manual)
 # ad    adapter, 1-40 (simulator limitation) for each type
 # pa    pulse amplifier channel, 8x11
 # da    debug assertions
@@ -79,6 +80,7 @@ class SymbolTable:
       'a':      Resource('accumulators', 20, {}),
       'f':      Resource('function tables', 3, {}),
       'i.t':    Resource('selective clear transceivers', 6, {}),
+      'c.t':    Resource('constant transceivers', 24, {}),
       'ad.s':   Resource('shift adapters', 80, {}),
       'ad.d':   Resource('deleter adapters', 80, {}),
       'ad.dp':  Resource('digit pulse adapters', 80, {}),
@@ -159,8 +161,8 @@ class SymbolTable:
     pa = self.sym_global['pa']
     pa_summary = f"{len(pa.symbols)}/{pa.limit}"
     t_summary = f"{num_ts_used}/{num_ts_avail}"
-    ct = self.sym_global['i.t']
-    ct_summary = f"{len(ct.symbols)}/{ct.limit}"
+    it = self.sym_global['i.t']
+    it_summary = f"{len(it.symbols)}/{it.limit}"
     num_fts_used = 0
     num_fts_avail = 0
     for ft in range(3):
@@ -168,7 +170,9 @@ class SymbolTable:
       num_fts_used += len(transceivers.symbols)
       num_fts_avail += transceivers.limit
     ft_summary = f'{num_fts_used}/{num_fts_avail}'
-    print(f"pas {pa_summary} ts {t_summary} its {ct_summary} fts {ft_summary}")
+    ct = self.sym_global['c.t']
+    ct_summary = f"{len(ct.symbols)}/{ct.limit}"
+    print(f"pas {pa_summary} ts {t_summary} its {it_summary} fts {ft_summary} cts {ct_summary}")
     for row in range(10):
       print(f"{per_acc[2*row]}   {per_acc[2*row+1]}")
 
@@ -390,6 +394,23 @@ class Assembler(object):
       return arg, {}  # literal
 
 
+  def patch_constant(self, arg):
+    # patch constant transceiver
+    m = re.match(r'c\.(?P<terminal>\d\d?|{t-[A-Za-z0-9-]+})(?P<suffix>[io])', arg)
+    if not m:
+      raise SyntaxError('bad constant terminal')
+    terminal = m.group('terminal')
+    suffix = m.group('suffix')
+    if '{' in terminal:
+      terminal = terminal[1:-1]  # strip {}
+      # 1 is reserved for READ
+      n = 2 + self.symbols.lookup('c.t', terminal)
+      text = f'c.{n}{suffix}'
+      return text, {terminal: text}
+    else:
+      return arg, {}  # literal
+
+
   def patch_pulseamp(self, arg):
     # only individual pulseamp channel allocation is supported
     m = re.match(r"{pa-(?P<side>[ab])-(?P<name>[A-Za-z0-9-]+)}", arg)
@@ -416,7 +437,8 @@ class Assembler(object):
         re.compile(r"{pa-[ab]-[A-Za-z0-9-]+}"): self.patch_pulseamp, # pulse amplifiers
         re.compile(r"debug\..+"):         self.patch_debug,   # debug resource
         re.compile(r"i\.C.+"):            self.patch_init,    # initiating unit (selective clear)
-        re.compile(r".+"):                self.arg_literal    # constants, etc. (all else)
+        re.compile(r"c\.(\d\d?|{t-).+"):  self.patch_constant, # constant transceivers
+        re.compile(r".+"):                self.arg_literal    # etc. (all else)
     }
 
     for pattern, handler in patch_dispatch.items():
@@ -538,6 +560,9 @@ class Assembler(object):
 
     if re.match(r'f\d|{f-[A-Za-z0-9-]+}',arg1):
       return self.line_s_ft(leading_ws, arg1, arg2, comment)
+
+    if re.match(r'c\.s{t-[A-Za-z0-9-]+}',arg1):
+      raise SyntaxError(f"can't set constants for auto constant t-s")
 
     if re.match(r'ad\.permute\.{ad-[0-9a-zA-Z-]+}',arg1):
       return self.line_s_permute(leading_ws, arg1, arg2, comment)
