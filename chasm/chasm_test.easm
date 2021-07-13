@@ -159,7 +159,7 @@ s f1.RA11L5 2
 s f1.RA11L4 0
 s f1.RA11L3 9
 s f1.RA11L2 4  # mov [B], A
-s f1.RA11L1 3
+s f1.RA11L1 1
 s f1.RB11L6 4  # mov [king], A # king=10
 s f1.RB11L5 2
 s f1.RB11L4 0
@@ -616,10 +616,10 @@ s f1.RB43L2 9
 s f1.RB43L1 9
 
 # address=399  PC=9999
-s f3.RA99L6 5  # inc A
-s f3.RA99L5 2
-s f3.RA99L4 0  # nop 
-s f3.RA99L3 0
+s f3.RA99L6 0
+s f3.RA99L5 0
+s f3.RA99L4 5  # inc A
+s f3.RA99L3 2
 s f3.RA99L2 0  # nop 
 s f3.RA99L1 0
 s f3.RB99L6 0  # nop 

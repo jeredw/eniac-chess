@@ -162,8 +162,7 @@ class TestOutput(AssemblerTestCase):
 
   def testEmit_ErrorReservedLocation(self):
     self.context.assembler_pass = 1
-    self.out.output_row = 300
-    self.out.word_of_output_row = 0
+    self.out.org(300)
     self.out.emit(42)
     self.assertEqual(self.out.errors, ["file:1: location 300 is reserved"])
 
@@ -175,14 +174,14 @@ class TestOutput(AssemblerTestCase):
 
   def testGet(self):
     self.context.assembler_pass = 1
-    for i in range(6 * 200 + 6 * 92):
+    for i in range(6 * 200 + 5 * 92):
       self.out.emit(i % 100)
     self.assertFalse(self.out.errors)
     self.assertEqual(self.out.output_row, 400)
     self.assertEqual(self.out.word_of_output_row, 0)
     self.assertEqual(self.out.get(1, 42, 0), Value(word=52, comment=""))
     self.assertEqual(self.out.get(2, 42, 5), Value(word=57, comment=""))
-    self.assertEqual(self.out.get(3, 42, 0), Value(word=4, comment=""))
+    self.assertEqual(self.out.get(3, 42, 1), Value(word=70, comment=""))
 
   def testFunctionTable(self):
     self.out.output_row = 236
@@ -617,7 +616,7 @@ class TestV4(AssemblerTestCase):
   def testMovLoadDirectB(self):
     self.isa.dispatch("", "mov", "[B], A")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 43})
+    self.assertOutputValues({(100, 0): 41})
 
   def testMovStoreDirectB(self):
     self.isa.dispatch("", "mov", "A, [B]")
