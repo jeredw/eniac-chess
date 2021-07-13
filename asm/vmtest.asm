@@ -218,19 +218,20 @@ clearRF
   mov A,E
   ret
 
-fillLS        ; set LS = 42 43 44 45 46. Destroys RF
-  mov 43,A
-  mov A,B     ; B=43
+fillLS        ; set LS = A A+1 A+2 A+3 A+4. Destroys RF
+  mov A,B     ; B=X
   inc A
-  mov A,C     ; C=44
   inc A
-  mov A,D     ; D=45
+  mov A,C     ; C=X+2
   inc A
-  mov A,E     ; E=46
-  mov 42,A    ; A=42
+  mov A,D     ; D=X+3
+  inc A
+  mov A,E     ; E=X+4
+  mov B,A     
+  inc A
+  swap A,B    ; A=X, B=X+1
   swapall     ; LS <-> RF
   ret
-
 
 .org 310
 jmpft3:
@@ -267,9 +268,7 @@ t14done
 ; 15: JSR/RET 
   inc A
   swap A,B
-
   jsr t15sub  ; test near 
-
   dec A       ; error 99 if jsr does not jump
   jmp t15next
 
@@ -340,7 +339,7 @@ t17out
 
 ; 21: test storeacc/loadacc, swapall
 t21acc .equ 4 ; which accum
-
+  mov 42,A
   jsr fillLS
   mov t21acc,A
   storeacc A  ; store mem4 [42 43 44 45 46]
@@ -390,6 +389,7 @@ t21out
 
 
 ; 22: test LOADWORD
+  mov 42,A
   jsr fillLS
   clr A
   storeacc A
@@ -403,26 +403,28 @@ t21out
   jmp t22out
 
 t22ok01
+  mov 66,A
+  jsr fillLS
   mov 9,A
-  storeacc A  ; should still be 42 43 44 45 46
+  storeacc A  ; 66 67 68 69 70
   mov 49,A
   swap A,B
-  mov [B],A   ; load address 49 == 46
+  mov [B],A   ; load address 49 == 70
   swap A,D
-  mov 46,A
+  mov 70,A
   sub D,A
   jz t22ok49
   jmp t22out
 
 t22ok49
+  mov 99,A
+  jsr fillLS
   mov 14,A
-  storeacc A  ; should still be 42 43 44 45 46
+  storeacc A  ; 99 00 01 02 03
   mov 72,A
   swap A,B
-  mov [B],A   ; load address 72 == 44
-  swap A,D
-  mov 44,A
-  sub D,A
+  mov [B],A   ; load address 72 == 01
+  dec A
 
 t22out
   swap A,B
