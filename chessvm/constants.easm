@@ -39,9 +39,10 @@ s c.jr P
 s c.j5 0
 s c.j4 1
 
-# Transceivers 2-5 are used as dummies.  Set them to send Ar which will remain
+# Transceivers 2-6 are used as dummies.  Set them to send Ar which will remain
 # 0 (Al receives card data after a READ).
 s c.s2 Ar
 s c.s3 Ar
 s c.s4 Ar
 s c.s5 Ar
+s c.s6 Ar

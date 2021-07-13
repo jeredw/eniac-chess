@@ -88,9 +88,7 @@ $pulseamp {p-opadd-3} {p-rf-selDA}
 # EX -> RFTMP
 $storeex {p-opadd-4}
 $recx {p-opadd-4} {a-rftmp} {r-opadd-4} {i-main}
-# XXX out of dummies!
-#$dummy-exclude {p-opadd-4} {p-fetch} -{a-rftmp}
-$manual-dummy {p-opadd-4} {a-rf} {t-opadd-4} 1 {p-fetch}
+$c-dummy {p-opadd-4} {p-fetch}
 
 endif # OP_ADD
 
