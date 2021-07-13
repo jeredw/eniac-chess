@@ -250,9 +250,7 @@ p {p-op81} {p-opjz}
 
 # reuse discjx sequence
 $pulseamp {p-opjz} {p-sub-discjx}
-
-# TODO use dummy on ft1 or ft3?
-$dummy-delay-exclude {p-opjz} 5 {p-opjz-6} -{a-discjx}
+$ft-dummy-exclude {p-opjz} 5 {p-opjz-6} -f2
 
 # receive ft2 sign for jz
 $recx {p-opjz-6} {a-discjx} {r-opjz-6} {i-ftjzsign}
@@ -267,9 +265,7 @@ p {p-op82} {p-opjil}
 
 # reuse discjx sequence
 $pulseamp {p-opjil} {p-sub-discjx}
-
-# TODO use dummy on ft1 or ft3?
-$dummy-delay-exclude {p-opjil} 5 {p-opjil-6} -{a-discjx}
+$ft-dummy-exclude {p-opjil} 5 {p-opjil-6} -f2
 
 # receive ft2 sign for jil
 $recx {p-opjil-6} {a-discjx} {r-opjil-6} {i-ftjilsign}
