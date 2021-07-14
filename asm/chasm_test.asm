@@ -51,7 +51,7 @@ test_each_instruction
   storeacc A
   swapall
   scanall
-  ftl A
+  ftl A, D
   mov B, A
   mov C, A
   mov D, A

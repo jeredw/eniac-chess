@@ -1,5 +1,5 @@
 # -- JUMPS --
-# Implements JMP, JMP FAR, JN, JZ, JIL, JSR, RET
+# Implements JMP, JMP FAR, JN, JZ, JIL, JSR, RET, FTL
 
 
 # - SUB-JMP -
@@ -167,13 +167,15 @@ endif # OP_RET
 
 if SUB_DISCJX
 # Discriminate for conditional jump, shared by JZ and JIL
+# For economy, also shared by FTL, so also triggers ft3
 # Continues on to SUB_JX and fetch.
 # 1. DISCJX -> EX, clear
-# 2. RF -shiftA-> DISCJX, trigger ft2
-# 3. DISCJX -> ft2.arg
+# 2. RF -shiftA-> DISCJX, trigger ft2 (and ft3)
+# 3. DISCJX -> ft2.arg, ft3.arg
 # 4. wait
 # 5. wait
 # 6. [ft2.[AB]xxS -> DISCJX]  # sign selected by caller
+#    or [ft3.A65 -ftldata-> RF]
 # 7. p-sub-jx
 
 # save DISCJX
@@ -184,10 +186,14 @@ $loadex {p-sub-discjx}
 $send-rf {p-sub-discjx-2}
 $rec {p-sub-discjx-2} {a-discjx} {t-sub-discjx-2} {i-shiftA} {p-sub-discjx-3}
 
-# trigger ft2
+# trigger ft2 and ft3
 p {p-sub-discjx-2} f2.{t-sub-discjx}i
 s f2.rp{t-sub-discjx} 1
 s f2.op{t-sub-discjx} A0
+p {p-sub-discjx-2} f3.{t-sub-discjx}i
+s f3.rp{t-sub-discjx} 1
+# TODO switch to A+2 addressing
+s f3.op{t-sub-discjx} A0
 
 # send ft arg
 $sendx {p-sub-discjx-3} {a-discjx} {r-sub-discjx-3} A
@@ -250,7 +256,7 @@ p {p-op81} {p-opjz}
 
 # reuse discjx sequence
 $pulseamp {p-opjz} {p-sub-discjx}
-$ft-dummy-exclude {p-opjz} 5 {p-opjz-6} -f2
+$ft-dummy-exclude {p-opjz} 5 {p-opjz-6} -f2,f3
 
 # receive ft2 sign for jz
 $recx {p-opjz-6} {a-discjx} {r-opjz-6} {i-ftjzsign}
@@ -265,13 +271,30 @@ p {p-op82} {p-opjil}
 
 # reuse discjx sequence
 $pulseamp {p-opjil} {p-sub-discjx}
-$ft-dummy-exclude {p-opjil} 5 {p-opjil-6} -f2
+$ft-dummy-exclude {p-opjil} 5 {p-opjil-6} -f2,f3
 
 # receive ft2 sign for jil
 $recx {p-opjil-6} {a-discjx} {r-opjil-6} {i-ftjilsign}
 
 
 endif # OP_JIL
+
+
+# - FTL -
+if OP_FTL
+# Shares with DISCJX so it's kind of an honorary jump?
+
+p {p-op14} {p-opftl}
+
+# reuse discjx sequence
+$pulseamp {p-opftl} {p-sub-discjx}
+$ft-dummy-exclude {p-opftl} 5 {p-opftl-6} -f2,f3
+
+# receive ft3 data for ftl in RF D
+$permute f3.A 0,0,0,0,0,0,0,6,5,0,0 {d-ftldata}
+$recx {p-opftl-6} {a-rf} {t-opftl-6} {i-ftldata}
+
+endif # OP_FTL
 
 
 # - Conditional jump lookup tables -

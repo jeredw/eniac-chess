@@ -324,7 +324,7 @@ t17out
 
 ; -- 20-29 --
 ; RF and memory access, I/O
-; MOV, LOADACC, STOREACC, READ
+; MOV, LOADACC, STOREACC, READ, FTL
 
 ; 20: test swapall when RF has - sign
   clr A
@@ -464,6 +464,39 @@ t24out
   clr A
   swap A,B
   mov 24,A
+  print
+
+; 25: ftl
+; spiritually, this is I/O, and so belongs in the 20s somewhere
+.table 8, 1, 2, 3
+t25
+  clr A
+  swap A,D
+  mov 8,A
+  ftl A,D  ; D=1
+  mov 1,A
+  sub D,A
+  jz t25_2
+  jmp t25out
+t25_2
+  clr A
+  swap A,D
+  mov 9,A
+  ftl A,D  ; D=2
+  mov 2,A
+  sub D,A
+  jz t25_3
+  jmp t25out
+t25_3
+  clr A
+  swap A,D
+  mov 10,A
+  ftl A,D  ; D=3
+  mov 3,A
+  sub D,A
+t25out
+  swap A,B
+  mov 25,A
   print
   
 

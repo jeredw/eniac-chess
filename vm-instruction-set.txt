@@ -11,7 +11,7 @@
 11 - storeacc A   ; FGHIJ -> acc A
 12 - swapall      ; ABCDE <-> FGHIJ
 13 -
-14 -
+14 - ftl A,D      ; load from ft3 i1 (encoded as 14 xx)
 15 -
 
 20 - mov B,A
