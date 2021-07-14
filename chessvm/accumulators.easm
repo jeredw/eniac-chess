@@ -18,11 +18,7 @@ endmacro
 # trigger one of our discrimination programs. 
 defmacro acc-disc-main acc
   p {a-$acc}.A {d-$accA}
-  # XXX does a.d.{x}.-0 delete sign?
-  p {d-$accA} ad.permute.{ad-drop-$acc-sign}
-  s ad.permute.{ad-drop-$acc-sign} 0,10,9,8,7,6,5,4,3,2,1
-  p ad.permute.{ad-drop-$acc-sign} {d-main}
-
+  $permute {d-$accA} 0,10,9,8,7,6,5,4,3,2,1 {d-main}
   p {a-$acc}.S {d-$accS}
 
   p {d-main} {a-$acc}.{i-main}

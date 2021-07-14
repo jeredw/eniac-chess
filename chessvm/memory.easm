@@ -85,7 +85,8 @@ endif # ACC_MEMCYC
 if SUB_MEMCYC
 # This is the main memory cycle sub-program.
 # Implements LOADACC/STOREACC by decoding memacc index in A, then triggering memory cycle
-# program on the appropriate accumulator. Does not return to fetch.
+# program on the appropriate accumulator. Also used for LOADWORD/STOREWORD.
+# Does not return to fetch.
 
 # Start by saving DISCMEMCYC -> EX, clear
 $sendc {p-sub-memcyc} {a-discmemcyc} {t-sub-memcyc} A {p-sub-memcyc-2}
@@ -141,9 +142,11 @@ $sub-memcyc-branch 09
 $sub-memcyc-branch 1014
 
 # Now the "memory cycle" proper. Each mem acc will execute a sendc then rec
-# For load we do: main -> LS, LS -> main
-# For store just: LS - >main
-# Therefore put just the LS -> main in this shared program, we always want it
+# This can be used to load or store, as follows:
+#      ACC                   LOAD           STORE
+# 1.   acc -> main, clear    main -> LS     main -signonly-> LS 
+# 2.   main -> acc           LS -> main     LS -> main
+# Therefore put  LS -> main in this shared program, we always want it
 
 # LS -> MEMXX, restore accumulator value
 $sendx {p-sub-memcyc-6} {a-ls} {r-sub-memcyc-7} A
@@ -219,7 +222,7 @@ endif # OP_STOREACC
 
 
 
-# - MOV [B],A
+# - MOV [B],A aka LOADWORD -
 if OP_LOADWORD
 # Use the word index (B2 % 5) to trigger one of the five MOV [FGHIJ],A programs 
 # on long dummies, so it executes after LOADACC on the accumulator index 

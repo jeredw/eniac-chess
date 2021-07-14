@@ -329,7 +329,7 @@ MEM20.S = P+ftsg1+ftsg2 -> ft 3 (99)  # disable for 09 or 90
   2. PC-ftsg2->MEM20
 
 p-decode-ftsg relies on having signs at P initially, and will toggle signs for
-disabled fts. So the sequence for changing ft should be:
+disabled fts so that applying it twice is a nop. Hence the sequence for changing is:
 
   A. -> p-decode-ftsg  # (using old ftsg) reset all signs to P
   B. set new ftsg
@@ -385,10 +385,8 @@ goto step 2 of LOADACC
 
 
 
-MOV [B],A  (aka LOAD)
+MOV [B],A (aka LOADWORD)
 
-Working version 2?
-This may require ft3 on its own bus to use long ft dummies for word timers (MOV triggers)
 
 i-windex = X A2A1 XX XX XX XX -> 0 00 00 00 00 0A1
 
