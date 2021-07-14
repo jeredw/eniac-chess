@@ -77,6 +77,7 @@ test_each_instruction
   inc B
   dec A
   add D, A
+  add 42, A
   sub D, A
   jmp target
   jmp far faraway

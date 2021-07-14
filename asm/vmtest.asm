@@ -84,7 +84,7 @@
   print
 
 
-; 8: test add D,A, sub D,A
+; 8: test add D,A, sub D,A, add XX,A
 ; Add 32+32 and subtract 64
   inc A
   swap A,B
@@ -100,7 +100,7 @@
   swap A,D  ; now A=0, C=64, D=32
 
   add D,A   ; now A=32
-  add D,A   ; now A=64
+  add 32,A  ; now A=64
 
   swap A,C  ; swap C,D => C=32, D=64
   swap A,D

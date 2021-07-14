@@ -55,6 +55,7 @@ enable OP_MOVIMMA     #  3 pas,  1 ts
 enable OP_INC         #  0 pas,  0 ts
 enable OP_DEC         #  1 pas,  0 ts
 enable OP_ADD         #  4 pas,  4 ts
+enable OP_ADDIMMA     #  ? pas,  ? ts
 enable OP_SUB         #  6 pas,  3 ts
 enable OP_CLRA        #  1 pas,  1 ts
 # - control flow (19 pas, 26 ts)

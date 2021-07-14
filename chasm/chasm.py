@@ -432,7 +432,7 @@ class V4(PrimitiveParsing):
       "mov": self._mov,
       "inc": self._inc,
       "dec": self.op(want_arg=r"A", opcode=53),
-      "add": self.op(want_arg=r"D,\s*A", opcode=70),
+      "add": self._add,
       "sub": self.op(want_arg=r"D,\s*A", opcode=72),
       "jmp": self._jmp,
       "jn": self._jn,
@@ -510,6 +510,21 @@ class V4(PrimitiveParsing):
         break
     else:
       self.out.error("invalid mov argument '{}'".format(arg))
+
+  def _add(self, label, op, arg):
+    if re.match(r"D,\s*A", arg):
+      self.out.emit(70, comment=f"{op} {arg}")
+    else:
+      m = re.match(r"\s*(.+),\s*A", arg)
+      if m:
+        symbol = m.group(1)
+        word = self._word_or_label(symbol)
+        if 0 <= word <= 99:
+          self.out.emit(71, word, comment=self._comment(op, arg, symbol, word))
+        else:
+          self.out.error("add immediate argument out of range '{}'".format(word))
+      else:
+        self.out.error("invalid argument '{}'".format(arg))
 
   def _swap(self, label, op, arg):
     if re.match(r"B,\s*A|A,\s*B", arg):

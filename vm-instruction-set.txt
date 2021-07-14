@@ -43,7 +43,7 @@
 55 - (reserved for 7x decode)
 
 70 - add D,A
-71 -
+71 - add XX,A
 72 - sub D,A      ; aka compare
 73 - jmp XX       ; within current function table
 74 - jmp far XXXX ; to any function table

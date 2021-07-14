@@ -166,12 +166,20 @@ if OP_MOVIMMA
 
 p {p-op40} {p-opmovimmA}
 
-# First clear A
+# Clear A, then jump to ADD #XX,A
 $clearA {p-opmovimmA}
-$dummy-delay {p-opmovimmA} 2 {p-opmovimmA-3}
-
-# Consume the next word in IR, saving it into A, and then trigger p-fetch
-$consume-op {p-opmovimmA-3}
-$pulseamp {p-opmovimmA-3} {p-rf-selEA}  # save lowest word into A
+$dummy-delay {p-opmovimmA} 2 {p-opaddimmA}
 
 endif # OP_MOVIMMA
+
+
+# - ADD #XX,A -
+if OP_ADDIMMA
+
+p {p-op71} {p-opaddimmA}
+
+# Consume the next word in IR, saving it into A, and then trigger p-fetch
+$consume-op {p-opaddimmA}
+$pulseamp {p-opaddimmA} {p-rf-selEA}  # save lowest word into A
+
+endif # OP_ADDIMMA

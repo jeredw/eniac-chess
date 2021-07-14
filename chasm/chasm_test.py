@@ -655,9 +655,22 @@ class TestV4(AssemblerTestCase):
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 70})
 
+  def testAddImmediateA(self):
+    self.isa.dispatch("", "add", "99, A")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 71, (100, 1): 98})
+
+  def testAddImmediateA_ErrorOutOfRange(self):
+    self.isa.dispatch("", "add", "100, A")
+    self.assertEqual(self.out.errors, ["file:1: invalid value '100': overflow"])
+
   def testAdd_ErrorInvalidArgument(self):
     self.isa.dispatch("", "add", "B, A")
-    self.assertEqual(self.out.errors, ["file:1: invalid argument 'B, A'"])
+    self.assertEqual(self.out.errors, ["file:1: unrecognized label 'B'"])
+
+  def testAdd_ErrorReallyInvalidArgument(self):
+    self.isa.dispatch("", "add", "bogus")
+    self.assertEqual(self.out.errors, ["file:1: invalid argument 'bogus'"])
 
   def testSubDA(self):
     self.isa.dispatch("", "sub", "D, A")
