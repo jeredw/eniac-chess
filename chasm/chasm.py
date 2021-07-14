@@ -231,6 +231,19 @@ class Output(object):
   def row_start(self):
     return 1 if self.function_table()==3 else 0
 
+  def emit_table_value(self, row, word, comment=""):
+    if self.context.assembler_pass != 1:
+      return
+    if row < 308 or row > 399:
+      self.error(f"tables must reside between 308 and 399")
+      self.context.had_fatal_error = True
+      return
+    if (row, 0) in self.output:
+      self.error("overwriting values in table")
+      self.context.had_fatal_error = True
+      return
+    self.output[(row, 0)] = Value(word, comment)
+
 
 class PrimitiveParsing(object):
   """Parsing utilities shared by builtin directives and ISA parsers.
@@ -353,6 +366,7 @@ class Builtins(PrimitiveParsing):
       ".equ": self._equ,
       ".isa": self._isa,
       ".org": self._org,
+      ".table": self._table,
     }
 
   def dispatch(self, label, op, arg):
@@ -381,6 +395,17 @@ class Builtins(PrimitiveParsing):
       # emit only does anything on pass 1 which also requires label defined
       word = self._word_or_label(value)
       self.out.emit(word % 100, comment=f"{op} {word}")
+
+  def _table(self, label, op, arg):
+    """Emits a table at the given offset within function table 3, word 0."""
+    values = re.split(r",\s*", arg)
+    if len(values) < 2:
+      self.out.error("expecting .table addr, data, ...")
+      return
+    base = self._word_or_label(values.pop(0))
+    for i, value in enumerate(values):
+      word = self._word_or_label(value)
+      self.out.emit_table_value(300 + base + i, word, comment=f"{op} {base}[{i}]={word}")
 
   def _equ(self, label, op, arg):
     """Assigns a value to a label directly."""
@@ -427,8 +452,7 @@ class V4(PrimitiveParsing):
       "storeacc": self.op(want_arg=r"A", opcode=11),
       "swapall": self.op(opcode=12),
       "scanall": self.op(opcode=13),
-      "ftload": self.op(want_arg=r"A", opcode=14),
-      "ftlookup": self._ftlookup,
+      "ftl": self.op(want_arg=r"A", opcode=14),
       "mov": self._mov,
       "inc": self._inc,
       "dec": self.op(want_arg=r"A", opcode=53),
@@ -539,18 +563,6 @@ class V4(PrimitiveParsing):
       self.out.emit(5, comment=f"{op} {arg}")
     else:
       self.out.error("invalid swap argument '{}'".format(arg))
-
-  def _ftlookup(self, label, op, arg):
-    m = re.match(r"A,\s*(.+)", arg)
-    if m:
-      symbol = m.group(1)
-      word = self._word_or_label(symbol)
-      if 0 <= word <= 99:
-        self.out.emit(15, word, comment=self._comment(op, arg, symbol, word))
-      else:
-        self.out.error("ftlookup argument out of range '{}'".format(word))
-    else:
-      self.out.error("invalid ftlookup argument '{}'".format(arg))
 
   def _inc(self, label, op, arg):
     if arg == "A":

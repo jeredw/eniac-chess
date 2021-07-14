@@ -28,6 +28,11 @@ flub .equ king
 ;constant .equ 11  ; illegal
 ; instructions can have labels too
 labeled_instr nop
+; data tables can be declared in ft3 using .table
+; the first word after .table is the base row address for the table (8-99)
+; following words are data values for that and subsequent rows of the table
+  .table 8,  1, 2, 3
+  .table 12, 4, 5, 6
 
 test_each_instruction
   ; instructions must be indented
@@ -46,9 +51,7 @@ test_each_instruction
   storeacc A
   swapall
   scanall
-  ftload A
-  ftlookup A, 10
-  ftlookup A, king
+  ftl A
   mov B, A
   mov C, A
   mov D, A

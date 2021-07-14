@@ -172,6 +172,25 @@ class TestOutput(AssemblerTestCase):
     self.out.emit(42)
     self.assertEqual(self.out.errors, ["file:1: beyond end of function table 3"])
 
+  def testEmitTableValue(self):
+    self.context.assembler_pass = 1
+    self.out.emit_table_value(308, 42)
+    self.out.emit_table_value(309, 43)
+    self.out.emit_table_value(310, 44)
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(308, 0): 42, (309, 0): 43, (310, 0): 44})
+
+  def testEmitTableValue_ErrorAddress(self):
+    self.context.assembler_pass = 1
+    self.out.emit_table_value(300, 42)
+    self.assertEqual(self.out.errors, ["file:1: tables must reside between 308 and 399"])
+
+  def testEmitTableValue_ErrorConflict(self):
+    self.context.assembler_pass = 1
+    self.out.emit_table_value(308, 42)
+    self.out.emit_table_value(308, 42)
+    self.assertEqual(self.out.errors, ["file:1: overwriting values in table"])
+
   def testGet(self):
     self.context.assembler_pass = 1
     for i in range(6 * 200 + 5 * 92):
@@ -344,6 +363,17 @@ class TestBuiltins(AssemblerTestCase):
     self.assertEqual(self.out.errors,
                      ["file:1: invalid address 'pants': invalid literal for int() with base 10: 'pants'"])
 
+  def testTable(self):
+    self.context.labels = {"stuff": 43}
+    self.context.assembler_pass = 1
+    self.builtins.dispatch("", ".table", "8, 42, stuff")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(308, 0): 42, (309, 0): 43})
+
+  def testTable_ErrorMissingData(self):
+    self.builtins.dispatch("", ".table", "8")
+    self.assertEqual(self.out.errors, ["file:1: expecting .table addr, data, ..."])
+
 
 def pad(values):
   line = {(100, n): 99 for n in range(6)}
@@ -464,34 +494,14 @@ class TestV4(AssemblerTestCase):
     self.isa.dispatch("", "scanall", "bogus")
     self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
-  def testFtload(self):
-    self.isa.dispatch("", "ftload", "A")
+  def testFtl(self):
+    self.isa.dispatch("", "ftl", "A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 14})
 
   def testFtload_ErrorArgument(self):
-    self.isa.dispatch("", "ftload", "B")
+    self.isa.dispatch("", "ftl", "B")
     self.assertEqual(self.out.errors, ["file:1: invalid argument 'B'"])
-
-  def testFtlookup(self):
-    self.isa.dispatch("", "ftlookup", "A, 99")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 15, (100, 1): 98})
-
-  def testFtlookupLabel(self):
-    self.context.labels = {"label": 99}
-    self.isa.dispatch("", "ftlookup", "A, label")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 15, (100, 1): 98})
-
-  def testFtlookupLabel_ErrorOutOfRange(self):
-    self.context.labels = {"label": 199}
-    self.isa.dispatch("", "ftlookup", "A, label")
-    self.assertEqual(self.out.errors, ["file:1: ftlookup argument out of range '199'"])
-
-  def testFtlookupLabel_ErrorInvalidArgument(self):
-    self.isa.dispatch("", "ftlookup", "B, 99")
-    self.assertEqual(self.out.errors, ["file:1: invalid ftlookup argument 'B, 99'"])
 
   def testMovBA(self):
     self.isa.dispatch("", "mov", "B, A")
