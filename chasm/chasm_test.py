@@ -182,8 +182,8 @@ class TestOutput(AssemblerTestCase):
 
   def testEmitTableValue_ErrorAddress(self):
     self.context.assembler_pass = 1
-    self.out.emit_table_value(300, 42)
-    self.assertEqual(self.out.errors, ["file:1: tables must reside between 308 and 399"])
+    self.out.emit_table_value(400, 42)
+    self.assertEqual(self.out.errors, ["file:1: table data overflow"])
 
   def testEmitTableValue_ErrorConflict(self):
     self.context.assembler_pass = 1
@@ -365,14 +365,17 @@ class TestBuiltins(AssemblerTestCase):
 
   def testTable(self):
     self.context.labels = {"stuff": 43}
+    self.context.assembler_pass = 0
+    self.builtins.dispatch("foo", ".table", "42, stuff")
     self.context.assembler_pass = 1
-    self.builtins.dispatch("", ".table", "8, 42, stuff")
+    self.builtins.dispatch("foo", ".table", "42, stuff")
     self.assertFalse(self.out.errors)
+    self.assertEqual(self.context.labels, {"stuff": 43, "foo": 308})
     self.assertOutputValues({(308, 0): 42, (309, 0): 43})
 
-  def testTable_ErrorMissingData(self):
+  def testTable_ErrorMissingLabel(self):
     self.builtins.dispatch("", ".table", "8")
-    self.assertEqual(self.out.errors, ["file:1: expecting .table addr, data, ..."])
+    self.assertEqual(self.out.errors, ["file:1: expecting label for .table"])
 
 
 def pad(values):

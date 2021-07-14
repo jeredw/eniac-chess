@@ -468,11 +468,11 @@ t24out
 
 ; 25: ftl
 ; spiritually, this is I/O, and so belongs in the 20s somewhere
-.table 8, 1, 2, 3
+testtab .table 1, 2, 3
 t25
   clr A
   swap A,D
-  mov 8,A
+  mov testtab,A
   ftl A,D  ; D=1
   mov 1,A
   sub D,A
@@ -481,7 +481,8 @@ t25
 t25_2
   clr A
   swap A,D
-  mov 9,A
+  mov testtab,A
+  add 1,A
   ftl A,D  ; D=2
   mov 2,A
   sub D,A
@@ -490,7 +491,8 @@ t25_2
 t25_3
   clr A
   swap A,D
-  mov 10,A
+  mov testtab,A
+  add 2,A
   ftl A,D  ; D=3
   mov 3,A
   sub D,A

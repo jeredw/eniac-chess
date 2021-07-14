@@ -616,7 +616,7 @@ s f1.RB43L2 9
 s f1.RB43L1 9
 
 # address=308  PC=9908
-s f3.RA8L6 0  # .table 8[0]=1
+s f3.RA8L6 0  # .table 308[0]=1
 s f3.RA8L5 1
 s f3.RA8L4 0
 s f3.RA8L3 0
@@ -630,7 +630,7 @@ s f3.RB8L2 0
 s f3.RB8L1 0
 
 # address=309  PC=9909
-s f3.RA9L6 0  # .table 8[1]=2
+s f3.RA9L6 0  # .table 308[1]=2
 s f3.RA9L5 2
 s f3.RA9L4 0
 s f3.RA9L3 0
@@ -644,7 +644,7 @@ s f3.RB9L2 0
 s f3.RB9L1 0
 
 # address=310  PC=9910
-s f3.RA10L6 0  # .table 8[2]=3
+s f3.RA10L6 0  # .table 308[2]=3
 s f3.RA10L5 3
 s f3.RA10L4 0
 s f3.RA10L3 0
@@ -657,9 +657,23 @@ s f3.RB10L3 0
 s f3.RB10L2 0
 s f3.RB10L1 0
 
+# address=311  PC=9911
+s f3.RA11L6 0  # .table 311[0]=4
+s f3.RA11L5 4
+s f3.RA11L4 0
+s f3.RA11L3 0
+s f3.RA11L2 0
+s f3.RA11L1 0
+s f3.RB11L6 0
+s f3.RB11L5 0
+s f3.RB11L4 0
+s f3.RB11L3 0
+s f3.RB11L2 0
+s f3.RB11L1 0
+
 # address=312  PC=9912
-s f3.RA12L6 0  # .table 12[0]=4
-s f3.RA12L5 4
+s f3.RA12L6 0  # .table 311[1]=5
+s f3.RA12L5 5
 s f3.RA12L4 0
 s f3.RA12L3 0
 s f3.RA12L2 0
@@ -672,8 +686,8 @@ s f3.RB12L2 0
 s f3.RB12L1 0
 
 # address=313  PC=9913
-s f3.RA13L6 0  # .table 12[1]=5
-s f3.RA13L5 5
+s f3.RA13L6 0  # .table 311[2]=6
+s f3.RA13L5 6
 s f3.RA13L4 0
 s f3.RA13L3 0
 s f3.RA13L2 0
@@ -684,20 +698,6 @@ s f3.RB13L4 0
 s f3.RB13L3 0
 s f3.RB13L2 0
 s f3.RB13L1 0
-
-# address=314  PC=9914
-s f3.RA14L6 0  # .table 12[2]=6
-s f3.RA14L5 6
-s f3.RA14L4 0
-s f3.RA14L3 0
-s f3.RA14L2 0
-s f3.RA14L1 0
-s f3.RB14L6 0
-s f3.RB14L5 0
-s f3.RB14L4 0
-s f3.RB14L3 0
-s f3.RB14L2 0
-s f3.RB14L1 0
 
 # address=399  PC=9999
 s f3.RA99L6 0

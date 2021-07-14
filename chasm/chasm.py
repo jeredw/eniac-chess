@@ -69,6 +69,7 @@ class Assembler(object):
       m = LINE.match(line)
       assert m  # should always match because "arg" group slurps everything
       label, op, arg = m.groups()
+      directive = op.startswith(".")
 
       if label:
         if len(label) == 1 or all(c.isdigit() for c in label):
@@ -76,14 +77,14 @@ class Assembler(object):
           # Labels that are single characters would be ambiguous with registers.
           self.out.error(f"invalid label name '{label}'")
           continue
-        if op not in (".align", ".equ", ".org"):
+        if not directive:
           # Jumps are only allowed to the start of a function table row, so
           # labels can only point there.
           self.out.pad_to_new_row()
 
       if label and not op:
         self.builtins.dispatch(label, '.align', '')  # defining a label
-      elif op.startswith('.'):  # directive
+      elif directive:
         self.builtins.dispatch(label, op, arg)
       elif self.context.isa:  # delegate to table for ISA
         self.context.isa.dispatch(label, op, arg)
@@ -129,6 +130,7 @@ class Output(object):
     self.output = {}
     self.output_row = None
     self.word_of_output_row = 0
+    self.table_output_row = 308
     self.operand_correction = 0
     self.context = context
 
@@ -232,17 +234,19 @@ class Output(object):
     return 1 if self.function_table()==3 else 0
 
   def emit_table_value(self, row, word, comment=""):
-    if self.context.assembler_pass != 1:
-      return
-    if row < 308 or row > 399:
-      self.error(f"tables must reside between 308 and 399")
+    assert row >= 308
+    if row > 399:
+      self.error(f"table data overflow")
       self.context.had_fatal_error = True
       return
     if (row, 0) in self.output:
       self.error("overwriting values in table")
       self.context.had_fatal_error = True
       return
-    self.output[(row, 0)] = Value(word, comment)
+    if self.context.assembler_pass == 0:
+      self.table_output_row += 1
+    else:
+      self.output[(row, 0)] = Value(word, comment)
 
 
 class PrimitiveParsing(object):
@@ -269,7 +273,7 @@ class PrimitiveParsing(object):
         raise ValueError("overflow")
       return value
     except ValueError as e:
-      self.out.error("invalid value '{}': {}".format(arg, e))
+      self.out.error(f"invalid value '{arg}': {e}")
       return 0
 
   def _address(self, arg):
@@ -292,7 +296,7 @@ class PrimitiveParsing(object):
           raise ValueError("expect address between 100 and 399")
         return value
     except ValueError as e:
-      self.out.error("invalid address '{}': {}".format(arg, e))
+      self.out.error(f"invalid address '{arg}': {e}")
       return 0
 
   def _address_or_label(self, arg, far=False):
@@ -315,7 +319,7 @@ class PrimitiveParsing(object):
     try:
       return check_function_table(self.context.labels[arg])
     except KeyError:
-      self.out.error("unrecognized label '{}'".format(arg))
+      self.out.error(f"unrecognized label '{arg}'")
       return 0
 
   def _word_or_label(self, arg, require_defined=False):
@@ -331,7 +335,7 @@ class PrimitiveParsing(object):
     try:
       return self.context.labels[arg]
     except KeyError:
-      self.out.error("unrecognized label '{}'".format(arg))
+      self.out.error(f"unrecognized label '{arg}'")
       return 0
 
   def op(self, opcode='', want_arg=''):
@@ -348,10 +352,10 @@ class PrimitiveParsing(object):
     """Generic parser for simple instructions."""
     if want_arg:
       if not re.match(want_arg, arg):
-        self.out.error("invalid argument '{}'".format(arg))
+        self.out.error(f"invalid argument '{arg}'")
         return
     elif arg:
-      self.out.error("unexpected argument '{}'".format(arg))
+      self.out.error(f"unexpected argument '{arg}'")
       return
     self.out.emit(opcode, comment=f"{op} {arg}")
 
@@ -374,17 +378,17 @@ class Builtins(PrimitiveParsing):
     try:
       self.dispatch_table[op](label, op, arg)
     except KeyError:
-      self.out.error("unrecognized directive '{}'".format(op))
+      self.out.error(f"unrecognized directive '{op}'")
 
   def _align(self, label, op, arg):
     """Forces output to the start of a function table row."""
     if arg != "":
-      self.out.error("invalid .align argument '{}'".format(arg))
+      self.out.error(f"invalid .align argument '{arg}'")
       return
     self.out.pad_to_new_row()
     if self.context.assembler_pass == 0:
       if label in self.context.labels:
-        self.out.error("redefinition of '{}'".format(label))
+        self.out.error(f"redefinition of '{label}'")
         return
       if label: self.context.labels[label] = self.out.output_row
 
@@ -397,15 +401,25 @@ class Builtins(PrimitiveParsing):
       self.out.emit(word % 100, comment=f"{op} {word}")
 
   def _table(self, label, op, arg):
-    """Emits a table at the given offset within function table 3, word 0."""
+    """Emits a table within function table 3, word 0."""
     values = re.split(r",\s*", arg)
-    if len(values) < 2:
-      self.out.error("expecting .table addr, data, ...")
+    if not values:
+      self.out.error("expecting .table data, ...")
       return
-    base = self._word_or_label(values.pop(0))
+    if not label:
+      self.out.error("expecting label for .table")
+    if self.context.assembler_pass == 0:
+      if label in self.context.labels:
+        self.out.error(f"redefinition of '{label}'")
+        return
+      base = self.out.table_output_row
+      self.context.labels[label] = base
+    else:
+      assert label in self.context.labels
+      base = self.context.labels[label]
     for i, value in enumerate(values):
       word = self._word_or_label(value)
-      self.out.emit_table_value(300 + base + i, word, comment=f"{op} {base}[{i}]={word}")
+      self.out.emit_table_value(base + i, word, comment=f"{op} {base}[{i}]={word}")
 
   def _equ(self, label, op, arg):
     """Assigns a value to a label directly."""
@@ -414,7 +428,7 @@ class Builtins(PrimitiveParsing):
         self.out.error("missing label for '.equ'")
         return
       if label in self.context.labels:
-        self.out.error("redefinition of '{}'".format(label))
+        self.out.error(f"redefinition of '{label}'")
         return
       # argument may be a label to permit things like
       # rook   .equ 1
@@ -427,13 +441,12 @@ class Builtins(PrimitiveParsing):
   def _isa(self, label, op, arg):
     """Selects what isa to use."""
     if self.context.isa_version and self.context.isa_version != arg:
-      self.out.error("saw isa '{}' but already selected isa '{}'".format(
-                     arg, self.context.isa_version))
+      self.out.error(f"saw isa '{arg}' but already selected isa '{self.context.isa_version}'")
     elif arg == "v4":
       self.context.isa_version = arg
       self.context.isa = V4(self.context, self.out)
     else:
-      self.out.error("invalid isa '{}'".format(arg))
+      self.out.error(f"invalid isa '{arg}'")
 
   def _org(self, label, op, arg):
     """Sets output position for the assembler."""
@@ -477,7 +490,7 @@ class V4(PrimitiveParsing):
     try:
       self.dispatch_table[op](label, op, arg)
     except KeyError:
-      self.out.error("unrecognized opcode '{}' (using isa v4)".format(op))
+      self.out.error(f"unrecognized opcode '{op}' (using isa v4)")
 
   def encode_ft_number(self, ft):
     if ft == 1: return 9
@@ -488,7 +501,7 @@ class V4(PrimitiveParsing):
 
   def _ftl(self, label, op, arg):
     if not re.match(r"A,\s*D", arg):
-      self.out.error("invalid argument '{}'".format(arg))
+      self.out.error(f"invalid argument '{arg}'")
       return
     self.out.emit(14, 0, comment=f"{op} {arg}")
 
@@ -536,10 +549,10 @@ class V4(PrimitiveParsing):
             self.out.emit(opcode, word % 100,
                           comment=self._comment(op, arg, symbol, word))
           else:
-            self.out.error("address out of mov range '{}'".format(word))
+            self.out.error(f"address out of mov range '{word}'")
         break
     else:
-      self.out.error("invalid mov argument '{}'".format(arg))
+      self.out.error(f"invalid mov argument '{arg}'")
 
   def _add(self, label, op, arg):
     if re.match(r"D,\s*A", arg):
@@ -552,9 +565,9 @@ class V4(PrimitiveParsing):
         if 0 <= word <= 99:
           self.out.emit(71, word, comment=self._comment(op, arg, symbol, word))
         else:
-          self.out.error("add immediate argument out of range '{}'".format(word))
+          self.out.error(f"add immediate argument out of range '{word}'")
       else:
-        self.out.error("invalid argument '{}'".format(arg))
+        self.out.error(f"invalid argument '{arg}'")
 
   def _swap(self, label, op, arg):
     if re.match(r"B,\s*A|A,\s*B", arg):
@@ -568,7 +581,7 @@ class V4(PrimitiveParsing):
     elif re.match(r"F,\s*A|A,\s*F", arg):
       self.out.emit(5, comment=f"{op} {arg}")
     else:
-      self.out.error("invalid swap argument '{}'".format(arg))
+      self.out.error(f"invalid swap argument '{arg}'")
 
   def _inc(self, label, op, arg):
     if arg == "A":
@@ -576,7 +589,7 @@ class V4(PrimitiveParsing):
     elif arg == "B":
       self.out.emit(54, comment=f"{op} {arg}")
     else:
-      self.out.error("invalid inc argument '{}'".format(arg))
+      self.out.error(f"invalid inc argument '{arg}'")
 
   def _jmp(self, label, op, arg):
     if arg == "+A":
