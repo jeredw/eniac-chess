@@ -30,7 +30,7 @@
 
 40 - mov XX,A
 41 - mov [B],A
-42 -
+42 - mov A,[B]
 43 -
 44 -
 45 -
@@ -388,172 +388,45 @@ goto step 2 of LOADACC
 MOV [B],A (aka LOADWORD)
 
 
-i-windex = X A2A1 XX XX XX XX -> 0 00 00 00 00 0A1
+# Decode word index (0-4) and begin timers
+# i-windexB = X A2A1 XX XX XX XX -> 0 00 00 00 00 0A1
 
-# Begin word timers
-1. loadword -> EX
-2. RF -windex-> loadword, trigger ft3
-3. loadword -> ft2=3.arg        # usual 10 entry lookup table
+1. LOADWORD -> EX, clear LS
+2. RF -windexB-> LOADWORD, trigger ft3
+3. LOADWORD -> ft3.arg          # usual 10 entry lookup table
 
-4. LS -dropsign-> loadword      # use shadow to clear LS.PM to preserve signs of disftX
-5. loadword -> LS
+4. wait                         # ft shadow
+5. wait
 
-6. ft3 -> loadword
-7. send loadword.S              # begin word timers, mod 5 wired
-8. EX -> loadword
+6. ft3 -> LOADWORD
+7. send LOADWORD.S              # begin word timers, mod 5 wired
+8. EX -> LOADWORD
 
-# Discriminate acc 09 vs 1014
-# disclw can't be loadword because loadword S.PM already used
-# maybe get around this with mod5 table? but then can't share disclw & accidx arg send
-# this sequence very similar to LOADACC/STOREACC, sharable after disc?
+# Now do a LOADACC, decoding the acc idx from B by doubling it in the high digits
+# i-accidxB = X XX B2B1 XX XX XX XX -> 0 B2B1 00 00 00 00
 
-9. disclw -> EX               
-10. RF -selA-> disclw
-11. RF -selA-> disclw, trigger ft3
-12. disc disclw, disclw -S-> ft.arg # S: D AW 00 00 00 00 -> X XX XX XX XX 0 9-A
-13. EX -> disclw
-14. memcyc09/1014 -> EX
-15. ft3 -> memcyc09/1014
-16. memcyc09/1014 -> S          # trigger acc memcycle
-17. EX -> memcyc09/1014
+9. DISCMEMCYC -> EX               
+10. RF -i-accidxB-> DISCMEMCYC
+11. RF -i-accidxB-> DISCMEMCYC
+12. send M0->DISCMEMCYC, trigger ft3
 
-18. memacc -> LS
-19. LS -> memacc
+# Jump into LOADWORD step 3. But this time DISCMEMCYC.1 is zero, while DISCMEMCYC.10
+# contains the (complement of) acc idx, which goes to d-main via S output
 
-20. ...delayed MOV [FGHIJ],A
+13. discriminate DISCMEMCYC, DISCMEMCYC -S-> ft3.arg
+14. EX -> DISCMEMCYC
+15. MEMCYC09/1014 -> EX
+16. ft3 -> MEMCYC09/1014
+17. MEMCYC09/1014 -> S          # trigger acc memcycle
+18. EX -> MEMCYC09/1014
 
+19. memacc -> LS
+20. LS -> memacc
 
----
-A probably working design -- Update: NOPE
-Uses ft2 for word decode, but requires 18 entries
-Uses ft3 repeat 5 to delay ft3 output until we can read it
-On cycle 6 we use DISCMEMCYC as our temp space, to be able to receive ft2 next cycle
-
-splitA2 is designed to decode acc in top after two ads, word low after one add
-X A2A1 XX XX XX XX -> 0 A2A1 00 00 00 0A1 
-
-1. DISCMEMCYC -> EX, clear LS
-2. RF -splitA2-> DISCMEMCYC
-3. RF -splitA2-> DISCMEMCYC, trigger ft2    # word lookup (0,2,4,6,8)
-4. DISCMEMCYC -> ft2.arg, trigger ft3       # word pos, digit 2 may be 1, table with 18 entries?
-5. discriminate DISCMEMCYC, -S-> ft3.arg    # 9-acc on digit 10, ft2 shadow
-
-###### blargh S and A will both try to go to main for ft.arg, clash
-
-6. WORDSEL -> DISCMEMCYC                    # ft2 shadow, ft3 shadow
-
-DISCMEMCYC pos, A < 10
-  7. ft2 -> WORDSEL                         # ft2 send, ft3 shadow
-  8. WORDSEL -> S, trigger ft1/2 dummies    # ft3 send 1
-  9. DISCMEMCYC -> WORDSEL                  # ft3 send 2
-  10. EX -> DISMEMCYC                       # ft3 send 3
-  11. MEMCYC09 -> EX                        # ft3 send 4
-  12. FT3 -> MEMCYC09                       # ft3 send 5
-  13. send MEMCYC09.S, clear                # trigger accumulator memory cycle
-  14. EX -> MEMCYC09
-
- 15. mem -> LS
- 16. LS -> mem
-
-Word MOV programs
- 17. ...
-
-
---
-
-Translate address, then LOADACC, then MOV
-
-The main challenge is temp space for addressing, because we need to rotate
-the arg for ft3 which takes two spare accumulators.  We can use LS to manage
-this for LOAD, e.g.
-
-Option 1:
-
-# Compute accumulator# 0-14 and 2x word offset 0,2,4,6,8 from [B] into the top
-# 3 digits of LS.  This leaves F with the accumulator# and the top of G with 2x
-# word offset.
-1. clear LS
-2. RF -selB-> LS
-3. RF -selB-> LS  # LS += 2*0Bb0000000  e.g. 57+57 -> 1140000000
-
-# Lookup 2x word offset (e.g. 04) in ft3, reusing the LOADACC decode table.
-# Use this to start a long-running dummy to trigger the appropriate MOV opcode
-# to MOV the desired word from LS to A after LOADACC finishes.  The dummies are
-# taken from GETWORD.S digits 0,2,4,6,8, and trigger MOV [FGHIJ],A - they
-# should probably be FT dummies.
-
-# Trying to reuse mostly the same sequence as LOADACC
-4. DISCMEMCYC -> EX, clear
-5. LS -splitB-> DISCMEMCYC  # DISCMEMCYC += 000000000b
-   trigger ft3
-6. DISCMEMCYC -> ft3.arg, clear
-7. EX -> DISCMEMCYC (ft shadow)
-8. GETWORD -> EX, clear (ft shadow)
-9. FT3 -> GETWORD
-10. send GETWORD.S, clear, trigger dummies for getword
-11. EX -> GETWORD
-
-# This is basically LOADACC except we need to use LS not RF.
-12. DISCMEMCYC -> EX, clear
-13. LS -splitA-> DISCMEMCYC, clear, trigger ft3  # DISCMEMCYC: PM=A2, 1=A1
-14. disc DISCMEMCYC, DISCMEMCYC -> ft3.arg, clear
-15. EX -> DISCMEMCYC
-16. MEMCYC09/1014 -> EX, clear
-17. FT3 -> MEMCYC09/1014
-18. send MEMCYC09/1014.S, clear, trigger mem cycle
-19. EX -> MEMCYC09/1014
-20. memacc -> LS
-21. LS -> memacc
-
-# Here the dummy from cycle 10 triggers MOV
-22. trigger MOV [FGHIJ],A opcode
-(27-8. fetch)
-
----
-
-Alternatively, perhaps we could wire only the 1s digit of an accum to ft3 arg
-via its S output?
-
-# 1. FT3ARG1 -> EX, clear
-# 2. RF -selB1-> FT3ARG1
-# 3. RF -selB1-> FT3ARG1  # FT3ARG1 += 2*000000000b  e.g. 07+07 -> 0000000014
-#    trigger ft3
-# 4. FT3ARG1.S -> ft3.arg, clear  # NB only connects digit 1
-# 5. EX -> FT3ARG1 (ft shadow)
-# 6. GETWORD -> EX (ft shadow)
-# 7. FT3 -> GETWORD
-# 8. send GETWORD.S, clear, trigger dummies for getword
-# 9. EX -> GETWORD
-
-It's a bit more nuanced to do the same trick for DISCMEMCYC.10 -> ft3.arg
-because the S output is wired for discrimination, but it should be possible.
-
-# 10. DISCMEMCYC -> EX, clear
-# 11. RF -selB-> DISCMEMCYC, clear
-# 12. RF -selB-> DISCMEMCYC, clear  # DMC += 2*Bb00000000  e.g. 57+57 -> M 1400000000
-# 13. discriminate DISCMEMCYC, trigger ft3
-#
-# DISCMEMCYC pos, A < 10
-#   14. DISCMEMCYC += M00000   # set sign to M send on S does not trigger disc
-#   15. DISCMEMCYC.S -> ft3.arg, clear
-#   16. EX -> DISCMEMCYC             (ft shadow)
-#   17. MEMCYC09 -> EX, clear        (ft shadow)
-#   18. FT3 -> MEMCYC09
-#   19. send MEMCYC09.S, clear, trigger accumulator memory cycle
-#   20. main -> LS
-#   21. LS -> main
-#   22. EX -> MEMCYC09
-
-
-
-MOV A,[B]  (aka STORE)
-# Reuse MOV [B],A to find the correct accumulator and word offset, but instead
-# of GETWORD, decode into PUTWORD.  This triggers sequences for MOVSTORE
-# A,[FGHIJ] following LOADACC.  These sequences perform a MOV and then
-# immediately tail call STOREACC.
-#
-# XXX A problem here is where to compute the address for STOREACC.  Likely
-# requires the option 2 rewiring hack.
+# The timer set in cycle 7 triggers the appropriate MOV program here,
+# Which returns to fetch when it's done.
+21. MOV [FGHIJ],A begins
+...
 
 
 MOV [BCDE],A and MOV [FGHIJ],A
@@ -690,36 +563,6 @@ goto fetchline
 
 
 
-
-SAMPLE CODE
-
-; [XX] += [YY]
-mov A,[XX]        ; 01
-swap A,D          ; 2
-mov A,[YY]        ; 34
-add D,A           ; 5
-mov [XX],A        ; 67
-
-
-FIND IN ARRAY
-; val to find in D
-; base addr in B
-; array len in C
-; return address or -1 in A
-top:
- mov a,[b]  ; 00
- sub a,d    ; 11
- jz found   ; 22 33
- inc b      ; 44
- nop        ; 55
- loop top   ; 00 11
- clr a      ; 22
- dec a      ; 33
- ret        ; 44
- nop        ; 55
-found:  
- mov a,b    ; 00 
- ret        ; 11
 
 
 
