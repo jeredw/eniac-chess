@@ -56,7 +56,9 @@ p i.po {p-opprint-3}
 # restore contents of MEM13
 $clear {p-opprint-3} {a-print} {t-opprint-3} {p-opprint-4}
 
-$storeex {p-opprint-4}
+# out of pa's 
+# $storeex {p-opprint-4}
+$c-dummy {p-opprint-3} {p-storeex}
 $rec {p-opprint-4} {a-print} {t-opprint-4} {i-main} {p-fetch}
 
 endif # OP_PRINT
@@ -67,8 +69,10 @@ if OP_READ
 
 # read in a new card into constant transmitter
 p {p-opread} i.Ri
-# clear LS to receive card data
-$clear {p-opread} {a-ls} {t-opread} {p-opread-2}
+# clear LS to receive card data (via dummies to save ts and pas)
+$c-dummy {p-opread} {p-opread-2}
+$c-dummy {p-opread} {p-opread-clear}
+p {p-opread-clear} {p-clearls}
 
 # wait for card to read
 p {p-opread-2} i.Rl
@@ -82,7 +86,7 @@ p {p-opread-2} i.Rl
 p i.Ro c.1i
 s c.s1 Al
 p c.1o {p-fetch}
-$recx i.Ro {a-ls} {t-opread-n} {i-main}
+$recx i.Ro {a-ls} {x-opread-n} {i-main}
 
 endif
 

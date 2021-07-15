@@ -43,7 +43,7 @@ enable CONTROL_CYCLE  #  9 pas, 18 ts
 enable OP_LOADACC     #  1 pas,  1 ts
 enable OP_STOREACC    #  1 pas,  5 ts
 enable OP_LOADWORD   
-disable OP_STOREWORD   
+enable OP_STOREWORD   
 enable ACC_MEMCYC
 enable SUB_MEMCYC     
 enable LOADWORD_DUMMIES

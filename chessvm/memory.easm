@@ -202,10 +202,6 @@ $sub-memcyc-branch 1014
 $sendx {p-sub-memcyc-6} {a-ls} {r-sub-memcyc-7} A
 
 
-# - CLEARLS -
-# shared clear LS program, used for LOADACC and LOADWORD
-$clearx {p-clearls} {a-ls} {r-clear}
-
 endif # SUB_MEMCYC
 
 
