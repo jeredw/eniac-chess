@@ -1,0 +1,39 @@
+# - OPCODES -
+# Maps numeric opcodes to op programs
+
+{p-opswapAB}	= {p-op01}
+{p-opswapAC}	= {p-op02}
+{p-opswapAD}	= {p-op03}
+{p-opswapAE}	= {p-op04}
+{p-oploadacc}	= {p-op10}
+{p-opstoreacc}	= {p-op11}
+{p-opswapall}	= {p-op12}
+{p-opftl}	 	= {p-op14}
+{p-opmovBA}	 	= {p-op20}
+{p-opmovCA}	 	= {p-op21}
+{p-opmovDA}	 	= {p-op22}
+{p-opmovEA}	 	= {p-op23}
+{p-opmovGA}	 	= {p-op30}
+{p-opmovHA}	 	= {p-op31}
+{p-opmovIA}	 	= {p-op32}
+{p-opmovJA}	 	= {p-op33}
+{p-opmovFA}	 	= {p-op34}
+{p-opmovimmA}	= {p-op40}
+{p-oploadword}	= {p-op41}
+{p-opstoreword}	= {p-op42}
+{p-opinc}	 	= {p-op52}
+{p-opdec}	 	= {p-op53}
+{p-opadd}	 	= {p-op70}
+{p-opaddimmA}	= {p-op71}
+{p-opsub}	 	= {p-op72}
+{p-opjmp}	 	= {p-op73}
+{p-opjmpfar} 	= {p-op74}
+{p-opjn}	 	= {p-op80}
+{p-opjz}	 	= {p-op81}
+{p-opjil}	 	= {p-op82}
+{p-opjsr}	 	= {p-op84}
+{p-opret}	 	= {p-op85}
+{p-opclrA}	 	= {p-op90}
+{p-opread}	 	= {p-op91}
+{p-opprint}	 	= {p-op92}
+

@@ -97,6 +97,7 @@ include macros.easm
 include accumulators.easm
 include constants.easm
 include control-cycle.easm
+include opcodes.easm
 include arithmetic.easm
 include jumps.easm
 include movswap.easm

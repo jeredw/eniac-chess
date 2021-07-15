@@ -55,20 +55,9 @@ if OP_MOVXA
 $c-dummy p.A3o {p-opmovRFA}
 $c-dummy p.A4o {p-opmovLSA}
 
-p {p-op20} {p-opmovBA}
-p {p-op21} {p-opmovCA}
-p {p-op22} {p-opmovDA}
-p {p-op23} {p-opmovEA}
-p {p-op30} {p-opmovGA}
-p {p-op31} {p-opmovHA}
-p {p-op32} {p-opmovIA}
-p {p-op33} {p-opmovJA}
-
 # all the mov ops
 $pulseamp {p-opmovRFA} {p-opmovXA}
 $pulseamp {p-opmovLSA} {p-opmovXA}
-
-p {p-op34} {p-opmovFA}
 
 # Manually placed so they don't overlap with the multicycle sel dummies.
 $manual-dummy {p-opmovXA} a19 {t-opmovXA} 2 {p-opmovXA-3}
@@ -112,11 +101,6 @@ if OP_SWAP
 # 2. (RF) -mov[BCDE]-> MOVSWAP
 # 3. MOVSWAP -> RF
 # 4. EX -> MOVSWAP
-
-p {p-op01} {p-opswapAB}
-p {p-op02} {p-opswapAC}
-p {p-op03} {p-opswapAD}
-p {p-op04} {p-opswapAE}
 
 # TODO All swap ops start with 0x, so we could try the same trick as with MOV
 # ops, but this would break nop... do we want to renumber nop?

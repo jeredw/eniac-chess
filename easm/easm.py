@@ -126,7 +126,8 @@ class SymbolTable:
     r.symbols[name] = idx
 
   def lookup(self, resource_type, name):
-    '''Lookup/allocate a named global resource of given type'''
+    '''Lookup/allocate a named global resource of given type. 
+       Name should include resource type e.g. d-name.'''
     r = self.sym_global[resource_type]
     return self._lookup(r, name)
 
@@ -576,32 +577,43 @@ class Assembler(object):
     return self.line_literal(line)
 
 
-  # Handles symbol assignments e.g. {p-foo}=3-1
+  # Handles symbol assignments both to constants and to other symbols 
+  # {a-xyz}=a3
+  # {f-awesome}=f2
+  # {p-foo}={p-bar}
   def line_assign(self, line, **kwargs):
-    m = re.match(r'{(?P<name>[apdf]-[A-Za-z0-9-]+)}\s*=\s*(?P<value>[af]?\d\d?(-\d\d?)?)\s*(#.*)?', line)
+    m = re.match(r'{(?P<name>[apdf]-[A-Za-z0-9-]+)}\s*=\s*(?P<value>[^\s]+)\s*(#.*)?', line)
     if not m:
-      raise SyntaxError('bad assignment value')
+      raise SyntaxError('bad assignment left hand side')
     name = m.group('name')
-    value = m.group('value')
     res_type = name[0]
+    value = m.group('value')
 
-    if res_type=='d':
-      if not re.match(r'\d\d?',value):
-        raise SyntaxError('bad data trunk value')
-      value = int(value)-1
-    elif res_type=='a':
-      if not re.match(r'a\d\d?',value):
-        raise SyntaxError('bad accumulator value')
-      value = int(value[1:])-1          # 'a1' -> 0
-    elif res_type=='f':
-      if not re.match(r'f\d',value):
-        raise SyntaxError('bad ft value')
-      value = int(value[1:])-1          # 'f1' -> 0
+    m = re.match(r'{[apdf]-[A-Za-z0-9-]+}', value)
+    if m:
+      is_symbol = True
+      value = value[1:-1]              # strip braces
+      if value[0] != res_type:
+        raise SyntaxError('symbol type mismatch')
+      value = self.symbols.lookup(res_type, value)
     else:
-      if not re.match(r'\d\d?-\d\d?',value):
-        raise SyntaxError('bad program line value')
-      a,b = value.split('-')
-      value = (int(a)-1)*11 + int(b)-1
+      if res_type=='d':
+        if not re.match(r'\d\d?',value):
+          raise SyntaxError('bad data trunk value')
+        value = int(value)-1
+      elif res_type=='a':
+        if not re.match(r'a\d\d?',value):
+          raise SyntaxError('bad accumulator value')
+        value = int(value[1:])-1          # 'a1' -> 0
+      elif res_type=='f':
+        if not re.match(r'f\d',value):
+          raise SyntaxError('bad ft value')
+        value = int(value[1:])-1          # 'f1' -> 0
+      else: # res_type=='p'
+        if not re.match(r'\d\d?-\d\d?',value):
+          raise SyntaxError('bad program line value')
+        a,b = value.split('-')
+        value = (int(a)-1)*11 + int(b)-1
 
     self.symbols.define(res_type, name, value)
 

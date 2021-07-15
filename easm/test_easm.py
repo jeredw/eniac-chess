@@ -74,6 +74,8 @@ class TestAssembler(unittest.TestCase):
 
   def test_define(self):
       a = Assembler()
+
+      # Test that we can set symbols to constants
       self.assertEqual(
         a.assemble_line('{p-name}=5-5'), '# {p-name}=5-5')
       self.assertEqual(
@@ -86,6 +88,21 @@ class TestAssembler(unittest.TestCase):
         a.assemble_line('{a-name}=a13'), '# {a-name}=a13')
       self.assertEqual(
         a.assemble_line('p 1 {a-name}.d'), format_comment('p 1 a13.d','# a13=a-name'))
+
+      # Test that we can alias previously allocated resources
+      self.assertEqual(
+        a.assemble_line('{p-name2}={p-name}'), '# {p-name2}={p-name}')
+      self.assertEqual(
+        a.assemble_line('p {p-name2} a3.5i'), format_comment('p 5-5 a3.5i','# 5-5=p-name2'))
+      self.assertEqual(
+        a.assemble_line('{d-name2}={d-name}'), '# {d-name2}={d-name}')
+      self.assertEqual(
+        a.assemble_line('p {d-name2} a3.g'), format_comment('p 5 a3.g','# 5=d-name2'))
+      self.assertEqual(
+        a.assemble_line('{a-name2}={a-name}'), '# {a-name2}={a-name}')
+      self.assertEqual(
+        a.assemble_line('p 1 {a-name2}.d'), format_comment('p 1 a13.d','# a13=a-name2'))
+
 
   # test several things for each type of resource:
   #  - intitial allocation of the first resource on the machine (e.g. 1-1)
@@ -110,7 +127,7 @@ class TestAssembler(unittest.TestCase):
       a.assemble_line('p a13.5o {p-other-name}'), format_comment('p a13.5o 1-2','# 1-2=p-other-name'))
     self.assertEqual(
       a.assemble_line('p i.io {p-other-name}'), format_comment('p i.io 1-2','# 1-2=p-other-name'))
-    self.run_out(a, 'p {p-', '} a1.1i', 119)
+    self.run_out(a, 'p {p-', '} a1.1i', 26*11-2)
 
   def test_data_trunk(self):
     a = Assembler()
@@ -120,7 +137,7 @@ class TestAssembler(unittest.TestCase):
       a.assemble_line('p a4.S {d-name}'),format_comment('p a4.S 1','# 1=d-name')) 
     self.assertEqual(
       a.assemble_line('p a16.A {d-other-name} '),format_comment('p a16.A 2','# 2=d-other-name'))
-    self.run_out(a, 'p {d-', '} a1.a', 7)
+    self.run_out(a, 'p {d-', '} a1.a', 18)
 
   def test_shift_adapter(self):
     a = Assembler()
@@ -130,7 +147,7 @@ class TestAssembler(unittest.TestCase):
       a.assemble_line('p ad.s.{ad-other-name}.3 a11.g'), format_comment('p ad.s.2.3 a11.g','# 2=ad-other-name'))
     self.assertEqual(
       a.assemble_line('p 2 ad.s.{ad-other-name}.4'), format_comment('p 2 ad.s.2.4','# 2=ad-other-name'))
-    self.run_out(a, 'p ad.s.{ad-', '}.1 a1.a', 38)
+    self.run_out(a, 'p ad.s.{ad-', '}.1 a1.a', 78)
 
   def test_deleter_adapter(self):
     a = Assembler()
@@ -140,7 +157,7 @@ class TestAssembler(unittest.TestCase):
       a.assemble_line('p ad.d.{ad-other-name}.3 a11.g'), format_comment('p ad.d.2.3 a11.g','# 2=ad-other-name'))
     self.assertEqual(
       a.assemble_line('p 3 ad.d.{ad-other-name}.3 '), format_comment('p 3 ad.d.2.3','# 2=ad-other-name'))
-    self.run_out(a, 'p ad.d.{ad-', '}.1 a1.a', 38)
+    self.run_out(a, 'p ad.d.{ad-', '}.1 a1.a', 78)
 
   def test_digit_pulse_adapter(self):
     a = Assembler()
@@ -150,7 +167,7 @@ class TestAssembler(unittest.TestCase):
       a.assemble_line('p a20.A ad.dp.{ad-other-name}.11'), format_comment('p a20.A ad.dp.2.11','# 2=ad-other-name'))
     self.assertEqual(
       a.assemble_line('p ad.dp.{ad-other-name}.11 5-5'), format_comment('p ad.dp.2.11 5-5','# 2=ad-other-name'))
-    self.run_out(a, 'p ad.dp.{ad-', '}.11 5-5', 38)
+    self.run_out(a, 'p ad.dp.{ad-', '}.11 5-5', 78)
 
   def test_special_digit_adapter(self):
     a = Assembler()
@@ -160,7 +177,7 @@ class TestAssembler(unittest.TestCase):
       a.assemble_line('p a20.A ad.sd.{ad-other-name}.8'), format_comment('p a20.A ad.sd.2.8','# 2=ad-other-name'))
     self.assertEqual(
       a.assemble_line('p ad.sd.{ad-other-name}.8 4'), format_comment('p ad.sd.2.8 4','# 2=ad-other-name'))
-    self.run_out(a, 'p ad.sd.{ad-', '}.8 1', 38)
+    self.run_out(a, 'p ad.sd.{ad-', '}.8 1', 78)
 
   def test_permute_adapter(self):
     a = Assembler()
@@ -179,7 +196,7 @@ class TestAssembler(unittest.TestCase):
     self.assertEqual(
       a.assemble_line('s ad.permute.{ad-name} 11.1.2.3.4.5.6.7.8.9.10'), format_comment('s ad.permute.1 11.1.2.3.4.5.6.7.8.9.10','# 1=ad-name'))
 
-    self.run_out(a, 'p ad.permute.{ad-', '} 1', 38)
+    self.run_out(a, 'p ad.permute.{ad-', '} 1', 78)
 
 
   def test_ftable(self):
@@ -188,7 +205,7 @@ class TestAssembler(unittest.TestCase):
     self.assertEqual(
       a.assemble_line('p {p-name} f1.1i'), format_comment('p 1-1 f1.1i','# 1-1=p-name'))
     self.assertEqual(
-      a.assemble_line('p f1.C {p-other-name}'), format_comment('p f1.C 1-2','# 1-2=p-other-name'))
+      a.assemble_line('p f1.1o {p-other-name}'), format_comment('p f1.1o 1-2','# 1-2=p-other-name'))
     self.assertEqual(
       a.assemble_line('p {d-name} f1.arg'), format_comment('p 1 f1.arg','# 1=d-name'))
     self.assertEqual(
@@ -291,7 +308,7 @@ class TestAssembler(unittest.TestCase):
       expansion $arg1 {$arg2}
       endmacro  # yay
       $test A {B}''')
-    out = a.assemble(program)
+    out = a.assemble('filename', program)
     self.assertEqual(out.splitlines(),
                      ["# (elided 'test' macro definition)",
                       '# $test A {B}',

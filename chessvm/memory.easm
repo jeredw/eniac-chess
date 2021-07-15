@@ -215,8 +215,6 @@ if OP_LOADACC
 # - clear LS at start
 # - main -> LS during accumulator memory cycle, to read the value coming out
 
-p {p-op10} {p-oploadacc}
-
 $pulseamp {p-oploadacc} {p-sub-memcyc}
 
 # clear LS, we'll want that empty to recieve acc value
@@ -238,8 +236,6 @@ if OP_STOREACC
 # To do STOREACC, trigger SUB_MEMCYC and
 #  - clear LS sign at start
 #  - main -signonly-> LS during acc mem cyc, to preserve acc PM but otherwise overwrite
-
-p {p-op11} {p-opstoreacc}
 
 # Start by saving DISCMEMCYC -> EX, clear
 $sendc {p-opstoreacc} {a-discmemcyc} {t-opstoreacc} A {p-opstoreacc-2}
@@ -345,35 +341,54 @@ $dummy {p-sub-wordcyc-3} {p-sub-memcyc-3}
 # ft2 = wait for memcycle
 # ft3 = word/acc lookup
 
-p {p-op41} {p-oploadword}
-
 # Start by triggering the word decode, then wait until ft3 output ready
 $pulseamp {p-oploadword} {p-sub-wordtop}
 $ft-dummy-exclude {p-oploadword} 5 {p-oploadword-4} -f3
 
+# 1. LOADWORD -> EX, clear LS
+# 2. RF -windexB-> LOADWORD, trigger ft3
+# 3. LOADWORD -> ft3.arg          # usual 10 entry lookup table
+# 4. wait                         # ft shadow
+# 5. wait
+
 # When ready, receive the looked up value into LOADWORD
-# ft3 -> LOADWORD
+# 6. ft3 -> LOADWORD
 $rec {p-oploadword-4} {a-loadword} {t-oploadword-4} {i-ftselacc} {p-oploadword-5}
 
-# send LOADWORD.S, triggers ft dummies for MOV [FGHIJ],A after loadacc
+# 7. send LOADWORD.S, triggers ft dummies for MOV [FGHIJ],A after loadacc
 $sendc {p-oploadword-5} {a-loadword} {t-oploadword-5} S {p-oploadword-6}
 
 # We also need to execute a rec on LS (ala LOADACC) then p-opmovLSA
 # Time this on f2 as f1 is the word program and f3 will lookup acc idx
 $ft-dummy-exclude {p-oploadword-6} 11 {p-oploadword-10} -f1,f3
 
-# EX -> LOADWORD
+# 8. EX -> LOADWORD
 $storeex {p-oploadword-6}
 $rec {p-oploadword-6} {a-loadword} {t-oploadword-6} {i-main} {p-oploadword-7}
 
 # Decode acc idx from B and trigger a memcycle on that acc
 $pulseamp {p-oploadword-7} {p-sub-wordcyc}
 
-# When memcycle starts, receive into LS; triggered by ft2 timer
+# 9. DISCMEMCYC -> EX               
+# 10. RF -i-accidxB-> DISCMEMCYC
+# 11. RF -i-accidxB-> DISCMEMCYC
+# 12. send M0->DISCMEMCYC, trigger ft3
+# 13. discriminate DISCMEMCYC, DISCMEMCYC -S-> ft3.arg
+# 14. EX -> DISCMEMCYC
+# 15. MEMCYC09/1014 -> EX
+# 16. ft3 -> MEMCYC09/1014
+# 17. MEMCYC09/1014 -> S          # trigger acc memcycle
+# 18. EX -> MEMCYC09/1014
+
+# 19. memacc -> LS, receive mem acc into LS; triggered by ft2 timer
 $rec {p-oploadword-10} {a-ls} {t-oploadword-10} {i-main} {p-oploadword-11}
+
+# 20. LS -> memacc
 
 # When memcycle completes, trigger p-opmovLSA which is required to do MOV [FGHIJ],A
 $c-dummy {p-oploadword-11} {p-opmovLSA}
+
+# 21. MOV [FGHIJ],A begins, triggered by ft1 word timer
 
 
 endif # OP_LOADWORD
@@ -398,8 +413,6 @@ if OP_STOREWORD
 # ft1 = wait for memcycle
 # ft2 = word dummies
 # ft3 = word/acc lookup
-
-p {p-op42} {p-opstoreword}
 
 # Start by triggering the word decode, then wait until ft shadow
 $pulseamp {p-opstoreword} {p-sub-wordtop}
@@ -427,6 +440,9 @@ $sendc {p-opstoreword-5} {a-storeword} {t-storeword-5} S {p-opstoreword-6}
 # EX -> STOREWORD
 $storeex {p-opstoreword-6}
 $rec {p-opstoreword-6} {a-storeword} {t-opstoreword-6} {i-main} {p-opstoreword-7}
+
+# Decode acc idx from B and trigger a memcycle on that acc
+$pulseamp {p-opstoreword-7} {p-sub-wordcyc}
 
 
 # When memcycle starts, receive into LS; triggered by ft2 timer

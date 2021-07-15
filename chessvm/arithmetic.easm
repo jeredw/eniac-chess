@@ -24,8 +24,6 @@ endif # SUB_CLEARA
 # - CLR A -
 if OP_CLRA
 
-p {p-op90} {p-opclrA}
-
 # Use clear A subroutine
 $clearA {p-opclrA}
 $dummy-delay {p-opclrA} 2 {p-fetch}
@@ -35,8 +33,6 @@ endif # OP_CLRA
 
 # - INC -
 if OP_INC
-
-p {p-op52} {p-opinc}
 
 # Send P01000 on d-main
 p {p-opinc} c.29i
@@ -51,8 +47,6 @@ endif # OP_INC
 
 # - DEC -
 if OP_DEC
-
-p {p-op53} {p-opdec}
 
 # Send M99000 on d-main
 p {p-opdec} c.30i
@@ -71,8 +65,6 @@ if OP_ADD
 # 2. RF -> RFTMP
 # 3. RFTMP -selDA-> RF
 # 4. EX -> RFTMP
-
-p {p-op70} {p-opadd}
 
 # RFTMP -> EX
 $sendc {p-opadd} {a-rftmp} {t-opadd} A {p-opadd-2}
@@ -103,8 +95,6 @@ if OP_SUB
 # 2. EX -> selDA -> RF
 # 3. P01 -> RF
 # 4. M00 -> RF  # ideally we'd send M01, but don't have it
-
-p {p-op72} {p-opsub}
 
 # RF.S -> EX
 $send {p-opsub} {a-rf} {t-opsub} S {p-opsub-2}
@@ -164,8 +154,6 @@ endif # SUB_CONSUME_OP
 # - MOV #XX,A -
 if OP_MOVIMMA
 
-p {p-op40} {p-opmovimmA}
-
 # Clear A, then jump to ADD #XX,A
 $clearA {p-opmovimmA}
 $dummy-delay {p-opmovimmA} 2 {p-opaddimmA}
@@ -175,8 +163,6 @@ endif # OP_MOVIMMA
 
 # - ADD #XX,A -
 if OP_ADDIMMA
-
-p {p-op71} {p-opaddimmA}
 
 # Consume the next word in IR, saving it into A, and then trigger p-fetch
 $consume-op {p-opaddimmA}

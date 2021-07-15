@@ -30,7 +30,7 @@ endif # SUB_JMP
 # - JMP XX -
 if OP_JMP
 
-p {p-op73} {p-sub-jmp}
+p {p-opjmp} {p-sub-jmp}
 
 endif # OP_JMP
 
@@ -118,8 +118,6 @@ endif # SUB_FARGO
 # - JMP XXXX -
 if OP_JMPFAR
 
-p {p-op74} {p-opjmpfar}
-
 $fargo {p-opjmpfar}
 $c-dummy {p-opjmpfar} {p-opjmpfar-2}
 
@@ -136,8 +134,6 @@ endif # OP_JMPFAR
 # - JSR XXXX -
 if OP_JSR
 
-p {p-op84} {p-opjsr}
-
 $fargo {p-opjsr}
 $c-dummy {p-opjsr} {p-opjsr-2}
 
@@ -153,8 +149,6 @@ endif # OP_JSR
 
 # - RET -
 if OP_RET
-
-p {p-op85} {p-opret}
 
 $fargo {p-opret}
 $dummy-delay {p-opret} 2 {p-opret-3}
@@ -230,8 +224,6 @@ endif # SUB_JX
 # - JN XX -
 if OP_JN
 
-p {p-op80} {p-opjn}
-
 # save DISCJX
 $sendc {p-opjn} {a-discjx} {t-opjn} A {p-opjn-2}
 $loadex {p-opjn}
@@ -252,8 +244,6 @@ if OP_JZ
 # be to wire RF PM to discjx i-shiftA.1, but this has unclear electrical
 # implications, and would complicate jil.
 
-p {p-op81} {p-opjz}
-
 # reuse discjx sequence
 $pulseamp {p-opjz} {p-sub-discjx}
 $ft-dummy-exclude {p-opjz} 5 {p-opjz-6} -f2,f3
@@ -266,8 +256,6 @@ endif # OP_JZ
 
 # - JIL XX -
 if OP_JIL
-
-p {p-op82} {p-opjil}
 
 # reuse discjx sequence
 $pulseamp {p-opjil} {p-sub-discjx}
@@ -283,8 +271,6 @@ endif # OP_JIL
 # - FTL -
 if OP_FTL
 # Shares with DISCJX so it's kind of an honorary jump?
-
-p {p-op14} {p-opftl}
 
 # reuse discjx sequence
 $pulseamp {p-opftl} {p-sub-discjx}
