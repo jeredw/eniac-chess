@@ -264,9 +264,6 @@ $permuted-input {a-storeword} {d-main} {i-windexB} 0,0,0,0,0,0,0,0,0,0,7
 # i-ftselacc: get 10 digits from FT
 p {d-ftselacc} {a-storeword}.{i-ftselacc}
 
-# drop sign, used to clear LS sign in STOREWORD
-$permuted-input {a-storeword} {d-main} {i-dropsign} 0,10,9,8,7,6,5,4,3,2,1
-
 
 # - MEM5 -
 {a-mem5}=a11

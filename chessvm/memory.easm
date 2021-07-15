@@ -272,11 +272,12 @@ endif # OP_STOREACC
 
 
 
+if OP_LOADWORD
 
 # - SUB-WORDTOP -
-if OP_LOADWORD
 # The first three cycles of LOADWORD and STOREWORD are shared, they do the 
-# word decode from B and send word idx to FT3
+# word decode from B and send word idx to FT3.
+# Does not return to fetch.
 
 # LOADWORD -> EX, clear
 $sendc {p-sub-wordtop} {a-loadword} {t-sub-wordtop} A {p-sub-wordtop-2}
@@ -297,11 +298,47 @@ s f3.op{t-sub-wordtop} A-2
 # LOADWORD -> ft3.arg
 $sendcx {p-sub-wordtop-3} {a-loadword} {r-sub-wordtop-3} A
 
-endif OP_LOADWORD
+
+# - SUB-WORDCYC -
+# Decode acc and trigger SUB_MEMCYC to start a mem cycle on the acc we are addressing
+# Does not return to fetch.
+# Easiest way to compute acc index is to double the address in B and take top 2 digits:
+#    0          B2         B1
+# +  0          B2         B1 
+#  -----------------------------
+#  B2>=5  2B2%10+B1>=5   2B1%10 
+#
+# Let's call these
+#    D3         D2         D1
+#
+# Then accidx = D3D2. If D3=PM, D2=10 then the sign is set up to discriminate 0-9 vs. 10-14
+# Hence i-accidxB: X XX B2B1 XX XX XX XX -> 0 B2B1 00 00 00 00 and we add twice
+# To send D2 to ft.arg, we use DISCMEMCYC.S. So we also need to receive negated from RF.S
+
+# DISCMEMCYC -> EX
+$sendc {p-sub-wordcyc} {a-discmemcyc} {t-oploadword} A {p-sub-wordcyc-2}
+$loadex {p-sub-wordcyc}
+
+# RF -S-accidxB-> DISCMEMCYC, twice
+$send {p-sub-wordcyc-2} {a-rf} {t-sub-wordcyc-2} S {p-sub-wordcyc-3}
+s {a-rf}.rp{t-sub-wordcyc-2} 2
+$recx {p-sub-wordcyc-2} {a-discmemcyc} {t-sub-wordcyc-2} {i-accidxB} 
+s {a-discmemcyc}.rp{t-sub-wordcyc-2} 2
+
+# Add M0 to DISCMEMCYC. We are computing the complement of the accumulator index
+# so the disc in SUB_MEMCYC will be backwards if we don't flip the sign
+$sendM0 {p-sub-wordcyc-3}
+$recx {p-sub-wordcyc-3} {a-discmemcyc} {r-sub-wordcyc-3} {i-main}
+
+# trigger FT3 lookup, it will get argument on DISCMEMCYC.S next cycle 
+p {p-sub-wordcyc-3} f3.{t-sub-wordcyc-3}i
+s f3.op{t-sub-wordcyc-3} A-2
+
+# Jump into discrimination step of SUB_MEMCYC (can't be c-dummy, sendM0 this cycle)
+$dummy {p-sub-wordcyc-3} {p-sub-memcyc-3}
 
 
 # - MOV [B],A aka LOADWORD -
-if OP_LOADWORD
 # Use the word index (B2 % 5) to trigger one of the five MOV [FGHIJ],A programs 
 # on long ft1 dummies, so they execute after LOADACC on the acc index 
 # ft1 = word dummies
@@ -329,42 +366,8 @@ $ft-dummy-exclude {p-oploadword-6} 11 {p-oploadword-10} -f1,f3
 $storeex {p-oploadword-6}
 $rec {p-oploadword-6} {a-loadword} {t-oploadword-6} {i-main} {p-oploadword-7}
 
-
-# Now that we've started a timer for the word program, compute the accmulator index
-# Easiest way to get this is to double the address and take top 2 digits:
-#    0          B2         B1
-# +  0          B2         B1 
-#  -----------------------------
-#  B2>=5  2B2%10+B1>=5   2B1%10 
-#
-# Let's call these
-#    D3         D2         D1
-#
-# Then accidx = D3D2. If D3=PM, D2=10 then the sign is set up to discriminate 0-9 vs. 10-14
-# Hence i-accidxB: X XX B2B1 XX XX XX XX -> 0 B2B1 00 00 00 00 and we add twice
-# To send D2 to ft.arg, we use DISCMEMCYC.S. So we also need to receive negated from RF.S
-
-# DISCMEMCYC -> EX
-$sendc {p-oploadword-7} {a-discmemcyc} {t-oploadword} A {p-oploadword-8}
-$loadex {p-oploadword-7}
-
-# RF -S-accidxB-> DISCMEMCYC, twice
-$send {p-oploadword-8} {a-rf} {t-oploadword-8} S {p-oploadword-9}
-s {a-rf}.rp{t-oploadword-8} 2
-$recx {p-oploadword-8} {a-discmemcyc} {t-oploadword-8} {i-accidxB} 
-s {a-discmemcyc}.rp{t-oploadword-8} 2
-
-# Add M0 to DISCMEMCYC. We are computing the complement of the accumulator index
-# so the disc in SUB_MEMCYC will be backwards if we don't flip the sign
-$sendM0 {p-oploadword-9}
-$recx {p-oploadword-9} {a-discmemcyc} {r-oploadword-9} {i-main}
-
-# trigger FT3 lookup, it will get argument on DISCMEMCYC.S next cycle 
-p {p-oploadword-9} f3.{t-oploadword-9}i
-s f3.op{t-loadword} A-2
-
-# Jump right into discrimination step of SUB_MEMCYC
-$dummy {p-oploadword-9} {p-sub-memcyc-3}
+# Decode acc idx from B and trigger a memcycle on that acc
+$pulseamp {p-oploadword-7} {p-sub-wordcyc}
 
 # When memcycle starts, receive into LS; triggered by ft2 timer
 $rec {p-oploadword-10} {a-ls} {t-oploadword-10} {i-main} {p-oploadword-11}
@@ -424,8 +427,6 @@ $sendc {p-opstoreword-5} {a-storeword} {t-storeword-5} S {p-opstoreword-6}
 # EX -> STOREWORD
 $storeex {p-opstoreword-6}
 $rec {p-opstoreword-6} {a-storeword} {t-opstoreword-6} {i-main} {p-opstoreword-7}
-
-
 
 
 # When memcycle starts, receive into LS; triggered by ft2 timer
