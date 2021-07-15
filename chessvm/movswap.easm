@@ -49,9 +49,7 @@ if OP_MOVXA
 # 6. EX -> MOVSWAP
 
 # All mov opcodes for A with RF are encoded as 2x, and all mov opcodes for A
-# with LS are encoded as 3x to conserve pulse amplifiers.  There is nothing
-# happening on d-main during decode, so use spare constant transceivers as
-# dummies, don't care what they send.
+# with LS are encoded as 3x to conserve pulse amplifiers.
 $c-dummy p.A3o {p-opmovRFA}
 $c-dummy p.A4o {p-opmovLSA}
 
@@ -59,7 +57,7 @@ $c-dummy p.A4o {p-opmovLSA}
 $pulseamp {p-opmovRFA} {p-opmovXA}
 $pulseamp {p-opmovLSA} {p-opmovXA}
 
-# Manually placed so they don't overlap with the multicycle sel dummies.
+# Manually placed so they don't overlap with the 3-cycle p-movswapAX dummies below.
 $manual-dummy {p-opmovXA} a19 {t-opmovXA} 2 {p-opmovXA-3}
 $manual-dummy {p-opmovXA-3} a19 {t-opmovXA-3} 2 {p-opmovXA-5}
 # NB only one of these two may be active so fine if same accum
@@ -91,7 +89,7 @@ $sendx {p-opmovLSA-4} {a-ls} {r-opmovLSA-4} A
 # Update A in RF
 $recx {p-opmovXA-5} {a-rf} {t-opmovXA-6} {i-selectA}
 
-endif
+endif # OP_MOVXA
 
 
 # - SWAP A,[BCDE] -
@@ -129,7 +127,4 @@ $sendc-rf {p-opswap-2}
 # Update RF
 $loadrf {p-opswap-3}
 
-endif
-
-
-
+endif # OP_SWAP
