@@ -308,7 +308,7 @@ else
   4. [p-fetcharg]   PC->FT
   5. [p-preinc-fetch]  EX += P01..., PC += P01...
   6. wait
-  7. [p-fetchread]   FT -> IR,EX,PC, IR += 1, PC += 1
+  7. [p-fetchread]   FT -> IR,EX,PC, IR += 1
                      goto p-nofetch*
 
 * note this does not trigger p-eat-op so the top of IR is preserved.

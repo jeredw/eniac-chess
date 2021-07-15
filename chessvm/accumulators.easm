@@ -252,8 +252,20 @@ $acc-main mem3
 
 
 # - MEM4 -
+# Trigger MOV A,[FGHIJ] sequences on S outputs for STOREWORD
 {a-mem4}=a10
+{a-storeword}=a10
 $acc-main mem4
+
+# Move second digit of B into digit 1, to compute word index
+# X A2A1 XX XX XX XX -> 0 00 00 00 00 0A1
+$permuted-input {a-storeword} {d-main} {i-windexB} 0,0,0,0,0,0,0,0,0,0,7
+
+# i-ftselacc: get 10 digits from FT
+p {d-ftselacc} {a-storeword}.{i-ftselacc}
+
+# drop sign, used to clear LS sign in STOREWORD
+$permuted-input {a-storeword} {d-main} {i-dropsign} 0,10,9,8,7,6,5,4,3,2,1
 
 
 # - MEM5 -
