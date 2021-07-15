@@ -14,6 +14,7 @@
 # f     function table, 1-3
 # r     accumulator receiver, 1-5 on each accumulator
 # t     accumulator transciever, 6-12 on each accumulator
+# x     accumulator r- if available, else t-
 # t     selective clear transceiver, 1-6 on init unit
 # t     function table transceiver, 1-11 on each function table
 # t     constant transceiver, 2-25 (1, 26-30 are manual)
@@ -133,8 +134,13 @@ class SymbolTable:
 
   def lookup_acc(self, acc_idx, resource_type, name):
     '''Lookup/allocate a named resource on a particular accumulator'''
+    if resource_type == 'x':
+      try:
+        return (self._lookup(self.sym_acc[acc_idx]['r'], name), 'r')
+      except OutOfResources:
+        return (self._lookup(self.sym_acc[acc_idx]['t'], name), 't')
     r = self.sym_acc[acc_idx][resource_type]
-    return self._lookup(r, name)
+    return (self._lookup(r, name), resource_type)
 
   def lookup_ft(self, ft_idx, resource_type, name):
     '''Lookup/allocate a named resource on a particular ft'''
@@ -284,15 +290,16 @@ class Assembler(object):
   # returns text,symbols pair 
   def lookup_accum_arg(self, accumtext, arg):
     if '-' in arg:
-      m = re.match('(?P<prefix>[^{\d]*)(?P<name>{[rti]-[A-Za-z0-9-]+})(?P<suffix>.*)', arg)
+      m = re.match('(?P<prefix>[^{\d]*)(?P<name>{[rxti]-[A-Za-z0-9-]+})(?P<suffix>.*)', arg)
 
       prefix = m.group('prefix')
       suffix = m.group('suffix')
       name = m.group('name')[1:-1]    # strip braces
       acc_idx = int(accumtext[1:])-1  # strip 'a', convert to 0-based
-      res_type = name[0]              # r or t
+      res_type = name[0]              # r, t, or x
 
-      n = self.symbols.lookup_acc(acc_idx, res_type, name)
+      # lookup_acc will resolve res_type x into r or t
+      n, res_type = self.symbols.lookup_acc(acc_idx, res_type, name)
       if res_type=='r':
         argtext = str(n+1)
       elif res_type=='t':
@@ -312,7 +319,7 @@ class Assembler(object):
   def patch_accum(self, arg):
     # up to two lookups per accumulator patch: acc idx and program/input
     # long regex for terminal ensures that i, o, or None suffix matches t,r,i
-    m = re.match('(?P<accum>(a\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<terminal>((\d\d?|{t-[A-Za-z0-9-]+})[io]|(\d\d?|{r-[A-Za-z0-9-]+})i|{i-[A-Za-z0-9-]+}|[abgdeAS]))', arg)
+    m = re.match('(?P<accum>(a\d\d?|{a-[A-Za-z0-9-]+}))\.(?P<terminal>((\d\d?|{t-[A-Za-z0-9-]+})[io]|(\d\d?|{[rx]-[A-Za-z0-9-]+})i|{i-[A-Za-z0-9-]+}|[abgdeAS]))', arg)
     if not m:
       raise SyntaxError('bad accumulator terminal')
 

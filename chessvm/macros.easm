@@ -182,17 +182,17 @@ endmacro
 #   outp  - program line for acc>=0
 #   outm  - program line for acc<0
 defmacro discriminate inp acc dA dS outp outm
-  p $inp $acc.{t-%name}i
-  s $acc.op{t-%name} AS
+  defer p $inp $acc.{x-%name}i
+  defer s $acc.op{x-%name} AS
 
   $discriminate-pm $inp $acc $dA $dS $outp $outm
 endmacro
 
 # Discriminate and clear
 defmacro discriminatec inp acc dA dS outp outm
-  p $inp $acc.{t-%name}i
-  s $acc.op{t-%name} AS
-  s $acc.cc{t-%name} C
+  defer p $inp $acc.{x-%name}i
+  defer s $acc.op{x-%name} AS
+  defer s $acc.cc{x-%name} C
 
   $discriminate-pm $inp $acc $dA $dS $outp $outm
 endmacro

@@ -8,6 +8,7 @@ chsim_test: chsim/chsim_test.cc chsim/chsim.cc
 
 .PHONY: test clean
 test:
+	python easm/test_easm.py
 	python chasm/chasm_test.py
 	python chasm/chasm.py asm/chasm_test.asm /tmp/chasm_test.easm
 	cmp /tmp/chasm_test.easm chasm/chasm_test.easm

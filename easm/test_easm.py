@@ -25,11 +25,27 @@ class TestSymbolTable(unittest.TestCase):
       s = SymbolTable()
 
       n1 = s.lookup_acc(acc_idx, typ,'nameA')
-      self.assertEqual(n1, 0)
+      self.assertEqual(n1, (0, typ))
       n2 = s.lookup_acc(acc_idx, typ,'nameA')
       self.assertEqual(n1, n2)
       n3 = s.lookup_acc(acc_idx, typ,'nameB')
       self.assertNotEqual(n1, n3)
+
+  def test_lookup_acc_x_uses_r(self):
+    acc_idx = 5
+    s = SymbolTable()
+    n1 = s.lookup_acc(acc_idx, 'x', 'nameA')
+    self.assertEqual(n1, (0, 'r'))
+
+  def test_lookup_acc_x_uses_t_if_no_r(self):
+    acc_idx = 5
+    s = SymbolTable()
+    # consume all the r-s
+    for n in range(4):
+      _ = s.lookup_acc(acc_idx, 'r', str(n))
+    # x should now use t- instead
+    n1 = s.lookup_acc(acc_idx, 'x', 'nameA')
+    self.assertEqual(n1, (0, 't'))
 
   def test_acc_distinct(self):
     s = SymbolTable()
@@ -252,6 +268,23 @@ class TestAssembler(unittest.TestCase):
 
     # we've run out of transcievers on a1, but should still be plenty on a2
     self.run_out(a, 'p 1-1 a2.{t-', '}i', 8)
+
+  def test_accumulator_xceiver(self):
+    a = Assembler()
+    self.assertEqual(
+      a.assemble_line('p 1-1 a1.{x-name1}i'), format_comment('p 1-1 a1.1i','# 1i=x-name1'))
+    self.assertEqual(
+      a.assemble_line('p 1-1 a1.{x-name2}i'), format_comment('p 1-1 a1.2i','# 2i=x-name2'))
+    self.assertEqual(
+      a.assemble_line('p 1-1 a1.{x-name3}i'), format_comment('p 1-1 a1.3i','# 3i=x-name3'))
+    self.assertEqual(
+      a.assemble_line('p 1-1 a1.{x-name4}i'), format_comment('p 1-1 a1.4i','# 4i=x-name4'))
+    self.assertEqual(
+      a.assemble_line('p 1-1 a1.{x-name5}i'), format_comment('p 1-1 a1.5i','# 5i=x-name5'))
+    self.run_out(a, 'p 1-1 a1.{x-', '}i', 7)
+
+    # we've run out of xceivers on a1, but should still be plenty on a2
+    self.run_out(a, 'p 1-1 a2.{x-', '}i', 12)
 
   def test_accumulator_inputs(self):
     a = Assembler()
