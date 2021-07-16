@@ -140,7 +140,8 @@ endmacro
 
 # - Register File -
 # Registers A-E of the virtual machine. A is our accumulator.
-{a-rf}=a4
+# Placed in a13 so that it can be sent to the printer without copying.
+{a-rf}=a13
 $acc-main rf
 
 # RF.S is used to negate fields of RF for arithmetic.  Discard sign to avoid
@@ -295,12 +296,8 @@ $permuted-input {a-newpc} {d-main} {i-shiftl4-pc} 0,0,0,4,3,2,1,0,0,0,0
 
 
 # - MEM7 - 
-# MEM7 is a13 and is used for printing, has an input that shifts AB into printing position
-{a-mem7}=a13
-{a-print}=a13
+{a-mem7}=a4
 $acc-main mem7
-
-$permuted-input {a-print} {d-main} {i-printAB} 11,0,10,9,8,7,0,0,0,0,0
 
 
 # - MEM8 -
