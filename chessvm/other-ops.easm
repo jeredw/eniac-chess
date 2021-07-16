@@ -37,29 +37,17 @@ endif # OP_SWAPALL
 
 # - PRINT - 
 if OP_PRINT
-# Save a-print, RF-printAB->a-print, restore
-# Really the only trick here is that we can only print from a13,
-# and during the transfer we shift RF right so we print 0AABB not AABBC
 
-# PRINT->EX, clear
-$sendc {p-opprint} {a-print} {t-opprint} A {p-opprint-2}
-$loadex {p-opprint}
-
-# RF-printAB->a13. Puts AB in lower 4 digits of upper half of accumulator
-$send-rf {p-opprint-2}
-$rec {p-opprint-2} {a-print} {t-printAB} {i-printAB} i.pi # trigger print
+p {p-opprint} i.pi
 
 # prints high half accumulator 13
 s pr.2 P
-p i.po {p-opprint-3}
+s pr.pm1 2,1
+s pr.pm2 2,2
+s pr.pm3 2,3
+s pr.pm4 2,4
 
-# restore contents of MEM13
-$clear {p-opprint-3} {a-print} {t-opprint-3} {p-opprint-4}
-
-# out of pa's 
-# $storeex {p-opprint-4}
-$c-dummy {p-opprint-3} {p-storeex}
-$rec {p-opprint-4} {a-print} {t-opprint-4} {i-main} {p-fetch}
+p i.po {p-fetch}
 
 endif # OP_PRINT
 
