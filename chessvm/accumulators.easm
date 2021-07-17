@@ -398,3 +398,10 @@ p {d-main} f2.arg
 p {d-main} f3.arg
 
 
+# - Multiplier -
+# The multiplier has 24 transceivers we want to use for dummy programs, but
+# in normal operation its shift steps would trigger spurious receive programs
+# on partial product accumulators (a11 and a13) via accumulator interconnect
+# terminals which eniacsim doesn't model.  This switch setting directs eniacsim
+# to pretend we leave lhpp and rhpp interconnects disconnected instead.
+s m.pp unplug
