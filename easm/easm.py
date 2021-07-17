@@ -18,6 +18,8 @@
 # t     selective clear transceiver, 1-6 on init unit
 # t     function table transceiver, 1-11 on each function table
 # t     constant transceiver, 2-25 (1, 26-30 are manual)
+# t     multiplier transceiver, 1-14
+# ta    multiplier transceiver as pulse amp, 1-10
 # ad    adapter, 1-40 (simulator limitation) for each type
 # pa    pulse amplifier channel, 8x11
 # da    debug assertions
@@ -87,6 +89,8 @@ class SymbolTable:
       'ad.dp':  Resource('digit pulse adapters', 80, {}),
       'ad.sd':  Resource('special digit adapters', 80, {}),
       'ad.permute':  Resource('permutation adapters', 80, {}),
+      'm.ta':   Resource('multiplier transceivers (as pas)', 10, {}),
+      'm.t':    Resource('multiplier transcivers', 14, {}),
       'pa':     Resource('pulse amplifier channels', 88, {}),
       'da':     Resource('debug asserts', 40, {}),
       'db':     Resource('debug breakpoints', 40, {}),
@@ -419,6 +423,39 @@ class Assembler(object):
       return arg, {}  # literal
 
 
+  def lookup_mult_arg(self, arg):
+    m = re.match(r'(?P<prefix>[^{\d]*)(?P<terminal>(\d\d?|{ta?-[A-Za-z0-9-]+}))(?P<suffix>.*)', arg)
+    if not m: return arg, {}
+    prefix = m.group('prefix')
+    suffix = m.group('suffix')
+    terminal = m.group('terminal')[1:-1]    # strip braces
+    if terminal.startswith('t-'):
+      n = self.symbols.lookup('m.t', terminal)
+      text = f'{prefix}{11+n}{suffix}'
+      return text, {terminal: text}
+    elif terminal.startswith('ta-'):
+      m = re.match(r'ta-(?P<side>[ab])-(?P<name>[A-Za-z0-9-]+)', terminal)
+      if not m:
+        raise SyntaxError('bad mult pulseamp')
+      name = m.group('name')
+      side = m.group('side')
+      n = self.symbols.lookup('m.ta', name)
+      if side == 'a':
+        text = f'{prefix}{n+1}{suffix}'
+      elif n < 5:
+        text = f'{prefix}R{"abgde"[n]}'
+      else:
+        text = f'{prefix}D{"abgde"[n-5]}'
+      return text, {terminal: text}
+    else:
+      return arg, {}  # literal
+
+
+  def patch_mult(self, arg):
+    # patch multiplier transceiver
+    return self.lookup_mult_arg(arg)
+
+
   def patch_pulseamp(self, arg):
     # only individual pulseamp channel allocation is supported
     m = re.match(r"{pa-(?P<side>[ab])-(?P<name>[A-Za-z0-9-]+)}", arg)
@@ -446,6 +483,7 @@ class Assembler(object):
         re.compile(r"debug\..+"):         self.patch_debug,   # debug resource
         re.compile(r"i\.C.+"):            self.patch_init,    # initiating unit (selective clear)
         re.compile(r"c\.(\d\d?|{t-).+"):  self.patch_constant, # constant transceivers
+        re.compile(r"m\..+"):             self.patch_mult,    # multiplier transceivers
         re.compile(r".+"):                self.arg_literal    # etc. (all else)
     }
 
@@ -525,6 +563,13 @@ class Assembler(object):
     comment = self.symbols_to_comment(symbols1, symbols2, comment)
     return format_comment(leading_ws + ' ' + arg1 + ' ' + arg2, comment)
 
+  # e.g. s m.place{t-foo} 2
+  def line_s_mult(self, leading_ws, arg1, arg2, comment):
+    arg1, symbols1 = self.lookup_mult_arg(arg1)
+    symbols2 = {}
+    comment = self.symbols_to_comment(symbols1, symbols2, comment)
+    return format_comment(leading_ws + ' ' + arg1 + ' ' + arg2, comment)
+
 
   # e.g. s ad.permute.{ad-my-permuter} 11.10.9.8.7.6.5.4.3.2.1
   def line_s_permute(self, leading_ws, arg1, arg2, comment):
@@ -571,6 +616,9 @@ class Assembler(object):
 
     if re.match(r'c\.s{t-[A-Za-z0-9-]+}',arg1):
       raise SyntaxError(f"can't set constants for auto constant t-s")
+
+    if re.match(r'm\..+',arg1):
+      return self.line_s_mult(leading_ws, arg1, arg2, comment)
 
     if re.match(r'ad\.permute\.{ad-[0-9a-zA-Z-]+}',arg1):
       return self.line_s_permute(leading_ws, arg1, arg2, comment)

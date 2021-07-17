@@ -165,6 +165,32 @@ defmacro c-dummy inpr outpr
 endmacro
 
 
+# Multiplier transceivers can be used as dummies.
+# delay must be between 6 and 14
+defmacro m-dummy inpr delay outpr
+  p $inpr m.{t-%name}i
+  s m.place{t-%name} ${4 $delay -}
+  p m.{t-%name}o $outpr
+endmacro
+
+# Ten multiplier transceivers can be used as pulseamps by taking advantage of
+# the R and D output terminals.
+defmacro m-pulseamp inpr outpr
+  p $inpr m.{ta-a-%name}i
+  p m.{ta-b-%name} $outpr
+endmacro
+
+# Multipliers used as pulseamps can also simultaneously be used as dummies,
+# triggering outpr this cycle and outpr2 after delay cycles.
+# delay must be between 6 and 14
+defmacro m-pulseamp-dummy inpr outpr delay outpr2
+  p $inpr m.{ta-a-%name}i
+  p m.{ta-b-%name} $outpr
+  s m.place{ta-a-%name} ${4 $delay -}
+  p m.{ta-a-%name}o $outpr2
+endmacro
+
+
 # -- DISCRIMINATION --
 
 # $discriminate

@@ -54,8 +54,8 @@ $c-dummy p.A3o {p-opmovRFA}
 $c-dummy p.A4o {p-opmovLSA}
 
 # all the mov ops
-$pulseamp {p-opmovRFA} {p-opmovXA}
-$pulseamp {p-opmovLSA} {p-opmovXA}
+$m-pulseamp {p-opmovRFA} {p-opmovXA}
+$m-pulseamp {p-opmovLSA} {p-opmovXA}
 
 # Manually placed so they don't overlap with the 3-cycle p-movswapAX dummies below.
 $manual-dummy {p-opmovXA} a19 {t-opmovXA} 2 {p-opmovXA-3}
@@ -103,10 +103,10 @@ if OP_SWAP
 # TODO All swap ops start with 0x, so we could try the same trick as with MOV
 # ops, but this would break nop... do we want to renumber nop?
 #$c-dummy p.A1o {p-opswap}
-$pulseamp {p-opswapAB} {p-opswap}
-$pulseamp {p-opswapAC} {p-opswap}
-$pulseamp {p-opswapAD} {p-opswap}
-$pulseamp {p-opswapAE} {p-opswap}
+$m-pulseamp {p-opswapAB} {p-opswap}
+$m-pulseamp {p-opswapAC} {p-opswap}
+$m-pulseamp {p-opswapAD} {p-opswap}
+$m-pulseamp {p-opswapAE} {p-opswap}
 
 # Sequence operations that happen for every register
 $c-dummy {p-opswap} {p-opswap-2}

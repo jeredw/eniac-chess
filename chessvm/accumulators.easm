@@ -399,9 +399,43 @@ p {d-main} f3.arg
 
 
 # - Multiplier -
-# The multiplier has 24 transceivers we want to use for dummy programs, but
-# in normal operation its shift steps would trigger spurious receive programs
-# on partial product accumulators (a11 and a13) via accumulator interconnect
-# terminals which eniacsim doesn't model.  This switch setting directs eniacsim
-# to pretend we leave lhpp and rhpp interconnects disconnected instead.
+# The multiplier has 24 transceivers we want to use for timing, but in normal
+# operation its shift steps would trigger spurious receive programs on partial
+# product accumulators (a11 and a13) via accumulator interconnect terminals
+# which eniacsim doesn't model.  This switch setting directs eniacsim to
+# pretend we leave lhpp and rhpp interconnects disconnected instead.
 s m.pp unplug
+
+# m.R[abgde] and m.D[abgde] outputs pass an m.Ni Cpp if configured to do so,
+# but don't feed a signal back, so can effectively act as pulseamps.  Use
+# transceivers 1-10 and the $m-pulseamp macro for this.
+defmacro set-ier-icand n ier icand
+  s m.ieracc$n $ier
+  s m.icandacc$n $icand
+endmacro
+$set-ier-icand 1 a 0
+$set-ier-icand 2 b 0
+$set-ier-icand 3 g 0
+$set-ier-icand 4 d 0
+$set-ier-icand 5 e 0
+$set-ier-icand 6 0 a
+$set-ier-icand 7 0 b
+$set-ier-icand 8 0 g
+$set-ier-icand 9 0 d
+$set-ier-icand 10 0 e
+
+# Use the rest of the multiplier transceivers as normal dummies
+$set-ier-icand 11 0 0
+$set-ier-icand 12 0 0
+$set-ier-icand 13 0 0
+$set-ier-icand 14 0 0
+$set-ier-icand 15 0 0
+$set-ier-icand 16 0 0
+$set-ier-icand 17 0 0
+$set-ier-icand 18 0 0
+$set-ier-icand 19 0 0
+$set-ier-icand 20 0 0
+$set-ier-icand 21 0 0
+$set-ier-icand 22 0 0
+$set-ier-icand 23 0 0
+$set-ier-icand 24 0 0

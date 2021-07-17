@@ -254,7 +254,8 @@ $rec {p-opstoreacc-3} {a-ls} {t-opstoreacc-3} {i-main} {p-opstoreacc-4}
 
 # Wait until accumulator outputs a value, save only the sign
 #$dummy-delay-exclude {p-opstoreacc-3} 8 {p-opstoreacc-5} -a8
-$ft-dummy-exclude {p-opstoreacc-3} 8 {p-opstoreacc-5} -f3,f2
+#$ft-dummy-exclude {p-opstoreacc-3} 8 {p-opstoreacc-5} -f3,f2
+$m-dummy {p-opstoreacc-3} 8 {p-opstoreacc-5}
 
 # Jump into sub-memcyc - no pulseamp needed because p-opstoreacc-4 triggers nothing else
 p {p-opstoreacc-4} {p-sub-memcyc-2}
