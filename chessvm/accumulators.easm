@@ -296,13 +296,29 @@ $permuted-input {a-newpc} {d-main} {i-shiftl4-pc} 0,0,0,4,3,2,1,0,0,0,0
 
 
 # - MEM7 - 
+# inputs to suport mov A,[GH]
 {a-mem7}=a4
+{a-movAGH}=a4
 $acc-main mem7
+
+$permute {d-main} 0,10,9,0,0,6,5,4,3,2,1 {a-movAGH}.{i-clearG}
+$permute {d-main} 0,0,0,10,9,0,0,0,0,0,0 {a-movAGH}.{i-movAG}
+
+$permute {d-main} 0,10,9,8,7,0,0,4,3,2,1 {a-movAGH}.{i-clearH}
+$permute {d-main} 0,0,0,0,0,10,9,0,0,0,0 {a-movAGH}.{i-movAH}
 
 
 # - MEM8 -
+# inputs to suport mov A,[IJ]
 {a-mem8}=a14
+{a-movAIJ}=a14
 $acc-main mem8
+
+$permute {d-main} 0,10,9,8,7,6,5,0,0,2,1 {a-movAIJ}.{i-clearI}
+$permute {d-main} 0,0,0,0,0,0,0,10,9,0,0 {a-movAIJ}.{i-movAI}
+
+$permute {d-main} 0,10,9,8,7,6,5,4,3,0,0 {a-movAIJ}.{i-clearJ}
+$permute {d-main} 0,0,0,0,0,0,0,0,0,10,9 {a-movAIJ}.{i-movAJ}
 
 
 # - MEM9 -
