@@ -83,7 +83,7 @@ $movswap {p-opmovXA-3}
 
 # Get desired field of RF or LS in A position
 $send-rf {p-opmovRFA-4}
-$sendx {p-opmovLSA-4} {a-ls} {r-opmovLSA-4} A
+$sendx {p-opmovLSA-4} {a-ls} {x-opmovLSA-4} A
 # dummy triggers p-movswapAX
 
 # Update A in RF

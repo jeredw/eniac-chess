@@ -199,6 +199,9 @@ $permuted-input {a-ls} {d-main} {i-signonly} 11,0,0,0,0,0,0,0,0,0,0
 # shared clear LS program, used for READ, LOADACC and LOADWORD
 # use with pulseamp or dummy
 $clearx {p-clearls} {a-ls} {r-clear}
+$sendx {p-sendls} {a-ls} {r-sendls} A
+$sendcx {p-sendcls} {a-ls} {r-sendcls} A
+$recx {p-recls} {a-ls} {r-recls} {i-main}
 
 
 # - MEM0 -
@@ -404,7 +407,7 @@ p {d-main} f3.arg
 # product accumulators (a11 and a13) via accumulator interconnect terminals
 # which eniacsim doesn't model.  This switch setting directs eniacsim to
 # pretend we leave lhpp and rhpp interconnects disconnected instead.
-s m.pp unplug
+#s m.pp unplug
 
 # m.R[abgde] and m.D[abgde] outputs pass an m.Ni Cpp if configured to do so,
 # but don't feed a signal back, so can effectively act as pulseamps.  Use

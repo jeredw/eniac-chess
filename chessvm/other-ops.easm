@@ -21,16 +21,17 @@ $sendc-rf {p-opswapall-2}
 $rec {p-opswapall-2} {a-rftmp} {t-opswapall-2} {i-main} {p-opswapall-3}
 
 # LS->RF
-$sendc {p-opswapall-3} {a-ls} {t-opswapall-2} A {p-opswapall-4}
+$pulseamp {p-opswapall-3} {p-sendls} 
 $loadrf {p-opswapall-3}
+$dummy {p-opswapall-3} {p-opswapall-4}
 
 # RFTMP->LS
 $sendc {p-opswapall-4} {a-rftmp} {t-opswapall-4} A {p-opswapall-5}
-$recx {p-opswapall-4} {a-ls} {t-opswapall-4} {i-main}
+$pulseamp {p-opswapall-4} {p-recls}
 
 # EX->RFTMP, goto fetch
 $storeex {p-opswapall-5}
-$recx {p-opswapall-5} {a-rftmp} {r-opswapall-5} {i-main}
+$recx {p-opswapall-5} {a-rftmp} {x-opswapall-5} {i-main}
 
 endif # OP_SWAPALL
 
