@@ -100,13 +100,9 @@ if OP_SWAP
 # 3. MOVSWAP -> RF
 # 4. EX -> MOVSWAP
 
-# TODO All swap ops start with 0x, so we could try the same trick as with MOV
-# ops, but this would break nop... do we want to renumber nop?
-#$c-dummy p.A1o {p-opswap}
-$m-pulseamp {p-opswapAB} {p-opswap}
-$m-pulseamp {p-opswapAC} {p-opswap}
-$m-pulseamp {p-opswapAD} {p-opswap}
-$m-pulseamp {p-opswapAE} {p-opswap}
+# All swap ops are encoded as 0x to conserve pulse amplifiers.
+# This includes clrall which is a swap that doesn't trigger a movswapAX program.
+$c-dummy p.A1o {p-opswap}
 
 # Sequence operations that happen for every register
 $c-dummy {p-opswap} {p-opswap-2}

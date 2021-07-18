@@ -84,15 +84,11 @@
   print
 
 
-; 8: test add D,A, sub D,A, add XX,A
+; 8: test clrall, add D,A, sub D,A, add XX,A
 ; Add 32+32 and subtract 64
-  inc A
-  swap A,B
-
-  clr A     ; set C=D=0
-  swap A,C
-  clr A
+  mov 42,A
   swap A,D
+  clrall    ; set all regs (including D) to 0
 
   mov 64,A
   swap A,C
@@ -109,6 +105,7 @@
   sub D,A   ; should be 64-64=0
 
   swap A,B
+  mov 8,A
   print
 
 
@@ -209,15 +206,6 @@ jmpfar3
 
 
 ; Useful subroutines for memory tests
-
-clearRF
-  clr A       
-  mov A,B     ; tests chasm psuedo-instructions
-  mov A,C
-  mov A,D
-  mov A,E
-  ret
-
 fillLS        ; set LS = A A+1 A+2 A+3 A+4. Destroys RF
   mov A,B     ; B=X
   inc A
@@ -343,9 +331,9 @@ t21acc .equ 4 ; which accum
   jsr fillLS
   mov t21acc,A
   storeacc A  ; store mem4 [42 43 44 45 46]
-  jsr clearRF
+  clrall
   swapall     ; clear LS
-  jsr clearRF
+  clrall
   mov t21acc,A
   loadacc A   ; load mem4 again
   mov 42,A    ; D=42

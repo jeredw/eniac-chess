@@ -122,6 +122,14 @@ class TestOutput(AssemblerTestCase):
     self.assertEqual(self.out.output_row, 100)
     self.assertEqual(self.out.word_of_output_row, 5)
 
+  def testEmitMinus1Operands_ErrorIllegalClrall(self):
+    self.context.assembler_pass = 1
+    self.out.minus1_operands = True
+    self.out.word_of_output_row = 3
+    self.out.emit(41, 0)
+    self.out.emit(0)
+    self.assertEqual(self.out.errors, ["file:1: illegal clrall encoding at end of line"])
+
   def testEmitMinus1OperandsJmpFar(self):
     self.context.assembler_pass = 1
     self.out.minus1_operands = True
@@ -398,13 +406,13 @@ class TestV4(AssemblerTestCase):
     self.assertEqual(self.out.errors,
                      ["file:1: unrecognized opcode 'bogus' (using isa v4)"])
 
-  def testNop(self):
-    self.isa.dispatch("", "nop", "")
+  def testClrall(self):
+    self.isa.dispatch("", "clrall", "")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 0})
 
-  def testNop_ErrorArgument(self):
-    self.isa.dispatch("", "nop", "bogus")
+  def testClrall_ErrorArgument(self):
+    self.isa.dispatch("", "clrall", "bogus")
     self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
   def testSwapBA(self):
@@ -594,22 +602,6 @@ class TestV4(AssemblerTestCase):
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 41, (100, 1): 98})
 
-  def testMovLoadDirect(self):
-    self.isa.dispatch("", "mov", "[42], A")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 42, (100, 1): 41})
-
-  def testMovLoadDirectLabel(self):
-    self.context.labels = {"label": 42}
-    self.isa.dispatch("", "mov", "[label], A")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 42, (100, 1): 41})
-
-  def testMovLoadDirectLabel_ErrorOutOfRange(self):
-    self.context.labels = {"label": 123}
-    self.isa.dispatch("", "mov", "[label], A")
-    self.assertEqual(self.out.errors, ["file:1: address out of mov range '123'"])
-
   def testMovStoreDirect(self):
     self.isa.dispatch("", "mov", "A, [42]")
     self.assertFalse(self.out.errors)
@@ -634,7 +626,7 @@ class TestV4(AssemblerTestCase):
   def testMovStoreDirectB(self):
     self.isa.dispatch("", "mov", "A, [B]")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 45})
+    self.assertOutputValues({(100, 0): 42})
 
   def testMov_ErrorInvalidArgument(self):
     self.isa.dispatch("", "mov", "bogus")

@@ -1,11 +1,11 @@
 51 ORDER CODE (v4, extended registers)
 
-00 - nop
+00 - clrall       ; clear ABCDE
 01 - swap A,B
 02 - swap A,C
 03 - swap A,D
 04 - swap A,E
-05 -
+05 - (reserved for future swap)
 
 10 - loadacc A    ; acc A -> FGHIJ
 11 - storeacc A   ; FGHIJ -> acc A

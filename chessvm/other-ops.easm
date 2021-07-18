@@ -1,8 +1,5 @@
 # -- Other opcodes --
-# Implements NOP, SWAPALL, PRINT, READ, HALT
-
-# - NOP -
-p {p-op00} {p-fetch}
+# Implements SWAPALL, PRINT, READ, HALT
 
 
 # - SWAPALL -

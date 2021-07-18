@@ -27,7 +27,7 @@ flub .equ king
 ; can't redefine labels
 ;constant .equ 11  ; illegal
 ; instructions can have labels too
-labeled_instr nop
+labeled_instr clrall
 ; data tables can be declared in ft3 using .table
 ; the first word after .table is the base row address for the table (8-99)
 ; following words are data values for that and subsequent rows of the table
@@ -36,7 +36,7 @@ nomnoms .table 4, 5, 6
 
 test_each_instruction
   ; instructions must be indented
-  nop
+  clrall
   swap A, B
   swap A, C
   swap A, D
@@ -70,11 +70,7 @@ test_each_instruction
   mov king, A
   mov 10, D
   mov king, D
-  mov [king], A
-  mov [10], A
   mov [B], A
-  mov [king], A
-  mov [10], A
   mov A, [B]
   inc A
   inc B
@@ -99,95 +95,95 @@ test_each_instruction
 
   ; test that multiword instructions are forced into a single row
   .align
-  nop
-  nop
-  nop
-  nop
-  nop
+  clrall
+  clrall
+  clrall
+  clrall
+  clrall
   mov A, [10]
 
   .align
-  nop
-  nop
-  nop
-  nop
-  nop
+  clrall
+  clrall
+  clrall
+  clrall
+  clrall
   mov 99, A
 
   .align
-  nop
-  nop
-  nop
-  nop
-  nop
+  clrall
+  clrall
+  clrall
+  clrall
+  clrall
   jmp 99
 
   .align
-  nop
-  nop
-  nop
-  nop
+  clrall
+  clrall
+  clrall
+  clrall
   jmp far 399
 
   .align
-  nop
-  nop
-  nop
+  clrall
+  clrall
+  clrall
   jmp far 399
 
   .align
-  nop
-  nop
-  nop
-  nop
+  clrall
+  clrall
+  clrall
+  clrall
   jmp far 399
 
   .align
-  nop
-  nop
-  nop
-  nop
+  clrall
+  clrall
+  clrall
+  clrall
   jsr 399
 
   .align
-  nop
-  nop
-  nop
+  clrall
+  clrall
+  clrall
   jsr 399
 
   .align
-  nop
-  nop
-  nop
-  nop
+  clrall
+  clrall
+  clrall
+  clrall
   jsr 399
 
   .align
-  nop
-  nop
-  nop
-  nop
-  nop
+  clrall
+  clrall
+  clrall
+  clrall
+  clrall
   jn  99
 
   .align
-  nop
-  nop
-  nop
-  nop
-  nop
+  clrall
+  clrall
+  clrall
+  clrall
+  clrall
   jz  99
 
   .align
-  nop
-  nop
-  nop
-  nop
-  nop
+  clrall
+  clrall
+  clrall
+  clrall
+  clrall
   loop  99
 
   .align
-  nop
+  clrall
 force
   jmp force
 
@@ -195,7 +191,7 @@ target .org 99
 faraway .org 300
   .org 399
   inc A
-  nop
-  nop
-  nop
-  nop
+  clrall
+  clrall
+  clrall
+  clrall

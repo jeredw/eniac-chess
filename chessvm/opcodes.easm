@@ -1,6 +1,7 @@
 # - OPCODES -
 # Maps numeric opcodes to op programs
 
+{p-opclrall}	= {p-op00}
 {p-opswapAB}	= {p-op01}
 {p-opswapAC}	= {p-op02}
 {p-opswapAD}	= {p-op03}

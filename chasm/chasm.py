@@ -192,14 +192,18 @@ class Output(object):
           self.context.had_fatal_error = True
           break
         else:
+          if self.operand_correction != 0 and v == 0 and self.word_of_output_row == 5:
+            # For e.g. xx xx xx [41 00] [00], we'd emit 41 99 99 - since 00 is clrall,
+            # this is illegal. This is a little pathological so just error out.
+            self.error("illegal clrall encoding at end of line")
+            self.context.had_fatal_error = True
+            break
           word = (v + self.operand_correction) % 100
           self.output[index] = Value(word, comment)
           comment = ""  # comment applies to first word output
           # Carry operand correction through 99s
           # For example, for [41 00] [35], emit [41 99] [34] so that after
           # consuming the 99 operand, we're left with 35.
-          # NB for e.g. xx xx xx 41 00 00, we'll emit 41 99 99 - but this is ok
-          # because nop at the end of a line and 99 are equivalent.
           if self.operand_correction != 0 and word != 99:
             self.operand_correction = 0
           # If this emit() has operands, the next value emitted should be -1
@@ -459,7 +463,7 @@ class V4(PrimitiveParsing):
   def __init__(self, context, out):
     PrimitiveParsing.__init__(self, context, out)
     self.dispatch_table = {
-      "nop": self.op(opcode=0),
+      "clrall": self.op(opcode=0),
       "swap": self._swap,
       "loadacc": self.op(want_arg=r"A", opcode=10),
       "storeacc": self.op(want_arg=r"A", opcode=11),
