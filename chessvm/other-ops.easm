@@ -20,8 +20,8 @@ $loadex {p-opswapall}
 $sendc-rf {p-opswapall-2}
 $rec {p-opswapall-2} {a-rftmp} {t-opswapall-2} {i-main} {p-opswapall-3}
 
-# LS->RF
-$pulseamp {p-opswapall-3} {p-sendls} 
+# LS->RF, clear
+$pulseamp {p-opswapall-3} {p-sendcls}
 $loadrf {p-opswapall-3}
 $dummy {p-opswapall-3} {p-opswapall-4}
 

@@ -201,8 +201,8 @@ $sub-memcyc-branch 1014
 
 # Wait 5 cycles until the address is decoded, then LS -> MEMXX, restore accu value
 # Not an ft dummy because f1,f2 will also be active here in LOADWORD/STOREWORD
-$dummy-delay-exclude {p-sub-memcyc-4} 6 {p-sendls} -{a-memcyc09},{a-memcyc1014}
-
+# Manually placed to avoid conflict with memcyc
+$manual-dummy {p-sub-memcyc-4} {a-ir} {t-sub-memcyc-4} 6 {p-sendls}
 
 
 endif # SUB_MEMCYC
@@ -225,7 +225,7 @@ $ft-dummy-exclude {p-oploadacc} 8 {p-oploadacc-2} -f2,f3
 $pulseamp {p-oploadacc-2} {p-recls}
 
 # fetch after LS->MEMXX (of SUB_MEMCYC) finishes 
-$ft-dummy-exclude {p-oploadacc} 9 {p-fetch} -f1,f3
+$ft-dummy-exclude {p-oploadacc} 10 {p-fetch} -f1,f3
 
 endif # OP_LOADACC
 
