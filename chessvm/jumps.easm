@@ -116,7 +116,7 @@ $dummy-delay-exclude {p-sub-fargo-4} 3 {p-sub-fargo-7} -a19,a20
 # don't because t's are limited.
 #$pulseamp {p-sub-fargo-7} {p-fetchline}
 #$storeex {p-sub-fargo-7}
-$send {p-sub-fargo-7} {a-ex} {t-sub-fargo-6} A {p-fetchline}
+$sendc {p-sub-fargo-7} {a-ex} {t-sub-fargo-6} A {p-fetchline}
 $recx {p-sub-fargo-7} {a-newpc} {r-sub-fargo-7} {i-main}
 
 endif # SUB_FARGO
