@@ -196,6 +196,9 @@ $acc-main ls
 # Load only the sign. used in STOREACC to preserve DISCFT acc signs
 $permuted-input {a-ls} {d-main} {i-signonly} 11,0,0,0,0,0,0,0,0,0,0
 
+# Load only A, used in STOREACC mov A,F
+$permuted-input {a-ls} {d-main} {i-selectA} 0,10,9,0,0,0,0,0,0,0,0
+
 # shared clear LS program, used for READ, LOADACC and LOADWORD
 # use with pulseamp or dummy
 $clearx {p-clearls} {a-ls} {r-clear}

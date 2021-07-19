@@ -470,11 +470,12 @@ $loadex-clearA {p-movAF}
 
 # EX -> LS
 $storeex {p-movAF-2}
-$rec {p-movAF-2} {a-ls} {t-movAF-2} {i-main} {p-movAF-3}
+$pulseamp {p-movAF-2} {p-recls}
+$dummy {p-movAF-2} {p-movAF-3}
 
 # RF -selA -> LS
 $send-rf {p-movAF-3}
-$pulseamp {p-movAF-3} {p-recls}
+$recx {p-movAF-3} {a-ls} {t-movAF-3} {i-selectA}
 
 endif # STOREWORD_MOVS
 
@@ -495,7 +496,7 @@ if OP_STOREWORD
 
 # Start by triggering the word decode, then wait until ft shadow
 
-$break {p-opstoreword}
+#$break {p-opstoreword}
 
 $pulseamp {p-opstoreword} {p-sub-wordtop}
 $dummy-delay-exclude {p-opstoreword} 3 {p-opstoreword-2} -{a-loadword}
@@ -541,7 +542,7 @@ $ft-dummy-exclude {p-opstoreword-6} 11 {p-opstoreword-7} -f2,f3
 
 # 19. acc->LS when memcycle starts, triggered by f1 timer
 $pulseamp {p-opstoreword-7} {p-recls}
-$break {p-opstoreword-7}
+#$break {p-opstoreword-7}
 
 # 20. LS -> memacc
 
