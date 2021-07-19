@@ -569,7 +569,7 @@ $ft-dummy-exclude {p-opstoreword-7} 7 {p-sub-wordcyc} -f2
 # 37. LS -> acc
 
 # wait and finish (too long for one ft dummy)
-$ft-dummy-exclude {p-opstoreword-7} 10 {p-opstoreword-8} -f2,f3
+$m-dummy {p-opstoreword-7} 10 {p-opstoreword-8}
 $ft-dummy-exclude {p-opstoreword-8} 9 {p-fetch} -f3
 
 endif   # OP_STOREWORD

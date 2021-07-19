@@ -80,7 +80,6 @@ $manual-dummy {p-opmovXA} a20 {t-opmovXA} 7 {p-opmovXA-7}
 # Get desired field of RF or LS in A position
 $send-rf {p-opmovRFA-6}
 $sendx {p-opmovLSA-6} {a-ls} {x-opmovLSA-6} A
-# m-dummy triggers p-movswapAX
 
 # Update A in RF
 $recx {p-opmovXA-7} {a-rf} {t-opmovXA-7} {i-selectA}

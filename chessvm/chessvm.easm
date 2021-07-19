@@ -16,16 +16,16 @@
 disable PRELOAD_MEMORY
 if PRELOAD_MEMORY
 # memory values to check that various instructions save and restore
-set a4  8806000000
+set a4  0404040404
 set a5  9988776655  
-set a6  0606060606
+set a6  0616263646
 set a7  0717273747
 set a8  0808080808
 set a9  0909090909
 set a10 1010101010
 set a11 1111111111
 set a12 1212121212 
-set a13 1313131313 
+set a13 8806000000
 set a14 1414141414
 set a15 1515151515
 set a16 1616161616
@@ -43,29 +43,29 @@ enable CONTROL_CYCLE  #  9 pas, 18 ts
 enable OP_LOADACC     #  1 pas,  1 ts
 enable OP_STOREACC    #  1 pas,  5 ts
 enable OP_LOADWORD   
-disable OP_STOREWORD   
+enable OP_STOREWORD   
 enable ACC_MEMCYC
 enable SUB_MEMCYC     
 enable LOADWORD_DUMMIES
 enable STOREWORD_DUMMIES
-disable STOREWORD_MOVS
+enable STOREWORD_MOVS
 enable OP_SWAPALL     #  4 pas,  6 ts
 # - word access (14 pas, 28 ts)
 enable OP_SWAP        #  7 pas,  8 ts
-enable OP_MOVXA       #  5 pas, 14 ts
+disable OP_MOVXA       #  5 pas, 14 ts
 enable SUB_MOVSWAP    #  2 pas,  6 ts (OP_SWAP, OP_MOVXA)
 # - arithmetic (15 pas, 9 ts)
 enable OP_MOVIMMA     #  3 pas,  1 ts
 enable OP_INC         #  0 pas,  0 ts
 enable OP_DEC         #  1 pas,  0 ts
 enable OP_ADD         #  4 pas,  4 ts
-enable OP_ADDIMMA     #  ? pas,  ? ts
+enable OP_ADDIMMA     #  ? pas,  ? ts (also required for OP_MOVIMMA)
 enable OP_SUB         #  6 pas,  3 ts
 enable OP_CLRA        #  1 pas,  1 ts
 # - control flow (19 pas, 26 ts)
-enable OP_JMPFAR      #  1 pas,  2 ts
-enable OP_JSR         #  1 pas,  2 ts
-enable OP_RET         #  1 pas,  2 ts
+disable OP_JMPFAR      #  1 pas,  2 ts
+disable OP_JSR         #  1 pas,  2 ts
+disable OP_RET         #  1 pas,  2 ts
 enable OP_JMP         #  0 pas,  0 ts
 enable OP_JN          #  2 pas,  2 ts
 enable OP_JZ          #  1 pas,  1 ts
@@ -74,11 +74,11 @@ enable OP_FTL         #  1 pas,  1 ts
 enable SUB_DISCJX     #  2 pas,  2 ts (OP_JZ, OP_JIL, OP_FTL)
 enable SUB_JX         #  3 pas,  5 ts (OP_JN, OP_JZ, OP_JIL)
 enable SUB_JMP        #  1 pas,  4 ts (OP_JMP, SUB_JX)
-enable SUB_FARGO      #  6 pas,  4 ts (OP_JMPFAR, OP_JSR, OP_RET)
+disable SUB_FARGO      #  6 pas,  4 ts (OP_JMPFAR, OP_JSR, OP_RET)
 enable SUB_DISCFT     #  0 pas,  1 ts (SUB_FARGO)
 # - misc (8 pas, 13 ts)
 enable OP_PRINT       #  0 pas,  0 ts
-enable OP_READ        #  0 pas,  2 ts
+disable OP_READ        #  0 pas,  2 ts
 enable SUB_CONSUME_OP #  2 pas,  3 ts (OP_MOVIMMA, SUB_JX)
 enable SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA, OP_CLRA, OP_MOVIMMA)
 # loadpc              #  0 pas,  0 ts
@@ -101,8 +101,8 @@ include control-cycle.easm
 include opcodes.easm
 include arithmetic.easm
 include jumps.easm
-include movswap.easm
 include memory.easm
+include movswap.easm
 include other-ops.easm
 
 # Allocate dummies after other all other accumulator programs are configured.
