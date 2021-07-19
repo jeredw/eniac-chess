@@ -845,10 +845,10 @@ class TestV4(AssemblerTestCase):
     self.isa.dispatch("", "ret", "bogus")
     self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
-  def testReadAB(self):
+  def testRead(self):
     self.isa.dispatch("", "read", "")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 91})
+    self.assertOutputValues({(100, 0): 12, (100, 1): 0, (100, 2): 12, (100, 3): 91})
 
   def testRead_ErrorInvalidArgument(self):
     self.isa.dispatch("", "read", "bogus")

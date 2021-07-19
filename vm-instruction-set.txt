@@ -57,7 +57,7 @@
 85 - ret
 
 90 - clr A
-91 - read         ; read 5 digits from card into LS (FFGGH)
+91 - read         ; read 5 digits from card into LS (FFGGH) (NB doesn't clear LS first)
 92 - print        ; print 5 digits from RF (0AABB)
 93 -
 94 -

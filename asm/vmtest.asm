@@ -423,10 +423,6 @@ t22out
 
 ; 23: test READ
 t23
-  ; XXX assembler should generate this clearing code for LS
-  swapall
-  clrall
-  swapall
   read     ; read 01020 into LS (clear other digits)
   swapall  ; A=01, B=02
   dec A    ; A=00

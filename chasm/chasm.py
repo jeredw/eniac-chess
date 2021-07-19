@@ -483,7 +483,7 @@ class V4(PrimitiveParsing):
       "jsr": self._jsr,
       "ret": self._ret,
       "clr": self.op(want_arg=r"A", opcode=90),
-      "read": self.op(opcode=91),
+      "read": self._read,
       "print": self.op(opcode=92),
       "nextline": self.op(opcode=94),
       "halt": self.op(opcode=95),
@@ -634,6 +634,16 @@ class V4(PrimitiveParsing):
   def _ret(self, label, op, arg):
     self._generic(label, op, arg, opcode=85)
     self.out.pad_to_new_row()  # The rest of the row is unreachable
+
+  def _read(self, label, op, arg):
+    if arg:
+      self.out.error(f"unexpected argument '{arg}'")
+      return
+    # help the hw out by clearing LS before read (it does not do so)
+    self.out.emit(12, comment=f"{op} sequence")  # swapall
+    self.out.emit(0)   # clrall
+    self.out.emit(12)  # swapall
+    self.out.emit(91)  # read
 
   def _comment(self, op, arg, symbol, word):
     # helper to symbolize comments
