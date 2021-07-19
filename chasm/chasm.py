@@ -565,10 +565,8 @@ class V4(PrimitiveParsing):
       if m:
         symbol = m.group(1)
         word = self._word_or_label(symbol)
-        if 0 <= word <= 99:
-          self.out.emit(71, word, comment=self._comment(op, arg, symbol, word))
-        else:
-          self.out.error(f"add immediate argument out of range '{word}'")
+        self.out.emit(71, word % 100,
+                      comment=self._comment(op, arg, symbol, word))
       else:
         self.out.error(f"invalid argument '{arg}'")
 

@@ -665,9 +665,11 @@ class TestV4(AssemblerTestCase):
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 71, (100, 1): 98})
 
-  def testAddImmediateA_ErrorOutOfRange(self):
-    self.isa.dispatch("", "add", "100, A")
-    self.assertEqual(self.out.errors, ["file:1: invalid value '100': overflow"])
+  def testAddImmediateAWraps(self):
+    self.context.labels = {"sometab": 308}
+    self.isa.dispatch("", "add", "sometab, A")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 71, (100, 1): 7})
 
   def testAdd_ErrorInvalidArgument(self):
     self.isa.dispatch("", "add", "B, A")

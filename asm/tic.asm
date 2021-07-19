@@ -1,5 +1,5 @@
 ; eniac-tac-toe: tic tac toe search program for ENIAC chess vm
-; The board is stored in A,B,C in accs 0,1,2, indexed as
+; The board is stored in accs 0 and 1, words 1-9, indexed as
 ;  123
 ;  456
 ;  789
@@ -18,35 +18,35 @@
 
   ; Slightly faster initial game state for testing...
   ;mov 2,A
-  ;swap A,B ; B=play O
-  ;mov 2,A  ; A=top middle
-  ;jsr move
-  ;mov 1,A
-  ;swap A,B ; B=play X
-  ;mov 9,A  ; A=bottom right
-  ;jsr move
+  ;swap A,B      ; B=top middle
+  ;mov 2,A       ; A=play O
+  ;mov A,[B]
+  ;mov 9,A
+  ;swap A,B      ; B=bottom right
+  ;mov 1,A       ; A=play X
+  ;mov A,[B]
 
   ; eniac goes first and always plays X in the center
   ; (avoiding a really long search of the entire game)
-  mov 1,A
-  swap A,B  ; B=play X
-  mov 5,A   ; A=center square
-  jsr move
+  mov 5,A
+  swap A,B      ; B=center square
+  mov 1,A       ; A=play X
+  mov A,[B]
   jsr printb
 
 game
-  read            ; human plays next; read move into LS
-  mov 2,A         ;
-  swap A,B        ; B=play O
-  mov F,A         ; A=where to play
-  jsr move
+  read          ; human plays next; read move into LS
+  mov F,A       ;
+  swap A,B      ; B=where to play
+  mov 2,A       ; A=play O
+  mov A,[B]
   jsr printb
 
   jsr isooo
-  jz end_owins    ; if O wins, exit
+  jz end_owins  ; if O wins, exit
   jsr isfull
   jz setup_search ; A=0 means still free squares
-  jmp end_draw    ; if draw, exit
+  jmp end_draw  ; if draw, exit
 
 setup_search
   ; set up the initial search stack frame
@@ -78,13 +78,12 @@ search
   ; this signals the start of a search at new depth
   mov G,A       ; A=last_move
   jz new_depth  ; if last_move is 0, new recursive search
-cur_depth
+
   ; iterating over possible moves at current depth
   ; clear out the square for last trial move
-  clr A
-  swap A,B      ; B=0
-  mov G,A       ; A=last_move index
-  jsr move      ; erase last trial move
+  swap A,B      ; B=last_move_index
+  clr A         ; A=0
+  mov A,[B]     ; erase last trial move
 
   mov E,A       ; A=SP
   loadacc A     ; reload frame
@@ -188,31 +187,29 @@ initmove
 ; on entry to checkmove, A is the square we want to search
 checkmove
   jz asearch    ; if A is 0 no more moves at this depth
-  mov A,D       ; stash A since peek destroys it
-  jsr peek
+  mov A,B       ; get square in B
+  mov [B],A     ; lookup this square
   jz domove     ; if square is empty do it
-  swap A,D      ; get stashed move #
+  swap A,B      ; get stashed move #
   dec A         ; try previous square
   jmp checkmove
 asearch
   swap A,E
   jmp search
 
-; D has the square to move to
+; B has the square to move to
 domove
   mov E,A
   loadacc A     ; restore stack frame
-  mov F,A       ; B=player
-  swap A,B      ; 
-  mov D,A       ; A=square
-  jsr move      ; mark square for player
+  mov F,A       ; A=player
+  mov A,[B]     ; mark square for player
 
   ; push a new stack entry to remember iteration state
   mov E,A       ; A=SP
   loadacc A     ; load current stack frame (already has best* updated)
   swapall
   swap A,B
-  mov I,A       ; update B=last_move (still saved in D/I)
+  mov G,A       ; update B=last_move (still saved in B/G)
   swap A,B
   swapall
   storeacc A    ; push new entry
@@ -255,16 +252,16 @@ search_out
   ; place an X at the final best move position
   mov 3,A
   loadacc A
-  mov 1,A
-  swap A,B  ; B=play X
-  mov I,A   ; A=best_move
-  jsr move
+  mov I,A      ;
+  swap A,B     ; B=best_move
+  mov 1,A      ; A=play X
+  mov A,[B]
   jsr printb
 
   jsr isxxx
-  jz end_xwins ; if X wins, exit
+  jz end_xwins  ; if X wins, exit
   jsr isfull
-  jz game      ; A=0 means still free squares
+  jz game       ; A=0 means still free squares
   jmp end_draw
 
 ; stack underflow
@@ -307,13 +304,34 @@ end_owins:
 ; print the current board state
 printb
   clr A
+  inc A         ; board begins at [1]
 printb_loop
-  loadacc A
-  swapall
+  swap A,B
+  ; read next row into E,D,C
+  mov [B],A     ;
+  swap A,E      ; get r,0 into E
+  swap A,B      ; inc r
+  inc A
+  swap A,B
+  mov [B],A     ;
+  swap A,D      ; get r+1,0 into D
+  swap A,B      ; inc r
+  inc A
+  swap A,B
+  mov [B],A     ;
+  swap A,C      ; get r+2,0 into C
+  swap A,B      ; inc r
+  inc A
+  ; rearrange so row is in A,B,C
+  swap A,D      ; swap r+1,0 into B
+  swap A,B
+  swap A,D
+  swap A,E      ; swap r,0 into A and stash R in E
+
   ; multiply B by 10 and add C to it
-  swap A,B    ;
-  mov A,D     ; A=D=B
-  add D,A     ; A=B+9*B
+  swap A,B      ;
+  mov A,D       ; A=D=B
+  add D,A       ; A=B+9*B
   add D,A
   add D,A
   add D,A
@@ -322,557 +340,174 @@ printb_loop
   add D,A
   add D,A
   add D,A
-  swap A,C    ; 
-  mov A,D     ; D=C
-  swap A,C    ; get back 10*B
-  add D,A     ; A=10*B+C
-  swap A,B    ; now we have A=0a B=bc
+  swap A,C      ;
+  mov A,D       ; D=C
+  swap A,C      ; get back 10*B
+  add D,A       ; A=10*B+C
+  swap A,B      ; now we have A=0a B=bc
   print
-  swapall
-  inc A
-  dec A       ; -2 to test for A=2
-  dec A       ;
-  dec A
-  jz printb_out
-  inc A
-  inc A
-  inc A
+
+  mov E,A
+  add 90,A      ; test if square >= 10
+  jn printb_out
+  clr A
+  swap A,E      ; restore square
   jmp printb_loop
 printb_out
-  ret
-
-  .org 310
-
-; put a word in the board array
-; A: board location (1-9)
-; B: what to put there
-move
-  dec A
-  jz move_0A
-  dec A
-  jz move_0B
-  dec A
-  jz move_0C
-  dec A
-  jz move_1A
-  dec A
-  jz move_1B
-  dec A
-  jz move_1C
-  dec A
-  jz move_2A
-  dec A
-  jz move_2B
-move_2C
-  mov 2,A
-  loadacc A
-  jmp move_C
-move_2B
-  mov 2,A
-  loadacc A
-  jmp move_B
-move_2A
-  mov 2,A
-  loadacc A
-  jmp move_A
-move_1C
-  mov 1,A
-  loadacc A
-  jmp move_C
-move_1B
-  mov 1,A
-  loadacc A
-  jmp move_B
-move_1A
-  mov 1,A
-  loadacc A
-  jmp move_A
-move_0C
-  clr A
-  loadacc A
-  jmp move_C
-move_0B
-  clr A
-  loadacc A
-  jmp move_B
-move_0A
-  clr A
-  loadacc A
-move_A
-  swapall
-  mov G,A         ; put G (i.e. B) into A position
-  swapall
-  storeacc A
-  ret
-move_B
-  swapall
-  swap A,B        ; put G (i.e. B) into B position
-  mov G,A         ;
-  swap A,B        ;
-  swapall
-  storeacc A
-  ret
-move_C
-  swapall
-  swap A,C        ; put G (i.e. B) into C position
-  mov G,A         ;
-  swap A,C        ;
-  swapall
-  storeacc A
-  ret
-
-; peek in board array
-; A=board location (1-9)
-; return board data in A
-peek
-  dec A
-  jz peek_0A
-  dec A
-  jz peek_0B
-  dec A
-  jz peek_0C
-  dec A
-  jz peek_1A
-  dec A
-  jz peek_1B
-  dec A
-  jz peek_1C
-  dec A
-  jz peek_2A
-  dec A
-  jz peek_2B
-peek_2C
-  mov 2,A
-  loadacc A
-  jmp peek_C
-peek_2B
-  mov 2,A
-  loadacc A
-  jmp peek_B
-peek_2A
-  mov 2,A
-  loadacc A
-  jmp peek_A
-peek_1C
-  mov 1,A
-  loadacc A
-  jmp peek_C
-peek_1B
-  mov 1,A
-  loadacc A
-  jmp peek_B
-peek_1A
-  mov 1,A
-  loadacc A
-  jmp peek_A
-peek_0C
-  clr A
-  loadacc A
-  jmp peek_C
-peek_0B
-  clr A
-  loadacc A
-  jmp peek_B
-peek_0A
-  clr A
-  loadacc A
-peek_A
-  mov F,A
-  ret
-peek_B
-  mov G,A
-  ret
-peek_C
-  mov H,A
   ret
 
   .org 200
 
 ; return A=0 if there are open squares, else nonzero
 isfull
-  mov 2,A
+  mov 1,A       ; start scan from A=1
 isfull_loop
-  loadacc A
-  swapall
-  jz isfull_no    ; if A==0 return 0
   swap A,B
-  jz isfull_no    ; if B==0 return 0
-  swap A,C
-  jz isfull_no    ; if C==0 return 0
-  swapall
-  dec A
-  jn isfull_yes   ; if all squares occupied return P01
+  mov [B],A     ; get square at [B]
+  jz isfull_no  ; if empty, not full
+  mov B,A
+  add 90,A      ; test B with 10
+  jn isfull_yes
   jmp isfull_loop
 isfull_no
-  swapall
-  clr A
-  ret
+  ret           ; A=0 here
 isfull_yes
-  inc A
+  clr A
   inc A
   ret
 
+
+; runs of squares to check in the board
+runs .table 1,2,3 , 4,5,6 , 7,8,9 , 1,4,7 , 2,5,8 , 3,6,9 , 1,5,9 ,  3,5,7
 
 ; return A=0 if X wins else nonzero
 isxxx
-; check rows for XXX
-  mov 2,A
-rowxxx
-  loadacc A
-  swapall
-  dec A           ; if A=='X' goto _1
-  jz rowxxx_1     ;
-  jmp rowxxx_next ; return nonzero
-rowxxx_1
+  clr A         ;
+  swap A,D      ; D=0 is the index in the runs table
+isxxx_run
+  clr A
+  swap A,D      ; A=index D=0
+  mov A,B
+  add runs,A
+  ftl A,D       ; get next square# to check 
   swap A,B
-  dec A           ; if A=='X' goto _2
-  jz rowxxx_2     ;
-  jmp rowxxx_next ; return nonzero
-rowxxx_2
-  swap A,C
-  dec A           ; if A=='X' return 0
-  jz isxxx_out_yes
-rowxxx_next
-  swapall
-  dec A
-  jn rowxxx_out   ; all rows checked
-  jmp rowxxx
-rowxxx_out
-
-; check col A for XXX
-  clr A
-  loadacc A       ; load row 0
-  swapall
-  dec A           ; if A=='X' goto _1
-  jz colaxxx_1    ;
-  jmp colaxxx_out ; return nonzero
-colaxxx_1
-  swapall
   inc A
-  loadacc A       ; load row 1
-  swapall
-  dec A           ; if A=='X' goto _2
-  jz colaxxx_2    ;
-  jmp colaxxx_out ; return nonzero
-colaxxx_2
-  swapall
+  swap A,D      ; A=square D=index++
+  swap A,B      ; square in B
+  mov [B],A     ; check square
+  dec A         ;
+  jz isxxx_run2 ; if square=='X' goto run2
+  swap A,D      ; next run index
+  inc A         ; skip to next run
   inc A
-  loadacc A       ; load row 2
-  swapall
-  dec A           ; if A=='X' return 0
-  jz isxxx_out_yes
-colaxxx_out
-  swapall
-
-; check col B for XXX
+  jmp isxxx_next
+isxxx_run2
   clr A
-  loadacc A       ; load row 0
-  swapall
+  swap A,D      ; A=index D=0
+  mov A,B
+  add runs,A
+  ftl A,D       ; get next square# to check 
   swap A,B
-  dec A           ; if A=='X' goto _1
-  jz colbxxx_1    ;
-  jmp colbxxx_out ; return nonzero
-colbxxx_1
-  swapall
   inc A
-  loadacc A       ; load row 1
-  swapall
+  swap A,D      ; A=square D=index++
+  swap A,B      ; square in B
+  mov [B],A     ; check square
+  dec A         ;
+  jz isxxx_run3 ; if square=='X' goto run2
+  swap A,D      ; next run index
+  inc A         ; skip to next run
+  jmp isxxx_next
+isxxx_run3
+  clr A
+  swap A,D      ; A=index D=0
+  mov A,B
+  add runs,A
+  ftl A,D       ; get next square# to check 
   swap A,B
-  dec A           ; if A=='X' goto _2
-  jz colbxxx_2    ;
-  jmp colbxxx_out ; return nonzero
-colbxxx_2
-  swapall
   inc A
-  loadacc A       ; load row 2
-  swapall
-  swap A,B
-  dec A           ; if A=='X' return 0
-  jz isxxx_out_yes
-colbxxx_out
-  swapall
-
-; check col C for xxx
-  clr A
-  loadacc A       ; load row 0
-  swapall
-  swap A,C
-  dec A           ; if A=='X' goto _1
-  jz colcxxx_1    ;
-  jmp colcxxx_out ; return nonzero
-colcxxx_1
-  swapall
-  inc A
-  loadacc A       ; load row 1
-  swapall
-  swap A,C
-  dec A           ; if A=='X' goto _2
-  jz colcxxx_2    ;
-  jmp colcxxx_out ; return nonzero
-colcxxx_2
-  swapall
-  inc A
-  loadacc A       ; load row 2
-  swapall
-  swap A,C
-  dec A           ; if A=='X' return 0
-  jz isxxx_out_yes
-colcxxx_out
-  swapall
-
-; check \ diagonal for xxx
-  clr A
-  loadacc A       ; load row 0
-  swapall
-  dec A           ; if A=='X' goto _1
-  jz diag0xxx_1    ;
-  jmp diag0xxx_out ; return nonzero
-diag0xxx_1
-  swapall
-  inc A
-  loadacc A       ; load row 1
-  swapall
-  swap A,B
-  dec A           ; if A=='X' goto _2
-  jz diag0xxx_2    ;
-  jmp diag0xxx_out ; return nonzero
-diag0xxx_2
-  swapall
-  inc A
-  loadacc A       ; load row 2
-  swapall
-  swap A,C
-  dec A           ; if A=='X' return 0
-  jz isxxx_out_yes
-diag0xxx_out
-  swapall
-
-; check / diagonal for xxx
-  clr A
-  loadacc A       ; load row 0
-  swapall
-  swap A,C
-  dec A           ; if A=='X' goto _1
-  jz diag1xxx_1   ;
-  swapall
-  clr A
-  inc A
-  ret             ; return nonzero
-diag1xxx_1
-  swapall
-  inc A
-  loadacc A       ; load row 1
-  swapall
-  swap A,B
-  dec A           ; if A=='X' goto _2
-  jz diag1xxx_2   ;
-  swapall
-  clr A
-  inc A
-  ret             ; return nonzero
-diag1xxx_2
-  swapall
-  inc A
-  loadacc A       ; load row 2
-  swapall
-  dec A           ; if A=='X' return 0
-  jz isxxx_out_yes
-  swapall
+  swap A,D      ; A=square D=index++
+  swap A,B      ; square in B
+  mov [B],A     ; check square
+  dec A         ;
+  jz isxxx_yes  ; if square=='X' found run
+  swap A,D      ; next run index
+  ; fall through to isxxx_next
+isxxx_next
+  mov A,D
+  add 76,A      ;
+  jn isxxx_no   ; if run index >= 24, return
+  jmp isxxx_run ; else keep scanning
+isxxx_no:
   clr A
   inc A
   ret
-isxxx_out_yes
-  swapall
-  clr A
-  ret
+isxxx_yes:
+  ret           ; A=0 here
 
 
 ; return A=0 if O wins else nonzero
 isooo
-; check rows for ooo
-  mov 2,A
-rowooo
-  loadacc A
-  swapall
-  dec A           ; if A=='O' goto _1
-  dec A           ;
-  jz rowooo_1     ;
-  jmp rowooo_next ; return nonzero
-rowooo_1
+  clr A         ;
+  swap A,D      ; D=0 is the index in the runs table
+isooo_run
+  clr A
+  swap A,D      ; A=index D=0
+  mov A,B
+  add runs,A
+  ftl A,D       ; get next square# to check 
   swap A,B
-  dec A           ; if A=='O' goto _2
-  dec A           ;
-  jz rowooo_2     ;
-  jmp rowooo_next ; return nonzero
-rowooo_2
-  swap A,C
-  dec A           ; if A=='O' return 0
-  dec A           ;
-  jz isooo_out_yes
-rowooo_next
-  swapall
-  dec A
-  jn rowooo_out   ; all rows checked
-  jmp rowooo
-rowooo_out
-
-; check col A for ooo
-  clr A
-  loadacc A       ; load row 0
-  swapall
-  dec A           ; if A=='O' goto _1
-  dec A           ;
-  jz colaooo_1    ;
-  jmp colaooo_out ; return nonzero
-colaooo_1
-  swapall
   inc A
-  loadacc A       ; load row 1
-  swapall
-  dec A           ; if A=='O' goto _2
-  dec A           ;
-  jz colaooo_2    ;
-  jmp colaooo_out ; return nonzero
-colaooo_2
-  swapall
+  swap A,D      ; A=square D=index++
+  swap A,B      ; square in B
+  mov [B],A     ; check square
+  dec A         ;
+  dec A         ;
+  jz isooo_run2 ; if square=='O' goto run2
+  swap A,D      ; next run index
+  inc A         ; skip to next run
   inc A
-  loadacc A       ; load row 2
-  swapall
-  dec A           ; if A=='O' return 0
-  dec A           ;
-  jz isooo_out_yes
-colaooo_out
-  swapall
-
-; check col B for ooo
+  jmp isooo_next
+isooo_run2
   clr A
-  loadacc A       ; load row 0
-  swapall
+  swap A,D      ; A=index D=0
+  mov A,B
+  add runs,A
+  ftl A,D       ; get next square# to check 
   swap A,B
-  dec A           ; if A=='O' goto _1
-  dec A           ;
-  jz colbooo_1    ;
-  jmp colbooo_out ; return nonzero
-colbooo_1
-  swapall
   inc A
-  loadacc A       ; load row 1
-  swapall
+  swap A,D      ; A=square D=index++
+  swap A,B      ; square in B
+  mov [B],A     ; check square
+  dec A         ;
+  dec A         ;
+  jz isooo_run3 ; if square=='O' goto run2
+  swap A,D      ; next run index
+  inc A         ; skip to next run
+  jmp isooo_next
+isooo_run3
+  clr A
+  swap A,D      ; A=index D=0
+  mov A,B
+  add runs,A
+  ftl A,D       ; get next square# to check 
   swap A,B
-  dec A           ; if A=='O' goto _2
-  dec A           ;
-  jz colbooo_2    ;
-  jmp colbooo_out ; return nonzero
-colbooo_2
-  swapall
   inc A
-  loadacc A       ; load row 2
-  swapall
-  swap A,B
-  dec A           ; if A=='O' return 0
-  dec A           ;
-  jz isooo_out_yes
-colbooo_out
-  swapall
-
-; check col C for ooo
-  clr A
-  loadacc A       ; load row 0
-  swapall
-  swap A,C
-  dec A           ; if A=='O' goto _1
-  dec A           ;
-  jz colcooo_1    ;
-  jmp colcooo_out ; return nonzero
-colcooo_1
-  swapall
-  inc A
-  loadacc A       ; load row 1
-  swapall
-  swap A,C
-  dec A           ; if A=='O' goto _2
-  dec A           ;
-  jz colcooo_2    ;
-  jmp colcooo_out ; return nonzero
-colcooo_2
-  swapall
-  inc A
-  loadacc A       ; load row 2
-  swapall
-  swap A,C
-  dec A           ; if A=='O' return 0
-  dec A           ;
-  jz isooo_out_yes
-colcooo_out
-  swapall
-
-; check \ diagonal for ooo
-  clr A
-  loadacc A       ; load row 0
-  swapall
-  dec A           ; if A=='O' goto _1
-  dec A           ;
-  jz diag0ooo_1    ;
-  jmp diag0ooo_out ; return nonzero
-diag0ooo_1
-  swapall
-  inc A
-  loadacc A       ; load row 1
-  swapall
-  swap A,B
-  dec A           ; if A=='O' goto _2
-  dec A           ;
-  jz diag0ooo_2    ;
-  jmp diag0ooo_out ; return nonzero
-diag0ooo_2
-  swapall
-  inc A
-  loadacc A       ; load row 2
-  swapall
-  swap A,C
-  dec A           ; if A=='O' return 0
-  dec A           ;
-  jz isooo_out_yes
-diag0ooo_out
-  swapall
-
-; check / diagonal for ooo
-  clr A
-  loadacc A       ; load row 0
-  swapall
-  swap A,C
-  dec A           ; if A=='O' goto _1
-  dec A           ;
-  jz diag1ooo_1   ;
-  swapall
-  clr A
-  inc A
-  ret             ; return nonzero
-diag1ooo_1
-  swapall
-  inc A
-  loadacc A       ; load row 1
-  swapall
-  swap A,B
-  dec A           ; if A=='O' goto _2
-  dec A           ;
-  jz diag1ooo_2   ;
-  swapall
-  clr A
-  inc A
-  ret             ; return nonzero
-diag1ooo_2
-  swapall
-  inc A
-  loadacc A       ; load row 2
-  swapall
-  dec A           ; if A=='O' return 0
-  dec A           ;
-  jz isooo_out_yes
+  swap A,D      ; A=square D=index++
+  swap A,B      ; square in B
+  mov [B],A     ; check square
+  dec A         ;
+  dec A         ;
+  jz isooo_yes  ; if square=='O' found run
+  swap A,D      ; next run index
+  ; fall through to isooo_next
+isooo_next
+  mov A,D
+  add 76,A      ;
+  jn isooo_no   ; if run index >= 24, return
+  jmp isooo_run ; else keep scanning
+isooo_no:
   clr A
   inc A
   ret
-isooo_out_yes
-  swapall
-  clr A
-  ret
+isooo_yes:
+  ret           ; A=0 here
