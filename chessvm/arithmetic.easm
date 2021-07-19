@@ -15,7 +15,7 @@ $loadex-clearA {p-sub-clearA}
 
 # EX -> RF
 #$storeex {p-sub-clearA-2}
-$c-dummy {p-sub-clearA} {p-storeex}
+$i-dummy {p-sub-clearA} {p-storeex}
 $loadrf {p-sub-clearA-2}
 
 endif # SUB_CLEARA

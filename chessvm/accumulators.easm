@@ -415,6 +415,7 @@ s m.pp unplug
 defmacro set-ier-icand n ier icand
   s m.ieracc$n $ier
   s m.icandacc$n $icand
+  s m.prod$n 0
 endmacro
 $set-ier-icand 1 a 0
 $set-ier-icand 2 b 0

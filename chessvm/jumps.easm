@@ -85,12 +85,13 @@ if SUB_FARGO
 # 5. NEWPC -> PC                        $discft-2
 #  . EX -> NEWPC             (parallel with p-fetchline)
 defmacro fargo prog
-  $pulseamp $prog {p-sub-fargo}
+  $m-pulseamp $prog {p-sub-fargo}
 endmacro
 
 # Save newpc in ex
 $sendc {p-sub-fargo} {a-newpc} {t-sub-fargo} A {p-sub-fargo-2}
-$loadex {p-sub-fargo}
+#$loadex {p-sub-fargo}
+$recx {p-sub-fargo} {a-ex} {t-sub-fargo} {i-main}
 
 # Set new PC from IR (JMP FAR/JSR) or nop (RET)
 $rec {p-sub-fargo-2} {a-newpc} {t-sub-fargo-2} {i-extract-pc} {p-sub-fargo-3}
@@ -98,17 +99,24 @@ $rec {p-sub-fargo-2} {a-newpc} {t-sub-fargo-2} {i-extract-pc} {p-sub-fargo-3}
 # Set new return address from PC (all) and deselect current FT
 $sendc {p-sub-fargo-3} {a-pc} {t-sub-fargo-3} A {p-sub-fargo-5}
 s {a-pc}.rp{t-sub-fargo-3} 2
-$discft {p-sub-fargo-3}
+#$discft {p-sub-fargo-3}
+$dummy {p-sub-fargo-2} {p-sub-discft}
+$dummy {p-sub-fargo-3} {p-sub-fargo-4}
 
 # Select new function table and update PC
 $sendc {p-sub-fargo-5} {a-newpc} {t-sub-fargo-5} A {p-sub-fargo-7}
 s {a-newpc}.rp{t-sub-fargo-5} 2
-$discft {p-sub-fargo-5}
-$loadpc {p-sub-fargo-5}
+#$discft {p-sub-fargo-5}
+$manual-dummy {p-sub-fargo-4} a16 {t-sub-fargo-4} 1 {p-sub-discft}
+#$loadpc {p-sub-fargo-5}
+$manual-dummy {p-sub-fargo-4} a17 {t-sub-fargo-4} 1 {p-loadpc}
+$dummy-delay-exclude {p-sub-fargo-4} 3 {p-sub-fargo-7} -a19,a20
 
-# Restore newpc from ex in parallel with p-fetchline
-$pulseamp {p-sub-fargo-7} {p-fetchline}
-$storeex {p-sub-fargo-7}
+# XXX while we could restore newpc from ex in parallel with p-fetchline,
+# don't because t's are limited.
+#$pulseamp {p-sub-fargo-7} {p-fetchline}
+#$storeex {p-sub-fargo-7}
+$send {p-sub-fargo-7} {a-ex} {t-sub-fargo-6} A {p-fetchline}
 $recx {p-sub-fargo-7} {a-newpc} {r-sub-fargo-7} {i-main}
 
 endif # SUB_FARGO
@@ -135,7 +143,8 @@ endif # OP_JMPFAR
 if OP_JSR
 
 $fargo {p-opjsr}
-$c-dummy {p-opjsr} {p-opjsr-2}
+#$dummy {p-opjsr} {p-opjsr-2}
+$manual-dummy {p-opjsr} {a-rf} {t-opjsr} 1 {p-opjsr-2}
 
 # Set new PC from IR
 $assert {p-opjsr-2} {a-ir}~Pxxxxxxxxxx

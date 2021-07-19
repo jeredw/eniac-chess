@@ -288,26 +288,27 @@ t16out
 
 
 ; 17: JIL
-.align
-  inc A
-  swap A, B
-
-  mov 11,A    ; 11=legal, fall through
-  jil t17out
-  mov 88,A    ; 88=legal, fall through
-  jil t17out
-  mov 64,A    ; 64=legal, fall through
-  jil t17out
-  mov 89,A    ; 89=illegal, goto t17ok
-  jil t17ok
-  jmp t17out
-
-t17ok
-  clr A
-
-t17out
-  swap A,B
-  print
+; XXX temporarily disabled becuase JIL doesn't fit
+;.align
+;  inc A
+;  swap A, B
+;
+;  mov 11,A    ; 11=legal, fall through
+;  jil t17out
+;  mov 88,A    ; 88=legal, fall through
+;  jil t17out
+;  mov 64,A    ; 64=legal, fall through
+;  jil t17out
+;  mov 89,A    ; 89=illegal, goto t17ok
+;  jil t17ok
+;  jmp t17out
+;
+;t17ok
+;  clr A
+;
+;t17out
+;  swap A,B
+;  print
 
 
 ; -- 20-29 --
@@ -422,6 +423,10 @@ t22out
 
 ; 23: test READ
 t23
+  ; XXX assembler should generate this clearing code for LS
+  swapall
+  clrall
+  swapall
   read     ; read 01020 into LS (clear other digits)
   swapall  ; A=01, B=02
   dec A    ; A=00

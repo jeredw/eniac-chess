@@ -63,9 +63,9 @@ enable OP_ADDIMMA     #  ? pas,  ? ts (also required for OP_MOVIMMA)
 enable OP_SUB         #  6 pas,  3 ts
 enable OP_CLRA        #  1 pas,  1 ts
 # - control flow (19 pas, 26 ts)
-disable OP_JMPFAR      #  1 pas,  2 ts
-disable OP_JSR         #  1 pas,  2 ts
-disable OP_RET         #  1 pas,  2 ts
+enable OP_JMPFAR      #  1 pas,  2 ts
+enable OP_JSR         #  1 pas,  2 ts
+enable OP_RET         #  1 pas,  2 ts
 enable OP_JMP         #  0 pas,  0 ts
 enable OP_JN          #  2 pas,  2 ts
 enable OP_JZ          #  1 pas,  1 ts
@@ -74,8 +74,8 @@ enable OP_FTL         #  1 pas,  1 ts
 enable SUB_DISCJX     #  2 pas,  2 ts (OP_JZ, OP_JIL, OP_FTL)
 enable SUB_JX         #  3 pas,  5 ts (OP_JN, OP_JZ, OP_JIL)
 enable SUB_JMP        #  1 pas,  4 ts (OP_JMP, SUB_JX)
-disable SUB_FARGO      #  6 pas,  4 ts (OP_JMPFAR, OP_JSR, OP_RET)
-disable SUB_DISCFT     #  0 pas,  1 ts (SUB_FARGO)
+enable SUB_FARGO      #  6 pas,  4 ts (OP_JMPFAR, OP_JSR, OP_RET)
+enable SUB_DISCFT     #  0 pas,  1 ts (SUB_FARGO)
 # - misc (8 pas, 13 ts)
 enable OP_PRINT       #  0 pas,  0 ts
 enable OP_READ        #  0 pas,  2 ts

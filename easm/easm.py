@@ -17,7 +17,7 @@
 # x     accumulator r- if available, else t-
 # t     selective clear transceiver, 1-6 on init unit
 # t     function table transceiver, 1-11 on each function table
-# t     constant transceiver, 2-25 (1, 26-30 are manual)
+# t     constant transceiver, 2-24 (1, 26-30 are manual)
 # t     multiplier transceiver, 1-14
 # ta    multiplier transceiver as pulse amp, 1-10
 # ad    adapter, 1-40 (simulator limitation) for each type
@@ -83,7 +83,7 @@ class SymbolTable:
       'a':      Resource('accumulators', 20, {}),
       'f':      Resource('function tables', 3, {}),
       'i.t':    Resource('selective clear transceivers', 6, {}),
-      'c.t':    Resource('constant transceivers', 24, {}),
+      'c.t':    Resource('constant transceivers', 23, {}),
       'ad.s':   Resource('shift adapters', 80, {}),
       'ad.d':   Resource('deleter adapters', 80, {}),
       'ad.dp':  Resource('digit pulse adapters', 80, {}),

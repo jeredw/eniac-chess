@@ -54,10 +54,9 @@ endif # OP_PRINT
 if OP_READ
 
 # read in a new card into constant transmitter
+# (the assembler will make sure LS is clear)
 p {p-opread} i.Ri
-# clear LS to receive card data (via dummies to save ts and pas)
 $dummy {p-opread} {p-opread-2}
-$i-dummy {p-opread} {p-clearls}
 
 # wait for card to read
 p {p-opread-2} i.Rl
