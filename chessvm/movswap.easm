@@ -67,8 +67,8 @@ $m-dummy-then-pulseamp {p-opmovGA} 6 {p-movswapAB} S
 $m-dummy-then-pulseamp {p-opmovHA} 6 {p-movswapAC} S
 $m-dummy-then-pulseamp {p-opmovIA} 6 {p-movswapAD} S
 $m-dummy-then-pulseamp {p-opmovJA} 6 {p-movswapAE} S
-p m.A {p-opmovRFA-6}
-p m.S {p-opmovLSA-6}
+p m.A {p-send-rf}
+p m.S {p-sendls}
 
 # clear A
 $clearA {p-opmovXA}
@@ -76,10 +76,6 @@ $clearA {p-opmovXA}
 # dummies to invoke movswap and receive modified RF
 $manual-dummy {p-opmovXA} a19 {t-opmovXA} 5 {p-sub-movswap}
 $manual-dummy {p-opmovXA} a20 {t-opmovXA} 7 {p-opmovXA-7}
-
-# Get desired field of RF or LS in A position
-$send-rf {p-opmovRFA-6}
-$sendx {p-opmovLSA-6} {a-ls} {x-opmovLSA-6} A
 
 # Update A in RF
 $recx {p-opmovXA-7} {a-rf} {t-opmovXA-7} {i-selectA}
