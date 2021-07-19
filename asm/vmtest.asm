@@ -288,27 +288,26 @@ t16out
 
 
 ; 17: JIL
-; XXX temporarily disabled becuase JIL doesn't fit
-;.align
-;  inc A
-;  swap A, B
-;
-;  mov 11,A    ; 11=legal, fall through
-;  jil t17out
-;  mov 88,A    ; 88=legal, fall through
-;  jil t17out
-;  mov 64,A    ; 64=legal, fall through
-;  jil t17out
-;  mov 89,A    ; 89=illegal, goto t17ok
-;  jil t17ok
-;  jmp t17out
-;
-;t17ok
-;  clr A
-;
-;t17out
-;  swap A,B
-;  print
+.align
+  inc A
+  swap A, B
+
+  mov 11,A    ; 11=legal, fall through
+  jil t17out
+  mov 88,A    ; 88=legal, fall through
+  jil t17out
+  mov 64,A    ; 64=legal, fall through
+  jil t17out
+  mov 89,A    ; 89=illegal, goto t17ok
+  jil t17ok
+  jmp t17out
+
+t17ok
+  clr A
+
+t17out
+  swap A,B
+  print
 
 
 ; -- 20-29 --

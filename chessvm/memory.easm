@@ -29,7 +29,7 @@ if ACC_MEMCYC
 defmacro memcyc-prog x range
   $dummy-delay-exclude {p-memcyc$x} 2 {p-memcyc$x-2} -{a-memcyc$range}
   $sendc {p-memcyc$x-2} {a-mem$x} {t-memcyc-2} A {p-memcyc$x-3}
-  $recx  {p-memcyc$x-3} {a-mem$x} {r-memcyc-3} {i-main}
+  $recx  {p-memcyc$x-3} {a-mem$x} {x-memcyc-3} {i-main}
 endmacro
 
 # Patch one digit of d-memcyc09S to a send reciever program on mem0..mem9
@@ -345,6 +345,7 @@ $dummy {p-sub-wordcyc-3} {p-sub-memcyc-3}
 # Start by triggering the word decode, then wait until ft3 output ready
 $pulseamp {p-oploadword} {p-sub-wordtop}
 $ft-dummy-exclude {p-oploadword} 5 {p-oploadword-4} -f3
+$m-dummy {p-oploadword} 8 {p-oploadword-7}
 
 # 1. LOADWORD -> EX, clear LS
 # 2. RF -windexB-> LOADWORD, trigger ft3
@@ -365,7 +366,7 @@ $ft-dummy-exclude {p-oploadword-6} 11 {p-oploadword-10} -f1,f3
 
 # 8. EX -> LOADWORD
 $storeex {p-oploadword-6}
-$rec {p-oploadword-6} {a-loadword} {t-oploadword-6} {i-main} {p-oploadword-7}
+$recx {p-oploadword-6} {a-loadword} {r-oploadword-6} {i-main}
 
 # Decode acc idx from B and trigger a memcycle on that acc
 $pulseamp {p-oploadword-7} {p-sub-wordcyc}

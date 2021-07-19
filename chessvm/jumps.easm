@@ -199,7 +199,7 @@ s f3.rp{t-sub-discjx} 1
 s f3.op{t-sub-discjx} A0
 
 # send ft arg
-$sendx {p-sub-discjx-3} {a-discjx} {r-sub-discjx-3} A
+$sendx {p-sub-discjx-3} {a-discjx} {x-sub-discjx-3} A
 
 # caller receives ft sign in p-sub-discjx-6
 # continue to conditional jump sub in cycle 7
@@ -214,18 +214,12 @@ if SUB_JX
 
 # discriminate, and clear to ready DISCJX for restored memory value
 # P = not taken, M = taken
-$discriminatec {p-sub-jx} {a-discjx} {d-discjxA} {d-discjxS} {p-sub-jx-not-taken} {p-sub-jx-taken}
+#$discriminatec {p-sub-jx} {a-discjx} {d-discjxA} {d-discjxS} {p-sub-jx-not-taken} {p-sub-jx-taken}
+$discriminatec-delay-passthru {p-sub-jx} {a-discjx} {d-discjxA} {d-discjxS} 2 {p-sub-jx-2} {p-sub-consume-op} {p-sub-jmp}
 
-# if not taken, restore acc, consume and carry on
-$storeex {p-sub-jx-not-taken}
-$rec {p-sub-jx-not-taken} {a-discjx} {t-sub-jx-not-taken} {i-main} {p-sub-jx-eat}
-
-# update ir and trigger p-fetch
-$consume-op {p-sub-jx-eat}
-
-# if taken, restore acc and jump
-$storeex {p-sub-jx-taken}
-$rec {p-sub-jx-taken} {a-discjx} {t-sub-jx-taken} {i-main} {p-sub-jmp}
+# restore discjx regardless of whether branch taken
+$storeex {p-sub-jx-2}
+$recx {p-sub-jx-2} {a-discjx} {x-sub-jx-2} {i-main}
 
 endif # SUB_JX
 
@@ -258,7 +252,7 @@ $pulseamp {p-opjz} {p-sub-discjx}
 $ft-dummy-exclude {p-opjz} 5 {p-opjz-6} -f2,f3
 
 # receive ft2 sign for jz
-$recx {p-opjz-6} {a-discjx} {r-opjz-6} {i-ftjzsign}
+$recx {p-opjz-6} {a-discjx} {x-opjz-6} {i-ftjzsign}
 
 endif # OP_JZ
 
@@ -267,11 +261,11 @@ endif # OP_JZ
 if OP_JIL
 
 # reuse discjx sequence
-$pulseamp {p-opjil} {p-sub-discjx}
+$m-pulseamp {p-opjil} {p-sub-discjx}
 $ft-dummy-exclude {p-opjil} 5 {p-opjil-6} -f2,f3
 
 # receive ft2 sign for jil
-$recx {p-opjil-6} {a-discjx} {r-opjil-6} {i-ftjilsign}
+$recx {p-opjil-6} {a-discjx} {x-opjil-6} {i-ftjilsign}
 
 
 endif # OP_JIL
