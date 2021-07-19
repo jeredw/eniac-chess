@@ -56,9 +56,8 @@ if OP_READ
 # read in a new card into constant transmitter
 p {p-opread} i.Ri
 # clear LS to receive card data (via dummies to save ts and pas)
-$c-dummy {p-opread} {p-opread-2}
-$c-dummy {p-opread} {p-opread-clear}
-p {p-opread-clear} {p-clearls}
+$dummy {p-opread} {p-opread-2}
+$i-dummy {p-opread} {p-clearls}
 
 # wait for card to read
 p {p-opread-2} i.Rl
@@ -69,10 +68,12 @@ p {p-opread-2} i.Rl
 # constants out of JK switches.  If we were willing to rely on initializing
 # constants from a card at reset time, we could get rid of that hack and be
 # able to read 10 digits at once here.
-p i.Ro c.1i
+p i.Ro {p-opread-3}
+$manual-dummy {p-opread-3} a19 {t-opread-3} 1 {p-opread-4}
+$manual-dummy {p-opread-3} a20 {t-opread-3} 1 {p-recls}
+p {p-opread-4} c.1i
 s c.s1 Al
 p c.1o {p-fetch}
-$recx i.Ro {a-ls} {x-opread-n} {i-main}
 
 endif
 

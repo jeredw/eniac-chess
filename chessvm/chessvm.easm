@@ -52,7 +52,7 @@ enable STOREWORD_MOVS
 enable OP_SWAPALL     #  4 pas,  6 ts
 # - word access (14 pas, 28 ts)
 enable OP_SWAP        #  7 pas,  8 ts
-disable OP_MOVXA       #  5 pas, 14 ts
+enable OP_MOVXA       #  5 pas, 14 ts
 enable SUB_MOVSWAP    #  2 pas,  6 ts (OP_SWAP, OP_MOVXA)
 # - arithmetic (15 pas, 9 ts)
 enable OP_MOVIMMA     #  3 pas,  1 ts
@@ -69,16 +69,16 @@ disable OP_RET         #  1 pas,  2 ts
 enable OP_JMP         #  0 pas,  0 ts
 enable OP_JN          #  2 pas,  2 ts
 enable OP_JZ          #  1 pas,  1 ts
-enable OP_JIL         #  1 pas,  1 ts
+disable OP_JIL         #  1 pas,  1 ts
 enable OP_FTL         #  1 pas,  1 ts
 enable SUB_DISCJX     #  2 pas,  2 ts (OP_JZ, OP_JIL, OP_FTL)
 enable SUB_JX         #  3 pas,  5 ts (OP_JN, OP_JZ, OP_JIL)
 enable SUB_JMP        #  1 pas,  4 ts (OP_JMP, SUB_JX)
 disable SUB_FARGO      #  6 pas,  4 ts (OP_JMPFAR, OP_JSR, OP_RET)
-enable SUB_DISCFT     #  0 pas,  1 ts (SUB_FARGO)
+disable SUB_DISCFT     #  0 pas,  1 ts (SUB_FARGO)
 # - misc (8 pas, 13 ts)
 enable OP_PRINT       #  0 pas,  0 ts
-disable OP_READ        #  0 pas,  2 ts
+enable OP_READ        #  0 pas,  2 ts
 enable SUB_CONSUME_OP #  2 pas,  3 ts (OP_MOVIMMA, SUB_JX)
 enable SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA, OP_CLRA, OP_MOVIMMA)
 # loadpc              #  0 pas,  0 ts
