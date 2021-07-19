@@ -183,11 +183,24 @@ endmacro
 # Multipliers used as pulseamps can also simultaneously be used as dummies,
 # triggering outpr this cycle and outpr2 after delay cycles.
 # delay must be between 6 and 14
-defmacro m-pulseamp-dummy inpr outpr delay outpr2
+defmacro m-pulseamp-then-dummy inpr outpr delay papr
   p $inpr m.{ta-a-%name}i
   p m.{ta-b-%name} $outpr
   s m.place{ta-a-%name} ${4 $delay -}
-  p m.{ta-a-%name}o $outpr2
+  p m.{ta-a-%name}o $papr
+endmacro
+
+# The multiplier can also trigger a selected output program in tandem with its
+# output pulse.  This can be used to build dummies which all trigger a common
+# program, an operation so weird that it doesn't make sense to abstract much -
+# we use it for mov.
+# via is the multiplier output to use to trigger the common program
+# delay must be between 6 and 14
+defmacro m-dummy-then-pulseamp inpr delay outpr via
+  p $inpr m.{t-%name}i
+  s m.place{t-%name} ${4 $delay -}
+  p m.{t-%name}o $outpr
+  s m.prod{t-%name} $via
 endmacro
 
 

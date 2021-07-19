@@ -43,51 +43,47 @@ endif # SUB_MOVSWAP
 if OP_MOVXA
 # 1. $clearA-1
 # 2. $clearA-2
-# 3. MOVSWAP -> EX
-# 4. (RF or LS) -mov[BCDE]-> MOVSWAP
-# 5. MOVSWAP -selectA-> RF
-# 6. EX -> MOVSWAP
+# 3. (wait)
+# 4. (wait)
+# 5. MOVSWAP -> EX
+# 6. (RF or LS) -mov[BCDE]-> MOVSWAP
+# 7. MOVSWAP -selectA-> RF
+# 8. EX -> MOVSWAP
 
 # All mov opcodes for A with RF are encoded as 2x, and all mov opcodes for A
 # with LS are encoded as 3x to conserve pulse amplifiers.
-$c-dummy p.A3o {p-opmovRFA}
-$c-dummy p.A4o {p-opmovLSA}
+$c-dummy p.A3o {p-opmovXA}
+$c-dummy p.A4o {p-opmovXA}
 
-# all the mov ops
-$m-pulseamp {p-opmovRFA} {p-opmovXA}
-$m-pulseamp {p-opmovLSA} {p-opmovXA}
-
-# Manually placed so they don't overlap with the 3-cycle p-movswapAX dummies below.
-$manual-dummy {p-opmovXA} a19 {t-opmovXA} 2 {p-opmovXA-3}
-$manual-dummy {p-opmovXA-3} a19 {t-opmovXA-3} 2 {p-opmovXA-5}
-# NB only one of these two may be active so fine if same accum
-$manual-dummy {p-opmovRFA} a20 {t-opmovRFA} 3 {p-opmovRFA-4}
-$manual-dummy {p-opmovLSA} a20 {t-opmovLSA} 3 {p-opmovLSA-4}
-
-# Decode which swap inputs to use, only one can be active so fine if same accum
-$dummy-delay-exclude {p-opmovBA} 3 {p-movswapAB} -a20,a19,a18,{a-movswap}
-$dummy-delay-exclude {p-opmovCA} 3 {p-movswapAC} -a20,a19,a18,{a-movswap}
-$dummy-delay-exclude {p-opmovDA} 3 {p-movswapAD} -a20,a19,a18,{a-movswap}
-$dummy-delay-exclude {p-opmovEA} 3 {p-movswapAE} -a20,a19,a18,{a-movswap}
-$dummy-delay-exclude {p-opmovFA} 3 {p-movswapAA} -a20,a19,a18,{a-movswap}
-$dummy-delay-exclude {p-opmovGA} 3 {p-movswapAB} -a20,a19,a18,{a-movswap}
-$dummy-delay-exclude {p-opmovHA} 3 {p-movswapAC} -a20,a19,a18,{a-movswap}
-$dummy-delay-exclude {p-opmovIA} 3 {p-movswapAD} -a20,a19,a18,{a-movswap}
-$dummy-delay-exclude {p-opmovJA} 3 {p-movswapAE} -a20,a19,a18,{a-movswap}
+# Trigger the appropriate movswap program in 6 cycles with a multiplier dummy.
+# These dummies also select the RF or LS specific part of the mov operation by
+# using the A or S product disposal program.
+$m-dummy-then-pulseamp {p-opmovBA} 6 {p-movswapAB} A
+$m-dummy-then-pulseamp {p-opmovCA} 6 {p-movswapAC} A
+$m-dummy-then-pulseamp {p-opmovDA} 6 {p-movswapAD} A
+$m-dummy-then-pulseamp {p-opmovEA} 6 {p-movswapAE} A
+$m-dummy-then-pulseamp {p-opmovFA} 6 {p-movswapAA} S
+$m-dummy-then-pulseamp {p-opmovGA} 6 {p-movswapAB} S
+$m-dummy-then-pulseamp {p-opmovHA} 6 {p-movswapAC} S
+$m-dummy-then-pulseamp {p-opmovIA} 6 {p-movswapAD} S
+$m-dummy-then-pulseamp {p-opmovJA} 6 {p-movswapAE} S
+p m.A {p-opmovRFA-6}
+p m.S {p-opmovLSA-6}
 
 # clear A
 $clearA {p-opmovXA}
 
-# invoke mov/swap sequence
-$movswap {p-opmovXA-3}
+# dummies to invoke movswap and receive modified RF
+$manual-dummy {p-opmovXA} a19 {t-opmovXA} 5 {p-sub-movswap}
+$manual-dummy {p-opmovXA} a20 {t-opmovXA} 7 {p-opmovXA-7}
 
 # Get desired field of RF or LS in A position
-$send-rf {p-opmovRFA-4}
-$sendx {p-opmovLSA-4} {a-ls} {x-opmovLSA-4} A
-# dummy triggers p-movswapAX
+$send-rf {p-opmovRFA-6}
+$sendx {p-opmovLSA-6} {a-ls} {x-opmovLSA-6} A
+# m-dummy triggers p-movswapAX
 
 # Update A in RF
-$recx {p-opmovXA-5} {a-rf} {t-opmovXA-6} {i-selectA}
+$recx {p-opmovXA-7} {a-rf} {t-opmovXA-7} {i-selectA}
 
 endif # OP_MOVXA
 

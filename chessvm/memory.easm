@@ -386,8 +386,8 @@ $rec {p-oploadword-10} {a-ls} {t-oploadword-10} {i-main} {p-oploadword-11}
 
 # 20. LS -> memacc
 
-# When memcycle completes, trigger p-opmovLSA which is required to do MOV [FGHIJ],A
-$c-dummy {p-oploadword-11} {p-opmovLSA}
+# When memcycle completes, trigger p-opmovXA which is required to do MOV [FGHIJ],A
+$c-dummy {p-oploadword-11} {p-opmovXA}
 
 # 21. MOV [FGHIJ],A begins, triggered by ft1 word timer
 
