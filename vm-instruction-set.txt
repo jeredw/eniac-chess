@@ -12,7 +12,7 @@
 12 - swapall      ; ABCDE <-> FGHIJ
 13 -
 14 - ftl A,D      ; load from ft3 i1 (encoded as 14 xx)
-15 -
+15 - 
 
 20 - mov B,A
 21 - mov C,A
@@ -60,7 +60,7 @@
 91 - read         ; read 5 digits from card into LS (FFGGH) (NB doesn't clear LS first)
 92 - print        ; print 5 digits from RF (0AABB)
 93 -
-94 -
+94 - brk          ; nop outside debugger
 95 - halt
 
 

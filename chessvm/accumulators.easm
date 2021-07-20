@@ -261,6 +261,11 @@ p {d-ftselacc} {a-loadword}.{i-ftselacc}
 {a-rftmp}=a9
 $acc-main mem3
 
+# preserve sign on clearA so a18,a19,a20 sign preserved through storeword
+$permute {d-main} 11,0,0,8,7,6,5,4,3,2,1 {a-rftmp}.{i-clearA} 
+
+# Shared programs
+$sendcx {p-sendc-rftmp} {a-rftmp} {x-sendcrftmp} A 
 
 # - MEM4 -
 # Trigger MOV A,[FGHIJ] sequences on S outputs for STOREWORD
@@ -307,10 +312,11 @@ $permuted-input {a-newpc} {d-main} {i-shiftl4-pc} 0,0,0,4,3,2,1,0,0,0,0
 {a-movAGH}=a4
 $acc-main mem7
 
-$permute {d-main} 0,10,9,0,0,6,5,4,3,2,1 {a-movAGH}.{i-clearG}
+# preserve sign on clearX so a18,a19,a20 sign preserved through storeword
+$permute {d-main} 11,10,9,0,0,6,5,4,3,2,1 {a-movAGH}.{i-clearG}
 $permute {d-main} 0,0,0,10,9,0,0,0,0,0,0 {a-movAGH}.{i-movAG}
 
-$permute {d-main} 0,10,9,8,7,0,0,4,3,2,1 {a-movAGH}.{i-clearH}
+$permute {d-main} 11,10,9,8,7,0,0,4,3,2,1 {a-movAGH}.{i-clearH}
 $permute {d-main} 0,0,0,0,0,10,9,0,0,0,0 {a-movAGH}.{i-movAH}
 
 
@@ -320,10 +326,11 @@ $permute {d-main} 0,0,0,0,0,10,9,0,0,0,0 {a-movAGH}.{i-movAH}
 {a-movAIJ}=a14
 $acc-main mem8
 
-$permute {d-main} 0,10,9,8,7,6,5,0,0,2,1 {a-movAIJ}.{i-clearI}
+# preserve sign on clearX so a18,a19,a20 sign preserved through storeword
+$permute {d-main} 11,10,9,8,7,6,5,0,0,2,1 {a-movAIJ}.{i-clearI}
 $permute {d-main} 0,0,0,0,0,0,0,10,9,0,0 {a-movAIJ}.{i-movAI}
 
-$permute {d-main} 0,10,9,8,7,6,5,4,3,0,0 {a-movAIJ}.{i-clearJ}
+$permute {d-main} 11,10,9,8,7,6,5,4,3,0,0 {a-movAIJ}.{i-clearJ}
 $permute {d-main} 0,0,0,0,0,0,0,0,0,10,9 {a-movAIJ}.{i-movAJ}
 
 

@@ -160,7 +160,6 @@ jntest
 .align
   inc A
   swap A,B
-
   jmp far jmpfar1
   inc A       ; error 01 if jump not taken
   swap A,B
@@ -337,21 +336,21 @@ t21acc .equ 4 ; which accum
   mov t21acc,A
   loadacc A   ; load mem4 again
   mov 42,A    ; D=42
-  mov A,D
+  swap A,D
   mov F,A
   sub D,A     ; A-=42 (== 0)
   jz t21aok
   jmp t21out
 t21aok
   mov 43,A    ; D=43
-  mov A,D
+  swap A,D
   mov G,A
   sub D,A     ; A-=43 (== 0)
   jz t21bok
   jmp t21out
 t21bok
   mov 44,A    ; D=44
-  mov A,D
+  swap A,D
   mov H,A
   sub D,A     ; A-=44 (== 0)
   jz t21cok
@@ -376,7 +375,25 @@ t21out
   print
 
 
-; 22: test LOADWORD
+; 22: exercise all accs for loadacc/storeacc
+; goal is to detect timing and dummy placement issues which will fail by
+; assertion, so no need to verify any data
+t22
+  mov 14,A
+t22loop
+  loadacc A
+  storeacc A
+  dec A
+  jn t22out
+  jmp t22loop
+t22out
+  clr A
+  swap A,B
+  mov 22,A
+  print
+
+
+; 23: test LOADWORD
   mov 42,A
   jsr fillLS
   clr A
@@ -387,10 +404,10 @@ t21out
   swap A,D
   mov 43,A
   sub D,A
-  jz t22ok01
-  jmp t22out
+  jz t23ok01
+  jmp t23out
 
-t22ok01
+t23ok01
   mov 66,A
   jsr fillLS
   mov 9,A
@@ -401,10 +418,10 @@ t22ok01
   swap A,D
   mov 70,A
   sub D,A
-  jz t22ok49
-  jmp t22out
+  jz t23ok49
+  jmp t23out
 
-t22ok49
+t23ok49
   mov 99,A
   jsr fillLS
   mov 14,A
@@ -414,59 +431,73 @@ t22ok49
   mov [B],A   ; load address 72 == 01
   dec A
 
-t22out
-  swap A,B
-  mov 22,A
-  print
-
-
-; 23: test READ
-t23
-  read     ; read 01020 into LS (clear other digits)
-  swapall  ; A=01, B=02
-  dec A    ; A=00
-  jz t23aok
-  jmp t23out
-t23aok
-  swap A,B ; A=02
-  dec A
-  dec A    ; A=00
 t23out
-  mov A,B
+  swap A,B
   mov 23,A
   print
 
 
-; 24: exercise all accs for loadacc/storeacc
-; goal is to detect timing and dummy placement issues which will fail by
-; assertion, so no need to verify any data
-t24
-  mov 14,A
+; 24: test STOREWORD/LOADWORD, all addresses
+  mov 74,A
 t24loop
-  loadacc A
-  storeacc A
-  dec A
-  jn t24out
-  jmp t24loop
-t24out
+  swap A,B    ; current address in A at loop top
+  mov B,A
+  add 10,A    ; store B+10, a value that isn't identical to B, prevent cheating
+  mov A,[B]
+  swapall
+  clrall      ; empty out LS for better test
+  swapall
+  mov B,A     ; D <- B, save it so we can compare
+  swap A,D
   clr A
+  mov [B],A   ; read stored value back
+  sub D,A     ; subtract off address
+  add 90,A    ; "subtract" off 10 by overflow to M00
+  jz t24ok
+  jmp t24out
+t24ok
+  clr A       ; reset N flag
+  swap A,B    ; decrement address and loop
+  jz t24out
+  dec A
+  jmp t24loop
+
+t24out
   swap A,B
   mov 24,A
   print
 
-; 25: ftl
+
+; 25: test READ
+t25
+  read     ; read 01020 into LS (clear other digits)
+  swapall  ; A=01, B=02
+  dec A    ; A=00
+  jz t25aok
+  jmp t25out
+t25aok
+  swap A,B ; A=02
+  dec A
+  dec A    ; A=00
+t25out
+  mov A,B
+  mov 25,A
+  print
+
+
+; 26: ftl
 ; spiritually, this is I/O, and so belongs in the 20s somewhere
 testtab .table 1, 2, 3
-t25
+t26
   clr A
   swap A,D
   mov testtab,A
   ftl A,D  ; D=1
   mov 1,A
   sub D,A
-  jz t25_2
-  jmp t25out
-t25_2
+  jz t26_2
+  jmp t26out
+t26_2
   clr A
   swap A,D
   mov testtab,A
@@ -474,9 +505,9 @@ t25_2
   ftl A,D  ; D=2
   mov 2,A
   sub D,A
-  jz t25_3
-  jmp t25out
-t25_3
+  jz t26_3
+  jmp t26out
+t26_3
   clr A
   swap A,D
   mov testtab,A
@@ -484,9 +515,9 @@ t25_3
   ftl A,D  ; D=3
   mov 3,A
   sub D,A
-t25out
+t26out
   swap A,B
-  mov 25,A
+  mov 26,A
   print
   
 

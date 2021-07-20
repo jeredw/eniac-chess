@@ -38,3 +38,5 @@
 {p-opread}	 	= {p-op91}
 {p-opprint}	 	= {p-op92}
 
+$break {p-op94}
+$pulseamp {p-op94} {p-fetch}

@@ -100,8 +100,8 @@ $rec {p-sub-fargo-2} {a-newpc} {t-sub-fargo-2} {i-extract-pc} {p-sub-fargo-3}
 $sendc {p-sub-fargo-3} {a-pc} {t-sub-fargo-3} A {p-sub-fargo-5}
 s {a-pc}.rp{t-sub-fargo-3} 2
 #$discft {p-sub-fargo-3}
-$dummy {p-sub-fargo-2} {p-sub-discft}
-$dummy {p-sub-fargo-3} {p-sub-fargo-4}
+$dummy-exclude {p-sub-fargo-2} {p-sub-discft} -{a-discft1},{a-discft2},{a-discft3}
+$dummy-exclude {p-sub-fargo-3} {p-sub-fargo-4} -{a-discft1},{a-discft2},{a-discft3}
 
 # Select new function table and update PC
 $sendc {p-sub-fargo-5} {a-newpc} {t-sub-fargo-5} A {p-sub-fargo-7}
@@ -110,7 +110,7 @@ s {a-newpc}.rp{t-sub-fargo-5} 2
 $manual-dummy {p-sub-fargo-4} a16 {t-sub-fargo-4} 1 {p-sub-discft}
 #$loadpc {p-sub-fargo-5}
 $manual-dummy {p-sub-fargo-4} a17 {t-sub-fargo-4} 1 {p-loadpc}
-$dummy-delay-exclude {p-sub-fargo-4} 3 {p-sub-fargo-7} -a19,a20
+$dummy-delay-exclude {p-sub-fargo-4} 3 {p-sub-fargo-7} -{a-discft1},{a-discft2},{a-discft3}
 
 # XXX while we could restore newpc from ex in parallel with p-fetchline,
 # don't because t's are limited.

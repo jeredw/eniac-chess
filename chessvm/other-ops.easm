@@ -10,8 +10,10 @@ if OP_SWAPALL
 $ft-dummy {p-opswapall} 5 {p-fetch}
 
 # RFTMP->EX
-$sendc {p-opswapall} {a-rftmp} {t-sub-rftmp} A {p-opswapall-2}
+#$sendc {p-opswapall} {a-rftmp} {t-sub-rftmp} A {p-opswapall-2}
+$pulseamp {p-opswapall} {p-sendc-rftmp}
 $loadex {p-opswapall}
+$dummy {p-opswapall} {p-opswapall-2}
 
 # RF->RFTMP, clear
 $sendc-rf {p-opswapall-2}
@@ -26,7 +28,7 @@ $dummy {p-opswapall-3} {p-opswapall-4}
 $sendc {p-opswapall-4} {a-rftmp} {t-opswapall-4} A {p-opswapall-5}
 $pulseamp {p-opswapall-4} {p-recls}
 
-# EX->RFTMP, goto fetch
+# EX->RFTMP
 $storeex {p-opswapall-5}
 $recx {p-opswapall-5} {a-rftmp} {x-opswapall-5} {i-main}
 

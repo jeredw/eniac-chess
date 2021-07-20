@@ -464,20 +464,30 @@ $movax J IJ
 
 # For MOV A,F we take a different approach
 
-# LS -clearA-> EX, clear 
-$sendc {p-movAF} {a-ls} {t-movAF} A {p-movAF-2}
-$loadex-clearA {p-movAF}
+# RFTMP -> EX
+$pulseamp {p-movAF} {p-sendc-rftmp} 
+$loadex {p-movAF}
+$c-dummy {p-movAF} {p-movAF-2}
 
-# EX -> LS
-$storeex {p-movAF-2}
-$pulseamp {p-movAF-2} {p-recls}
-$dummy {p-movAF-2} {p-movAF-3}
+# LS -clearA-> RFTMP, clear 
+$sendc {p-movAF-2} {a-ls} {t-movAF-2} A {p-movAF-3}
+$recx {p-movAF-2} {a-rftmp} {x-movAF-2} {i-clearA}
+
+# RFTMP -> LS
+$pulseamp {p-movAF-3} {p-sendc-rftmp}
+$pulseamp {p-movAF-3} {p-recls}
+$c-dummy {p-movAF-3} {p-movAF-4}
 
 # RF -selA -> LS
-$send-rf {p-movAF-3}
-$recx {p-movAF-3} {a-ls} {t-movAF-3} {i-selectA}
+$pulseamp {p-movAF-4} {p-send-rf}
+$rec {p-movAF-4} {a-ls} {t-movAF-4} {i-selectA} {p-movAF-5}
+
+# EX -> RFTMP
+$c-dummy {p-movAF-4} {p-storeex}
+$recx {p-movAF-5} {a-rftmp} {x-movAF-5} {i-main}
 
 endif # STOREWORD_MOVS
+
 
 # - MOV A,[B] aka STOREWORD -
 if OP_STOREWORD

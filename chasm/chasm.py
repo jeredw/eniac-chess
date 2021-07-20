@@ -485,7 +485,7 @@ class V4(PrimitiveParsing):
       "clr": self.op(want_arg=r"A", opcode=90),
       "read": self._read,
       "print": self.op(opcode=92),
-      "nextline": self.op(opcode=94),
+      "brk": self.op(opcode=94),
       "halt": self.op(opcode=95),
     }
 

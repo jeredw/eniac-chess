@@ -65,26 +65,26 @@ if OP_ADD
 # 2. RF -> RFTMP
 # 3. RFTMP -selDA-> RF
 # 4. EX -> RFTMP
+# 5. wait       # save dummy by using ft-dummy, min 5 cycles
+
+# trigger fetch via ft dummy to save final ts. Costs 1 cycle but we need it.
+$ft-dummy {p-opadd} 5 {p-fetch}
 
 # RFTMP -> EX
 $sendc {p-opadd} {a-rftmp} {t-opadd} A {p-opadd-2}
 $loadex {p-opadd}
 
 # RF -> RFTMP
-#$send-rf {p-opadd-2}
-$c-dummy {p-opadd} {p-send-rf}
+$m-pulseamp {p-opadd-2} {p-send-rf}
 $rec {p-opadd-2} {a-rftmp} {t-opadd-2} {i-main} {p-opadd-3}
 
 # RFTMP -selDA-> RF
 $sendc {p-opadd-3} {a-rftmp} {t-opadd-3} A {p-opadd-4}
-#$pulseamp {p-opadd-3} {p-rf-selDA}
 $c-dummy {p-opadd-2} {p-rf-selDA}
 
 # EX -> RFTMP
-#$storeex {p-opadd-4}
 $c-dummy {p-opadd-3} {p-storeex}
 $recx {p-opadd-4} {a-rftmp} {r-opadd-4} {i-main}
-$c-dummy {p-opadd-4} {p-fetch}
 
 endif # OP_ADD
 
@@ -95,6 +95,10 @@ if OP_SUB
 # 2. EX -> selDA -> RF
 # 3. P01 -> RF
 # 4. M00 -> RF  # ideally we'd send M01, but don't have it
+# 5. wait       # save dummy by using ft-dummy, min 5 cycles
+
+# trigger fetch via ft dummy to save final ts. Costs 1 cycle but we need it.
+$ft-dummy {p-opsub} 5 {p-fetch}
 
 # RF.S -> EX
 $send {p-opsub} {a-rf} {t-opsub} S {p-opsub-2}
@@ -102,8 +106,8 @@ $loadex {p-opsub}
 
 # EX -selDA-> RF
 $storeex {p-opsub-2}
-$pulseamp {p-opsub-2} {p-rf-selDA}
-$dummy {p-opsub-2} {p-opsub-3}
+$m-pulseamp {p-opsub-2} {p-rf-selDA}
+$c-dummy {p-opsub-2} {p-opsub-3}
 
 # P01 -> RF
 $loadrf {p-opsub-3}
@@ -114,7 +118,6 @@ p c.27o {p-opsub-4}
 # M00 -> RF
 $loadrf {p-opsub-4}
 $sendM0 {p-opsub-4}
-$dummy {p-opsub-4} {p-fetch}
 
 endif # OP_SUB
 
@@ -140,8 +143,7 @@ $recx {p-sub-consume-op} {a-ex} {t-consume-op} {i-rotate-ir}  # out of recievers
 
 # EX -fill99-> IR 
 # Put shifted instructions back in IR, filling top with 99, +1 to detect IR empty
-#$storeex {p-sub-consume-op-2}
-$c-dummy {p-sub-consume-op} {p-storeex}
+$m-pulseamp {p-sub-consume-op-2} {p-storeex}
 $recinc {p-sub-consume-op-2} {a-ir} {t-consume-op-2} {i-fill99} {p-fetch}
 
 # fill99 requires an M0 on the bus
