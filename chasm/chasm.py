@@ -468,10 +468,9 @@ class V4(PrimitiveParsing):
       "loadacc": self.op(want_arg=r"A", opcode=10),
       "storeacc": self.op(want_arg=r"A", opcode=11),
       "swapall": self.op(opcode=12),
-      "scanall": self.op(opcode=13),
       "ftl": self._ftl,
       "mov": self._mov,
-      "inc": self._inc,
+      "inc": self.op(want_arg=r"A", opcode=52),
       "dec": self.op(want_arg=r"A", opcode=53),
       "add": self._add,
       "sub": self.op(want_arg=r"D,\s*A", opcode=72),
@@ -479,7 +478,6 @@ class V4(PrimitiveParsing):
       "jn": self._jn,
       "jz": self._jz,
       "jil": self._jil,
-      "loop": self._loop,
       "jsr": self._jsr,
       "ret": self._ret,
       "clr": self.op(want_arg=r"A", opcode=90),
@@ -584,14 +582,6 @@ class V4(PrimitiveParsing):
     else:
       self.out.error(f"invalid swap argument '{arg}'")
 
-  def _inc(self, label, op, arg):
-    if arg == "A":
-      self.out.emit(52, comment=f"{op} {arg}")
-    elif arg == "B":
-      self.out.emit(54, comment=f"{op} {arg}")
-    else:
-      self.out.error(f"invalid inc argument '{arg}'")
-
   def _jmp(self, label, op, arg):
     if arg == "+A":
       self.out.emit(75, comment=f"{op} {arg}")
@@ -618,10 +608,6 @@ class V4(PrimitiveParsing):
   def _jil(self, label, op, arg):
     address = self._address_or_label(arg, far=False)
     self.out.emit(82, address % 100, comment=self._comment(op, arg, arg, address))
-
-  def _loop(self, label, op, arg):
-    address = self._address_or_label(arg, far=False)
-    self.out.emit(83, address % 100, comment=self._comment(op, arg, arg, address))
 
   def _jsr(self, label, op, arg):
     address = self._address_or_label(arg, far=True)

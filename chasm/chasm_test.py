@@ -496,15 +496,6 @@ class TestV4(AssemblerTestCase):
     self.isa.dispatch("", "swapall", "bogus")
     self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
-  def testScanall(self):
-    self.isa.dispatch("", "scanall", "")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 13})
-
-  def testScanall_ErrorArgument(self):
-    self.isa.dispatch("", "scanall", "bogus")
-    self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
-
   def testFtl(self):
     self.isa.dispatch("", "ftl", "A,D")
     self.assertFalse(self.out.errors)
@@ -637,14 +628,9 @@ class TestV4(AssemblerTestCase):
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 52})
 
-  def testIncB(self):
-    self.isa.dispatch("", "inc", "B")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 54})
-
   def testInc_ErrorInvalidArgument(self):
     self.isa.dispatch("", "inc", "bogus")
-    self.assertEqual(self.out.errors, ["file:1: invalid inc argument 'bogus'"])
+    self.assertEqual(self.out.errors, ["file:1: invalid argument 'bogus'"])
 
   def testDecA(self):
     self.isa.dispatch("", "dec", "A")
@@ -803,26 +789,6 @@ class TestV4(AssemblerTestCase):
     self.isa.dispatch("", "jil", "299")
     self.assertEqual(self.out.errors, ["file:1: expecting address in current function table"])
 
-  def testLoop(self):
-    self.isa.dispatch("", "loop", "199")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 83, (100, 1): 98})
-
-  def testLoopRelative(self):
-    self.isa.dispatch("", "loop", "99")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 83, (100, 1): 98})
-
-  def testLoopLabel(self):
-    self.context.labels = {"label": 199}
-    self.isa.dispatch("", "loop", "label")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 83, (100, 1): 98})
-
-  def testLoop_ErrorFar(self):
-    self.isa.dispatch("", "loop", "299")
-    self.assertEqual(self.out.errors, ["file:1: expecting address in current function table"])
-
   def testJsr(self):
     self.isa.dispatch("", "jsr", "342")
     self.assertFalse(self.out.errors)
@@ -874,13 +840,13 @@ class TestV4(AssemblerTestCase):
     self.isa.dispatch("", "print", "bogus")
     self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
-  def testNextline(self):
-    self.isa.dispatch("", "nextline", "")
+  def testBrk(self):
+    self.isa.dispatch("", "brk", "")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 94})
 
-  def testNextline_ErrorInvalidArgument(self):
-    self.isa.dispatch("", "nextline", "bogus")
+  def testBrk_ErrorInvalidArgument(self):
+    self.isa.dispatch("", "brk", "bogus")
     self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
   def testHalt(self):

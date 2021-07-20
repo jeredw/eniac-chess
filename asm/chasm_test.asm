@@ -50,7 +50,6 @@ test_each_instruction
   loadacc A
   storeacc A
   swapall
-  scanall
   ftl A, D
   mov B, A
   mov C, A
@@ -65,7 +64,6 @@ test_each_instruction
   mov A, C    ; pseudo op
   mov A, D    ; pseudo op
   mov A, E    ; pseudo op
-  clr A
   mov 10, A
   mov king, A
   mov 10, D
@@ -73,7 +71,6 @@ test_each_instruction
   mov [B], A
   mov A, [B]
   inc A
-  inc B
   dec A
   add D, A
   add 42, A
@@ -84,13 +81,12 @@ test_each_instruction
   jn target
   jz target
   jil target
-  loop target
   jsr faraway
   ret
-  ;jnz target
+  clr A
   read
   print
-  nextline
+  brk
   halt
 
   ; test that multiword instructions are forced into a single row
@@ -180,7 +176,7 @@ test_each_instruction
   clrall
   clrall
   clrall
-  loop  99
+  jil 99
 
   .align
   clrall
