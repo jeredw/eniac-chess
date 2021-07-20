@@ -43,16 +43,14 @@ $acc-main pc
 # A - mp steppers, op<=55
 # S - mp steppers, op>55
 # Decode needs the digits of the SS field to be swapped.
-p {a-pc}.S ad.permute.{ad-swap-pc-ss-digits}
-s ad.permute.{ad-swap-pc-ss-digits} 11,9,10,8,7,6,5,4,3,2,1
-p ad.permute.{ad-swap-pc-ss-digits} {d-main}
+$permute {a-pc}.S 11,9,10,8,7,6,5,4,3,2,1 {d-main}
 
 # shiftl8 input: XX XX XX XX I1 -> I1 00 00 00 00, used in control cycle
 p {d-main} ad.s.{ad-pc-shiftl8}.8
 p ad.s.{ad-pc-shiftl8}.8 {a-pc}.{i-shiftl8}
 
 # clear A input: XX RRRR PPPP -> 00 RRRR PPPP, wired to EX.S for control cycle
-$permuted-input {a-pc} {d-exS} {i-exS-clearA} 0,0,0,8,7,6,5,4,3,2,1
+$permute {d-exS} 0,0,0,8,7,6,5,4,3,2,1 {a-pc}.{i-exS-clearA} 
 
 # loadPC2: SS RRRR PPPP -> 00 0000 00PP, used for JMP/JN/JZ/JIL
 p {d-main} ad.d.{ad-pc-loadPC2}.-8
@@ -272,10 +270,6 @@ $sendcx {p-sendc-rftmp} {a-rftmp} {x-sendcrftmp} A
 {a-mem4}=a10
 {a-storeword}=a10
 $acc-main mem4
-
-# Move second digit of B into digit 1, to compute word index
-# X A2A1 XX XX XX XX -> 0 00 00 00 00 0A1
-$permuted-input {a-storeword} {d-main} {i-windexB} 0,0,0,0,0,0,0,0,0,0,7
 
 # i-ftselacc: get 10 digits from FT
 p {d-ftselacc} {a-storeword}.{i-ftselacc}

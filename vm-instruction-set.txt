@@ -49,8 +49,8 @@
 74 - jmp far XXXX ; to any function table
 75 -
 
-80 - jn XX        ; jump if A<0 
-81 - jz XX        ; jump if A==0
+80 - jn XX        ; jump if A<0 (Mxx)
+81 - jz XX        ; jump if A=0 (P00 or M00)
 82 - jil XX       ; jump if A is an illegal board square: D2 or D1 is 0 or 9
 83 -
 84 - jsr XXXX     ; always far
@@ -58,7 +58,7 @@
 
 90 - clr A
 91 - read         ; read 5 digits from card into LS (FFGGH) (NB doesn't clear LS first)
-92 - print        ; print 5 digits from RF (0AABB)
+92 - print        ; print 5 digits from RF (AABB)
 93 -
 94 - brk          ; nop outside debugger
 95 - halt
@@ -99,8 +99,8 @@ g - fill99: replace top 2 digits with 99
 
 
 EX:
-General purpose execution register, also used to disc opcode >55
-typically: 100-I1 XX XX XX XX 
+Clear at the start of every op, general purpose temp
+Also used to disc opcode >55
 
 A - d-exA (sign used in control cycle)
     main (digits but not sign)
@@ -108,7 +108,7 @@ S - exS, used in control cycle
 AS - op discriminate
 a - main
 b - rotate-ir: I5 I4 I3 I2 I1 -> I1 I5 I4 I3 I2, used in control cycle
-g - clearA: S aa bb cc dd ee -> 0 00 bb cc dd ee, used in control cycle and MOV
+g - clearA: S aa bb cc dd ee -> 0 00 bb cc dd ee, used in control cycle
 d - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
 e - fetch-i1: from FT for instruction fetch
 
@@ -161,7 +161,7 @@ A - main
 S - Trigger MOV [FGHIJ],A on S outputs
 a - main
 b - windexB (word index): X A2A1 XX XX XX XX -> 0 00 00 00 00 0A1
-b = accidxB: (acc index): X XX B2B1 XX XX XX -> 0 B2B1 00 00 00 00
+b - accidxB: (acc index): X XX B2B1 XX XX XX -> 0 B2B1 00 00 00 00
 g - ftselacc: read from FT output
 
 A9
@@ -170,12 +170,16 @@ RFTMP
 A - main
 a - main
 
+b - i-clearA: X XX XX XX XX XX -> X 00 XX XX XX XX
+
 
 A10
-MEM4:
+MEM4
+STOREWORD 
 A - main
+S - Trigger MOV A,[FGHIJ] on S outputs
 a - main
-
+b - ftselacc: read from FT output
 
 A11
 MEM5:
@@ -196,14 +200,27 @@ e - shiftl4-pc: XX XXXX PPPP -> XX PPPP 0000
 
 A13
 MEM7
+MOVAGH
 a - main
-b - printAB: S aabbX XXXXX -> S 0aabb XXXXX
+
+# inputs to suport mov A,[GH]
+b = i-clearG
+g = i-movAG
+d = i-clearH
+e = i-movAH
 
 
 A14
 MEM8
+MOVAIJ
 A - main
 a - main
+
+# inputs to suport mov A,[IJ]
+b = i-clearI
+g = i-movAI
+d = i-clearJ
+e = i-movAJ
 
 
 A15
