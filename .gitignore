@@ -1,6 +1,8 @@
-chsim_test
+chsim/chsim
+chsim/chsim_test
 eniacsim
 *.pyc
+*.e
 images/
 perft
 chessvm.e
