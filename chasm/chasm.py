@@ -509,22 +509,22 @@ class V4(PrimitiveParsing):
 
   def _mov(self, label, op, arg):
     # Try each of these regexes in order and assemble the first that matches.
-    patterns = [(r"B,\s*A", 20, ''),
-                (r"C,\s*A", 21, ''),
-                (r"D,\s*A", 22, ''),
-                (r"E,\s*A", 23, ''),
-                (r"F,\s*A", 34, ''),
-                (r"G,\s*A", 30, ''),
-                (r"H,\s*A", 31, ''),
-                (r"I,\s*A", 32, ''),
-                (r"J,\s*A", 33, ''),
+    patterns = [(r"B,\s*A(\s*<->\s*(?P<target>[BCDE]))?", 20, ''),
+                (r"C,\s*A(\s*<->\s*(?P<target>[BCDE]))?", 21, ''),
+                (r"D,\s*A(\s*<->\s*(?P<target>[BCDE]))?", 22, ''),
+                (r"E,\s*A(\s*<->\s*(?P<target>[BCDE]))?", 23, ''),
+                (r"F,\s*A(\s*<->\s*(?P<target>[BCDE]))?", 34, ''),
+                (r"G,\s*A(\s*<->\s*(?P<target>[BCDE]))?", 30, ''),
+                (r"H,\s*A(\s*<->\s*(?P<target>[BCDE]))?", 31, ''),
+                (r"I,\s*A(\s*<->\s*(?P<target>[BCDE]))?", 32, ''),
+                (r"J,\s*A(\s*<->\s*(?P<target>[BCDE]))?", 33, ''),
                 (r"A,\s*B", ('B', 1, 20), 'p'),
                 (r"A,\s*C", ('C', 2, 21), 'p'),
                 (r"A,\s*D", ('D', 3, 22), 'p'),
                 (r"A,\s*E", ('E', 4, 23), 'p'),
-                (r"\[B\],\s*A", 41, ''),
+                (r"\[B\],\s*A(\s*<->\s*(?P<target>[BCDE]))?", 41, ''),
                 (r"A,\s*\[B\]", 42, ''),
-                (r"(.+),\s*A", 40, 'w'),]
+                (r"(?P<source>.+),\s*A(\s*<->\s*(?P<target>[BCDE]))?", 40, 'w'),]
     for regex, opcode, arg_type in patterns:
       m = re.match(regex, arg)
       if m:
@@ -537,10 +537,13 @@ class V4(PrimitiveParsing):
         elif not arg_type:
           self.out.emit(opcode, comment=f"{op} {arg}")
         else:
-          symbol = m.group(1)
+          symbol = m.group('source')
           word = self._word_or_label(symbol)
           self.out.emit(opcode, word % 100,
                         comment=self._comment(op, arg, symbol, word))
+        if 'target' in m.groupdict() and m.group('target'):
+          target = m.group('target')
+          self._swap('', 'swap', f'A,{target}')
         break
     else:
       self.out.error(f"invalid mov argument '{arg}'")

@@ -60,13 +60,16 @@ test_each_instruction
   mov H, A
   mov I, A
   mov J, A
+  mov J, A<->B ; psuedo op
   mov A, B    ; pseudo op
   mov A, C    ; pseudo op
   mov A, D    ; pseudo op
   mov A, E    ; pseudo op
   mov 10, A
   mov king, A
+  mov 10, A<->B ; psuedo op
   mov [B], A
+  mov [B], A<->C ; psuedo op
   mov A, [B]
   inc A
   dec A

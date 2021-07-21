@@ -550,6 +550,11 @@ class TestV4(AssemblerTestCase):
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 33})
 
+  def testMovXASwap(self):
+    self.isa.dispatch("", "mov", "H, A<->B")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 31, (100, 1): 1})
+
   def testMovAB(self):
     self.isa.dispatch("", "mov", "A, B")
     self.assertFalse(self.out.errors)
@@ -581,10 +586,20 @@ class TestV4(AssemblerTestCase):
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 40, (100, 1): 98})
 
+  def testMovLoadAImmediateSwap(self):
+    self.isa.dispatch("", "mov", "99, A<->B")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 40, (100, 1): 98, (100, 2): 1})
+
   def testMovLoadDirectB(self):
     self.isa.dispatch("", "mov", "[B], A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 41})
+
+  def testMovLoadDirectBSwap(self):
+    self.isa.dispatch("", "mov", "[B], A<->B")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 41, (100, 1): 1})
 
   def testMovStoreDirectB(self):
     self.isa.dispatch("", "mov", "A, [B]")

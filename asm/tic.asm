@@ -17,27 +17,23 @@
   .org 100
 
   ; Slightly faster initial game state for testing...
-  ;mov 2,A
-  ;swap A,B      ; B=top middle
+  ;mov 2,A<->B   ; B=top middle
   ;mov 2,A       ; A=play O
   ;mov A,[B]
-  ;mov 9,A
-  ;swap A,B      ; B=bottom right
+  ;mov 9,A<->B   ; B=bottom right
   ;mov 1,A       ; A=play X
   ;mov A,[B]
 
   ; eniac goes first and always plays X in the center
   ; (avoiding a really long search of the entire game)
-  mov 5,A
-  swap A,B      ; B=center square
+  mov 5,A<->B   ; B=center square
   mov 1,A       ; A=play X
   mov A,[B]
   jsr printb
 
 game
   read          ; human plays next; read move into LS
-  mov F,A       ;
-  swap A,B      ; B=where to play
+  mov F,A<->B   ; B=where to play
   mov 2,A       ; A=play O
   mov A,[B]
   jsr printb
@@ -52,8 +48,7 @@ setup_search
   ; set up the initial search stack frame
   clr A
   swap A,D      ; DI=best_move=none
-  mov 48,A
-  swap A,C      ; CH=best_score=48
+  mov 48,A<->C  ; CH=best_score=48
   clr A
   swap A,B      ; BG=last_move=none
   mov 1,A       ; AF=player=X
@@ -91,8 +86,7 @@ search
   dec A
   jz cd_x       ; if X then max player, else min player
 cd_o
-  mov H,A       ; D=best_score
-  swap A,D      ;
+  mov H,A<->D   ; D=best_score
   mov E,A       ; A=SP
   inc A
   loadacc A     ; sp+1th stack frame
@@ -101,8 +95,7 @@ cd_o
   jn better     ; best_score > value (better for min)
   jmp nextmove
 cd_x
-  mov H,A       ; D=best_score
-  swap A,D      ;
+  mov H,A<->D   ; D=best_score
   mov E,A       ; A=SP
   inc A
   loadacc A     ; sp+1th stack frame
@@ -117,12 +110,10 @@ cd_x
 ; LS has the most recent recursive stack frame
 ; on exit LS has the current stack frame again
 better
-  mov H,A       ; new best score
-  swap A,C      ; C=value (i.e. better score)
+  mov H,A<->C   ; C=new best score
   mov E,A       ; A=SP
   loadacc A     ; reload current frame
-  mov G,A       ; D=last_move
-  swap A,D      ;
+  mov G,A<->D   ; D=last_move
   swapall
   swap A,C      ; best_score = value
   mov H,A       ; 
@@ -223,8 +214,7 @@ newx
   ; set up new frame for X
   clr A         ; best_move D=none
   swap A,D
-  mov 48,A      ; best_score C=48
-  swap A,C
+  mov 48,A<->C  ; best_score C=48
   clr A         ; last_move B=none
   swap A,B
   mov 1,A       ; player A=1
@@ -237,8 +227,7 @@ newo
   ; set up new frame for O
   clr A         ; best_move D=none
   swap A,D
-  mov 52,A      ; best_score C=52
-  swap A,C
+  mov 52,A<->C  ; best_score C=52
   clr A         ; last_move B=none
   swap A,B
   mov 2,A       ; player A=2
@@ -252,8 +241,7 @@ search_out
   ; place an X at the final best move position
   mov 3,A
   loadacc A
-  mov I,A      ;
-  swap A,B     ; B=best_move
+  mov I,A<->B  ; B=best_move
   mov 1,A      ; A=play X
   mov A,[B]
   jsr printb
@@ -308,18 +296,15 @@ printb
 printb_loop
   swap A,B
   ; read next row into E,D,C
-  mov [B],A     ;
-  swap A,E      ; get r,0 into E
+  mov [B],A<->E ; get r,0 into E
   swap A,B      ; inc r
   inc A
   swap A,B
-  mov [B],A     ;
-  swap A,D      ; get r+1,0 into D
+  mov [B],A<->D ; get r+1,0 into D
   swap A,B      ; inc r
   inc A
   swap A,B
-  mov [B],A     ;
-  swap A,C      ; get r+2,0 into C
+  mov [B],A<->C ; get r+2,0 into C
   swap A,B      ; inc r
   inc A
   ; rearrange so row is in A,B,C
