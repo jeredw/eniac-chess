@@ -508,10 +508,7 @@ class V4(PrimitiveParsing):
     self.out.emit(14, 0, comment=f"{op} {arg}")
 
   def _mov(self, label, op, arg):
-    # Try each of these regexes in order and assemble the first that matches
-    # arg.  Note that [label] would also match [B] so order is important.
-    # 'a' means the captured pattern is a direct address, and 'w' means
-    # it is an immediate word.
+    # Try each of these regexes in order and assemble the first that matches.
     patterns = [(r"B,\s*A", 20, ''),
                 (r"C,\s*A", 21, ''),
                 (r"D,\s*A", 22, ''),
@@ -527,9 +524,7 @@ class V4(PrimitiveParsing):
                 (r"A,\s*E", ('E', 4, 23), 'p'),
                 (r"\[B\],\s*A", 41, ''),
                 (r"A,\s*\[B\]", 42, ''),
-                (r"A,\s*\[(.+?)\]", 44, 'a'),
-                (r"(.+),\s*A", 40, 'w'),
-                (r"(.+),\s*D", 41, 'w'),]
+                (r"(.+),\s*A", 40, 'w'),]
     for regex, opcode, arg_type in patterns:
       m = re.match(regex, arg)
       if m:
@@ -544,13 +539,8 @@ class V4(PrimitiveParsing):
         else:
           symbol = m.group(1)
           word = self._word_or_label(symbol)
-          # Check that arg is a valid direct address (valid memory locations
-          # are 0-74).
-          if arg_type != 'a' or 0 <= word <= 74:
-            self.out.emit(opcode, word % 100,
-                          comment=self._comment(op, arg, symbol, word))
-          else:
-            self.out.error(f"address out of mov range '{word}'")
+          self.out.emit(opcode, word % 100,
+                        comment=self._comment(op, arg, symbol, word))
         break
     else:
       self.out.error(f"invalid mov argument '{arg}'")
@@ -583,9 +573,7 @@ class V4(PrimitiveParsing):
       self.out.error(f"invalid swap argument '{arg}'")
 
   def _jmp(self, label, op, arg):
-    if arg == "+A":
-      self.out.emit(75, comment=f"{op} {arg}")
-    elif arg.startswith("far "):
+    if arg.startswith("far "):
       # There is a separate "jmp far" menmonic so that we always know the size
       # of instructions, so we can unambiguously compute label targets on the
       # first pass.  arg[4:] strips off the leading "far ".

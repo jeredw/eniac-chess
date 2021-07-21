@@ -66,8 +66,6 @@ test_each_instruction
   mov A, E    ; pseudo op
   mov 10, A
   mov king, A
-  mov 10, D
-  mov king, D
   mov [B], A
   mov A, [B]
   inc A
@@ -77,7 +75,6 @@ test_each_instruction
   sub D, A
   jmp target
   jmp far faraway
-  jmp +A
   jn target
   jz target
   jil target
@@ -90,14 +87,6 @@ test_each_instruction
   halt
 
   ; test that multiword instructions are forced into a single row
-  .align
-  clrall
-  clrall
-  clrall
-  clrall
-  clrall
-  mov A, [10]
-
   .align
   clrall
   clrall

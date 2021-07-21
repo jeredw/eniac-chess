@@ -529,7 +529,6 @@ class TestV4(AssemblerTestCase):
     self.isa.dispatch("", "mov", "F, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 34})
-    #self.assertOutputValues({(100, 0): 93})
 
   def testMovGA(self):
     self.isa.dispatch("", "mov", "G, A")
@@ -581,33 +580,6 @@ class TestV4(AssemblerTestCase):
     self.isa.dispatch("", "mov", "label, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 40, (100, 1): 98})
-
-  def testMovLoadDImmediate(self):
-    self.isa.dispatch("", "mov", "99, D")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 41, (100, 1): 98})
-
-  def testMovLoadDImmediateLabel(self):
-    self.context.labels = {"label": 99}
-    self.isa.dispatch("", "mov", "label, D")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 41, (100, 1): 98})
-
-  def testMovStoreDirect(self):
-    self.isa.dispatch("", "mov", "A, [42]")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 44, (100, 1): 41})
-
-  def testMovStoreDirectLabel(self):
-    self.context.labels = {"label": 42}
-    self.isa.dispatch("", "mov", "A, [label]")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 44, (100, 1): 41})
-
-  def testMovStoreDirectLabel_ErrorOutOfRange(self):
-    self.context.labels = {"label": 123}
-    self.isa.dispatch("", "mov", "A, [label]")
-    self.assertEqual(self.out.errors, ["file:1: address out of mov range '123'"])
 
   def testMovLoadDirectB(self):
     self.isa.dispatch("", "mov", "[B], A")
@@ -723,11 +695,6 @@ class TestV4(AssemblerTestCase):
   def testJmpFarLabel_ErrorUnrecognized(self):
     self.isa.dispatch("", "jmp", "far label")
     self.assertEqual(self.out.errors, ["file:1: unrecognized label 'label'"])
-
-  def testJmpA(self):
-    self.isa.dispatch("", "jmp", "+A")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues(pad({(100, 0): 75}))
 
   def testJn(self):
     self.isa.dispatch("", "jn", "199")
