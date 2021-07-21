@@ -80,69 +80,6 @@ $connect-memcyc1014 14 4
 endif # ACC_MEMCYC
 
 
-# Put ft-dummies for LOADWORD and STOREWORD at top because they have to be on ft1/ft2
-# If we put them lower in this, we may end up using all of the ft programs first
-# These are the timers that "remember" which word index (0-4) is addressed in B,
-# on long timers while a LOADACC cycle takes place
-
-if LOADWORD_DUMMIES
-# Wire up the S outputs of LOADWORD (via d-loadword) to trigger mov programs
-defmacro connect-loadword-1 x prog
-  p {d-loadword} ad.s.{ad-loadword-$x}.-$x
-  p ad.s.{ad-loadword-$x}.-$x ad.dp.{ad-loadword-dp$x}.2
-  p ad.dp.{ad-loadword-dp$x}.2 {p-loadword-$prog}
-endmacro
-
-# Wire up two digit lines to each of FGHIJ. This computes digit % 5
-# Wait 13 cycles on f2 to allow loadacc to execute before the mov
-defmacro connect-loadword a b prog
-  $connect-loadword-1 $a $prog
-  $connect-loadword-1 $b $prog
-  $ft-dummy-exclude {p-loadword-$prog} 13 {p-$prog} -f1,f3
-endmacro
-
-$connect-loadword 0 5 op34  # MOV F,A
-$connect-loadword 1 6 op30  # MOV G,A
-$connect-loadword 2 7 op31  # MOV H,A
-$connect-loadword 3 8 op32  # MOV I,A
-$connect-loadword 4 9 op33  # MOV J,A
-
-endif # LOADWORD_DUMMIES
-
-
-if STOREWORD_DUMMIES
-
-# Wire up the S outputs of STOREWORD (via d-storeword) to trigger mov programs
-# XXX more realistic if we can find a digit trunk somewhere for {a-storeword}.S?
-defmacro connect-storeword-1 x prog
-  p {a-storeword}.S ad.s.{ad-storeword-$x}.-$x
-  p ad.s.{ad-storeword-$x}.-$x ad.dp.{ad-storeword-dp$x}.2
-  p ad.dp.{ad-storeword-dp$x}.2 {p-storeword-$prog}
-endmacro
-
-# Connect storeword.S to trigger second digit mod 5 program on ft2
-# These programs implement mov A,[FGHIJ]
-defmacro connect-storeword a bb prog input
-  $connect-storeword-1 $a $prog
-  $connect-storeword-1 $bb $prog
-  $m-dummy {p-storeword-$prog} 14 {p-storeword-$prog-2}
-
-  # receive on {a-swap}.{i-swapAX} twice with two cycle delay
-  $c-dummy {p-storeword-$prog-2} {p-storeword-$prog-execute}
-  $dummy-delay-exclude {p-storeword-$prog-2} 4 {p-storeword-$prog-execute} -{a-swap}
-
-  $recx {p-storeword-$prog-execute} {a-swap} {x-store-$prog} $input
-endmacro
-
-$connect-storeword 0 5 movAF {i-main}     # equivalent to swapAA
-$connect-storeword 1 6 movAG {i-swapAB}
-$connect-storeword 2 7 movAH {i-swapAC}
-$connect-storeword 3 8 movAI {i-swapAD}
-$connect-storeword 4 9 movAJ {i-swapAE}
-
-endif # STOREWORD_DUMMIES
-
-
 # - SUB_MEMCYC - 
 if SUB_MEMCYC
 # This is the main memory cycle sub-program.
@@ -340,6 +277,31 @@ s f3.op{t-sub-wordcyc-3} A-2
 $dummy {p-sub-wordcyc-3} {p-sub-memcyc-3}
 
 
+# - LOADWORD dummies -
+# These are the timers that "remember" which word index (0-4) is addressed in B,
+# on long timers while a LOADACC cycle takes place
+# Wire up the S outputs of LOADWORD (via d-loadword) to trigger mov programs
+defmacro connect-loadword-1 x prog
+  p {d-loadword} ad.s.{ad-loadword-$x}.-$x
+  p ad.s.{ad-loadword-$x}.-$x ad.dp.{ad-loadword-dp$x}.2
+  p ad.dp.{ad-loadword-dp$x}.2 {p-loadword-$prog}
+endmacro
+
+# Wire up two digit lines to each of FGHIJ. This computes digit % 5
+# Wait 13 cycles on f2 to allow loadacc to execute before the mov
+defmacro connect-loadword a b prog
+  $connect-loadword-1 $a $prog
+  $connect-loadword-1 $b $prog
+  $ft-dummy-exclude {p-loadword-$prog} 13 {p-$prog} -f1,f3
+endmacro
+
+$connect-loadword 0 5 op34  # MOV F,A
+$connect-loadword 1 6 op30  # MOV G,A
+$connect-loadword 2 7 op31  # MOV H,A
+$connect-loadword 3 8 op32  # MOV I,A
+$connect-loadword 4 9 op33  # MOV J,A
+
+
 # - MOV [B],A aka LOADWORD -
 # Use the word index (B2 % 5) to trigger one of the five MOV [FGHIJ],A programs 
 # on long ft1 dummies, so they execute after LOADACC on the acc index 
@@ -399,9 +361,39 @@ $c-dummy {p-oploadword-11} {p-opmovXA}
 
 endif # OP_LOADWORD
 
+if OP_STOREWORD
+
+# - STOREWORD dummies -
+# Wire up the S outputs of STOREWORD (via d-storeword) to trigger mov programs
+# XXX more realistic if we can find a digit trunk somewhere for {a-storeword}.S?
+defmacro connect-storeword-1 x prog
+  p {a-storeword}.S ad.s.{ad-storeword-$x}.-$x
+  p ad.s.{ad-storeword-$x}.-$x ad.dp.{ad-storeword-dp$x}.2
+  p ad.dp.{ad-storeword-dp$x}.2 {p-storeword-$prog}
+endmacro
+
+# Connect storeword.S to trigger second digit mod 5 program on ft2
+# These programs implement mov A,[FGHIJ]
+defmacro connect-storeword a b prog input
+  $connect-storeword-1 $a $prog
+  $connect-storeword-1 $b $prog
+  $m-dummy {p-storeword-$prog} 14 {p-storeword-$prog-2}
+
+  # receive on {a-swap}.{i-swapAX} twice with two cycles between
+  $c-dummy {p-storeword-$prog-2} {p-storeword-$prog-execute}
+  $dummy-delay-exclude {p-storeword-$prog-2} 4 {p-storeword-$prog-execute} -{a-swap}
+
+  $recx {p-storeword-$prog-execute} {a-swap} {x-store-$prog} $input
+endmacro
+
+$connect-storeword 0 5 movAF {i-main}     # equivalent to swapAA
+$connect-storeword 1 6 movAG {i-swapAB}
+$connect-storeword 2 7 movAH {i-swapAC}
+$connect-storeword 3 8 movAI {i-swapAD}
+$connect-storeword 4 9 movAJ {i-swapAE}
+
 
 # - MOV A,[B] aka STOREWORD -
-if OP_STOREWORD
 # Works like this:
 #   - decode word and start word program timers on ft2
 #   - decode acc, LOADACC
@@ -444,8 +436,8 @@ $storeex {p-opstoreword-6}
 $rec {p-opstoreword-6} {a-storeword} {t-opstoreword-6} {i-main} {p-sub-wordcyc}
 
 # We also need to execute mem->LS (ala LOADACC) at the right time, then mov A,[FGHIJ]
-$ft-dummy-exclude {p-opstoreword-6} 11 {p-opstoreword-7} -f2,f3   # on f1
-$ft-dummy-exclude {p-opstoreword-6} 13 {p-opsw-movAX}    -f1,f3   # on f2
+$ft-dummy-exclude {p-opstoreword-6} 11 {p-recls} -f2,f3       # on f1
+$ft-dummy-exclude {p-opstoreword-6} 13 {p-opsw-movAX} -f1,f3  # on f2
 
 # 9. DISCMEMCYC -> EX               
 # 10. RF -i-accidxB-> DISCMEMCYC
@@ -459,8 +451,6 @@ $ft-dummy-exclude {p-opstoreword-6} 13 {p-opsw-movAX}    -f1,f3   # on f2
 # 18. EX -> MEMCYC09/1014
 
 # 19. acc->LS when memcycle starts, triggered by f1 timer
-$pulseamp {p-opstoreword-7} {p-recls}
-
 # 20. LS -> memacc
 
 # Now we execute MOV A,[FGHIJ], triggered by f2 timer

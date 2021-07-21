@@ -309,7 +309,7 @@ $acc-main mem7
 
 # - MEM8 -
 # inputs to suport mov A,[FGHIJ]
-# Same inputs as a-movswap but putting sharing them there would cost more ts
+# Same inputs as a-movswap but sharing them there would cost more ts
 {a-mem8}=a14
 {a-swap}=a14
 $acc-main mem8
