@@ -13,7 +13,7 @@ $ft-dummy {p-opswapall} 5 {p-fetch}
 #$sendc {p-opswapall} {a-rftmp} {t-sub-rftmp} A {p-opswapall-2}
 $pulseamp {p-opswapall} {p-sendc-rftmp}
 $loadex {p-opswapall}
-$dummy {p-opswapall} {p-opswapall-2}
+$c-dummy {p-opswapall} {p-opswapall-2}
 
 # RF->RFTMP, clear
 $sendc-rf {p-opswapall-2}

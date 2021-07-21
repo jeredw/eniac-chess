@@ -94,11 +94,11 @@ defmacro connect-loadword-1 x prog
 endmacro
 
 # Wire up two digit lines to each of FGHIJ. This computes digit % 5
-# Wait 13 cycles on ft1 to allow loadacc to execute before the mov
+# Wait 13 cycles on f2 to allow loadacc to execute before the mov
 defmacro connect-loadword a b prog
   $connect-loadword-1 $a $prog
   $connect-loadword-1 $b $prog
-  $ft-dummy-exclude {p-loadword-$prog} 13 {p-$prog} -f2,f3
+  $ft-dummy-exclude {p-loadword-$prog} 13 {p-$prog} -f1,f3
 endmacro
 
 $connect-loadword 0 5 op34  # MOV F,A
@@ -122,17 +122,23 @@ endmacro
 
 # Connect storeword.S to trigger second digit mod 5 program on ft2
 # These programs implement mov A,[FGHIJ]
-defmacro connect-storeword a b prog
+defmacro connect-storeword a bb prog input
   $connect-storeword-1 $a $prog
-  $connect-storeword-1 $b $prog
-  $ft-dummy-exclude {p-storeword-$prog} 13 {p-$prog} -f1,f3
+  $connect-storeword-1 $bb $prog
+  $m-dummy {p-storeword-$prog} 14 {p-storeword-$prog-2}
+
+  # receive on {a-swap}.{i-swapAX} twice with two cycle delay
+  $c-dummy {p-storeword-$prog-2} {p-storeword-$prog-execute}
+  $dummy-delay-exclude {p-storeword-$prog-2} 4 {p-storeword-$prog-execute} -{a-swap}
+
+  $recx {p-storeword-$prog-execute} {a-swap} {x-store-$prog} $input
 endmacro
 
-$connect-storeword 0 5 movAF
-$connect-storeword 1 6 movAG
-$connect-storeword 2 7 movAH
-$connect-storeword 3 8 movAI
-$connect-storeword 4 9 movAJ
+$connect-storeword 0 5 movAF {i-main}     # equivalent to swapAA
+$connect-storeword 1 6 movAG {i-swapAB}
+$connect-storeword 2 7 movAH {i-swapAC}
+$connect-storeword 3 8 movAI {i-swapAD}
+$connect-storeword 4 9 movAJ {i-swapAE}
 
 endif # STOREWORD_DUMMIES
 
@@ -251,8 +257,7 @@ $rec {p-opstoreacc-3} {a-ls} {t-opstoreacc-3} {i-main} {p-opstoreacc-4}
 
 # Wait until accumulator outputs a value, save only the sign
 #$dummy-delay-exclude {p-opstoreacc-3} 8 {p-opstoreacc-5} -a8
-#$ft-dummy-exclude {p-opstoreacc-3} 8 {p-opstoreacc-5} -f3,f2
-$m-dummy {p-opstoreacc-3} 8 {p-opstoreacc-5}
+$ft-dummy-exclude {p-opstoreacc-3} 8 {p-opstoreacc-5} -f3
 
 # Jump into sub-memcyc - no pulseamp needed because p-opstoreacc-4 triggers nothing else
 p {p-opstoreacc-4} {p-sub-memcyc-2}
@@ -338,14 +343,13 @@ $dummy {p-sub-wordcyc-3} {p-sub-memcyc-3}
 # - MOV [B],A aka LOADWORD -
 # Use the word index (B2 % 5) to trigger one of the five MOV [FGHIJ],A programs 
 # on long ft1 dummies, so they execute after LOADACC on the acc index 
-# ft1 = word dummies
-# ft2 = wait for memcycle
+# ft1 = wait for memcycle
+# ft2 = word dummies
 # ft3 = word/acc lookup
 
 # Start by triggering the word decode, then wait until ft3 output ready
 $pulseamp {p-oploadword} {p-sub-wordtop}
-$ft-dummy-exclude {p-oploadword} 5 {p-oploadword-4} -f3
-$m-dummy {p-oploadword} 8 {p-oploadword-7}
+$ft-dummy-exclude {p-oploadword} 5 {p-oploadword-4} -f3,f1    # on f2, finishes before f2 used for word timer
 
 # 1. LOADWORD -> EX, clear LS
 # 2. RF -windexB-> LOADWORD, trigger ft3
@@ -357,19 +361,19 @@ $m-dummy {p-oploadword} 8 {p-oploadword-7}
 # 6. ft3 -> LOADWORD
 $rec {p-oploadword-4} {a-loadword} {t-oploadword-4} {i-ftselacc} {p-oploadword-5}
 
-# 7. send LOADWORD.S, triggers ft dummies for MOV [FGHIJ],A after loadacc
+# 7. send LOADWORD.S, triggers f2 dummies for MOV [FGHIJ],A after loadacc
 $sendc {p-oploadword-5} {a-loadword} {t-oploadword-5} S {p-oploadword-6}
-
-# We also need to execute a rec on LS (ala LOADACC) then p-opmovLSA
-# Time this on f2 as f1 is the word program and f3 will lookup acc idx
-$ft-dummy-exclude {p-oploadword-6} 11 {p-oploadword-10} -f1,f3
 
 # 8. EX -> LOADWORD
 $storeex {p-oploadword-6}
 $recx {p-oploadword-6} {a-loadword} {r-oploadword-6} {i-main}
 
 # Decode acc idx from B and trigger a memcycle on that acc
-$pulseamp {p-oploadword-7} {p-sub-wordcyc}
+$c-dummy {p-oploadword-6} {p-sub-wordcyc}
+
+# We also need to execute a rec on LS (ala LOADACC) then p-opmovLSA
+# Time this on f1 as f2 is the word program and f3 will lookup acc idx
+$ft-dummy-exclude {p-oploadword-6} 11 {p-oploadword-10} -f2,f3
 
 # 9. DISCMEMCYC -> EX               
 # 10. RF -i-accidxB-> DISCMEMCYC
@@ -382,7 +386,7 @@ $pulseamp {p-oploadword-7} {p-sub-wordcyc}
 # 17. MEMCYC09/1014 -> S          # trigger acc memcycle
 # 18. EX -> MEMCYC09/1014
 
-# 19. memacc -> LS, receive mem acc into LS; triggered by ft2 timer
+# 19. memacc -> LS, receive mem acc into LS; triggered by f1 timer
 $rec {p-oploadword-10} {a-ls} {t-oploadword-10} {i-main} {p-oploadword-11}
 
 # 20. LS -> memacc
@@ -390,103 +394,10 @@ $rec {p-oploadword-10} {a-ls} {t-oploadword-10} {i-main} {p-oploadword-11}
 # When memcycle completes, trigger p-opmovXA which is required to do MOV [FGHIJ],A
 $c-dummy {p-oploadword-11} {p-opmovXA}
 
-# 21. MOV [FGHIJ],A begins, triggered by ft1 word timer
+# 21. MOV [FGHIJ],A begins, triggered by f2 word timer
 
 
 endif # OP_LOADWORD
-
-
-
-# - STOREWORD mov A,[FGHIJ] programs
-if STOREWORD_MOVS
-# These are used for STOREWORD only, they're not accessible through opcodes. 
-#
-# for MOV A,[GHIJ]:
-#  1. MMM -> EX  
-#  2.   LS -clearX-> MMM, clear 
-#  3.   RF -shiftAX-> MMM
-#  4. MMM -> LS
-#  5. EX -> MMM
-#
-#  Where MMM is an acc with clearX and shiftAX inputs. With i-main we can fit
-#  two X's on one acc with no other inputs, so we need two accs here and therefore
-#  steps 1,4,5 can each be shared between two cases.
-
-defmacro movax-shared xy
-  # MMM -> EX
-  $sendc {p-movA$xy-shared} {a-movA$xy} {t-movA$xy-shared} A {p-movA$xy-shared-2}
-  $loadex {p-movA$xy-shared}
- 
-  # send LS, core does -clearX-> MMM
-  $pulseamp {p-movA$xy-shared-2} {p-sendcls}
-  $c-dummy {p-movA$xy-shared-2} {p-movA$xy-shared-3}
-
-  # send RF, core does -movAX-> MMM
-  $send-rf {p-movA$xy-shared-3}
-  $c-dummy {p-movA$xy-shared-3} {p-movA$xy-shared-4}
-
-  # MMM -> LS
-  $sendc {p-movA$xy-shared-4} {a-movA$xy} {t-movA$xy-shared-3} A {p-movA$xy-shared-5}
-  $recx {p-movA$xy-shared-4} {a-ls} {x-movA$xy-shared-3} {i-main}
-
-  # EX -> MMM
-  $storeex {p-movA$xy-shared-5}
-  $recx {p-movA$xy-shared-5} {a-movA$xy} {x-movA$xy-shared-4} {i-main}
-endmacro
-
-$movax-shared GH
-$movax-shared IJ
-
-defmacro movax-core acc x
-  # -clearX-> MMM
-  $rec {p-movA$x-core} $acc {t-movA$x-core} {i-clear$x} {p-movA$x-core-2}
-
-  # -shiftAX-> MMM
-  $recx {p-movA$x-core-2} $acc {x-movA$x-core-2} {i-movA$x}
-endmacro
-
-$movax-core {a-movAGH} G
-$movax-core {a-movAGH} H
-$movax-core {a-movAIJ} I
-$movax-core {a-movAIJ} J
-
-# Combine the core and shared sequences to create complete programs
-defmacro movax x yy
-  $pulseamp {p-movA$x} {p-movA$yy-shared}
-  $c-dummy {p-movA$x} {p-movA$x-core}
-endmacro
-
-$movax G GH
-$movax H GH
-$movax I IJ
-$movax J IJ
-
-
-# For MOV A,F we take a different approach
-
-# RFTMP -> EX
-$pulseamp {p-movAF} {p-sendc-rftmp} 
-$loadex {p-movAF}
-$c-dummy {p-movAF} {p-movAF-2}
-
-# LS -clearA-> RFTMP, clear 
-$sendc {p-movAF-2} {a-ls} {t-movAF-2} A {p-movAF-3}
-$recx {p-movAF-2} {a-rftmp} {x-movAF-2} {i-clearA}
-
-# RFTMP -> LS
-$pulseamp {p-movAF-3} {p-sendc-rftmp}
-$pulseamp {p-movAF-3} {p-recls}
-$c-dummy {p-movAF-3} {p-movAF-4}
-
-# RF -selA -> LS
-$pulseamp {p-movAF-4} {p-send-rf}
-$rec {p-movAF-4} {a-ls} {t-movAF-4} {i-selectA} {p-movAF-5}
-
-# EX -> RFTMP
-$c-dummy {p-movAF-4} {p-storeex}
-$recx {p-movAF-5} {a-rftmp} {x-movAF-5} {i-main}
-
-endif # STOREWORD_MOVS
 
 
 # - MOV A,[B] aka STOREWORD -
@@ -500,13 +411,10 @@ if OP_STOREWORD
 # The complicated parts are sharing enough of this with other programs 
 # to do it without running out of transceivers
 #
-# ft1 = wait for memcycle
-# ft2 = word dummies
-# ft3 = word/acc lookup
+# m  = word mov A,X dummies 
+# f3 = word/acc lookup
 
 # Start by triggering the word decode, then wait until ft shadow
-
-#$break {p-opstoreword}
 
 $pulseamp {p-opstoreword} {p-sub-wordtop}
 $dummy-delay-exclude {p-opstoreword} 3 {p-opstoreword-2} -{a-loadword}
@@ -535,9 +443,9 @@ $sendc {p-opstoreword-5} {a-storeword} {t-storeword-5} S {p-opstoreword-6}
 $storeex {p-opstoreword-6}
 $rec {p-opstoreword-6} {a-storeword} {t-opstoreword-6} {i-main} {p-sub-wordcyc}
 
-# We also need to execute mem->LS (ala LOADACC) at the right time, then p-opmovLSA
-# Time this on f1 as f2 is the word program and f3 will lookup acc idx
-$ft-dummy-exclude {p-opstoreword-6} 11 {p-opstoreword-7} -f2,f3
+# We also need to execute mem->LS (ala LOADACC) at the right time, then mov A,[FGHIJ]
+$ft-dummy-exclude {p-opstoreword-6} 11 {p-opstoreword-7} -f2,f3   # on f1
+$ft-dummy-exclude {p-opstoreword-6} 13 {p-opsw-movAX}    -f1,f3   # on f2
 
 # 9. DISCMEMCYC -> EX               
 # 10. RF -i-accidxB-> DISCMEMCYC
@@ -552,37 +460,61 @@ $ft-dummy-exclude {p-opstoreword-6} 11 {p-opstoreword-7} -f2,f3
 
 # 19. acc->LS when memcycle starts, triggered by f1 timer
 $pulseamp {p-opstoreword-7} {p-recls}
-#$break {p-opstoreword-7}
 
 # 20. LS -> memacc
 
-# Triggered by f2 timer
-# 21. MMM -> EX  
-# 22. LS -clearX-> MMM, clear 
-# 23. RF -shiftAX-> MMM
-# 24. MMM -> LS
-# 25. EX -> MMM
+# Now we execute MOV A,[FGHIJ], triggered by f2 timer
+# This is a longish 7-cycle sequence, but all except two -swapAX->SWAP progs are shared
+# The logic is swap F,X / mov A,F / swap F,X
 
-# wait for LS->acc and mov A,[FGHIJ] then do another cycle on the mem acc,
-# this time it's a write because we skip acc->LS
-$ft-dummy-exclude {p-opstoreword-7} 7 {p-sub-wordcyc} -f2
+# 21. SWAP -> EX
+$sendc {p-opsw-movAX} {a-swap} {t-movAX} A {p-opsw-movAX-2}
+$loadex {p-opsw-movAX}
 
-# 26. DISCMEMCYC -> EX               
-# 27. RF -i-accidxB-> DISCMEMCYC
-# 28. RF -i-accidxB-> DISCMEMCYC
-# 29. send M0->DISCMEMCYC, trigger ft3
-# 30. discriminate DISCMEMCYC, DISCMEMCYC -S-> ft3.arg
-# 31. EX -> DISCMEMCYC
-# 32. MEMCYC09/1014 -> EX
-# 33. ft3 -> MEMCYC09/1014
-# 34. MEMCYC09/1014 -> S          # trigger acc memcycle
-# 35. EX -> MEMCYC09/1014
-# 36. acc ->                      # no receiver, this is a store
-# 37. LS -> acc
+# 22. LS -> + -swapAX-> SWAP triggered by m-dummy
+$pulseamp {p-opsw-movAX-2} {p-sendcls}
+$c-dummy {p-opsw-movAX-2} {p-opsw-movAX-3}
 
-# wait and finish (too long for one ft dummy)
-$m-dummy {p-opstoreword-7} 10 {p-opstoreword-8}
-$ft-dummy-exclude {p-opstoreword-8} 9 {p-fetch} -f3
+# 23. SWAP -clearA-> LS
+$sendc {p-opsw-movAX-3} {a-swap} {t-movAX-3} A {p-opsw-movAX-4}
+$recx {p-opsw-movAX-3} {a-ls} {x-movAX-3} {i-clearA}
+
+# 24. RF -selA-> LS
+$send-rf {p-opsw-movAX-4}
+$recx {p-opsw-movAX-4} {a-ls} {x-movAX-4} {i-selA} 
+$c-dummy {p-opsw-movAX-4} {p-opsw-movAX-5}
+
+# 25. LS -> + -swapAX-> SWAP triggered by m-dummy
+$pulseamp {p-opsw-movAX-5} {p-sendcls}
+$c-dummy {p-opsw-movAX-5} {p-opsw-movAX-6}
+
+# 26. SWAP -> LS
+$sendc {p-opsw-movAX-6} {a-swap} {t-movAX-6} A {p-opsw-movAX-7}
+$pulseamp {p-opsw-movAX-6} {p-recls}
+
+# 27. EX -> SWAP
+$storeex {p-opsw-movAX-7}
+$rec {p-opsw-movAX-7} {a-swap} {t-movAX-7} {i-main} {p-sub-wordcyc}
+
+#$break {p-opsw-movAX-7}
+
+# Do another cycle on the mem acc, this time it's a write because we skip acc->LS
+
+# 28. DISCMEMCYC -> EX               
+# 29. RF -i-accidxB-> DISCMEMCYC
+# 30. RF -i-accidxB-> DISCMEMCYC
+# 31. send M0->DISCMEMCYC, trigger ft3
+# 32. discriminate DISCMEMCYC, DISCMEMCYC -S-> ft3.arg
+# 33. EX -> DISCMEMCYC
+# 34. MEMCYC09/1014 -> EX
+# 35. ft3 -> MEMCYC09/1014
+# 36. MEMCYC09/1014 -> S          # trigger acc memcycle
+# 37. EX -> MEMCYC09/1014
+# 38. acc ->                      # no receiver, this is a store
+# 39. LS -> acc
+
+# Wait for sub-wordcyc and finish
+$ft-dummy-exclude {p-opsw-movAX-7} 13 {p-fetch} -f3
 
 endif   # OP_STOREWORD
 

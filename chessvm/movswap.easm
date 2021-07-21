@@ -16,7 +16,7 @@ endmacro
 # Save movswap
 $sendcx {p-sub-movswap} {a-movswap} {t-sub-movswap} A
 $loadex {p-sub-movswap}
-$manual-dummy {p-sub-movswap} a18 {t-sub-movswap} 2 {p-sub-movswap-3}
+$manual-dummy {p-sub-movswap} a18 {t-sub-movswap} 2 {p-sub-movswap-3} # XXX why manual?
 
 # Get desired field of RF or LS in A position
 # (not shared)

@@ -194,10 +194,11 @@ $acc-main ls
 # Load only the sign. used in STOREACC to preserve DISCFT acc signs
 $permuted-input {a-ls} {d-main} {i-signonly} 11,0,0,0,0,0,0,0,0,0,0
 
-# Load only A, used in STOREACC mov A,F
-$permuted-input {a-ls} {d-main} {i-selectA} 0,10,9,0,0,0,0,0,0,0,0
+# clearA and selA, used in STOREACC implementation of mov A,F
+$permute {d-main} 11,0,0,8,7,6,5,4,3,2,1 {a-ls}.{i-clearA} 
+$permute {d-main} 0,10,9,0,0,0,0,0,0,0,0 {a-ls}.{i-selA} 
 
-# shared clear LS program, used for READ, LOADACC and LOADWORD
+# shared LS programs, used for READ, LOADACC and LOADWORD
 # use with pulseamp or dummy
 $clearx {p-clearls} {a-ls} {r-clear}
 $sendx {p-sendls} {a-ls} {r-sendls} A
@@ -301,31 +302,24 @@ $permuted-input {a-newpc} {d-main} {i-shiftl4-pc} 0,0,0,4,3,2,1,0,0,0,0
 
 
 # - MEM7 - 
-# inputs to suport mov A,[GH]
+# This is a4 because we switched RF to a13 to support cheap print
 {a-mem7}=a4
-{a-movAGH}=a4
 $acc-main mem7
-
-# preserve sign on clearX so a18,a19,a20 sign preserved through storeword
-$permute {d-main} 11,10,9,0,0,6,5,4,3,2,1 {a-movAGH}.{i-clearG}
-$permute {d-main} 0,0,0,10,9,0,0,0,0,0,0 {a-movAGH}.{i-movAG}
-
-$permute {d-main} 11,10,9,8,7,0,0,4,3,2,1 {a-movAGH}.{i-clearH}
-$permute {d-main} 0,0,0,0,0,10,9,0,0,0,0 {a-movAGH}.{i-movAH}
 
 
 # - MEM8 -
-# inputs to suport mov A,[IJ]
+# inputs to suport mov A,[FGHIJ]
+# Same inputs as a-movswap but putting sharing them there would cost more ts
 {a-mem8}=a14
-{a-movAIJ}=a14
+{a-swap}=a14
 $acc-main mem8
 
 # preserve sign on clearX so a18,a19,a20 sign preserved through storeword
-$permute {d-main} 11,10,9,8,7,6,5,0,0,2,1 {a-movAIJ}.{i-clearI}
-$permute {d-main} 0,0,0,0,0,0,0,10,9,0,0 {a-movAIJ}.{i-movAI}
+$permute {d-main} 11,8,7,10,9,6,5,4,3,2,1 {a-swap}.{i-swapAB} 
+$permute {d-main} 11,6,5,8,7,10,9,4,3,2,1 {a-swap}.{i-swapAC} 
+$permute {d-main} 11,4,3,8,7,6,5,10,9,2,1 {a-swap}.{i-swapAD} 
+$permute {d-main} 11,2,1,8,7,6,5,4,3,10,9 {a-swap}.{i-swapAE} 
 
-$permute {d-main} 11,10,9,8,7,6,5,4,3,0,0 {a-movAIJ}.{i-clearJ}
-$permute {d-main} 0,0,0,0,0,0,0,0,0,10,9 {a-movAIJ}.{i-movAJ}
 
 
 # - MEM9 -

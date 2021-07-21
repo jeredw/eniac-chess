@@ -48,7 +48,6 @@ enable ACC_MEMCYC
 enable SUB_MEMCYC     
 enable LOADWORD_DUMMIES
 enable STOREWORD_DUMMIES
-enable STOREWORD_MOVS
 enable OP_SWAPALL     #  4 pas,  6 ts
 # - word access (14 pas, 28 ts)
 enable OP_SWAP        #  7 pas,  8 ts
