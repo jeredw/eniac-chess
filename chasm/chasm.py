@@ -537,7 +537,7 @@ class V4(PrimitiveParsing):
           # mov A,[BCDE] (from A into BCDE) is a pseudo op assembled as
           #  swap B,A     ; ABxxx -> BAxxx
           #  mov B,A      ; BAxxx -> AAxxx
-          self.out.emit(opcode[1], comment=f"mov {opcode[0]},A")
+          self.out.emit(opcode[1], comment=f"mov A,{opcode[0]}")
           self.out.emit(opcode[2])
         elif not arg_type:
           self.out.emit(opcode, comment=f"{op} {arg}")

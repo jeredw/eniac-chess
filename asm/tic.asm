@@ -368,6 +368,8 @@ isfull_loop
   mov B,A
   add 90,A      ; test B with 10
   jn isfull_yes
+  swap A,B
+  inc A
   jmp isfull_loop
 isfull_no
   ret           ; A=0 here
@@ -397,6 +399,7 @@ isxxx_run
   mov [B],A     ; check square
   dec A         ;
   jz isxxx_run2 ; if square=='X' goto run2
+  clr A
   swap A,D      ; next run index
   inc A         ; skip to next run
   inc A
@@ -414,6 +417,7 @@ isxxx_run2
   mov [B],A     ; check square
   dec A         ;
   jz isxxx_run3 ; if square=='X' goto run2
+  clr A
   swap A,D      ; next run index
   inc A         ; skip to next run
   jmp isxxx_next
@@ -430,6 +434,7 @@ isxxx_run3
   mov [B],A     ; check square
   dec A         ;
   jz isxxx_yes  ; if square=='X' found run
+  clr A
   swap A,D      ; next run index
   ; fall through to isxxx_next
 isxxx_next
@@ -463,6 +468,7 @@ isooo_run
   dec A         ;
   dec A         ;
   jz isooo_run2 ; if square=='O' goto run2
+  clr A
   swap A,D      ; next run index
   inc A         ; skip to next run
   inc A
@@ -481,6 +487,7 @@ isooo_run2
   dec A         ;
   dec A         ;
   jz isooo_run3 ; if square=='O' goto run2
+  clr A
   swap A,D      ; next run index
   inc A         ; skip to next run
   jmp isooo_next
@@ -498,6 +505,7 @@ isooo_run3
   dec A         ;
   dec A         ;
   jz isooo_yes  ; if square=='O' found run
+  clr A
   swap A,D      ; next run index
   ; fall through to isooo_next
 isooo_next

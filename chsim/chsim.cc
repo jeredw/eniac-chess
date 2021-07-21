@@ -11,6 +11,7 @@
 struct VM {
   int isa_version = 0;
   bool halted = false;
+  bool breakpoint = false;
 
   // Fetch state
   int pc = 100;
@@ -101,20 +102,6 @@ error:
   return false;
 }
 
-static inline int near_address(int pc, int target) {
-  return 100 * (pc / 100) + target;
-}
-
-static inline int far_address(int bank, int target) {
-  assert(bank == 9 || bank == 90 || bank == 99);
-  if (bank == 9)
-    return 100 + target;
-  else if (bank == 90)
-    return 200 + target;
-  else
-    return 300 + target;
-}
-
 static void assert_sanity(VM* vm) {
   assert(vm->a >= -100 && vm->a < 100);
   assert(vm->b >= 0 && vm->b < 100);
@@ -143,9 +130,9 @@ static void swap_with_a_sign(int& a, int& x) {
   x = abs(tmp);
 }
 
-static int consume_op(VM* vm) {
+static int consume_ir(VM* vm) {
   if (vm->ir_index == 6) {
-    vm->ir_index = 0;
+    vm->ir_index = vm->pc >= 300 ? 1 : 0;
     std::copy(vm->function_table[vm->pc], vm->function_table[vm->pc] + 6, vm->ir);
     vm->pc++;
     if (vm->pc == 200 || vm->pc == 300) {
@@ -153,24 +140,64 @@ static int consume_op(VM* vm) {
       return 95; // halt
     }
   }
+  return vm->ir[vm->ir_index++];
+}
+
+static void dump_regs(VM* vm);
+static int consume_operand(VM *vm) {
+  if (vm->ir_index == 6) {
+    fprintf(stderr, "misaligned operand\n");
+    return 95; // halt
+  }
   vm->ir[vm->ir_index]++;
+  int sled_start = 6;
+  while (sled_start > 0 && vm->ir[sled_start-1] == 99) {
+    sled_start--;
+  }
   for (int i = vm->ir_index; i < 6; i++) {
     if (vm->ir[i] == 100) {
       vm->ir[i] = 0;
-      if (i < 5)
-        ++vm->ir[i + 1];
+      // Do not carry into sled
+      if (i < sled_start-1) {
+        vm->ir[i+1]++;
+      }
     }
   }
-  int op = vm->ir[vm->ir_index];
-  vm->ir_index++;
-  return op;
+  return vm->ir[vm->ir_index++];
+}
+
+static int consume_near_address(VM *vm) {
+  int target = consume_operand(vm);
+  return 100 * (vm->pc / 100) + target;
+}
+
+static int consume_far_address(VM *vm) {
+  int target = consume_operand(vm);
+  int bank = consume_ir(vm);
+  if (!(bank == 9 || bank == 90 || bank == 99)) {
+    fprintf(stderr, "illegal bank in far address %d at %d\n", bank, vm->pc);
+    vm->halted = true;
+    return vm->pc;
+  }
+  if (bank == 9)
+    return 100 + target;
+  else if (bank == 90)
+    return 200 + target;
+  else
+    return 300 + target;
 }
 
 static void step(VM* vm) {
   if (vm->halted) return;
-  int opcode = consume_op(vm) - 1;
+  int opcode = consume_ir(vm);
   switch (opcode) {
-    case 0: break; // nop
+    case 0: // clrall
+      vm->a = 0;
+      vm->b = 0;
+      vm->c = 0;
+      vm->d = 0;
+      vm->e = 0;
+      break;
     case 1: swap_with_a_sign(vm->a, vm->b); break; // swap A, B
     case 2: swap_with_a_sign(vm->a, vm->c); break; // swap A, C
     case 3: swap_with_a_sign(vm->a, vm->d); break; // swap A, D
@@ -185,6 +212,12 @@ static void step(VM* vm) {
       std::copy(vm->ls, vm->ls + 5, vm->mem[vm->a]);
       break;
     case 12: std::swap(vm->rf, vm->ls); break; // swapall
+    case 14: { // ftl A,D
+      int offset = abs(vm->a) % 100;
+      vm->d = vm->function_table[300 + offset][0];
+      consume_operand(vm);
+      break;
+    }
     case 20: vm->a = vm->b; break; // mov B, A
     case 21: vm->a = vm->c; break; // mov C, A
     case 22: vm->a = vm->d; break; // mov D, A
@@ -194,7 +227,32 @@ static void step(VM* vm) {
     case 31: vm->a = vm->h; break; // mov H, A
     case 32: vm->a = vm->i; break; // mov I, A
     case 33: vm->a = vm->j; break; // mov J, A
-    case 40: vm->a = consume_op(vm); break; // mov imm, A
+    case 40: vm->a = consume_operand(vm); break; // mov imm, A
+    case 41: { // mov [B], A
+      if (vm->b < 0 || vm->b >= 75) {
+        fprintf(stderr, "mem %d out of bounds\n", vm->b);
+        vm->halted = true;
+        break;
+      }
+      int acc = vm->b / 5;
+      int word = vm->b % 5;
+      std::copy(vm->mem[acc], vm->mem[acc] + 5, vm->ls);
+      vm->a = vm->ls[word];
+      break;
+    }
+    case 42: { // mov A, [B]
+      if (vm->b < 0 || vm->b >= 75) {
+        fprintf(stderr, "mem %d out of bounds\n", vm->b);
+        vm->halted = true;
+        break;
+      }
+      int acc = vm->b / 5;
+      int word = vm->b % 5;
+      std::copy(vm->mem[acc], vm->mem[acc] + 5, vm->ls);
+      vm->ls[word] = vm->a;
+      std::copy(vm->ls, vm->ls + 5, vm->mem[acc]);
+      break;
+    }
     case 52: // inc A
       vm->a++;
       if (vm->a == 100)
@@ -210,7 +268,12 @@ static void step(VM* vm) {
       if (vm->a >= 100)
         vm->a -= 200;
       break;
-    case 72:
+    case 71: // add imm,A
+      vm->a += consume_operand(vm);
+      if (vm->a >= 100)
+        vm->a -= 200;
+      break;
+    case 72: // sub D,A
       vm->a -= vm->d;
       if (vm->a >= 100)
         vm->a -= 200;
@@ -218,51 +281,45 @@ static void step(VM* vm) {
         vm->a += 200;
       break;
     case 73: { // jmp
-      int target = consume_op(vm);
-      vm->pc = near_address(vm->pc, target);
+      vm->pc = consume_near_address(vm);
       vm->ir_index = 6;
       break;
     }
     case 74: { // jmp far
-      int target = consume_op(vm);
-      assert(vm->ir_index <= 5);
-      int bank = vm->ir[vm->ir_index];
-      vm->pc = far_address(bank, target);
+      vm->pc = consume_far_address(vm);
       vm->ir_index = 6;
       break;
     }
     case 80: { // jn
-      int target = consume_op(vm);
+      int taken_pc = consume_near_address(vm);
       if (vm->a < 0) {
-        vm->pc = near_address(vm->pc, target);
+        vm->pc = taken_pc;
         vm->ir_index = 6;
       }
       break;
     }
     case 81: { // jz
-      int target = consume_op(vm);
+      int taken_pc = consume_near_address(vm);
       if (vm->a == 0 || vm->a == -100) {
-        vm->pc = near_address(vm->pc, target);
+        vm->pc = taken_pc;
         vm->ir_index = 6;
       }
       break;
     }
     case 82: { // jil
-      int target = consume_op(vm);
+      int taken_pc = consume_near_address(vm);
       int d1 = abs(vm->a) % 10;
       int d2 = (abs(vm->a) / 10) % 10;
       if (d1 == 0 || d1 == 9 || d2 == 0 || d2 == 9) {
-        vm->pc = near_address(vm->pc, target);
+        vm->pc = taken_pc;
         vm->ir_index = 6;
       }
       break;
     }
     case 84: { // jsr
       vm->old_pc = vm->pc;
-      int target = consume_op(vm);
       assert(vm->ir_index <= 5);
-      int bank = vm->ir[vm->ir_index];
-      vm->pc = far_address(bank, target);
+      vm->pc = consume_far_address(vm);
       vm->ir_index = 6;
       break;
     }
@@ -274,6 +331,8 @@ static void step(VM* vm) {
     case 90: vm->a = 0; break; // clr A
     case 91: { // read
       int f, g, h1;
+      fprintf(stderr, "?");
+      fflush(stderr);
       while (scanf("%02d%02d%d", &f, &g, &h1) != 3) {
         fprintf(stderr, "expect ffggh e.g. 01020\n");
       }
@@ -283,12 +342,15 @@ static void step(VM* vm) {
       break;
     }
     case 92: // print
-      printf("%c%02d%02d\n", vm->a < 0 ? 'R' : '0', abs(vm->a), vm->b);
+      printf("%02d%02d\n", abs(vm->a), vm->b);
+      break;
+    case 94: // brk
+      vm->breakpoint = true;
       break;
     case 95: // halt
       vm->halted = true;
       break;
-    case -1: // sled
+    case 99: // sled
       break;
     default: // invalid opcode
       vm->halted = true;
@@ -297,41 +359,12 @@ static void step(VM* vm) {
   assert_sanity(vm);
 }
 
-static void disassemble_near_jump(char *buf, size_t size, const char* name, const char* fmt, VM *vm) {
-  if (vm->ir_index <= 5) {
-    int target = consume_op(vm);
-    snprintf(buf, size, fmt, near_address(vm->pc, target));
-  } else {
-    snprintf(buf, size, "???  # misaligned %s", name);
-  }
-}
-
-static void disassemble_immediate(char *buf, size_t size, const char* name, const char* fmt, VM *vm) {
-  if (vm->ir_index <= 5) {
-    int operand = consume_op(vm);
-    snprintf(buf, size, fmt, operand);
-  } else {
-    snprintf(buf, size, "???  # misaligned %s", name);
-  }
-}
-
-static void disassemble_far_jump(char *buf, size_t size, const char* name, const char* fmt, VM *vm) {
-  if (vm->ir_index <= 4) {
-    int target = consume_op(vm);
-    int bank = vm->ir[vm->ir_index];
-    snprintf(buf, size, fmt, far_address(bank, target));
-  } else {
-    snprintf(buf, size, "???  # misaligned %s", name);
-  }
-}
-
 // Pass VM state by value because IR updates needed for operand decoding are destructive.
 // Returns true if op should be skipped over while single stepping.
 static bool disassemble(char* buf, size_t size, VM vm) {
-  int opcode = consume_op(&vm) - 1;
+  int opcode = consume_ir(&vm);
   switch (opcode) {
-    case 0: snprintf(buf, size, "nop");
-            return true;
+    case 0: snprintf(buf, size, "clrall"); break;
     case 1: snprintf(buf, size, "swap A,B"); break;
     case 2: snprintf(buf, size, "swap A,C"); break;
     case 3: snprintf(buf, size, "swap A,D"); break;
@@ -339,6 +372,7 @@ static bool disassemble(char* buf, size_t size, VM vm) {
     case 10: snprintf(buf, size, "loadacc A"); break;
     case 11: snprintf(buf, size, "storeacc A"); break;
     case 12: snprintf(buf, size, "swapall"); break;
+    case 14: snprintf(buf, size, "ftl A,D"); break;
     case 20: snprintf(buf, size, "mov B,A"); break;
     case 21: snprintf(buf, size, "mov C,A"); break;
     case 22: snprintf(buf, size, "mov D,A"); break;
@@ -348,23 +382,27 @@ static bool disassemble(char* buf, size_t size, VM vm) {
     case 31: snprintf(buf, size, "mov H,A"); break;
     case 32: snprintf(buf, size, "mov I,A"); break;
     case 33: snprintf(buf, size, "mov J,A"); break;
-    case 40: disassemble_immediate(buf, size, "mov imm,A", "mov %d,A", &vm); break;
+    case 40: snprintf(buf, size, "mov %d,A", consume_operand(&vm)); break;
+    case 41: snprintf(buf, size, "mov [B],A"); break;
+    case 42: snprintf(buf, size, "mov A,[B]"); break;
     case 52: snprintf(buf, size, "inc A"); break;
     case 53: snprintf(buf, size, "dec A"); break;
     case 70: snprintf(buf, size, "add D,A"); break;
+    case 71: snprintf(buf, size, "add %d,A", consume_operand(&vm)); break;
     case 72: snprintf(buf, size, "sub D,A"); break;
-    case 73: disassemble_near_jump(buf, size, "jmp XX", "jmp %d", &vm); break;
-    case 74: disassemble_far_jump(buf, size, "jmp XXXX", "jmp %d", &vm); break;
-    case 80: disassemble_near_jump(buf, size, "jn XX", "jn %d", &vm); break;
-    case 81: disassemble_near_jump(buf, size, "jz XX", "jz %d", &vm); break;
-    case 82: disassemble_near_jump(buf, size, "jil XX", "jil %d", &vm); break;
-    case 84: disassemble_far_jump(buf, size, "jsr XXXX", "jsr %d", &vm); break;
+    case 73: snprintf(buf, size, "jmp %d", consume_near_address(&vm)); break;
+    case 74: snprintf(buf, size, "jmp %d", consume_far_address(&vm)); break;
+    case 80: snprintf(buf, size, "jn %d", consume_near_address(&vm)); break;
+    case 81: snprintf(buf, size, "jz %d", consume_near_address(&vm)); break;
+    case 82: snprintf(buf, size, "jil %d", consume_near_address(&vm)); break;
+    case 84: snprintf(buf, size, "jsr %d", consume_far_address(&vm)); break;
     case 85: snprintf(buf, size, "ret"); break;
     case 90: snprintf(buf, size, "clr A"); break;
     case 91: snprintf(buf, size, "read"); break;
     case 92: snprintf(buf, size, "print"); break;
+    case 94: snprintf(buf, size, "brk"); break;
     case 95: snprintf(buf, size, "halt"); break;
-    case -1: snprintf(buf, size, "sled");
+    case 99: snprintf(buf, size, "sled");
              return true;
     default:
       snprintf(buf, size, "???  # invalid opcode %02d", opcode);
@@ -373,21 +411,38 @@ static bool disassemble(char* buf, size_t size, VM vm) {
   return false;
 }
 
-static bool dump_regs(VM* vm) {
-  char dis[128];
-  bool should_skip = disassemble(dis, sizeof(dis)-1, *vm);
-  if (should_skip) return true;
+static void dump_regs(VM* vm) {
   printf("PC  RR  A  B  C  D  E  F  G  H  I  J  %*s\n", 1 + 2 * vm->ir_index, "v");
   printf("%03d %03d %02d %02d %02d %02d %02d %02d %02d %02d %02d %02d %02d%02d%02d%02d%02d%02d...\n",
          vm->pc, vm->old_pc,
          vm->a, vm->b, vm->c, vm->d, vm->e,
          vm->f, vm->g, vm->h, vm->i, vm->j,
          vm->ir[0], vm->ir[1], vm->ir[2], vm->ir[3], vm->ir[4], vm->ir[5]);
-  printf("  %s%s\n", dis, vm->halted ? " [halted]" : "");
-  return false;
+}
+
+static void dump_current_instruction(VM *vm, char *dis) {
+  const char* state = vm->halted ? " [halted]" :
+                      vm->breakpoint ? " [break]" :
+                      "";
+  printf("  %s%s\n", dis, state);
 }
 
 static void dump_memory(VM *vm) {
+  printf("   x0 x1 x2 x3 x4 x5 x6 x7 x8 x9\n");
+  size_t mem_size = sizeof(vm->mem) / sizeof(vm->mem[0]);
+  for (int i = 0; i < mem_size; i += 2) {
+    printf("%dx %02d %02d %02d %02d %02d",
+           i/2, vm->mem[i][0], vm->mem[i][1], vm->mem[i][2], vm->mem[i][3], vm->mem[i][4]);
+    if (i+1 < mem_size) {
+      printf(" %02d %02d %02d %02d %02d\n",
+             vm->mem[i+1][0], vm->mem[i+1][1], vm->mem[i+1][2], vm->mem[i+1][3], vm->mem[i+1][4]);
+    } else {
+      printf("\n");
+    }
+  }
+}
+
+static void dump_memory_accs(VM *vm) {
   printf("   A B C D E\n");
   for (int i = 0; i < sizeof(vm->mem) / sizeof(vm->mem[0]); i++) {
     printf("%02d %02d%02d%02d%02d%02d\n",
@@ -395,9 +450,9 @@ static void dump_memory(VM *vm) {
   }
 }
 
-static bool should_stop = false;
-static void stop(int) {
-  should_stop = true;
+static bool interrupted = false;
+static void interrupt(int) {
+  interrupted = true;
 }
 
 #ifndef TEST  // Defined by chsim_test.cc for unit testing.
@@ -410,7 +465,7 @@ int main(int argc, char *argv[]) {
   if (!read_program(argv[1], &vm)) {
     exit(1);
   }
-  signal(SIGINT, stop);
+  signal(SIGINT, interrupt);
   while (true) {
     char* command = readline("> ");
     if (strcmp(command, "h") == 0) {
@@ -418,7 +473,8 @@ int main(int argc, char *argv[]) {
       printf("h - print help\n");
       printf("q - quit\n");
       printf("r - print vm registers\n");
-      printf("m - print vm memory\n");
+      printf("m - print vm memory (linear addresses)\n");
+      printf("ma - print vm memory (accumulators)\n");
       printf("g - run (until halt or ^C)\n");
       printf("n - step one instruction and print\n");
     } else if (strcmp(command, "q") == 0) {
@@ -426,18 +482,27 @@ int main(int argc, char *argv[]) {
     } else if (strcmp(command, "r") == 0) {
       dump_regs(&vm);
     } else if (strcmp(command, "n") == 0) {
-      while (1) {
-        bool should_skip = dump_regs(&vm);
+      vm.breakpoint = false;
+      bool skip = true;
+      while (skip) {
+        char dis[128];
+        skip = disassemble(dis, sizeof(dis)-1, vm);
+        if (!skip) {
+          dump_regs(&vm);
+          dump_current_instruction(&vm, dis);
+        }
         step(&vm);
-        if (!should_skip || vm.halted) break;
       }
     } else if (strcmp(command, "m") == 0) {
       dump_memory(&vm);
+    } else if (strcmp(command, "ma") == 0) {
+      dump_memory_accs(&vm);
     } else if (strcmp(command, "g") == 0) {
-      should_stop = false;
-      while (!should_stop && !vm.halted) {
+      interrupted = false;
+      while (!interrupted && !vm.breakpoint && !vm.halted) {
         step(&vm);
       }
+      dump_regs(&vm);
     }
     free(command);
   }

@@ -343,9 +343,10 @@ TEST_CASE(step_jsr) {
 
 TEST_CASE(step_ret) {
   VM vm;
-  vm.pc = 342;
   vm.old_pc = 101;
-  FT(342, 85, 95, 0, 0, 0, 0);
+  vm.pc = 342;
+  vm.ir_index = 6;
+  FT(342, 0, 85, 95, 0, 0, 0);
   step(&vm);
   assert(vm.pc == 101);
 }
