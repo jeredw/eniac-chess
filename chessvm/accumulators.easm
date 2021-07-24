@@ -188,7 +188,7 @@ endmacro
 
 # - Load/Store -
 # Registers F-J of the virtual machine. 
-{a-ls}=a5
+{a-ls}=a4
 $acc-main ls
 
 # Load only the sign. used in STOREACC to preserve DISCFT acc signs
@@ -208,8 +208,8 @@ $recx {p-recls} {a-ls} {r-recls} {i-main}
 
 # - MEM0 -
 # Discriminate memory cycle 0-9 vs. 10-14
-{a-mem0}=a6
-{a-discmemcyc}=a6
+{a-mem0}=a5
+{a-discmemcyc}=a5
 $acc-disc-main discmemcyc
 
 # drop sign, used to clear LS sign in STOREACC
@@ -227,8 +227,8 @@ $permute {d-main} 0,8,7,0,0,0,0,0,0,0,0 {a-discmemcyc}.{i-accidxB}
 
 # - MEM1 -
 # Trigger mem cycle 10-14 on S outputs
-{a-mem1}=a7
-{a-memcyc1014}=a7
+{a-mem1}=a6
+{a-memcyc1014}=a6
 $acc-main mem1
 
 p {a-memcyc1014}.S {d-memcyc1014S}
@@ -239,8 +239,8 @@ p {d-ftselacc} {a-memcyc1014}.{i-ftselacc}
 
 # - MEM2 -
 # Trigger MOV [FGHIJ],A on S outputs for LOADWORD
-{a-mem2}=a8
-{a-loadword}=a8
+{a-mem2}=a7
+{a-loadword}=a7
 $acc-main mem2
 
 p {a-loadword}.S {d-loadword}
@@ -256,8 +256,8 @@ p {d-ftselacc} {a-loadword}.{i-ftselacc}
 # - MEM3 -
 # MEM3 is used as a temporary for ops involving RF which can be negative, so it
 # must not have any discrimination programs.
-{a-mem3}=a9
-{a-rftmp}=a9
+{a-mem3}=a8
+{a-rftmp}=a8
 $acc-main mem3
 
 # preserve sign on clearA so a18,a19,a20 sign preserved through storeword
@@ -268,8 +268,8 @@ $sendcx {p-sendc-rftmp} {a-rftmp} {x-sendcrftmp} A
 
 # - MEM4 -
 # Trigger MOV A,[FGHIJ] sequences on S outputs for STOREWORD
-{a-mem4}=a10
-{a-storeword}=a10
+{a-mem4}=a9
+{a-storeword}=a9
 $acc-main mem4
 
 # i-ftselacc: get 10 digits from FT
@@ -277,14 +277,14 @@ p {d-ftselacc} {a-storeword}.{i-ftselacc}
 
 
 # - MEM5 -
-{a-mem5}=a11
+{a-mem5}=a10
 $acc-main mem5
 
 
 # - MEM6 -
 # Programs to compute new PC for JMP FAR/JSR/RET.
-{a-mem6}=a12
-{a-newpc}=a12
+{a-mem6}=a11
+{a-newpc}=a11
 
 $acc-main mem6
 
@@ -302,8 +302,7 @@ $permuted-input {a-newpc} {d-main} {i-shiftl4-pc} 0,0,0,4,3,2,1,0,0,0,0
 
 
 # - MEM7 - 
-# This is a4 because we switched RF to a13 to support cheap print
-{a-mem7}=a4
+{a-mem7}=a12
 $acc-main mem7
 
 

@@ -969,16 +969,20 @@ class Assembler(object):
       if outlines != None:
         out += outlines + '\n'
     if self.defmacro:
+      # macros must terminate within the same file
       print(f'unterminated macro {self.defmacro.name}')
-      return None
-    if self.if_stack:
-      print(f'unterminated if')
       return None
     return out
 
 
   def assemble(self, filename, intext):
-    return self._scan(filename, intext)
+    r = self._scan(filename, intext)
+    if self.if_stack:
+      # check for open ifs after all includes processed
+      print(f'unterminated if')
+      return None
+    return r
+
 
   def summarize_resource_usage(self):
     self.symbols.summarize_resource_usage()
