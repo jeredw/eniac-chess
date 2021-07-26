@@ -25,11 +25,19 @@ winner = 0
 # Reserve 6 accs for stack
 stack = [[0, 0, 0, 0, 0] for _ in range(6)]
 
+# Count of memory acesses
+debug_mems = 0
+
 def print_board():
   for y in range(6):
     for x in range(7):
       print(board[7 * y + x], end='')
     print()
+
+def read_board(offset):
+  global debug_mems
+  debug_mems += 1
+  return board[offset]
 
 def move(column, player):
   """Play a piece for player in column 1-7, which must have room."""
@@ -38,9 +46,11 @@ def move(column, player):
   while True:
     next_offset = offset + 7
     if next_offset >= 42: break
-    if board[next_offset] != 0: break
+    if read_board(next_offset) != 0: break
     offset = next_offset
   board[offset] = player
+  global debug_mems
+  debug_mems += 1
   # The piece just placed may have resulted in a win for player
   return update_winner(column, offset, player)  # tail call
 
@@ -64,7 +74,7 @@ def update_winner(move_column, move_offset, player):
   offset = move_column - 1
   run_length = 0
   while offset < 42:
-    if board[offset] == player: run_length += 1
+    if read_board(offset) == player: run_length += 1
     else: run_length = 0
     if run_length == 4:
       winner = player
@@ -76,7 +86,7 @@ def update_winner(move_column, move_offset, player):
   offset = start_of_row[move_offset]
   run_length = 0
   for _ in range(7):
-    if board[offset] == player: run_length += 1
+    if read_board(offset) == player: run_length += 1
     else: run_length = 0
     if run_length == 4:
       winner = player
@@ -96,7 +106,7 @@ def update_winner(move_column, move_offset, player):
   # Scan down diagonal
   run_length = 0
   while column <= 7 and offset < 42:
-    if board[offset] == player: run_length += 1
+    if read_board(offset) == player: run_length += 1
     else: run_length = 0
     if run_length == 4:
       winner = player
@@ -117,7 +127,7 @@ def update_winner(move_column, move_offset, player):
   # Scan down diagonal
   run_length = 0
   while column >= 1 and offset < 42:
-    if board[offset] == player: run_length += 1
+    if read_board(offset) == player: run_length += 1
     else: run_length = 0
     if run_length == 4:
       winner = player
@@ -128,7 +138,7 @@ def update_winner(move_column, move_offset, player):
   # If move was in top row, check for draw (after any possible wins)
   if move_offset < 7:
     for i in range(7):
-      if board[i] == 0:
+      if read_board(i) == 0:
         return
     winner = 3
     return
@@ -137,9 +147,11 @@ def undo_move(column):
   """Undo the last move in column, which must not be empty."""
   offset = column - 1
   while True:
-    data = board[offset]
+    data = read_board(offset)
     if data != 0:
       board[offset] = 0
+      global debug_mems
+      debug_mems += 1
       break
     offset += 7
     assert offset < 42
@@ -176,12 +188,12 @@ def score(player):
 
   # Compute center column bonus (3x count in center column)
   # XXX This term seems large
-  if board[3] == player: total += 3
-  if board[10] == player: total += 3
-  if board[17] == player: total += 3
-  if board[24] == player: total += 3
-  if board[31] == player: total += 3
-  if board[38] == player: total += 3
+  if read_board(3) == player: total += 3
+  if read_board(10) == player: total += 3
+  if read_board(17) == player: total += 3
+  if read_board(24) == player: total += 3
+  if read_board(31) == player: total += 3
+  if read_board(38) == player: total += 3
 
   # Count horizontal runs
   offset = 0
@@ -191,13 +203,13 @@ def score(player):
     count_opponent = 0
     for i in range(7):
       if i > 3: 
-        data = board[offset-4]
+        data = read_board(offset-4)
         if data == 0: count_empty -= 1
         elif data == 1 and player == 1: count_player -= 1
         elif data == 1 and player == 2: count_opponent -= 1
         elif data == 2 and player == 1: count_opponent -= 1
         elif data == 2 and player == 2: count_player -= 1
-      data = board[offset]
+      data = read_board(offset)
       if data == 0: count_empty += 1
       elif data == 1 and player == 1: count_player += 1
       elif data == 1 and player == 2: count_opponent += 1
@@ -219,13 +231,13 @@ def score(player):
     count_opponent = 0
     for i in range(6):
       if i > 3:
-        data = board[offset-4*7]
+        data = read_board(offset-4*7)
         if data == 0: count_empty -= 1
         elif data == 1 and player == 1: count_player -= 1
         elif data == 1 and player == 2: count_opponent -= 1
         elif data == 2 and player == 1: count_opponent -= 1
         elif data == 2 and player == 2: count_player -= 1
-      data = board[offset]
+      data = read_board(offset)
       if data == 0: count_empty += 1
       elif data == 1 and player == 1: count_player += 1
       elif data == 1 and player == 2: count_opponent += 1
@@ -249,13 +261,13 @@ def score(player):
     count_opponent = 0
     for i in range(6):
       if i > 3: 
-        data = board[offset-4*8]
+        data = read_board(offset-4*8)
         if data == 0: count_empty -= 1
         elif data == 1 and player == 1: count_player -= 1
         elif data == 1 and player == 2: count_opponent -= 1
         elif data == 2 and player == 1: count_opponent -= 1
         elif data == 2 and player == 2: count_player -= 1
-      data = board[offset]
+      data = read_board(offset)
       if data == 0: count_empty += 1
       elif data == 1 and player == 1: count_player += 1
       elif data == 1 and player == 2: count_opponent += 1
@@ -281,13 +293,13 @@ def score(player):
     count_opponent = 0
     for i in range(6):
       if i > 3: 
-        data = board[offset-4*6]
+        data = read_board(offset-4*6)
         if data == 0: count_empty -= 1
         elif data == 1 and player == 1: count_player -= 1
         elif data == 1 and player == 2: count_opponent -= 1
         elif data == 2 and player == 1: count_opponent -= 1
         elif data == 2 and player == 2: count_player -= 1
-      data = board[offset]
+      data = read_board(offset)
       if data == 0: count_empty += 1
       elif data == 1 and player == 1: count_player += 1
       elif data == 1 and player == 2: count_opponent += 1
@@ -336,13 +348,13 @@ def play_game():
     # 3: 0      # alpha: 0
     # 4: 99     # beta: 99
     stack[0] = [10, 0, zero_score, 0, 99]
-    i = 1
-    k = 0
-    max_i = i
-    while i > 0:
-      k += 1
-      i -= 1
-      (player_and_best_move, last_move, best_score, alpha, beta) = stack[i]
+    sp = 1
+    num_positions = 0
+    max_sp = sp
+    while sp > 0:
+      num_positions += 1
+      sp -= 1
+      (player_and_best_move, last_move, best_score, alpha, beta) = stack[sp]
       player = extract_player[player_and_best_move]
       best_move = player_and_best_move
       if best_move >= 10: best_move -= 10
@@ -350,16 +362,16 @@ def play_game():
       if last_move == 0:
         # Possibly begin search at new depth
         if winner == 1:    # eniac won
-          stack[i][2] = 99
+          stack[sp][2] = 99
           continue
         elif winner == 2:  # human won
-          stack[i][2] = 0
+          stack[sp][2] = 0
           continue
         elif winner == 3:  # draw
-          stack[i][2] = zero_score
+          stack[sp][2] = zero_score
           continue
-        if i == 5:  # max search depth
-          stack[i][2] = score(1)
+        if sp == 5:  # max search depth
+          stack[sp][2] = score(1)
           continue
         # TODO search moves in a better order!
         last_move = 7
@@ -367,7 +379,7 @@ def play_game():
         # Iterate over moves at current depth
         undo_move(last_move)
         # The "previous" stack frame will have the best recursive move score
-        value = stack[i+1][2]
+        value = stack[sp+1][2]
         if player == 1:
           if value > best_score:
             best_move = last_move
@@ -381,10 +393,10 @@ def play_game():
           if value < beta:
             beta = value
         # Update our stack frame
-        stack[i][0] = ten_times[player] + best_move
-        stack[i][2] = best_score
-        stack[i][3] = alpha
-        stack[i][4] = beta
+        stack[sp][0] = ten_times[player] + best_move
+        stack[sp][2] = best_score
+        stack[sp][3] = alpha
+        stack[sp][4] = beta
         if alpha >= beta:
           # Can stop iterating
           continue
@@ -392,29 +404,31 @@ def play_game():
         last_move -= 1
       # TODO try moves in a better order!
       while last_move > 0:
-        if board[last_move-1] != 0:
+        if read_board(last_move-1) != 0:
           last_move -= 1
         else:
           break
       if last_move == 0:
         continue
       move(last_move, player)
-      stack[i] = [ten_times[player] + best_move, last_move, best_score, alpha, beta]
-      i += 1
+      stack[sp] = [ten_times[player] + best_move, last_move, best_score, alpha, beta]
+      sp += 1
       if player == 1:
         other_player = 20
         other_best_score = 99
       else:
         other_player = 10
         other_best_score = 0
-      stack[i] = [other_player, 0, other_best_score, alpha, beta]
-      i += 1
-      max_i = max(i, max_i)
+      stack[sp] = [other_player, 0, other_best_score, alpha, beta]
+      sp += 1
+      max_sp = max(sp, max_sp)
 
     # eniac plays at the final "best_move" position
     best_move = stack[0][0] - 10
-    print(f'eniac move:{best_move} ({k} {max_i})')
+    global debug_mems
+    print(f'eniac move:{best_move} ({debug_mems} mems/{num_positions} positions, max depth {max_sp})')
     move(best_move, 1)
+    debug_mems = 0
     print_board()
     if winner != 0:
       break
