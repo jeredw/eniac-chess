@@ -82,6 +82,7 @@ notfound
   ret 		        ; A=-1 for empty
 
 
+
 ; SHORT version, doesn't unroll the acummulator access loop
 getsquare2
   swap A,D
@@ -97,5 +98,52 @@ loop2
   swap A,B
   jmp loop2
 
+
+
+; DREAM version
+; jp/jnz/shiftsub
+; Start with partial acc containing 30,31
+; D = to find
+; C = acc idx
+
+  clr A
+  swap A,B        ; zero iter count
+  clr A
+  swap A,C        ; zero acc idx
+
+; main loop: load next acc and search
+getsqloop
+  mov C,A
+  loadacc A       ; read next row
+
+  mov B,A         ; load iter count
+  srch found
+  srch found
+  srch found
+  srch found
+  srch found
+  swap A,B        ; save iter count
+
+; dec C and load next accumulator value, or exit
+  swap A,C        ; load loop counter/acc idx
+  inc A
+  mov A,C
+  add 94,A        ; acc idx=6?
+  jnz getsqloop
+
+; search addresses 30,31
+  mov C,A
+  loadacc C
+  mov B,A
+  srch found
+  srch found
+
+; not found
+  clr A
+  dec C
+  ret
   
+found
+  mov B,A
+  ret
 

@@ -14,3 +14,7 @@ vmtest: chasm/chasm.py asm/vmtest.asm easm/easm.py chessvm/chessvm.easm
 tic: chasm/chasm.py asm/tic.asm easm/easm.py chessvm/chessvm.easm
 	python chasm/chasm.py asm/tic.asm tic.e
 	python easm/easm.py chessvm/chessvm.easm chessvm.e
+
+chess: chasm/chasm.py asm/chess.asm easm/easm.py chessvm/chessvm.easm
+	python chasm/chasm.py asm/chess.asm chess.e
+	python easm/easm.py chessvm/chessvm.easm chessvm.e

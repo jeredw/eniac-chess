@@ -109,12 +109,26 @@ insert-deferred
 
 
 # -- CURRENT PROGRAM --
-include vmtest.e
-# ibm cards (one card per line, 80 cols)
-f r asm/vmtest.deck
 
-# To run tic tac toe, comment out vmtest, uncomment this, and use runtic.py
-#include tic.e
+# What are we running today?
+enable TEST
+disable TIC
+disable CHESS
+
+if TEST
+include vmtest.e
+f r asm/vmtest.deck
+endif
+
+if TIC
+# To run tic tac toe enable TIC and use runtic.py
+include tic.e
+endif
+
+if CHESS
+include chess.e
+f r asm/chess.deck
+endif
 
 # Start the machine
 b i
