@@ -113,6 +113,7 @@ insert-deferred
 # What are we running today?
 enable TEST
 disable TIC
+disable C4
 disable CHESS
 
 if TEST
@@ -123,6 +124,11 @@ endif
 if TIC
 # To run tic tac toe enable TIC and use runtic.py
 include tic.e
+endif
+
+if C4
+# To run connect 4 enable C4 and use runc4.py
+include c4.e
 endif
 
 if CHESS

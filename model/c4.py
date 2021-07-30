@@ -252,10 +252,15 @@ def score(player):
       i += 1
 
   # Count \ diagonal runs
+  # 00 01 02 \3 04 05 06
+  # 07 08 09 10 \1 12 13
+  # \4 15 16 17 18 \9 20
+  # 21 \2 23 24 25 26 \7
+  # 28 29 \0 31 32 33 34|35
+  # 35 36 37 \8 39 40 41|42
+  #             46|47|48|49
   for j in range(6):
     offset = right_diagonal_starts[j]
-    x = offset
-    if x >= 7: x = 0
     count_empty = 0
     count_player = 0
     count_opponent = 0
@@ -280,14 +285,18 @@ def score(player):
         elif count_opponent == 3 and count_empty == 1: total -= 4
       offset += 8
       i += 1
-      x += 1
-      if offset > 42 or x > 6: break
+      if offset >= 42 or offset == 35: break
 
   # Count / diagonal runs
+  #    00 01 02 /3 04 05 06
+  #    07 08 /9 10 11 12 13
+  #    14 /5 16 17 18 19 2/
+  #    /1 22 23 24 25 2/ 27
+  # 27|28 29 30 31 3/ 33 34
+  # 34|35 36 37 3/ 39 40 41
+  # 41|42|43|44
   for j in range(6):
     offset = left_diagonal_starts[j]
-    x = offset
-    if x >= 7: x = 6
     count_empty = 0
     count_player = 0
     count_opponent = 0
@@ -312,8 +321,7 @@ def score(player):
         elif count_opponent == 3 and count_empty == 1: total -= 4
       offset += 6
       i += 1
-      x -= 1
-      if offset > 42 or x < 0: break
+      if offset >= 41 or offset == 34 or offset == 27: break
 
   #assert 0 <= total <= 99
   if not (0 <= total <= 99):
