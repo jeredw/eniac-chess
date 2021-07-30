@@ -123,11 +123,21 @@ static void assert_sanity(VM* vm) {
   }
 }
 
+static int drop_sign(int a) {
+  if (a >= 0) {
+    return a;
+  }
+  return a + 100;  // e.g. M99 (-1) -> P99
+}
+
 static void swap_with_a_sign(int& a, int& x) {
-  int tmp = a;
-  assert(x >= 0);
-  a = a < 0 ? -x : x;
-  x = abs(tmp);
+  if (a >= 0) {
+    std::swap(a, x);
+  } else {
+    int tmp = a;
+    a = x - 100;  // e.g. x=P01 -> a=M01 (-99)
+    x = tmp + 100;  // e.g. a=M01 (-99) -> x=P01
+  }
 }
 
 static int consume_ir(VM* vm) {
@@ -208,12 +218,17 @@ static void step(VM* vm) {
       break;
     case 11: // storeacc A
       assert(0 <= vm->a && vm->a < 15);
-      vm->f = abs(vm->f);
+      vm->f = drop_sign(vm->f);
       std::copy(vm->ls, vm->ls + 5, vm->mem[vm->a]);
       break;
     case 12: std::swap(vm->rf, vm->ls); break; // swapall
     case 14: { // ftl A,D
-      int offset = abs(vm->a) % 100;
+      int offset = drop_sign(vm->a);
+      if (!(8 <= offset && offset <= 99)) {
+        fprintf(stderr, "ftl %d out of bounds\n", vm->a);
+        vm->halted = true;
+        break;
+      }
       vm->d = vm->function_table[300 + offset][0];
       consume_operand(vm);
       break;
@@ -222,7 +237,7 @@ static void step(VM* vm) {
     case 21: vm->a = vm->c; break; // mov C, A
     case 22: vm->a = vm->d; break; // mov D, A
     case 23: vm->a = vm->e; break; // mov E, A
-    case 34: vm->a = abs(vm->f); break; // mov F, A
+    case 34: vm->a = drop_sign(vm->f); break; // mov F, A
     case 30: vm->a = vm->g; break; // mov G, A
     case 31: vm->a = vm->h; break; // mov H, A
     case 32: vm->a = vm->i; break; // mov I, A
@@ -249,7 +264,7 @@ static void step(VM* vm) {
       int acc = vm->b / 5;
       int word = vm->b % 5;
       std::copy(vm->mem[acc], vm->mem[acc] + 5, vm->ls);
-      vm->ls[word] = vm->a;
+      vm->ls[word] = drop_sign(vm->a);
       std::copy(vm->ls, vm->ls + 5, vm->mem[acc]);
       break;
     }
@@ -342,7 +357,7 @@ static void step(VM* vm) {
       break;
     }
     case 92: // print
-      printf("%02d%02d\n", abs(vm->a), vm->b);
+      printf("%02d%02d\n", drop_sign(vm->a), vm->b);
       break;
     case 94: // brk
       vm->breakpoint = true;
@@ -412,10 +427,11 @@ static bool disassemble(char* buf, size_t size, VM vm) {
 }
 
 static void dump_regs(VM* vm) {
-  printf("PC  RR  A  B  C  D  E  F  G  H  I  J  %*s\n", 1 + 2 * vm->ir_index, "v");
-  printf("%03d %03d %02d %02d %02d %02d %02d %02d %02d %02d %02d %02d %02d%02d%02d%02d%02d%02d...\n",
+  printf("PC  RR  A   B  C  D  E  F  G  H  I  J  %*s\n", 1 + 2 * vm->ir_index, "v");
+  printf("%03d %03d %c%02d %02d %02d %02d %02d %02d %02d %02d %02d %02d %02d%02d%02d%02d%02d%02d...\n",
          vm->pc, vm->old_pc,
-         vm->a, vm->b, vm->c, vm->d, vm->e,
+         vm->a < 0 ? 'M' : 'P',
+         drop_sign(vm->a), vm->b, vm->c, vm->d, vm->e,
          vm->f, vm->g, vm->h, vm->i, vm->j,
          vm->ir[0], vm->ir[1], vm->ir[2], vm->ir[3], vm->ir[4], vm->ir[5]);
 }
@@ -502,7 +518,12 @@ int main(int argc, char *argv[]) {
       while (!interrupted && !vm.breakpoint && !vm.halted) {
         step(&vm);
       }
-      dump_regs(&vm);
+      {
+        dump_regs(&vm);
+        char dis[128];
+        disassemble(dis, sizeof(dis)-1, vm);
+        dump_current_instruction(&vm, dis);
+      }
     }
     free(command);
   }
