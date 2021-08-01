@@ -2,6 +2,15 @@
 from subprocess import run, PIPE, Popen
 import signal
 import time
+import sys
+
+errors = {
+  98: 'move in full column',
+  97: 'undo_move in empty column',
+  96: 'stack underflow',
+  95: 'stack overflow',
+  94: 'unhandled winner',
+}
 
 def read_board(p):
   board = [0] * 42
@@ -9,6 +18,10 @@ def read_board(p):
     line = p.stdout.readline().decode()
     what, where = int(line[:2]), int(line[2:4])
     if what == 99: return board, where  # where is the winner
+    if what in errors:
+      print(f'error {what}: {errors[what]}')
+      p.kill()
+      sys.exit(1)
     assert 0 <= where <= 41
     assert what == 1 or what == 2
     board[where] = what

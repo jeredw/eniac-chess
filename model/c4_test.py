@@ -13,7 +13,7 @@ class TestC4(unittest.TestCase):
                     '0000000',
                     '0000000')
 
-  def setUpBoard(self, *rows):
+  def setUpBoard(self, *rows, asm=False):
     c4.winner = 0
     assert len(rows) == 6
     i = 0
@@ -21,6 +21,10 @@ class TestC4(unittest.TestCase):
       assert len(row) == 7
       for value in row:
         c4.board[i] = int(value)
+        if asm and value != '0':
+          print(f'  mov {i},A<->B')
+          print(f'  mov {value},A')
+          print(f'  mov A,[B]')
         i += 1
 
   def assertBoard(self, *rows):
@@ -351,6 +355,15 @@ class TestC4(unittest.TestCase):
                     '2121212')
     self.assertEqual(score(2), 30 + 3 + 5 + 2 + 5 + 5 + 2 + 2)
     self.assertEqual(score(1), 30 + 9 + 2 + 2 - 4 - 4 - 4)
+
+  def testScore_NearWin(self):
+    self.setUpBoard('0000000',
+                    '0000000',
+                    '0000000',
+                    '0000012',
+                    '0000122',
+                    '0001112')
+    self.assertEqual(score(1), 45)
 
 if __name__ == "__main__":
   unittest.main()

@@ -213,11 +213,19 @@ static void step(VM* vm) {
     case 3: swap_with_a_sign(vm->a, vm->d); break; // swap A, D
     case 4: swap_with_a_sign(vm->a, vm->e); break; // swap A, E
     case 10: // loadacc A
-      assert(0 <= vm->a && vm->a < 15);
+      if (!(0 <= vm->a && vm->a < 15)) {
+        fprintf(stderr, "loadacc %d out of bounds\n", vm->a);
+        vm->halted = true;
+        break;
+      }
       std::copy(vm->mem[vm->a], vm->mem[vm->a] + 5, vm->ls);
       break;
     case 11: // storeacc A
-      assert(0 <= vm->a && vm->a < 15);
+      if (!(0 <= vm->a && vm->a < 15)) {
+        fprintf(stderr, "storeacc %d out of bounds\n", vm->a);
+        vm->halted = true;
+        break;
+      }
       vm->f = drop_sign(vm->f);
       std::copy(vm->ls, vm->ls + 5, vm->mem[vm->a]);
       break;
