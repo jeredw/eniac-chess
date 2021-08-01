@@ -40,6 +40,9 @@ struct VM {
 
   // ROM, essentially
   int function_table[400][6]{};
+
+  // For profiling
+  int profile[400][7]{};
 };
 
 static void usage() {
@@ -157,7 +160,7 @@ static int consume_ir(VM* vm) {
 }
 
 static void dump_regs(VM* vm);
-static int consume_operand(VM *vm) {
+static int consume_operand(VM* vm) {
   if (vm->ir_index == 6) {
     fprintf(stderr, "misaligned operand\n");
     return 95; // halt
@@ -179,12 +182,12 @@ static int consume_operand(VM *vm) {
   return vm->ir[vm->ir_index++];
 }
 
-static int consume_near_address(VM *vm) {
+static int consume_near_address(VM* vm) {
   int target = consume_operand(vm);
   return 100 * (vm->pc / 100) + target;
 }
 
-static int consume_far_address(VM *vm) {
+static int consume_far_address(VM* vm) {
   int target = consume_operand(vm);
   int bank = consume_ir(vm);
   if (!(bank == 9 || bank == 90 || bank == 99)) {
@@ -202,6 +205,7 @@ static int consume_far_address(VM *vm) {
 
 static void step(VM* vm) {
   if (vm->halted) return;
+  vm->profile[vm->pc][vm->ir_index]++;
   int opcode = consume_ir(vm);
   switch (opcode) {
     case 0: // clrall
@@ -451,14 +455,14 @@ static void dump_regs(VM* vm) {
          vm->ir[0], vm->ir[1], vm->ir[2], vm->ir[3], vm->ir[4], vm->ir[5]);
 }
 
-static void dump_current_instruction(VM *vm, char *dis) {
+static void dump_current_instruction(VM* vm, char* dis) {
   const char* state = vm->halted ? " [halted]" :
                       vm->breakpoint ? " [break]" :
                       "";
   printf("  %s%s\n", dis, state);
 }
 
-static void dump_memory(VM *vm) {
+static void dump_memory(VM* vm) {
   printf("   x0 x1 x2 x3 x4 x5 x6 x7 x8 x9\n");
   size_t mem_size = sizeof(vm->mem) / sizeof(vm->mem[0]);
   for (int i = 0; i < mem_size; i += 2) {
@@ -473,12 +477,40 @@ static void dump_memory(VM *vm) {
   }
 }
 
-static void dump_memory_accs(VM *vm) {
+static void dump_memory_accs(VM* vm) {
   printf("   A B C D E\n");
   for (int i = 0; i < sizeof(vm->mem) / sizeof(vm->mem[0]); i++) {
     printf("%02d %02d%02d%02d%02d%02d\n",
            i, vm->mem[i][0], vm->mem[i][1], vm->mem[i][2], vm->mem[i][3], vm->mem[i][4]);
   }
+}
+
+static void dump_profile(VM vm) {
+  const char* filename = "/tmp/chsim.prof";
+  FILE* fp = fopen(filename, "w");
+  for (int pc = 100; pc < 400; pc++) {
+    for (int i = 0; i < 7; i++) {
+      int count = vm.profile[pc][i];
+      if (count > 0) {
+        if (i != 6) {
+          vm.pc = pc - 1;
+          vm.ir_index = 6;
+          consume_ir(&vm);
+        }
+        vm.pc = pc;
+        vm.ir_index = i;
+        char dis[128];
+        bool skip = disassemble(dis, sizeof(dis)-1, vm);
+        if (!skip) {
+          int adjusted_pc = i == 6 ? pc : pc - 1;
+          int adjusted_index = i == 6 ? 0 : i - 1;
+          fprintf(fp, "%03d/%d  %-15s  ; %d\n", adjusted_pc, adjusted_index, dis, count);
+        }
+      }
+    }
+  }
+  fclose(fp);
+  printf("wrote profile to %s\n", filename);
 }
 
 static void interrupt(int) {
@@ -506,6 +538,7 @@ int main(int argc, char *argv[]) {
       printf("r - print vm registers\n");
       printf("m - print vm memory (linear addresses)\n");
       printf("ma - print vm memory (accumulators)\n");
+      printf("pf - print execution profile\n");
       printf("g - run (until halt or ^C)\n");
       printf("n - step one instruction and print\n");
     } else if (strcmp(command, "q") == 0) {
@@ -528,6 +561,8 @@ int main(int argc, char *argv[]) {
       dump_memory(&vm);
     } else if (strcmp(command, "ma") == 0) {
       dump_memory_accs(&vm);
+    } else if (strcmp(command, "pf") == 0) {
+      dump_profile(vm);
     } else if (strcmp(command, "g") == 0) {
       interrupted = false;
       while (!interrupted && !vm.breakpoint && !vm.halted) {
