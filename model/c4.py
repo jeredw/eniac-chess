@@ -34,6 +34,12 @@ def print_board():
       print(board[7 * y + x], end='')
     print()
 
+def print_pieces():
+  for i in range(len(board)):
+    if board[i] != 0:
+      print(f'{board[i]:02}{i:02d}')
+  print('9900')
+
 def read_board(offset):
   global debug_mems
   debug_mems += 1
@@ -407,6 +413,7 @@ def play_game():
         stack[sp][4] = beta
         if alpha >= beta:
           # Can stop iterating
+          #print(f'{alpha:02d}{beta:02d}')
           continue
         # Now try the next move.
         last_move -= 1
@@ -419,6 +426,7 @@ def play_game():
       if last_move == 0:
         continue
       move(last_move, player)
+      #print_pieces()
       stack[sp] = [ten_times[player] + best_move, last_move, best_score, alpha, beta]
       sp += 1
       if player == 1:

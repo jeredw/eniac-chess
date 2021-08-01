@@ -524,7 +524,7 @@ score1_dl_c
   jn score1_dl      ; if offset>=41, done
   ; the diagonal (4,10,16,22,28) ends at 34
   mov B,A           ;
-  add 65,A          ; compare with 34
+  add 66,A          ; compare with 34
   jz score1_dl      ; if offset==34, wrapped (done)
   ; the diagonal (3,9,15,21) ends at 27
   mov B,A           ;

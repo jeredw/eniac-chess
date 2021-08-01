@@ -8,6 +8,9 @@
 #include <readline/history.h>
 #include <signal.h>
 
+static FILE* output_file = nullptr;
+static bool interrupted = false;
+
 struct VM {
   int isa_version = 0;
   bool halted = false;
@@ -356,8 +359,11 @@ static void step(VM* vm) {
       int f, g, h1;
       fprintf(stderr, "?");
       fflush(stderr);
-      while (scanf("%02d%02d%d", &f, &g, &h1) != 3) {
-        fprintf(stderr, "expect ffggh e.g. 01020\n");
+      int result = scanf("%02d%02d%d", &f, &g, &h1);
+      if (result != 3) {
+        fprintf(stderr, "invalid read data\n");
+        vm->halted = true;
+        break;
       }
       vm->f = f;
       vm->g = g;
@@ -366,6 +372,7 @@ static void step(VM* vm) {
     }
     case 92: // print
       printf("%02d%02d\n", drop_sign(vm->a), vm->b);
+      fprintf(output_file, "%02d%02d\n", drop_sign(vm->a), vm->b);
       break;
     case 94: // brk
       vm->breakpoint = true;
@@ -474,7 +481,6 @@ static void dump_memory_accs(VM *vm) {
   }
 }
 
-static bool interrupted = false;
 static void interrupt(int) {
   interrupted = true;
 }
@@ -489,6 +495,7 @@ int main(int argc, char *argv[]) {
   if (!read_program(argv[1], &vm)) {
     exit(1);
   }
+  output_file = fopen("/tmp/chsim.out", "w");
   signal(SIGINT, interrupt);
   while (true) {
     char* command = readline("> ");
@@ -535,6 +542,7 @@ int main(int argc, char *argv[]) {
     }
     free(command);
   }
+  fclose(output_file);
   return 0;
 }
 #endif  // TEST
