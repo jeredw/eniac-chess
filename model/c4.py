@@ -340,6 +340,10 @@ extract_player = [x // 10 for x in range(27 + 1)]
 # Multiply 012 by 10
 ten_times = [0, 10, 20]
 
+# Order to try columns in when choosing moves
+column_order = [0, 1, 7, 2, 6, 3, 5, 4]
+#column_order = [0, 1, 2, 3, 4, 5, 6, 7]
+
 def play_game():
   # eniac goes first and plays in the center column
   move(4, 1)
@@ -391,7 +395,7 @@ def play_game():
         last_move = 7
       else:
         # Iterate over moves at current depth
-        undo_move(last_move)
+        undo_move(column_order[last_move])
         # The "previous" stack frame will have the best recursive move score
         value = stack[sp+1][2]
         if player == 1:
@@ -419,13 +423,13 @@ def play_game():
         last_move -= 1
       # TODO try moves in a better order!
       while last_move > 0:
-        if read_board(last_move-1) != 0:
+        if read_board(column_order[last_move]-1) != 0:
           last_move -= 1
         else:
           break
       if last_move == 0:
         continue
-      move(last_move, player)
+      move(column_order[last_move], player)
       #print_pieces()
       stack[sp] = [ten_times[player] + best_move, last_move, best_score, alpha, beta]
       sp += 1
@@ -443,7 +447,7 @@ def play_game():
     best_move = stack[0][0] - 10
     global debug_mems
     print(f'eniac move:{best_move} ({debug_mems} mems/{num_positions} positions, max depth {max_sp})')
-    move(best_move, 1)
+    move(column_order[best_move], 1)
     debug_mems = 0
     print_board()
     if winner != 0:

@@ -22,6 +22,11 @@ dstackbase .equ 91  ; 100-stackbase
 stackmax   .equ 14  ; max stack
 dstackmax  .equ 86  ; 100-stackmax
 
+; Inner columns are generally better than outer columns, so searching columns
+; from inside out reduces search time 5-6x due to better pruning.
+; colorder is indexed by last_move which decreases from 7 to 1.
+colorder .table 0, 1, 7, 2, 6, 3, 5, 4
+
   ; eniac always goes first and plays in the middle
   mov 1,A<->D       ; D=player1
   mov 4,A           ; A=column 4
@@ -72,6 +77,13 @@ no_underflow
   jz new_depth      ; if last_move is 0, new recursive search
 
   ; iterating over possible moves at current depth
+  mov A,C           ; C=last_move
+  clr A             ;
+  swap A,D          ; D=0 prior to ftl
+  swap C,A          ; A=last_move (move#)
+  add colorder,A    ; A=colorder+move#
+  ftl A,D           ; lookup column# for move
+  swap D,A          ; A=column#
   jsr undo_move     ; undo last move
   ; update the best move at current depth
   mov sp,A<->B
@@ -220,23 +232,31 @@ first_move
   add dstackmax,A   ; test sp against stack max
   jz search_cutoff  ; if sp==stack max, cutoff search
   jn overflow       ; if sp>stack max, error
-  mov 7,A           ; search moves from rightmost col
+  mov 7,A           ; search moves best column first
 
-; on entry to check_move, A is the next column# to play
+; On entry to check_move, A is the next move# to play.
 check_move
-  jz search         ; if A is 0 no more moves at this depth
-  dec A
+  jz search         ; if A=0 no more moves at this depth
+  mov A,C           ; C=move#
+  clr A             ;
+  swap A,D          ; D=0 prior to ftl
+  mov C,A           ; A=move#
+  add colorder,A    ; A=colorder+move#
+  ftl A,D           ; lookup next column#
+  swap D,A          ; A=column#
+  dec A             ;
   swap A,B          ; B=column offset
   mov [B],A         ; check top of column
   jz do_move        ; if empty, play in this column
-  swap B,A          ; A=B which is prev column#
+  swap C,A          ; A=C which is move#
+  dec A             ; try next move
   jmp check_move
 
-; B has the column offset for move
+; B has column offset for move, C has move#
 do_move
   swap B,A
   inc A             ; A=column# (which is offset+1)
-  swap A,C          ; C=column#
+  swap A,D          ; D=column#
 
   ; save iteration state on stack
   mov sp,A<->B      ;
@@ -255,6 +275,8 @@ do_move
   jn do_move_p2     ; if >= 20 then human (min) else eniac (max)
 
 ;do_move_p1
+  swap D,A
+  swap A,C          ; C=column#
   mov 1,A<->D       ; D=player1
   swap C,A          ; A=column#
   jsr move
@@ -277,6 +299,8 @@ do_move
   jmp search
 
 do_move_p2
+  swap D,A
+  swap A,C          ; C=column#
   mov 2,A<->D       ; D=player2
   swap C,A          ; A=column#
   jsr move
@@ -299,12 +323,19 @@ do_move_p2
   jmp search
 
 search_done
-  mov 1,A<->D       ; D=player1 (eniac)
+  clr A
+  swap A,D          ; D=0 prior to ftl
   mov stack00,A<->B
   mov [B],A         ; load player|best_move from top of stack
   add 90,A          ; subtract 10 (i.e. player=eniac) to get move
   swap A,B          ; fix sign
-  mov B,A
+  mov B,A           ; A=move#
+  add colorder,A    ; A=colorder+move#
+  ftl A,D           ; lookup column# for move
+  swap D,A
+  swap A,B          ; B=column#
+  mov 1,A<->D       ; D=player1 (eniac)
+  swap B,A          ; A=column#
   jsr move          ; play best move for eniac
   jsr printb
   jmp game
