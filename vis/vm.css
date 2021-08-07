@@ -1,0 +1,41 @@
+body {
+  font-family: monospace;
+}
+
+.memory-dump {
+  border: 1px solid #ccc;
+  border-collapse: collapse;
+}
+.memory-dump th {
+  background: #ccc;
+  font-weight: normal;
+}
+.memory-dump tr td:first-child {
+  background: #ccc;
+  font-weight: normal;
+}
+.memory-dump th, .memory td {
+  padding: 4px;
+}
+
+.c4-board {
+  background: blue;
+  width: 140px;
+}
+.c4-row {
+  display: flex;
+}
+.c4-square {
+  width: 20px;
+  height: 20px;
+  border-radius: 20px;
+}
+.c4-empty {
+  background: white;
+}
+.c4-red {
+  background: red;
+}
+.c4-yellow {
+  background: yellow;
+}
