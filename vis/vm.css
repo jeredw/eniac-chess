@@ -2,11 +2,11 @@ body {
   font-family: monospace;
 }
 
-.memory-dump {
+.table-dump {
   border: 1px solid #ccc;
   border-collapse: collapse;
 }
-.memory-dump th {
+.table-dump th {
   background: #ccc;
   font-weight: normal;
 }
@@ -14,18 +14,20 @@ body {
   background: #ccc;
   font-weight: normal;
 }
-.memory-dump th, .memory td {
+.table-dump th, .table-dump td {
   padding: 4px;
 }
 
 .c4-board {
+  border: 3px solid blue;
   background: blue;
-  width: 140px;
+  width: 154px;
 }
 .c4-row {
   display: flex;
 }
 .c4-square {
+  margin: 1px;
   width: 20px;
   height: 20px;
   border-radius: 20px;

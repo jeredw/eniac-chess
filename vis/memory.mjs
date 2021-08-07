@@ -3,7 +3,7 @@ import { html, Component } from './preact.mjs'
 export class MemoryDump extends Component {
   render({ memory }) {
     return html`
-      <table class="memory-dump">
+      <table class="table-dump memory-dump">
         <${MemoryDumpHeader} />
         <${MemoryDumpRows} memory=${memory} />
       </table>

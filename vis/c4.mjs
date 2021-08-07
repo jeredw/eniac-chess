@@ -47,7 +47,7 @@ export class Connect4Stack extends Component {
   render({ memory }) {
     const sp = parseInt(memory[44], 10);
     return html`
-      <table>
+      <table class="table-dump">
         <${Connect4StackHeader} />
         <${Connect4StackEntry} isTop=${sp == 9}  data=${memory.slice(45, 50)} />
         <${Connect4StackEntry} isTop=${sp == 10} data=${memory.slice(50, 55)} />
