@@ -136,14 +136,10 @@ static int drop_sign(int a) {
   return a + 100;  // e.g. M99 (-1) -> P99
 }
 
-static void swap_with_a_sign(int& a, int& x) {
-  if (a >= 0) {
-    std::swap(a, x);
-  } else {
-    int tmp = a;
-    a = x - 100;  // e.g. x=P01 -> a=M01 (-99)
-    x = tmp + 100;  // e.g. a=M01 (-99) -> x=P01
-  }
+static void swap_dropping_sign(int& a, int& x) {
+  int tmp = drop_sign(a);
+  a = x;
+  x = tmp;
 }
 
 static int consume_ir(VM* vm) {
@@ -215,10 +211,10 @@ static void step(VM* vm) {
       vm->d = 0;
       vm->e = 0;
       break;
-    case 1: swap_with_a_sign(vm->a, vm->b); break; // swap A, B
-    case 2: swap_with_a_sign(vm->a, vm->c); break; // swap A, C
-    case 3: swap_with_a_sign(vm->a, vm->d); break; // swap A, D
-    case 4: swap_with_a_sign(vm->a, vm->e); break; // swap A, E
+    case 1: swap_dropping_sign(vm->a, vm->b); break; // swap A, B
+    case 2: swap_dropping_sign(vm->a, vm->c); break; // swap A, C
+    case 3: swap_dropping_sign(vm->a, vm->d); break; // swap A, D
+    case 4: swap_dropping_sign(vm->a, vm->e); break; // swap A, E
     case 10: // loadacc A
       if (!(0 <= vm->a && vm->a < 15)) {
         fprintf(stderr, "loadacc %d out of bounds\n", vm->a);

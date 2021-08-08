@@ -111,9 +111,9 @@ insert-deferred
 # -- CURRENT PROGRAM --
 
 # What are we running today?
-disable TEST
+enable TEST
 disable TIC
-enable C4
+disable C4
 disable CHESS
 
 if TEST
@@ -129,7 +129,6 @@ endif
 if C4
 # To run connect 4 enable C4 and use runc4.py
 include c4.e
-f r /tmp/c4.card
 endif
 
 if CHESS

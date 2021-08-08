@@ -5,7 +5,7 @@ import time
 
 run('python chasm/chasm.py asm/tic.asm tic.e', shell=True, check=True)
 run('python easm/easm.py chessvm/chessvm.easm chessvm.e', shell=True, check=True)
-sim = Popen('./eniacsim -q -W chessvm.e', shell=True, stdin=PIPE, stdout=PIPE)
+sim = Popen('./eniacsim -q chessvm.e', shell=True, stdin=PIPE, stdout=PIPE)
 
 sim.stdin.write('g\n'.encode())
 sim.stdin.flush()

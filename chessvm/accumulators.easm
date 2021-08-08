@@ -360,13 +360,11 @@ p {d-ftselacc} {a-memcyc09}.{i-ftselacc}
 {a-movswap}=a17
 $acc-main mem11
 
-$permuted-input {a-movswap} {d-main} {i-movAB} 11,8,7,10,9,6,5,4,3,2,1
-
-$permuted-input {a-movswap} {d-main} {i-movAC} 11,6,5,8,7,10,9,4,3,2,1
-
-$permuted-input {a-movswap} {d-main} {i-movAD} 11,4,3,8,7,6,5,10,9,2,1
-
-$permuted-input {a-movswap} {d-main} {i-movAE} 11,2,1,8,7,6,5,4,3,10,9
+# NB clears signs for SWAP, since that is usually what we want.
+$permuted-input {a-movswap} {d-main} {i-movAB} 0,8,7,10,9,6,5,4,3,2,1
+$permuted-input {a-movswap} {d-main} {i-movAC} 0,6,5,8,7,10,9,4,3,2,1
+$permuted-input {a-movswap} {d-main} {i-movAD} 0,4,3,8,7,6,5,10,9,2,1
+$permuted-input {a-movswap} {d-main} {i-movAE} 0,2,1,8,7,6,5,4,3,10,9
 
 
 # - MEM12 -
