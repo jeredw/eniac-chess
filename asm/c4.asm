@@ -64,7 +64,6 @@ search
   jn no_underflow
   jmp underflow     ; if sp<base, underflow
 no_underflow
-  clr A             ; fix sign
   swap C,A          ; A=sp
   dec A             ; sp-=1
   mov A,[B]         ; write back sp
@@ -125,7 +124,7 @@ update_max_best
   mov B,A           ; set best_move=last_move
   add 10,A          ; add player (eniac=1x)
   swapall
-  mov B,A           ; A=sp (mov to fix sign)
+  swap B,A          ; A=sp
   storeacc A        ; update frame
   jmp next_move
 
@@ -160,7 +159,7 @@ update_min_best
   mov B,A           ; set best_move=last_move
   add 20,A          ; add player (human=2x)
   swapall
-  mov B,A           ; A=sp (mov to fix sign)
+  swap B,A          ; A=sp
   storeacc A        ; update frame
   jmp next_move
 
@@ -328,8 +327,8 @@ search_done
   mov stack00,A<->B
   mov [B],A         ; load player|best_move from top of stack
   add 90,A          ; subtract 10 (i.e. player=eniac) to get move
-  swap A,B          ; fix sign
-  mov B,A           ; A=move#
+  swap A,B          ; clear sign
+  swap B,A          ; A=move#
   add colorder,A    ; A=colorder+move#
   ftl A,D           ; lookup column# for move
   swap D,A
@@ -397,7 +396,7 @@ score1_row_u
   mov B,A
   add 96,A          ; offset-=4
   swap A,B
-  jsr s_uncount     ; ok if A sign is M
+  jsr s_uncount     ;
   swap B,A
   add 4,A           ; offset+=4
   swap A,B
@@ -420,8 +419,8 @@ score1_h_out
 score1_v
   swap B,A
   add 59,A          ; offset-=41 (top of next column)
-  swap A,B          ;
-  mov B,A           ; fix sign
+  swap A,B          ; B=top
+  mov B,A           ; A=top (also clears A sign)
   add 93,A          ;
   jn score1_v_out   ; if offset>=7, done
   clr A
@@ -437,7 +436,7 @@ score1_col_u
   mov B,A
   add 72,A          ; offset-=4*7
   swap A,B
-  jsr s_uncount     ; ok if A sign is M
+  jsr s_uncount     ;
   swap B,A
   add 28,A          ; offset+=4*7
   swap A,B
@@ -485,7 +484,7 @@ score1_dr_u
   mov B,A
   add 68,A          ; offset-=4*8
   swap A,B
-  jsr s_uncount     ; ok if A sign is M
+  jsr s_uncount     ;
   swap B,A
   add 32,A          ; offset+=4*8
   swap A,B
@@ -502,7 +501,6 @@ score1_dr_c
   mov B,A           ;
   add 65,A          ; compare with 35 (lower left)
   jz score1_dr      ; if offset==lower left, wrapped (done)
-  clr A
   swap E,A
   inc A             ; row += 1
   swap A,E
@@ -540,7 +538,7 @@ score1_dl_u
   mov B,A
   add 76,A          ; offset-=4*6
   swap A,B
-  jsr s_uncount     ; ok if A sign is M
+  jsr s_uncount     ;
   swap B,A
   add 24,A          ; offset+=4*6
   swap A,B
@@ -561,7 +559,6 @@ score1_dl_c
   mov B,A           ;
   add 73,A          ; compare with 27
   jz score1_dl      ; if offset==27, wrapped (done)
-  clr A
   swap E,A
   inc A             ; row += 1
   swap A,E
@@ -632,19 +629,16 @@ s_addscore
   jz s_opprun3      ; if counts==0(player)1(empty), opponent run of 3
   ret
 s_run3
-  clr A
   swap C,A
   add srun3,A       ; score += srun3 bonus
   swap A,C
   ret
 s_run2
-  clr A
   swap C,A
   add srun2,A       ; score += srun2 bonus
   swap A,C
   ret
 s_opprun3
-  clr A
   swap C,A
   add sorun3,A      ; score -= 4
   swap A,C
@@ -724,7 +718,6 @@ move_next
   swap A,C          ; cur offset = next offset
   jmp move_drop
 move_place
-  clr A             ; needed when A<0
   swap C,A          ; C<->A<->B
   swap A,B          ; B=offset for piece
   swap D,A          ; A=player
