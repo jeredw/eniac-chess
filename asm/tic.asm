@@ -16,14 +16,6 @@
   .isa v4
   .org 100
 
-  ; Slightly faster initial game state for testing...
-  ;mov 2,A<->B   ; B=top middle
-  ;mov 2,A       ; A=play O
-  ;mov A,[B]
-  ;mov 9,A<->B   ; B=bottom right
-  ;mov 1,A       ; A=play X
-  ;mov A,[B]
-
   ; eniac goes first and always plays X in the center
   ; (avoiding a really long search of the entire game)
   mov 5,A<->B   ; B=center square
@@ -350,7 +342,7 @@ isfull_loop
   mov [B],A     ; get square at [B]
   jz isfull_no  ; if empty, not full
   mov B,A
-  add 90,A      ; test B with 10
+  add 91,A      ; test B with 9
   jn isfull_yes
   swap A,B
   inc A
