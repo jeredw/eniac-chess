@@ -610,10 +610,15 @@ class TestV4(AssemblerTestCase):
     self.isa.dispatch("", "mov", "bogus")
     self.assertEqual(self.out.errors, ["file:1: invalid mov argument 'bogus'"])
 
-def testLodig(self):
-    self.isa.dispatch("", "lodig", "A")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 43})
+  def testLodig(self):
+      self.isa.dispatch("", "lodig", "A")
+      self.assertFalse(self.out.errors)
+      self.assertOutputValues({(100, 0): 43})
+
+  def testSwapdig(self):
+      self.isa.dispatch("", "swapdig", "A")
+      self.assertFalse(self.out.errors)
+      self.assertOutputValues({(100, 0): 44})
 
   def testIncA(self):
     self.isa.dispatch("", "inc", "A")

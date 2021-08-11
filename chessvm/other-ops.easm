@@ -37,26 +37,55 @@ $pulseamp {p-opswapall-4} {p-recls}
 endif # OP_SWAPALL
 
 
-# - LODIG -
+# - SUB_DIG -
+if SUB_DIG
+# Shared code for LODIG, SWAPDIG
+#    SUB_DIG		LODIG 					SWAPDIG
+# 1. RFTMP -> EX
+# 2. RF ->  		-i-lodig-> RFTMP 		-i-swapdig-> RFTMP
+# 3. RFTMP -> RF
+# 4. EX -> RFTMP
 
 # trigger fetch via ft dummy to save final ts
-$ft-dummy {p-oplodig} 5 {p-fetch}
+$ft-dummy {p-sub-dig} 5 {p-fetch}
 
 # RFTMP -> EX
-$m-pulseamp {p-oplodig} {p-sendc-rftmp}
-$loadex {p-oplodig}
-$c-dummy {p-oplodig} {p-oplodig-2}
+$pulseamp {p-sub-dig} {p-sendc-rftmp}
+$loadex {p-sub-dig}
+$i-dummy {p-sub-dig} {p-sub-dig-2}  # use i-dummy as lodig/subdig using c-dummy here
 
-# RF -lodig-> RFTMP
-$pulseamp {p-oplodig-2} {p-sendc-rf}
-$rec {p-oplodig-2} {a-rftmp} {t-oplodig-2} {i-lodig} {p-oplodig-3}
+# RF ->
+$pulseamp {p-sub-dig-2} {p-sendc-rf}
+$c-dummy {p-sub-dig-2} {p-sub-dig-3}  
 
 # RFTMP -> RF
-$pulseamp {p-oplodig-3} {p-sendc-rftmp}
-$pulseamp {p-oplodig-3} {p-loadrf}
+$pulseamp {p-sub-dig-3} {p-sendc-rftmp}
+$pulseamp {p-sub-dig-3} {p-loadrf}
  
 # EX -> RFTMP
-$c-dummy {p-oplodig-3} {p-sub-ex-to-rftmp}
+$c-dummy {p-sub-dig-3} {p-sub-ex-to-rftmp}
+
+endif # SUB_DIG
+
+
+# - LODIG -
+if OP_LODIG
+
+$m-pulseamp {p-oplodig} {p-sub-dig}
+$c-dummy {p-oplodig} {p-oplodig-2}
+$recx {p-oplodig-2} {a-rftmp} {x-oplodig-2} {i-lodig}
+
+endif
+
+
+# - SWAPDIG -
+if OP_SWAPDIG
+
+$m-pulseamp {p-opswapdig} {p-sub-dig}
+$c-dummy {p-opswapdig} {p-opswapdig-2}
+$recx {p-opswapdig-2} {a-rftmp} {x-opswapdig-2} {i-swapdig}
+
+endif
 
 
 # - PRINT - 

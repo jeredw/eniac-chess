@@ -80,6 +80,9 @@ enable OP_PRINT       #  0 pas,  0 ts
 enable OP_READ        #  0 pas,  2 ts
 enable SUB_CONSUME_OP #  2 pas,  3 ts (OP_MOVIMMA, SUB_JX)
 enable SUB_CLEARA     #  3 pas,  1 ts (OP_MOVXA, OP_CLRA, OP_MOVIMMA)
+enable SUB_DIG							(OP_LODIG, OP_SWAPDIG)
+enable OP_LODIG
+enable OP_SWAPDIG
 # loadpc              #  0 pas,  0 ts
 # loadex              #  0 pas,  0 ts
 # loadex-clearA       #  0 pas,  0 ts

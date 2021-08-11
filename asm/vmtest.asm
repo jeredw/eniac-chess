@@ -309,10 +309,17 @@ t17out
   print
 
 
-; 18: LODIG
+; 18: LODIG, SWAPDIG
   mov 21,A
   lodig A     ; should be 1 
-  dec A       
+  dec A
+  jz t18next
+  jmp t18out
+t18next
+  mov 35,A
+  swapdig A   ; should be 53
+  add 47,A    ; 100-53
+t18out         
   swap A,B
   mov 18,A
   print
