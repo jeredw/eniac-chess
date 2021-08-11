@@ -309,6 +309,15 @@ t17out
   print
 
 
+; 18: LODIG
+  mov 21,A
+  lodig A     ; should be 1 
+  dec A       
+  swap A,B
+  mov 18,A
+  print
+
+
 ; -- 20-29 --
 ; RF and memory access, I/O
 ; MOV, LOADACC, STOREACC, READ, FTL

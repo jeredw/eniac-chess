@@ -22,6 +22,8 @@
 {p-opmovimmA}	= {p-op40}
 {p-oploadword}	= {p-op41}
 {p-opstoreword}	= {p-op42}
+{p-oplodig}		= {p-op43}
+{p-opswapdig}	= {p-op44}
 {p-opinc}	 	= {p-op52}
 {p-opdec}	 	= {p-op53}
 {p-opadd}	 	= {p-op70}

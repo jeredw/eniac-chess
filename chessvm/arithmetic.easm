@@ -83,8 +83,7 @@ $sendc {p-opadd-3} {a-rftmp} {t-opadd-3} A {p-opadd-4}
 $c-dummy {p-opadd-2} {p-rf-selDA}
 
 # EX -> RFTMP
-$c-dummy {p-opadd-3} {p-storeex}
-$recx {p-opadd-4} {a-rftmp} {r-opadd-4} {i-main}
+$c-dummy {p-opadd-3} {p-sub-ex-to-rftmp}
 
 endif # OP_ADD
 

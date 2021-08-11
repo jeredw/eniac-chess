@@ -470,6 +470,7 @@ class V4(PrimitiveParsing):
       "swapall": self.op(opcode=12),
       "ftl": self._ftl,
       "mov": self._mov,
+      "lodig": self.op(want_arg=r"A", opcode=43),
       "inc": self.op(want_arg=r"A", opcode=52),
       "dec": self.op(want_arg=r"A", opcode=53),
       "add": self._add,

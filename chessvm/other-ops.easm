@@ -1,5 +1,12 @@
 # -- Other opcodes --
-# Implements SWAPALL, PRINT, READ, HALT
+# Implements SWAPALL, LODIG, SWAPDIG, PRINT, READ, HALT
+
+
+# - SUB_EX_TO_RFTMP -
+# Single-cycle shared program to end ADD, SWAPALL, SWAPDIG, LODIG
+
+$storeex {p-sub-ex-to-rftmp}
+$recx {p-sub-ex-to-rftmp} {a-rftmp} {x-sub-ex-to-rftmp} {i-main}
 
 
 # - SWAPALL -
@@ -9,30 +16,47 @@ if OP_SWAPALL
 # trigger fetch via ft dummy to save final ts
 $ft-dummy {p-opswapall} 5 {p-fetch}
 
-# RFTMP->EX
-#$sendc {p-opswapall} {a-rftmp} {t-sub-rftmp} A {p-opswapall-2}
-$pulseamp {p-opswapall} {p-sendc-rftmp}
+# RFTMP -> EX
+$m-pulseamp {p-opswapall} {p-sendc-rftmp}
 $loadex {p-opswapall}
 $c-dummy {p-opswapall} {p-opswapall-2}
 
-# RF->RFTMP, clear
+# RF -> RFTMP, clear
 $sendc-rf {p-opswapall-2}
 $rec {p-opswapall-2} {a-rftmp} {t-opswapall-2} {i-main} {p-opswapall-3}
 
-# LS->RF, clear
+# LS -> RF, clear
 $pulseamp {p-opswapall-3} {p-sendcls}
 $loadrf {p-opswapall-3}
 $dummy {p-opswapall-3} {p-opswapall-4}
 
-# RFTMP->LS
-$sendc {p-opswapall-4} {a-rftmp} {t-opswapall-4} A {p-opswapall-5}
+# RFTMP -> LS, EX -> RFTMP
+$sendc {p-opswapall-4} {a-rftmp} {t-opswapall-4} A {p-sub-ex-to-rftmp}
 $pulseamp {p-opswapall-4} {p-recls}
 
-# EX->RFTMP
-$storeex {p-opswapall-5}
-$recx {p-opswapall-5} {a-rftmp} {x-opswapall-5} {i-main}
-
 endif # OP_SWAPALL
+
+
+# - LODIG -
+
+# trigger fetch via ft dummy to save final ts
+$ft-dummy {p-oplodig} 5 {p-fetch}
+
+# RFTMP -> EX
+$m-pulseamp {p-oplodig} {p-sendc-rftmp}
+$loadex {p-oplodig}
+$c-dummy {p-oplodig} {p-oplodig-2}
+
+# RF -lodig-> RFTMP
+$pulseamp {p-oplodig-2} {p-sendc-rf}
+$rec {p-oplodig-2} {a-rftmp} {t-oplodig-2} {i-lodig} {p-oplodig-3}
+
+# RFTMP -> RF
+$pulseamp {p-oplodig-3} {p-sendc-rftmp}
+$pulseamp {p-oplodig-3} {p-loadrf}
+ 
+# EX -> RFTMP
+$c-dummy {p-oplodig-3} {p-sub-ex-to-rftmp}
 
 
 # - PRINT - 

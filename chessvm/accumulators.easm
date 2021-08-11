@@ -146,9 +146,7 @@ $acc-main rf
 # setting EX.PM to M, which might misfire discrimination.  A 1'p on digit 1
 # might cause the E field to carry into D; we don't need -E so just don't
 # connect digit 1.
-p {a-rf}.S ad.permute.{ad-drop-rf-sign}
-s ad.permute.{ad-drop-rf-sign} 0,10,9,8,7,6,5,4,3,2,0
-p ad.permute.{ad-drop-rf-sign} {d-main}
+$permute {a-rf}.S 0,10,9,8,7,6,5,4,3,2,0 {d-main}
 
 # i-selectA input: aa 00 XX XX XX -> aa 00 00 00 00
 $permuted-input {a-rf} {d-main} {i-selectA} 0,10,9,0,0,0,0,0,0,0,0
@@ -163,11 +161,11 @@ $permuted-input {a-rf} {d-main} {i-selEA} 0,2,1,0,0,0,0,0,0,0,0
 p {d-ftldata} {a-rf}.{i-ftldata}
 
 # shared programs
-$recx {p-rf-selDA} {a-rf} {r-rf-selDA} {i-selDA}
-$recx {p-rf-selEA} {a-rf} {r-rf-selEA} {i-selEA}
+$recx {p-loadrf} {a-rf} {r-loadrf} {i-main}
 $sendx {p-send-rf} {a-rf} {t-send-rf} A
 $sendcx {p-sendc-rf} {a-rf} {t-sendc-rf} A
-$recx {p-loadrf} {a-rf} {r-loadrf} {i-main}
+$recx {p-rf-selDA} {a-rf} {r-rf-selDA} {i-selDA}
+$recx {p-rf-selEA} {a-rf} {r-rf-selEA} {i-selEA}
 
 # helper macros
 # receive rf from main
@@ -262,6 +260,10 @@ $acc-main mem3
 
 # preserve sign on clearA so a18,a19,a20 sign preserved through storeword
 $permute {d-main} 11,0,0,8,7,6,5,4,3,2,1 {a-rftmp}.{i-clearA} 
+
+# inputs for LODIG, SWAPDIG
+$permute {d-main} 11,0,9,8,7,6,5,4,3,2,1 {a-rftmp}.{i-lodig} 
+$permute {d-main} 11,9,10,8,7,6,5,4,3,2,1 {a-rftmp}.{i-swapdig} 
 
 # Shared programs
 $sendcx {p-sendc-rftmp} {a-rftmp} {x-sendcrftmp} A 

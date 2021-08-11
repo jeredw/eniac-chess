@@ -31,8 +31,8 @@
 40 - mov XX,A
 41 - mov [B],A
 42 - mov A,[B]
-43 -
-44 -
+43 - lodig
+44 - swapdig
 45 -
 
 50 - (reserved for 9x decode)
@@ -70,7 +70,8 @@ ACCUMULATOR LAYOUT
 Typical contents, plus wiring for inputs and outputs
 
 
-PC:
+PC
+A1
 Current program counter PPPP and return address RRRR, plus a temp SS which is
 usually I1, the next instruction to execute.
 layout: SS RRRR PPPP
@@ -84,7 +85,8 @@ d - loadPC2: SS RRRR PPPP -> 00 0000 00PP, used for JMP/JN/JZ/JIL
 e - fetch-i1: from FT for instruction fetch
 
 
-IR:
+IR
+A1
 Up to five next instructions. M0 if empty, otherwise P I6 I5 I4 I3 I2.
 99 fills in from the left as instructions are consumed so we can easily detect
 an empty IR by adding 1, giving P999... + 1 = M0.
@@ -98,7 +100,8 @@ b - from FT
 g - fill99: replace top 2 digits with 99
 
 
-EX:
+EX
+A3
 Clear at the start of every op, general purpose temp
 Also used to disc opcode >55
 
@@ -112,8 +115,8 @@ g - clearA: S aa bb cc dd ee -> 0 00 bb cc dd ee, used in control cycle
 d - clearPC2: XX XX XX XX 21 -> XX XX XX XX 00, used for JN/JZ/JIL
 e - fetch-i1: from FT for instruction fetch
 
-
-RF:
+RF
+A13
 Main register file
 layout: PM AA BB CC DD EE
 
@@ -125,7 +128,8 @@ g - selDA:   X XX XX XX dd XX -> 0 dd 00 00 00 00, used for ADD D,A
 d - selEA:   X XX XX XX XX ee -> 0 ee 00 00 00 00, used for MOV #XX,A
 
 
-LS:
+LS
+A4
 Secondary register file / load/store accumulator 
 layout: FF GG HH II JJ
 
@@ -134,9 +138,9 @@ a - main
 b - signonly: delete all digits, used to preserve sign of DISCFTx in STOREACC
 
 
-A6
 MEM0
 DISCMEMCYC
+A5
 # Discriminate memory cycle 0-9 vs. 10-14
 AS - Discriminate memcyc
 A - main
@@ -145,51 +149,51 @@ b - splitA: Prepare A for disc A<10, X XX XX XX XX A2A1 -> A2 00 00 00 00 0A1
 g - dropsign: used to clear sign of LS in STOREACC
 
 
-A7
 MEM1
 MEMCYC1014
+A6
 A - main
 S - trigger memcyc 10-14
 a - main
 b - ftselacc: read from FT output
 
 
-A8
 MEM2
 LOADWORD 
+A7
 A - main
 S - Trigger MOV [FGHIJ],A on S outputs
 a - main
-b - windexB (word index): X A2A1 XX XX XX XX -> 0 00 00 00 00 0A1
+b - windexB (word index): X XX B2B1 XX XX XX -> 0 00 00 00 00 0B1
 b - accidxB: (acc index): X XX B2B1 XX XX XX -> 0 B2B1 00 00 00 00
 g - ftselacc: read from FT output
 
-A9
 MEM3
 RFTMP
+A8
 A - main
 a - main
 
 b - i-clearA: X XX XX XX XX XX -> X 00 XX XX XX XX
 
 
-A10
 MEM4
 STOREWORD 
+A9
 A - main
 S - Trigger MOV A,[FGHIJ] on S outputs
 a - main
 b - ftselacc: read from FT output
 
-A11
-MEM5:
+MEM5
+A10
 A - main
 a - main
 
 
-A12
 MEM6
 NEWPC
+A11
 A - main
 a - main
 b - extract-pc: XX XXXX PPPP -> 00 0000 PPPP
@@ -198,34 +202,26 @@ d - shiftr4-pc: XX RRRR PPPP -> 00 0000 RRRR
 e - shiftl4-pc: XX XXXX PPPP -> XX PPPP 0000
 
 
-A13
 MEM7
-MOVAGH
+A12
 a - main
 
-# inputs to suport mov A,[GH]
-b = i-clearG
-g = i-movAG
-d = i-clearH
-e = i-movAH
 
-
-A14
 MEM8
-MOVAIJ
+A14
 A - main
 a - main
 
-# inputs to suport mov A,[IJ]
-b = i-clearI
-g = i-movAI
-d = i-clearJ
-e = i-movAJ
+# inputs to suport mov A,[FGHIJ]
+b - swapAB: S aa bb XX XX XX -> S bb aa XX XX XX
+g - swapAC: S aa XX cc XX XX -> S cc XX aa XX XX
+d - swapAD: S aa XX XX dd XX -> S dd XX XX aa XX
+e - swapAE: S aa XX XX XX ee -> S ee XX XX XX aa
 
 
-A15
 MEM9
 DISCJX
+A15
 AS - disc JX
 A - main
 S - trigger conditional jump/taken
@@ -235,30 +231,31 @@ g - ftjzsign: get sign for jz discrimination
 d - ftjilsign: get sign fo jil discrimination
 
 
-A16
-# Trigger mem cycle 0-9 on S outputs
 MEM10
 MEMCYC09
+A16
 A - main
 S - trigger memcyc 0-9
 a - main 
 b - ftselacc: assemble 10 digits from FT output
 
 
+MEM11
+MOVSWAP
 A17
-MEM11:
-MOVSWAP:
 A - main
 a - main
+
+# inputs for all MOV X,A and SWAP A,X operations
 b - movAB: S aa bb XX XX XX -> S bb aa XX XX XX
 g - movAC: S aa XX cc XX XX -> S cc XX aa XX XX
 d - movAD: S aa XX XX dd XX -> S dd XX XX aa XX
 e - movAE: S aa XX XX XX ee -> S ee XX XX XX aa
 
 
+MEM12
+DISCFT1
 A18
-MEM12: 
-DISCFT1:
 A - main
 S - discft1
 a - main
@@ -267,9 +264,9 @@ g - ftsg1: x xx xx xx xD xx -> PM
 d - ftsg2: x xx xx xx Dx xx -> PM
 
 
+MEM13
+DISCFT2
 A19
-MEM13:
-DISCFT2:
 A - main
 S - discft2
 a - main
@@ -277,9 +274,9 @@ b - ftsg1: x xx xx xx xD xx -> PM
 g - ftsg2: x xx xx xx Dx xx -> PM
 
 
+MEM14
+DISCFT3
 A20
-MEM14:
-DISCFT3:
 A - main
 S - discft3
 a - main
@@ -486,8 +483,8 @@ DEC A
 
 ADD D,A   (A += D)
 1. RFTMP -> EX            # can't use EX directly because RF may be -
-2. RF -> RFTMP
-3. RFTMP -selDA-> RF, clear
+2. RF -addDA-> RFTMP
+3. RFTMP -> RF
 4. EX -> RFTMP
 
 
