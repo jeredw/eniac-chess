@@ -33,7 +33,7 @@ def print_board(board):
   print()
 
 run('python chasm/chasm.py asm/c4.asm c4.e', shell=True, check=True)
-run('python easm/easm.py chessvm/chessvm.easm chessvm.e', shell=True, check=True)
+run('python easm/easm.py -EC4 chessvm/chessvm.easm chessvm.e', shell=True, check=True)
 sim = Popen('./eniacsim -q chessvm.e', shell=True, stdin=PIPE, stdout=PIPE)
 
 sim.stdin.write('g\n'.encode())

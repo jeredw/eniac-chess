@@ -29,11 +29,9 @@ import sys
 import os
 import re
 import math
+import argparse
 from dataclasses import dataclass
 from typing import Dict
-
-def usage():
-  print("easm.py infile.ea outfile.e")
 
 class OutOfResources(Exception):
   def __init__(self, msg):
@@ -197,13 +195,13 @@ class Macro:
 
 
 class Assembler(object):
-  def __init__(self):
+  def __init__(self, features={}):
     self.symbols = SymbolTable()
     self.defmacro = None  # Macro object currently being defined
     self.macros = {}  # name -> Macro
     self.uniqueid = 1  # unique id for making up names
     self.deferred = []  # lines deferred til insert-deferred
-    self.enables = {}  # bools defined by enable/disable directives
+    self.features = features  # bools defined by enable/disable directives
     self.if_stack = []
 
 
@@ -900,7 +898,7 @@ class Assembler(object):
     cmd = m.group('cmd')
     what = m.group('what')
     comment = m.group('comment')
-    self.enables[what] = (cmd == 'enable')
+    self.features[what] = (cmd == 'enable')
     return f"# {cmd} {what} {comment}"
 
 
@@ -909,9 +907,12 @@ class Assembler(object):
     if not m:
       raise SyntaxError('bad if directive')
     what = m.group('what')
-    if not what in self.enables:
+    if what.endswith('?'):
+      what = what[:-1]
+      self.features.setdefault(what, False)
+    if not what in self.features:
       raise SyntaxError(f'unrecognized if condition {what}')
-    self.if_stack.append(self.enables[what])
+    self.if_stack.append(self.features[what])
     state = 'enabled' if all(self.if_stack) else 'disabled'
     return f"# if {what}  ({what} is {state})"
 
@@ -989,18 +990,22 @@ class Assembler(object):
 
 
 def main():
-  if len(sys.argv) < 3:
-    usage()
-    sys.exit(1)
+  parser = argparse.ArgumentParser()
+  parser.add_argument("infile", help="input filename")
+  parser.add_argument("outfile", help="output filename")
+  parser.add_argument("--enable", "-E", action="append", help="enable named feature", default=[])
+  parser.add_argument("--disable", "-D", action="append", help="disable named feature", default=[])
+  args = parser.parse_args()
 
-  filename = sys.argv[1]
-  intext = open(filename).read()
+  intext = open(args.infile).read()
 
-  a = Assembler()
-  outtext = a.assemble(filename, intext)
+  features = {f: True for f in args.enable}
+  features.update({f: False for f in args.disable})
+  a = Assembler(features)
+  outtext = a.assemble(args.infile, intext)
 
   if outtext:
-    open(sys.argv[2], 'w+').write(outtext)
+    open(args.outfile, 'w+').write(outtext)
     a.summarize_resource_usage()
 
 if __name__ == "__main__":

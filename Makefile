@@ -9,16 +9,16 @@ test:
 
 vmtest: chasm/chasm.py asm/vmtest.asm easm/easm.py chessvm/chessvm.easm
 	python chasm/chasm.py asm/vmtest.asm vmtest.e
-	python easm/easm.py chessvm/chessvm.easm chessvm.e
+	python easm/easm.py -ETEST chessvm/chessvm.easm chessvm.e
 
 tic: chasm/chasm.py asm/tic.asm easm/easm.py chessvm/chessvm.easm
 	python chasm/chasm.py asm/tic.asm tic.e
-	python easm/easm.py chessvm/chessvm.easm chessvm.e
+	python easm/easm.py -ETIC chessvm/chessvm.easm chessvm.e
 
 c4: chasm/chasm.py asm/c4.asm easm/easm.py chessvm/chessvm.easm
 	python chasm/chasm.py asm/c4.asm c4.e
-	python easm/easm.py chessvm/chessvm.easm chessvm.e
+	python easm/easm.py -EC4 chessvm/chessvm.easm chessvm.e
 
 chess: chasm/chasm.py asm/chess.asm easm/easm.py chessvm/chessvm.easm
 	python chasm/chasm.py asm/chess.asm chess.e
-	python easm/easm.py chessvm/chessvm.easm chessvm.e
+	python easm/easm.py -ECHESS chessvm/chessvm.easm chessvm.e
