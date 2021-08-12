@@ -14,8 +14,7 @@ $sendc {p-sub-clearA} {a-rf} {t-sub-clearA} A {p-sub-clearA-2}
 $loadex-clearA {p-sub-clearA}
 
 # EX -> RF
-#$storeex {p-sub-clearA-2}
-$c-dummy {p-sub-clearA} {p-storeex}
+$storeex {p-sub-clearA-2}
 $loadrf {p-sub-clearA-2}
 
 endif # SUB_CLEARA
@@ -57,6 +56,14 @@ p c.30o {p-fetch}
 $loadrf {p-opdec}
 
 endif # OP_DEC
+
+
+# - SUB_EX_TO_RFTMP -
+# Single-cycle Shared program to end ADD, also SWAPALL, SWAPDIG, LODIG via SUB_RFTMP_TO_RF
+# 1. EX -> RFTMP
+
+$storeex {p-sub-ex-to-rftmp}
+$recx {p-sub-ex-to-rftmp} {a-rftmp} {x-sub-ex-to-rftmp} {i-main}
 
 
 # - ADD D,A -

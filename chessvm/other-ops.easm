@@ -2,16 +2,23 @@
 # Implements SWAPALL, LODIG, SWAPDIG, PRINT, READ, HALT
 
 
-# - SUB_EX_TO_RFTMP -
-# Single-cycle shared program to end ADD, SWAPALL, SWAPDIG, LODIG
+# - SUB_RFTMP_TO_RF -
+# Shared program to end SWAPALL, SWAPDIG, LODIG
+# 1. RFTMP -> RF
+# 2. EX -> RFTMP 	via SUB_EX_TO_RFTMP
 
-$storeex {p-sub-ex-to-rftmp}
-$recx {p-sub-ex-to-rftmp} {a-rftmp} {x-sub-ex-to-rftmp} {i-main}
+$sendc {p-sub-rftmp-to-rf} {a-rftmp} {t-sub-rftmp-to-rf} A {p-sub-ex-to-rftmp}
+$loadrf {p-sub-rftmp-to-rf}
 
 
 # - SWAPALL -
 if OP_SWAPALL
 # Exchange RF and LS through RFTMP (RF may be negative).
+# 1. RFTMP -> EX
+# 2. LS -> RFTMP
+# 3. RF -> LS
+# 4. RFTMP -> RF   		via SUB_RFTMP_TO_RF
+# 5. EX -> RFTMP 		via SUB_RFTMP_TO_RF
 
 # trigger fetch via ft dummy to save final ts
 $ft-dummy {p-opswapall} 5 {p-fetch}
@@ -21,18 +28,16 @@ $m-pulseamp {p-opswapall} {p-sendc-rftmp}
 $loadex {p-opswapall}
 $c-dummy {p-opswapall} {p-opswapall-2}
 
-# RF -> RFTMP, clear
-$sendc-rf {p-opswapall-2}
+# LS -> RFTMP
+$pulseamp {p-opswapall-2} {p-sendcls}
 $rec {p-opswapall-2} {a-rftmp} {t-opswapall-2} {i-main} {p-opswapall-3}
 
-# LS -> RF, clear
-$pulseamp {p-opswapall-3} {p-sendcls}
-$loadrf {p-opswapall-3}
-$dummy {p-opswapall-3} {p-opswapall-4}
+# RF -> LS
+$sendc-rf {p-opswapall-3}
+$pulseamp {p-opswapall-3} {p-recls}
 
-# RFTMP -> LS, EX -> RFTMP
-$sendc {p-opswapall-4} {a-rftmp} {t-opswapall-4} A {p-sub-ex-to-rftmp}
-$pulseamp {p-opswapall-4} {p-recls}
+# RFTMP -> RF, EX -> RFTMP
+$dummy {p-opswapall-3} {p-sub-rftmp-to-rf}
 
 endif # OP_SWAPALL
 
@@ -56,14 +61,9 @@ $i-dummy {p-sub-dig} {p-sub-dig-2}  # use i-dummy as lodig/subdig using c-dummy 
 
 # RF ->
 $pulseamp {p-sub-dig-2} {p-sendc-rf}
-$c-dummy {p-sub-dig-2} {p-sub-dig-3}  
 
-# RFTMP -> RF
-$pulseamp {p-sub-dig-3} {p-sendc-rftmp}
-$pulseamp {p-sub-dig-3} {p-loadrf}
- 
-# EX -> RFTMP
-$c-dummy {p-sub-dig-3} {p-sub-ex-to-rftmp}
+# RFTMP -> RF, EX -> RFTMP
+$c-dummy {p-sub-dig-2} {p-sub-rftmp-to-rf}  
 
 endif # SUB_DIG
 

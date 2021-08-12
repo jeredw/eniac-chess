@@ -334,6 +334,7 @@ t18out
   dec A       ; set A to M99
   ; if RF sign were sent to EX, this would crash
   swapall     ; swap into LS
+  clrall      ; prevent cheating if swapall does nothing
   swapall     ; swap back into RF
   inc A       ; should increment A from M99 to P00
   swap A,B
