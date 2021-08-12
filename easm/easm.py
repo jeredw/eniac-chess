@@ -181,7 +181,11 @@ class SymbolTable:
     ft_summary = f'{num_fts_used}/{num_fts_avail}'
     ct = self.sym_global['c.t']
     ct_summary = f"{len(ct.symbols)}/{ct.limit}"
-    print(f"pas {pa_summary} ts {t_summary} its {it_summary} fts {ft_summary} cts {ct_summary}")
+    mt = self.sym_global['m.t']
+    mt_summary = f"{len(mt.symbols)}/{mt.limit}"
+    mpa = self.sym_global['m.ta']
+    mpa_summary = f"{len(mpa.symbols)}/{mpa.limit}"
+    print(f"pas {pa_summary} ts {t_summary} its {it_summary} fts {ft_summary} cts {ct_summary} mts {mt_summary} mpas {mpa_summary}")
     for row in range(10):
       print(f"{per_acc[2*row]}   {per_acc[2*row+1]}")
 
