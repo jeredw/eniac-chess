@@ -16,7 +16,8 @@ endmacro
 # Save movswap
 $sendcx {p-sub-movswap} {a-movswap} {t-sub-movswap} A
 $loadex {p-sub-movswap}
-$manual-dummy {p-sub-movswap} a18 {t-sub-movswap} 2 {p-sub-movswap-3} # XXX why manual?
+# Manual dummy to prevent overlap with OP_SWAP and OP_MOVXA
+$manual-dummy {p-sub-movswap} a18 {t-sub-movswap} 2 {p-sub-movswap-3}
 
 # Get desired field of RF or LS in A position
 # (not shared)
@@ -45,10 +46,11 @@ if OP_MOVXA
 # 2. $clearA-2
 # 3. (wait)
 # 4. (wait)
-# 5. MOVSWAP -> EX
-# 6. (RF or LS) -mov[BCDE]-> MOVSWAP
-# 7. MOVSWAP -selectA-> RF
-# 8. EX -> MOVSWAP
+# 5. (wait)
+# 6. MOVSWAP -> EX
+# 7. (RF or LS) -mov[BCDE]-> MOVSWAP
+# 8. MOVSWAP -selectA-> RF
+# 9. EX -> MOVSWAP
 
 # All mov opcodes for A with RF are encoded as 2x, and all mov opcodes for A
 # with LS are encoded as 3x to conserve pulse amplifiers.
@@ -96,7 +98,8 @@ if OP_SWAP
 $c-dummy p.A1o {p-opswap}
 
 # Sequence operations that happen for every register
-$dummy {p-opswap} {p-opswap-2}
+# Manual dummy to prevent overlap with dummies in SUB_MOVSWAP
+$manual-dummy {p-opswap} a4 {t-opswap} 1 {p-opswap-2}
 $i-dummy {p-opswap-2} {p-opswap-3}
 
 # Sequence operations that happen for each register (only one, so all i-dummy is fine)

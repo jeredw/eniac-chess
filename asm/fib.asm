@@ -10,7 +10,7 @@
 loop
   mov C, A    ; A=Fn-1
   add D, A    ; A=Fn = Fn-1 + Fn-2
-  print AB
+  print
   ; now A=Fn, C=Fn-1, D=Fn-2
   ; want C=Fn, D=Fn-1
   swap A, C   ; A=Fn-1, C=Fn
@@ -23,5 +23,5 @@ loop
 
 done
   mov 99, A
-  print AB
+  print
   halt
