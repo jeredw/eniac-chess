@@ -294,6 +294,7 @@ $pulseamp {p-opftl-5} {p-loadrf}
 
 # receive ft3 data for ftl in RF A
 $permute f3.A 0,6,5,0,0,0,0,0,0,0,0 {d-ftldata}
+$permute f3.B 11,0,0,0,0,0,0,0,0,0,0 {d-ftldata}
 $recx {p-opftl-6} {a-rf} {t-opftl-6} {i-ftldata}
 
 endif # OP_FTL

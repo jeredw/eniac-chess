@@ -504,7 +504,7 @@ t25out
 
 ; 26: ftl
 ; spiritually, this is I/O, and so belongs in the 20s somewhere
-testtab .table 1, 2, 3
+testtab .table 1, 2, -3
 t26
   mov 1,A<->D ; expected value
   mov testtab,A
@@ -521,11 +521,10 @@ t26_2
   jz t26_3
   jmp t26out
 t26_3
-  mov 3,A<->D
   mov testtab,A
   add 2,A
-  ftl A    ; A=3
-  sub D,A
+  ftl A    ; A=-3 (M97)
+  add 3,A
 t26out
   swap A,B
   mov 26,A

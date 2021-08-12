@@ -6,8 +6,7 @@
            ;   tens/units digit is row within table
   .org 00  ; set row within current function table
   .align   ; pad to start of row if not already aligned
-  .dw -10, 20, 30  ; output these raw values here
-                   ; values may be between -50 and 99
+  .dw 10, 20, 30   ; output these raw values here
 
 ; label definitions start in column zero
 ; a label defined with .align is the row number after alignment
@@ -32,7 +31,7 @@ labeled_instr clrall
 ; the first word after .table is the base row address for the table (8-99)
 ; following words are data values for that and subsequent rows of the table
 noms    .table 1, 2, 3
-nomnoms .table 4, 5, 6
+nomnoms .table 4, 5, 6, -42
 
 test_each_instruction
   ; instructions must be indented

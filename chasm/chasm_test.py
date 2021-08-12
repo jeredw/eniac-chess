@@ -297,11 +297,11 @@ class TestBuiltins(AssemblerTestCase):
 
   def testEquNegative(self):
     self.builtins.dispatch("foo", ".equ", "-42")
-    self.assertEqual(self.context.labels, {"foo": 58})
+    self.assertEqual(self.context.labels, {"foo": -42})
 
   def testEqu_ErrorUnderflow(self):
-    self.builtins.dispatch("foo", ".equ", "-51")
-    self.assertEqual(self.out.errors, ["file:1: invalid value '-51': underflow"])
+    self.builtins.dispatch("foo", ".equ", "-101")
+    self.assertEqual(self.out.errors, ["file:1: invalid value '-101': underflow"])
 
   def testEqu_ErrorOverflow(self):
     self.builtins.dispatch("foo", ".equ", "100")

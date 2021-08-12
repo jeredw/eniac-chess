@@ -263,16 +263,11 @@ class PrimitiveParsing(object):
     self.out = out
 
   def _word(self, arg):
-    """Parse arg as a two digit word.
-  
-    Turns signed numbers into 10's complement without an explicit sign.
-    """
+    """Parse arg as a two digit word."""
     try:
       value = int(arg, base=10)
-      if value < -50:
+      if value < -100:
         raise ValueError("underflow")
-      if value < 0:
-        value = 100 + value
       if value >= 100:
         raise ValueError("overflow")
       return value
@@ -321,7 +316,11 @@ class PrimitiveParsing(object):
       # Labels aren't resolved yet on the first pass.
       return 0
     try:
-      return check_function_table(self.context.labels[arg])
+      address = self.context.labels[arg]
+      if address < 0:
+        self.out.error(f"expecting address but got negative label '{arg}'")
+        return 0
+      return check_function_table(address)
     except KeyError:
       self.out.error(f"unrecognized label '{arg}'")
       return 0
@@ -402,6 +401,9 @@ class Builtins(PrimitiveParsing):
     for value in values:
       # emit only does anything on pass 1 which also requires label defined
       word = self._word_or_label(value)
+      if word < 0:
+        self.out.error(".dw argument cannot be negative")
+        return
       self.out.emit(word % 100, comment=f"{op} {word}")
 
   def _table(self, label, op, arg):
@@ -541,6 +543,9 @@ class V4(PrimitiveParsing):
         else:
           symbol = m.group('source')
           word = self._word_or_label(symbol)
+          if word < 0:
+            self.out.error("mov argument cannot be negative")
+            return
           self.out.emit(opcode, word % 100,
                         comment=self._comment(op, arg, symbol, word))
         if 'target' in m.groupdict() and m.group('target'):
@@ -558,6 +563,9 @@ class V4(PrimitiveParsing):
       if m:
         symbol = m.group(1)
         word = self._word_or_label(symbol)
+        if word < 0:
+          self.out.error("add argument cannot be negative")
+          return
         self.out.emit(71, word % 100,
                       comment=self._comment(op, arg, symbol, word))
       else:
@@ -643,6 +651,11 @@ def print_easm(out, f):
         value = out.get(ft, row, word_index)
         bank = "A" if word_index < 3 else "B"
         word = value.word
+        if word < 0:
+          assert ft == 3
+          assert word_index == 0
+          word = 100 + word
+          print(f"s f3.RB{row}S M", file=f)
         for digit in range(2):
           line = 6 - (2 * (word_index%3) + digit)
           s = f"s f{ft}.R{bank}{row}L{line} {(word//10)%10}"

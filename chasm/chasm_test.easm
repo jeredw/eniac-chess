@@ -1,6 +1,6 @@
 # isa=v4
 # address=100  PC=0900
-s f1.RA0L6 9  # .dw 90
+s f1.RA0L6 1  # .dw 10
 s f1.RA0L5 0
 s f1.RA0L4 2  # .dw 20
 s f1.RA0L3 0
@@ -656,6 +656,21 @@ s f3.RB13L4 0
 s f3.RB13L3 0
 s f3.RB13L2 0
 s f3.RB13L1 0
+
+# address=314  PC=9914
+s f3.RB14S M
+s f3.RA14L6 5  # .table 311[3]=-42
+s f3.RA14L5 8
+s f3.RA14L4 0
+s f3.RA14L3 0
+s f3.RA14L2 0
+s f3.RA14L1 0
+s f3.RB14L6 0
+s f3.RB14L5 0
+s f3.RB14L4 0
+s f3.RB14L3 0
+s f3.RB14L2 0
+s f3.RB14L1 0
 
 # address=399  PC=9999
 s f3.RA99L6 0
