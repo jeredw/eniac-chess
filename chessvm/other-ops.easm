@@ -1,5 +1,5 @@
 # -- Other opcodes --
-# Implements SWAPALL, LODIG, SWAPDIG, PRINT, READ, HALT
+# Implements SWAPALL, LODIG, SWAPDIG, PRINT, READ, FTL, HALT
 
 
 # - SUB_RFTMP_TO_RF -
@@ -131,6 +131,49 @@ s c.s1 Al
 p c.1o {p-fetch}
 
 endif
+
+
+# - FTL -
+if OP_FTL
+
+# 1. save FTL
+$sendc {p-opftl} {a-ftl} {t-opftl} A {p-opftl-2}
+$loadex {p-opftl}
+
+# 2. RF -shiftA-> FTL
+$send-rf {p-opftl-2}
+$recx {p-opftl-2} {a-ftl} {x-opftl-2} {i-shiftA}
+
+p {p-opftl-2} f3.{t-opftl-2}i
+s f3.rp{t-opftl-2} 1
+# TODO switch to A+2 addressing
+s f3.op{t-opftl-2} A0
+s f3.cl{t-opftl-2} NC
+
+# 3. send FTL argument
+$sendc f3.NC {a-ftl} {t-opftl-3} A {p-opftl-4}
+
+# 4. RF -clearA-> FTL
+$pulseamp {p-opftl-4} {p-sendc-rf}
+$recx {p-opftl-4} {a-ftl} {x-opftl-4} {i-clearA}
+$c-dummy {p-opftl-4} {p-opftl-5}
+
+# 5. FTL -> RF
+$sendcx {p-opftl-5} {a-ftl} {x-opftl-5} A
+$pulseamp {p-opftl-5} {p-loadrf}
+
+# 6. receive ft3 data for ftl in RF A
+$ft-dummy-exclude {p-opftl} 5 {p-opftl-6} -f3
+$permute f3.A 0,6,5,0,0,0,0,0,0,0,0 {d-ftldata}
+$permute f3.B 11,0,0,0,0,0,0,0,0,0,0 {d-ftldata}
+$rec {p-opftl-6} {a-rf} {t-opftl-6} {i-ftldata} {p-opftl-7}
+
+# 7. restore FTL
+#$storeex {p-opftl-7}
+p f3.{t-opftl-2}o {p-storeex}
+$rec {p-opftl-7} {a-ftl} {t-opftl-7} {i-main} {p-fetch}
+
+endif # OP_FTL
 
 
 # - HALT -

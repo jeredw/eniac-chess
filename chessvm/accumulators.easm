@@ -305,7 +305,15 @@ $permuted-input {a-newpc} {d-main} {i-shiftl4-pc} 0,0,0,4,3,2,1,0,0,0,0
 
 # - MEM7 - 
 {a-mem7}=a12
+{a-ftl}=a12
 $acc-main mem7
+
+# i-shiftA: Used to shift RF A into digits 1+2 for ft arg
+$permuted-input {a-ftl} {d-main} {i-shiftA} 0,0,0,0,0,0,0,0,0,10,9
+
+# i-clearA: clear A for ftl
+$permute {d-main} 0,0,0,8,7,6,5,4,3,2,1 {a-ftl}.{i-clearA}
+
 
 
 # - MEM8 -
@@ -343,12 +351,6 @@ p f2.B ad.permute.{ad-ftjilsign}
 s ad.permute.{ad-ftjilsign} 11,0,0,0,0,0,0,0,0,0,0
 p ad.permute.{ad-ftjilsign} {d-ftjilsign}
 p {d-ftjilsign} {a-discjx}.{i-ftjilsign}
-
-# i-clearA: clear A for ftl
-$permute {d-main} 0,0,0,8,7,6,5,4,3,2,1 {a-discjx}.{i-clearA}
-
-# shared programs
-$sendcx {p-sendc-discjx} {a-discjx} {x-sendc-discjx} A
 
 
 # - MEM10 -

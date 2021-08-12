@@ -241,7 +241,6 @@ static void step(VM* vm) {
         break;
       }
       vm->a = vm->function_table[300 + offset][0];
-      consume_operand(vm);
       break;
     }
     case 20: vm->a = vm->b; break; // mov B, A

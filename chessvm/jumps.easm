@@ -1,5 +1,5 @@
 # -- JUMPS --
-# Implements JMP, JMP FAR, JN, JZ, JIL, JSR, RET, FTL
+# Implements JMP, JMP FAR, JN, JZ, JIL, JSR, RET
 
 
 # - SUB-JMP -
@@ -99,17 +99,17 @@ $rec {p-sub-fargo-2} {a-newpc} {t-sub-fargo-2} {i-extract-pc} {p-sub-fargo-3}
 # Set new return address from PC (all) and deselect current FT
 $sendc {p-sub-fargo-3} {a-pc} {t-sub-fargo-3} A {p-sub-fargo-5}
 s {a-pc}.rp{t-sub-fargo-3} 2
-#$discft {p-sub-fargo-3}
-$dummy-exclude {p-sub-fargo-2} {p-sub-discft} -{a-discft1},{a-discft2},{a-discft3}
+$discft {p-sub-fargo-3}
+#$dummy-exclude {p-sub-fargo-2} {p-sub-discft} -{a-discft1},{a-discft2},{a-discft3}
 $dummy-exclude {p-sub-fargo-3} {p-sub-fargo-4} -{a-discft1},{a-discft2},{a-discft3}
 
 # Select new function table and update PC
 $sendc {p-sub-fargo-5} {a-newpc} {t-sub-fargo-5} A {p-sub-fargo-7}
 s {a-newpc}.rp{t-sub-fargo-5} 2
-#$discft {p-sub-fargo-5}
-$manual-dummy {p-sub-fargo-4} a16 {t-sub-fargo-4} 1 {p-sub-discft}
+$discft {p-sub-fargo-5}
+#$manual-dummy {p-sub-fargo-4} a16 {t-sub-fargo-4} 1 {p-sub-discft}
 #$loadpc {p-sub-fargo-5}
-$manual-dummy {p-sub-fargo-4} a17 {t-sub-fargo-4} 1 {p-loadpc}
+$c-dummy {p-sub-fargo-4} {p-loadpc}
 $dummy-delay-exclude {p-sub-fargo-4} 3 {p-sub-fargo-7} -{a-discft1},{a-discft2},{a-discft3}
 
 # XXX while we could restore newpc from ex in parallel with p-fetchline,
@@ -170,15 +170,13 @@ endif # OP_RET
 
 if SUB_DISCJX
 # Discriminate for conditional jump, shared by JZ and JIL
-# For economy, also shared by FTL, so also triggers ft3
 # Continues on to SUB_JX and fetch.
 # 1. DISCJX -> EX, clear
-# 2. RF -shiftA-> DISCJX, trigger ft2 (and ft3)
-# 3. DISCJX -> ft2.arg (and clear), ft3.arg
+# 2. RF -shiftA-> DISCJX
+# 3. DISCJX -> ft2.arg
 # 4. wait
 # 5. wait
 # 6. [ft2.[AB]xxS -> DISCJX]  # sign selected by caller
-#    or [ft3.A65 -ftldata-> RF]
 # 7. p-sub-jx
 
 # save DISCJX
@@ -189,17 +187,13 @@ $loadex {p-sub-discjx}
 $send-rf {p-sub-discjx-2}
 $rec {p-sub-discjx-2} {a-discjx} {t-sub-discjx-2} {i-shiftA} {p-sub-discjx-3}
 
-# trigger ft2 and ft3
+# trigger ft2
 p {p-sub-discjx-2} f2.{t-sub-discjx}i
 s f2.rp{t-sub-discjx} 1
 s f2.op{t-sub-discjx} A0
-p {p-sub-discjx-2} f3.{t-sub-discjx}i
-s f3.rp{t-sub-discjx} 1
-# TODO switch to A+2 addressing
-s f3.op{t-sub-discjx} A0
 
 # send ft arg
-$pulseamp {p-sub-discjx-3} {p-sendc-discjx}
+$sendcx {p-sub-discjx-3} {a-discjx} {x-sub-discjx-3} A
 
 # caller receives ft sign in p-sub-discjx-6
 # continue to conditional jump sub in cycle 7
@@ -214,7 +208,6 @@ if SUB_JX
 
 # discriminate, and clear to ready DISCJX for restored memory value
 # P = not taken, M = taken
-#$discriminatec {p-sub-jx} {a-discjx} {d-discjxA} {d-discjxS} {p-sub-jx-not-taken} {p-sub-jx-taken}
 $discriminatec-delay-passthru {p-sub-jx} {a-discjx} {d-discjxA} {d-discjxS} 2 {p-sub-jx-2} {p-sub-consume-op} {p-sub-jmp}
 
 # restore discjx regardless of whether branch taken
@@ -228,9 +221,8 @@ endif # SUB_JX
 if OP_JN
 
 # save DISCJX
-$pulseamp {p-opjn} {p-sendc-discjx}
+$sendc {p-opjn} {a-discjx} {t-opjn} A {p-opjn-2}
 $loadex {p-opjn}
-$c-dummy {p-opjn} {p-opjn-2}
 
 # RF->DISCJX, this puts sign of A into DISCJX PM
 $send-rf {p-opjn-2}
@@ -268,36 +260,7 @@ $ft-dummy-exclude {p-opjil} 5 {p-opjil-6} -f2,f3
 # receive ft2 sign for jil
 $recx {p-opjil-6} {a-discjx} {x-opjil-6} {i-ftjilsign}
 
-
 endif # OP_JIL
-
-
-# - FTL -
-if OP_FTL
-# Shares with DISCJX so it's kind of an honorary jump?
-
-# reuse discjx sequence
-$pulseamp {p-opftl} {p-sub-discjx}
-$ft-dummy-exclude {p-opftl} 5 {p-opftl-6} -f2,f3
-
-# clear A while waiting for ft data
-$manual-dummy {p-opftl} a4 {t-opftl} 3 {p-opftl-4}
-
-# 4. RF -clearA-> DISCJX
-$pulseamp {p-opftl-4} {p-sendc-rf}
-$recx {p-opftl-4} {a-discjx} {x-opftl-4} {i-clearA}
-$c-dummy {p-opftl-4} {p-opftl-5}
-
-# 5. DISCJX -> RF
-$pulseamp {p-opftl-5} {p-sendc-discjx}
-$pulseamp {p-opftl-5} {p-loadrf}
-
-# receive ft3 data for ftl in RF A
-$permute f3.A 0,6,5,0,0,0,0,0,0,0,0 {d-ftldata}
-$permute f3.B 11,0,0,0,0,0,0,0,0,0,0 {d-ftldata}
-$recx {p-opftl-6} {a-rf} {t-opftl-6} {i-ftldata}
-
-endif # OP_FTL
 
 
 # - Conditional jump lookup tables -

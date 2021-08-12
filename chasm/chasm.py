@@ -471,7 +471,7 @@ class V4(PrimitiveParsing):
       "loadacc": self.op(want_arg=r"A", opcode=10),
       "storeacc": self.op(want_arg=r"A", opcode=11),
       "swapall": self.op(opcode=12),
-      "ftl": self._ftl,
+      "ftl": self.op(want_arg=r"^A$", opcode=14),
       "mov": self._mov,
       "lodig": self.op(want_arg=r"A", opcode=43),
       "swapdig": self.op(want_arg=r"A", opcode=44),
@@ -505,12 +505,6 @@ class V4(PrimitiveParsing):
     if ft == 3: return 99
     # Can happen for an unrecognized label, e.g. during the first pass
     return 0
-
-  def _ftl(self, label, op, arg):
-    if arg != 'A':
-      self.out.error(f"invalid argument '{arg}'")
-      return
-    self.out.emit(14, 99, comment=f"{op} {arg}")
 
   def _mov(self, label, op, arg):
     # Try each of these regexes in order and assemble the first that matches.

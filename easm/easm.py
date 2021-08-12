@@ -375,7 +375,7 @@ class Assembler(object):
 
 
   def patch_ft(self, arg):
-    m = re.match('(?P<ft>(f\d|{f-[A-Za-z0-9-]+}))\.(?P<terminal>((\d\d?|{t-[A-Za-z0-9-]+})[io]|[AB]|arg))', arg)
+    m = re.match('(?P<ft>(f\d|{f-[A-Za-z0-9-]+}))\.(?P<terminal>((\d\d?|{t-[A-Za-z0-9-]+})[io]|C|NC|[AB]|arg))', arg)
     if not m:
       raise SyntaxError('bad ft terminal')
 

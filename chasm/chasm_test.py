@@ -503,7 +503,7 @@ class TestV4(AssemblerTestCase):
   def testFtl(self):
     self.isa.dispatch("", "ftl", "A")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 14, (100, 1): 98})
+    self.assertOutputValues({(100, 0): 14})
 
   def testFtl_ErrorArgument(self):
     self.isa.dispatch("", "ftl", "A,D")

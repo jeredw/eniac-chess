@@ -11,7 +11,7 @@
 11 - storeacc A   ; FGHIJ -> acc A
 12 - swapall      ; ABCDE <-> FGHIJ
 13 -
-14 - ftl A        ; load from ft3 i1 (encoded as 14 xx)
+14 - ftl A        ; load from ft3 i1
 15 - 
 
 20 - mov B,A
@@ -126,7 +126,7 @@ a - main
 b - selectA: X aa XX XX XX XX -> 0 aa 00 00 00 00, used for MOV X,A
 g - selDA:   X XX XX XX dd XX -> 0 dd 00 00 00 00, used for ADD D,A
 d - selEA:   X XX XX XX XX ee -> 0 ee 00 00 00 00, used for MOV #XX,A
-e - ftldata: X XX XX aa XX XX -> 0 aa 00 00 00 00, used for FTL
+e - ftldata: S XX XX aa XX XX -> S aa 00 00 00 00, used for FTL
 
 
 LS
@@ -206,6 +206,8 @@ e - shiftl4-pc: XX XXXX PPPP -> XX PPPP 0000
 MEM7
 A12
 a - main
+b - shiftA: used to shift RF A into digits 1+2 for ft arg
+c - clearA: used to clear RF A for ftl
 
 
 MEM8
@@ -230,7 +232,6 @@ a - main
 b - shiftA: used to shift RF A into digits 1+2 for ft arg
 g - ftjzsign: get sign for jz discrimination
 d - ftjilsign: get sign fo jil discrimination
-e - clearA: used to clear RF A for ftl
 
 
 MEM10
