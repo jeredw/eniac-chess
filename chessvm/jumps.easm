@@ -174,7 +174,7 @@ if SUB_DISCJX
 # Continues on to SUB_JX and fetch.
 # 1. DISCJX -> EX, clear
 # 2. RF -shiftA-> DISCJX, trigger ft2 (and ft3)
-# 3. DISCJX -> ft2.arg, ft3.arg
+# 3. DISCJX -> ft2.arg (and clear), ft3.arg
 # 4. wait
 # 5. wait
 # 6. [ft2.[AB]xxS -> DISCJX]  # sign selected by caller
@@ -199,7 +199,7 @@ s f3.rp{t-sub-discjx} 1
 s f3.op{t-sub-discjx} A0
 
 # send ft arg
-$sendx {p-sub-discjx-3} {a-discjx} {x-sub-discjx-3} A
+$pulseamp {p-sub-discjx-3} {p-sendc-discjx}
 
 # caller receives ft sign in p-sub-discjx-6
 # continue to conditional jump sub in cycle 7
@@ -228,8 +228,9 @@ endif # SUB_JX
 if OP_JN
 
 # save DISCJX
-$sendc {p-opjn} {a-discjx} {t-opjn} A {p-opjn-2}
+$pulseamp {p-opjn} {p-sendc-discjx}
 $loadex {p-opjn}
+$c-dummy {p-opjn} {p-opjn-2}
 
 # RF->DISCJX, this puts sign of A into DISCJX PM
 $send-rf {p-opjn-2}
@@ -279,8 +280,20 @@ if OP_FTL
 $pulseamp {p-opftl} {p-sub-discjx}
 $ft-dummy-exclude {p-opftl} 5 {p-opftl-6} -f2,f3
 
-# receive ft3 data for ftl in RF D
-$permute f3.A 0,0,0,0,0,0,0,6,5,0,0 {d-ftldata}
+# clear A while waiting for ft data
+$manual-dummy {p-opftl} a4 {t-opftl} 3 {p-opftl-4}
+
+# 4. RF -clearA-> DISCJX
+$pulseamp {p-opftl-4} {p-sendc-rf}
+$recx {p-opftl-4} {a-discjx} {x-opftl-4} {i-clearA}
+$c-dummy {p-opftl-4} {p-opftl-5}
+
+# 5. DISCJX -> RF
+$pulseamp {p-opftl-5} {p-sendc-discjx}
+$pulseamp {p-opftl-5} {p-loadrf}
+
+# receive ft3 data for ftl in RF A
+$permute f3.A 0,6,5,0,0,0,0,0,0,0,0 {d-ftldata}
 $recx {p-opftl-6} {a-rf} {t-opftl-6} {i-ftldata}
 
 endif # OP_FTL

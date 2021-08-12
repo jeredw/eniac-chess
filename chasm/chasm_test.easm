@@ -74,12 +74,12 @@ s f1.RA5L6 1  # storeacc A
 s f1.RA5L5 1
 s f1.RA5L4 1  # swapall 
 s f1.RA5L3 2
-s f1.RA5L2 1  # ftl A, D
+s f1.RA5L2 1  # ftl A
 s f1.RA5L1 4
 s f1.RB5L6 9
-s f1.RB5L5 9
-s f1.RB5L4 1  # mov B, A
-s f1.RB5L3 9
+s f1.RB5L5 8
+s f1.RB5L4 2  # mov B, A
+s f1.RB5L3 0
 s f1.RB5L2 2  # mov C, A
 s f1.RB5L1 1
 

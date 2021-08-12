@@ -1,5 +1,6 @@
 chsim/chsim
 chsim/chsim_test
+chsim/chsim.dSYM
 eniacsim
 *.pyc
 *.e

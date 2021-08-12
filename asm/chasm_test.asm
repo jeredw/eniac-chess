@@ -50,7 +50,7 @@ test_each_instruction
   loadacc A
   storeacc A
   swapall
-  ftl A, D
+  ftl A
   mov B, A
   mov C, A
   mov D, A

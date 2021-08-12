@@ -157,7 +157,7 @@ $permuted-input {a-rf} {d-main} {i-selDA} 0,4,3,0,0,0,0,0,0,0,0
 # i-selEA input: XX XX XX XX aa -> aa 00 00 00 00, used for MOV EJ,A/MOV #X,A
 $permuted-input {a-rf} {d-main} {i-selEA} 0,2,1,0,0,0,0,0,0,0,0
 
-# i-ftldata input: XX XX XX dd XX, used for FTL
+# i-ftldata input: aa XX XX XX XX, used for FTL
 p {d-ftldata} {a-rf}.{i-ftldata}
 
 # shared programs
@@ -343,6 +343,12 @@ p f2.B ad.permute.{ad-ftjilsign}
 s ad.permute.{ad-ftjilsign} 11,0,0,0,0,0,0,0,0,0,0
 p ad.permute.{ad-ftjilsign} {d-ftjilsign}
 p {d-ftjilsign} {a-discjx}.{i-ftjilsign}
+
+# i-clearA: clear A for ftl
+$permute {d-main} 0,0,0,8,7,6,5,4,3,2,1 {a-discjx}.{i-clearA}
+
+# shared programs
+$sendcx {p-sendc-discjx} {a-discjx} {x-sendc-discjx} A
 
 
 # - MEM10 -

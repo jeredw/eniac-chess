@@ -111,7 +111,8 @@ if OP_READ
 # read in a new card into constant transmitter
 # (the assembler will make sure LS is clear)
 p {p-opread} i.Ri
-$dummy {p-opread} {p-opread-2}
+#$dummy {p-opread} {p-opread-2}
+$manual-dummy {p-opread} a4 {t-opread} 1 {p-opread-2}
 
 # wait for card to read
 p {p-opread-2} i.Rl

@@ -76,13 +76,8 @@ no_underflow
   jz new_depth      ; if last_move is 0, new recursive search
 
   ; iterating over possible moves at current depth
-  mov A,C           ; C=last_move
-  clr A             ;
-  swap A,D          ; D=0 prior to ftl
-  swap C,A          ; A=last_move (move#)
   add colorder,A    ; A=colorder+move#
-  ftl A,D           ; lookup column# for move
-  swap D,A          ; A=column#
+  ftl A             ; lookup A=column# for move
   jsr undo_move     ; undo last move
   ; update the best move at current depth
   mov sp,A<->B
@@ -237,12 +232,8 @@ first_move
 check_move
   jz search         ; if A=0 no more moves at this depth
   mov A,C           ; C=move#
-  clr A             ;
-  swap A,D          ; D=0 prior to ftl
-  mov C,A           ; A=move#
   add colorder,A    ; A=colorder+move#
-  ftl A,D           ; lookup next column#
-  swap D,A          ; A=column#
+  ftl A             ; lookup next A=column#
   dec A             ;
   swap A,B          ; B=column offset
   mov [B],A         ; check top of column
@@ -322,16 +313,13 @@ do_move_p2
   jmp search
 
 search_done
-  clr A
-  swap A,D          ; D=0 prior to ftl
   mov stack00,A<->B
   mov [B],A         ; load player|best_move from top of stack
   add 90,A          ; subtract 10 (i.e. player=eniac) to get move
   swap A,B          ; clear sign
   swap B,A          ; A=move#
   add colorder,A    ; A=colorder+move#
-  ftl A,D           ; lookup column# for move
-  swap D,A
+  ftl A             ; lookup column# for move
   swap A,B          ; B=column#
   mov 1,A<->D       ; D=player1 (eniac)
   swap B,A          ; A=column#
@@ -461,18 +449,16 @@ drstart .table 14, 7, 0, 1, 2, 3
   mov 6,A
   mov A,[B]         ; initialize diag#
 score1_dr
-  clr A
-  swap A,D          ; D=0 prior to ftl
   mov tmp,A<->B     ;
   mov [B],A         ; get diag#
   jz score1_dr_out  ; if diag#==0, all done
   dec A
   mov A,[B]         ; diag#-=1
   add drstart,A
-  ftl A,D           ; lookup start of r-diagonal
+  ftl A             ; lookup start of r-diagonal
+  swap A,B          ; B=start offset
   clr A
-  swap D,A          ; D=player|empty (00)
-  mov A,B           ; B=start offset
+  swap A,D          ; D=player|empty (00)
   clr A
   swap A,E          ; E=row (0)
 score1_dr_row
@@ -515,18 +501,16 @@ dlstart .table 20, 13, 6, 5, 4, 3
   mov 6,A
   mov A,[B]         ; initialize diag#
 score1_dl
-  clr A
-  swap A,D          ; D=0 prior to ftl
   mov tmp,A<->B     ;
   mov [B],A         ; get diag#
   jz score1_dl_out  ; if diag#==0, all done
   dec A
   mov A,[B]         ; diag#-=1
   add dlstart,A
-  ftl A,D           ; lookup start of l-diagonal
+  ftl A             ; lookup start of l-diagonal
+  swap A,B          ; B=start offset
   clr A
-  swap D,A          ; D=player|empty (00)
-  mov A,B           ; B=start offset
+  swap A,D          ; D=player|empty (00)
   clr A
   swap A,E          ; E=row (0)
 score1_dl_row
@@ -761,14 +745,11 @@ rowstart .table 0,0,0,0,0,0,0, 7,7,7,7,7,7,7, 14,14,14,14,14,14,14, 21,21,21,21,
 
   swap D,A
   swap A,C          ; stash player in C
-  clr A
-  swap A,D          ; clear D prior to ftl
   mov tmp,A<->B     ; B=tmp
   mov E,A           ; A=move offset (0-41)
   mov A,[B]         ; spill move offset into [tmp]
   add rowstart,A    ; A+=rowstart (base of table)
-  ftl A,D           ; lookup row offset
-  swap D,A
+  ftl A             ; lookup row offset
   swap A,B          ; B=row offset
   swap C,A
   swap A,D          ; D=player

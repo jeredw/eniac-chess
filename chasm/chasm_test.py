@@ -497,13 +497,13 @@ class TestV4(AssemblerTestCase):
     self.assertEqual(self.out.errors, ["file:1: unexpected argument 'bogus'"])
 
   def testFtl(self):
-    self.isa.dispatch("", "ftl", "A,D")
+    self.isa.dispatch("", "ftl", "A")
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 14, (100, 1): 99})
+    self.assertOutputValues({(100, 0): 14, (100, 1): 98})
 
   def testFtl_ErrorArgument(self):
-    self.isa.dispatch("", "ftl", "A")
-    self.assertEqual(self.out.errors, ["file:1: invalid argument 'A'"])
+    self.isa.dispatch("", "ftl", "A,D")
+    self.assertEqual(self.out.errors, ["file:1: invalid argument 'A,D'"])
 
   def testMovBA(self):
     self.isa.dispatch("", "mov", "B, A")

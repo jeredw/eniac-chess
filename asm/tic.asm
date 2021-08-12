@@ -363,52 +363,46 @@ isxxx
   clr A         ;
   swap A,D      ; D=0 is the index in the runs table
 isxxx_run
-  clr A
-  swap A,D      ; A=index D=0
-  mov A,B
-  add runs,A
-  ftl A,D       ; get next square# to check 
-  swap A,B
-  inc A
-  swap A,D      ; A=square D=index++
+  mov D,A       ;
+  add runs,A    ; lookup runs+index
+  ftl A         ; get next square# to check
   swap A,B      ; square in B
+  swap D,A
+  inc A
+  swap A,D      ; D=index++
   mov [B],A     ; check square
   dec A         ;
   jz isxxx_run2 ; if square=='X' goto run2
-  swap A,D      ; next run index
+  swap D,A      ; next run index
   inc A         ; skip to next run
   inc A
   jmp isxxx_next
 isxxx_run2
-  clr A
-  swap A,D      ; A=index D=0
-  mov A,B
+  mov D,A       ;
   add runs,A
-  ftl A,D       ; get next square# to check 
-  swap A,B
-  inc A
-  swap A,D      ; A=square D=index++
+  ftl A         ; get next square# to check
   swap A,B      ; square in B
+  swap D,A
+  inc A
+  swap A,D      ; D=index++
   mov [B],A     ; check square
   dec A         ;
   jz isxxx_run3 ; if square=='X' goto run2
-  swap A,D      ; next run index
+  swap D,A      ; next run index
   inc A         ; skip to next run
   jmp isxxx_next
 isxxx_run3
-  clr A
-  swap A,D      ; A=index D=0
-  mov A,B
+  mov D,A       ;
   add runs,A
-  ftl A,D       ; get next square# to check 
-  swap A,B
+  ftl A         ; get next square# to check
+  swap A,B      ; square in B
+  swap D,A
   inc A
   swap A,D      ; A=square D=index++
-  swap A,B      ; square in B
   mov [B],A     ; check square
   dec A         ;
   jz isxxx_yes  ; if square=='X' found run
-  swap A,D      ; next run index
+  swap D,A      ; next run index
   ; fall through to isxxx_next
 isxxx_next
   mov A,D
@@ -428,50 +422,44 @@ isooo
   clr A         ;
   swap A,D      ; D=0 is the index in the runs table
 isooo_run
-  clr A
-  swap A,D      ; A=index D=0
-  mov A,B
+  mov D,A
   add runs,A
-  ftl A,D       ; get next square# to check 
-  swap A,B
-  inc A
-  swap A,D      ; A=square D=index++
+  ftl A         ; get next square# to check
   swap A,B      ; square in B
+  swap D,A
+  inc A
+  swap A,D      ; D=index++
   mov [B],A     ; check square
   dec A         ;
   dec A         ;
   jz isooo_run2 ; if square=='O' goto run2
-  swap A,D      ; next run index
+  swap D,A      ; next run index
   inc A         ; skip to next run
   inc A
   jmp isooo_next
 isooo_run2
-  clr A
-  swap A,D      ; A=index D=0
-  mov A,B
+  mov D,A
   add runs,A
-  ftl A,D       ; get next square# to check 
-  swap A,B
+  ftl A         ; get next square# to check
+  swap A,B      ; square in B
+  swap D,A
   inc A
   swap A,D      ; A=square D=index++
-  swap A,B      ; square in B
   mov [B],A     ; check square
   dec A         ;
   dec A         ;
   jz isooo_run3 ; if square=='O' goto run2
-  swap A,D      ; next run index
+  swap D,A      ; next run index
   inc A         ; skip to next run
   jmp isooo_next
 isooo_run3
-  clr A
-  swap A,D      ; A=index D=0
-  mov A,B
+  mov D,A
   add runs,A
-  ftl A,D       ; get next square# to check 
-  swap A,B
-  inc A
-  swap A,D      ; A=square D=index++
+  ftl A         ; get next square# to check
   swap A,B      ; square in B
+  swap D,A
+  inc A
+  swap A,D      ; D=index++
   mov [B],A     ; check square
   dec A         ;
   dec A         ;

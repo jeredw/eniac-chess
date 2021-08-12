@@ -504,10 +504,10 @@ class V4(PrimitiveParsing):
     return 0
 
   def _ftl(self, label, op, arg):
-    if not re.match(r"A,\s*D", arg):
+    if arg != 'A':
       self.out.error(f"invalid argument '{arg}'")
       return
-    self.out.emit(14, 0, comment=f"{op} {arg}")
+    self.out.emit(14, 99, comment=f"{op} {arg}")
 
   def _mov(self, label, op, arg):
     # Try each of these regexes in order and assemble the first that matches.

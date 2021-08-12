@@ -233,14 +233,14 @@ static void step(VM* vm) {
       std::copy(vm->ls, vm->ls + 5, vm->mem[vm->a]);
       break;
     case 12: std::swap(vm->rf, vm->ls); break; // swapall
-    case 14: { // ftl A,D
+    case 14: { // ftl A
       int offset = drop_sign(vm->a);
       if (!(8 <= offset && offset <= 99)) {
         fprintf(stderr, "ftl %d out of bounds\n", vm->a);
         vm->halted = true;
         break;
       }
-      vm->d = vm->function_table[300 + offset][0];
+      vm->a = vm->function_table[300 + offset][0];
       consume_operand(vm);
       break;
     }
@@ -372,6 +372,7 @@ static void step(VM* vm) {
     }
     case 92: // print
       printf("%02d%02d\n", drop_sign(vm->a), vm->b);
+      fflush(stdout);
       fprintf(output_file, "%02d%02d\n", drop_sign(vm->a), vm->b);
       break;
     case 94: // brk
@@ -523,6 +524,7 @@ int main(int argc, char *argv[]) {
   if (!read_program(argv[1], &vm)) {
     exit(1);
   }
+  rl_outstream = stderr;
   output_file = fopen("/tmp/chsim.out", "w");
   signal(SIGINT, interrupt);
   while (true) {
