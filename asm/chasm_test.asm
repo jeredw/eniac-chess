@@ -31,7 +31,7 @@ labeled_instr clrall
 ; the first word after .table is the base row address for the table (8-99)
 ; following words are data values for that and subsequent rows of the table
 noms    .table 1, 2, 3
-nomnoms .table 4, 5, 6, -42
+nomnoms .table 4, 5, 6, -42, M03
 
 test_each_instruction
   ; instructions must be indented

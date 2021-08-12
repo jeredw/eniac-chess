@@ -72,7 +72,7 @@ class Assembler(object):
       directive = op.startswith(".")
 
       if label:
-        if len(label) == 1 or all(c.isdigit() for c in label):
+        if len(label) == 1 or re.match(r"[-M]?\d+", label):
           # Labels that are all digits would be ambiguous with addresses.
           # Labels that are single characters would be ambiguous with registers.
           self.out.error(f"invalid label name '{label}'")
@@ -265,7 +265,8 @@ class PrimitiveParsing(object):
   def _word(self, arg):
     """Parse arg as a two digit word."""
     try:
-      value = int(arg, base=10)
+      value = (int(arg[1:], base=10) - 100 if arg.startswith('M') else
+               int(arg, base=10))
       if value < -100:
         raise ValueError("underflow")
       if value >= 100:
@@ -331,7 +332,7 @@ class PrimitiveParsing(object):
     If require_defined is true then labels must be defined even on the first
     assembly pass (used by .equ).
     """
-    if re.match(r"-?\d+", arg):
+    if re.match(r"[-M]?\d+", arg):
       return self._word(arg)
     if self.context.assembler_pass == 0 and not require_defined:
       return 0
