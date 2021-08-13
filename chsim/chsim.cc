@@ -278,6 +278,30 @@ static void step(VM* vm) {
       std::copy(vm->ls, vm->ls + 5, vm->mem[acc]);
       break;
     }
+    case 43: // lodig A
+      if (vm->a >= 0) {
+        vm->a = vm->a % 10;
+      } else {
+        // lodig M99 = M09 (-91)
+        int digits = 100 + vm->a;
+        int tens_digit = digits % 10; // M99 (-1) -> 9
+        vm->a = tens_digit - 100; // 9 -> M09 (-91)
+      }
+      break;
+    case 44: // swapdig A
+      if (vm->a >= 0) {
+        int tens_digit = vm->a / 10;
+        int ones_digit = vm->a % 10;
+        vm->a = 10 * ones_digit + tens_digit;
+      } else {
+        // swapdig M98 = M89
+        int digits = 100 + vm->a; // M98 (-2) -> 98
+        int tens_digit = digits / 10;
+        int ones_digit = digits % 10;
+        int swapped_digits = 10 * ones_digit + tens_digit;
+        vm->a = swapped_digits - 100; // 89 -> M89 (-11)
+      }
+      break;
     case 52: // inc A
       vm->a++;
       if (vm->a == 100)
@@ -287,6 +311,12 @@ static void step(VM* vm) {
       vm->a--;
       if (vm->a == -101)
         vm->a = 99;
+      break;
+    case 54: // flipn
+      if (vm->a < 0)
+        vm->a += 100;
+      else
+        vm->a -= 100;
       break;
     case 70: // add D,A
       vm->a += vm->d;
@@ -402,7 +432,7 @@ static bool disassemble(char* buf, size_t size, VM vm) {
     case 10: snprintf(buf, size, "loadacc A"); break;
     case 11: snprintf(buf, size, "storeacc A"); break;
     case 12: snprintf(buf, size, "swapall"); break;
-    case 14: snprintf(buf, size, "ftl A,D"); break;
+    case 14: snprintf(buf, size, "ftl A"); break;
     case 20: snprintf(buf, size, "mov B,A"); break;
     case 21: snprintf(buf, size, "mov C,A"); break;
     case 22: snprintf(buf, size, "mov D,A"); break;
@@ -415,8 +445,11 @@ static bool disassemble(char* buf, size_t size, VM vm) {
     case 40: snprintf(buf, size, "mov %d,A", consume_operand(&vm)); break;
     case 41: snprintf(buf, size, "mov [B],A"); break;
     case 42: snprintf(buf, size, "mov A,[B]"); break;
+    case 43: snprintf(buf, size, "lodig A"); break;
+    case 44: snprintf(buf, size, "swapdig A"); break;
     case 52: snprintf(buf, size, "inc A"); break;
     case 53: snprintf(buf, size, "dec A"); break;
+    case 54: snprintf(buf, size, "flipn"); break;
     case 70: snprintf(buf, size, "add D,A"); break;
     case 71: snprintf(buf, size, "add %d,A", consume_operand(&vm)); break;
     case 72: snprintf(buf, size, "sub D,A"); break;

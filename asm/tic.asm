@@ -342,7 +342,7 @@ isfull_loop
   mov [B],A     ; get square at [B]
   jz isfull_no  ; if empty, not full
   mov B,A
-  add 91,A      ; test B with 9
+  addn 9,A      ; test B with 9
   jn isfull_yes
   swap A,B
   inc A
@@ -406,7 +406,7 @@ isxxx_run3
   ; fall through to isxxx_next
 isxxx_next
   mov A,D
-  add 76,A      ;
+  addn 24,A     ;
   jn isxxx_no   ; if run index >= 24, return
   jmp isxxx_run ; else keep scanning
 isxxx_no:
@@ -468,7 +468,7 @@ isooo_run3
   ; fall through to isooo_next
 isooo_next
   mov A,D
-  add 76,A      ;
+  addn 24,A     ;
   jn isooo_no   ; if run index >= 24, return
   jmp isooo_run ; else keep scanning
 isooo_no:

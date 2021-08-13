@@ -479,6 +479,7 @@ class V4(PrimitiveParsing):
       "dec": self.op(want_arg=r"A", opcode=53),
       "flipn": self.op(opcode=54),
       "add": self._add,
+      "addn": self._addn,
       "sub": self.op(want_arg=r"D,\s*A", opcode=72),
       "jmp": self._jmp,
       "jn": self._jn,
@@ -566,6 +567,19 @@ class V4(PrimitiveParsing):
                       comment=self._comment(op, arg, symbol, word))
       else:
         self.out.error(f"invalid argument '{arg}'")
+
+  def _addn(self, label, op, arg):
+    m = re.match(r"\s*(.+),\s*A", arg)
+    if m:
+      symbol = m.group(1)
+      word = self._word_or_label(symbol)
+      if word < 0:
+        self.out.error("addn argument cannot be negative")
+        return
+      self.out.emit(71, ((100 - word) % 100),
+                    comment=self._comment(op, arg, symbol, word))
+    else:
+      self.out.error(f"invalid argument '{arg}'")
 
   def _swap(self, label, op, arg):
     if re.match(r"B,\s*A|A,\s*B", arg):

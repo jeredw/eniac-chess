@@ -671,6 +671,15 @@ class TestV4(AssemblerTestCase):
     self.isa.dispatch("", "add", "bogus")
     self.assertEqual(self.out.errors, ["file:1: invalid argument 'bogus'"])
 
+  def testAddNImmediateA(self):
+    self.isa.dispatch("", "addn", "1, A")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 71, (100, 1): 98})
+
+  def testAddN_ErrorInvalidArgument(self):
+    self.isa.dispatch("", "addn", "D, A")
+    self.assertEqual(self.out.errors, ["file:1: unrecognized label 'D'"])
+
   def testSubDA(self):
     self.isa.dispatch("", "sub", "D, A")
     self.assertFalse(self.out.errors)

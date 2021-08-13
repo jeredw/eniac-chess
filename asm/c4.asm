@@ -8,7 +8,6 @@
 ; piece instead.
 ;board      .equ 0   ; 42 words, 0=none, 1=player1, 2=player2
 boardsize  .equ 42
-dboardsize .equ 58  ; 100-boardsize
 ; Locations 42, 43, and 44 are used as auxiliary storage
 winner     .equ 42  ; 0=no winner, 1=player1, 2=player2, 3=draw
 tmpcol     .equ 42  ; winner doubles up as a tmp for column in win routine
@@ -18,9 +17,7 @@ sp         .equ 44  ; reserved to spill sp
 stack00    .equ 45  ; first word of stack (with best move)
 stackbase  .equ 9   ; base of stack = acc 9
 stackbase1 .equ 10  ; stack base + 1
-dstackbase .equ 91  ; 100-stackbase
 stackmax   .equ 14  ; max stack
-dstackmax  .equ 86  ; 100-stackmax
 
 ; Inner columns are generally better than outer columns, so searching columns
 ; from inside out reduces search time 5-6x due to better pruning.
@@ -59,7 +56,7 @@ search
   mov sp,A<->B
   mov [B],A         ; A=sp
   mov A,C           ; stash C=sp
-  add dstackbase,A  ; test sp with base of stack
+  addn stackbase,A  ; test sp with base of stack
   jz search_done    ; if sp==base, search is done
   jn no_underflow
   jmp underflow     ; if sp<base, underflow
@@ -89,7 +86,7 @@ no_underflow
   mov B,A           ; A=sp (keeping sp stashed in B)
   loadacc A         ; restore current frame
   mov F,A           ; get player|best_move (1x=eniac, 2x=human)
-  add 80,A          ;
+  addn 20,A         ;
   jn cd_min         ; if >= 20 then human (min) else eniac (max)
 
   ; evaluate move value (in D) for max player
@@ -185,24 +182,15 @@ new_depth
   mov winner,A<->B  ;
   mov [B],A         ; A=winner for current board
   jz first_move     ; if no winner, continue search from first move
-  dec A
-  jz search_win1    ; if winner==1, short-circuit with score 99
-  dec A
-  jz search_win2    ; if winner==2, short-circuit with score 0
-  dec A
-  jz search_draw    ; if draw, short-circuit with score 30
-  mov 94,A          ; unhandled case
-  jmp far error
 
-search_win1
-  mov 99,A          ; eniac won (score=99)
+  ; 1=eniac won (score=99)
+  ; 2=human won (score=0)
+  ; 3=draw      (score=30)
+score .table 0, 99, 0, szero
+  add score,A       ; A=score+winner
+  ftl A             ; lookup score for this winner
   jmp save_score
-search_win2
-  clr A             ; human won (score=0)
-  jmp save_score
-search_draw
-  mov szero,A       ; draw (score=30)
-  jmp save_score
+
 search_cutoff
   jmp far score1    ; depth cutoff (score=heuristic)
 ; save new best_score into stack[sp]
@@ -223,7 +211,7 @@ score1_ret          ; score1 returns here
 first_move
   mov sp,A<->B      ; check stack depth
   mov [B],A         ; A=sp
-  add dstackmax,A   ; test sp against stack max
+  addn stackmax,A   ; test sp against stack max
   jz search_cutoff  ; if sp==stack max, cutoff search
   jn overflow       ; if sp>stack max, error
   mov 7,A           ; search moves best column first
@@ -261,7 +249,7 @@ do_move
   ; (update sp later to preserve player in LS here)
   ; apply move and push recursive frame
   mov F,A           ; A=1x for eniac, 2x for human
-  add 80,A          ;
+  addn 20,A         ;
   jn do_move_p2     ; if >= 20 then human (min) else eniac (max)
 
 ;do_move_p1
@@ -315,9 +303,7 @@ do_move_p2
 search_done
   mov stack00,A<->B
   mov [B],A         ; load player|best_move from top of stack
-  add 90,A          ; subtract 10 (i.e. player=eniac) to get move
-  swap A,B          ; clear sign
-  swap B,A          ; A=move#
+  lodig A           ; A=move#
   add colorder,A    ; A=colorder+move#
   ftl A             ; lookup column# for move
   swap A,B          ; B=column#
@@ -369,7 +355,7 @@ score1
   swap A,B          ; B=offset (0)
 score1_h
   mov B,A
-  add dboardsize,A  ; test offset with boardsize
+  addn boardsize,A  ; test offset with boardsize
   jn score1_h_out   ; if offset>boardsize, done
   clr A
   swap A,D          ; D=player|empty (00)
@@ -377,12 +363,12 @@ score1_h
   swap A,E          ; E=column (0)
 score1_row
   mov E,A
-  add 96,A          ; test column with 4
+  addn 4,A          ; test column with 4
   jn score1_row_u   ; if column>=4, must uncount col-4
   jmp score1_row_c
 score1_row_u
   mov B,A
-  add 96,A          ; offset-=4
+  addn 4,A          ; offset-=4
   swap A,B
   jsr s_uncount     ;
   swap B,A
@@ -396,7 +382,7 @@ score1_row_c
   swap E,A
   inc A             ; column += 1
   mov A,E
-  add 93,A          ; test column with 7
+  addn 7,A          ; test column with 7
   jn score1_h       ; if column>=7 start of new row
   jmp score1_row
 score1_h_out
@@ -406,10 +392,10 @@ score1_h_out
   mov 41,A<->B      ; B=offset, score1_v will init to 0
 score1_v
   swap B,A
-  add 59,A          ; offset-=41 (top of next column)
+  addn 41,A         ; offset-=41 (top of next column)
   swap A,B          ; B=top
-  mov B,A           ; A=top (also clears A sign)
-  add 93,A          ;
+  mov B,A           ; A=top
+  addn 7,A          ;
   jn score1_v_out   ; if offset>=7, done
   clr A
   swap A,D          ; D=player|empty (00)
@@ -417,12 +403,12 @@ score1_v
   swap A,E          ; E=row (0)
 score1_col
   mov E,A
-  add 96,A          ; test row with 4
+  addn 4,A          ; test row with 4
   jn score1_col_u   ; if row>=4, must uncount row-4
   jmp score1_col_c
 score1_col_u
   mov B,A
-  add 72,A          ; offset-=4*7
+  addn 28,A         ; offset-=4*7
   swap A,B
   jsr s_uncount     ;
   swap B,A
@@ -436,7 +422,7 @@ score1_col_c
   swap E,A
   inc A             ; row += 1
   mov A,E
-  add 94,A          ; test row with 6
+  addn 6,A          ; test row with 6
   jn score1_v       ; if row>=6 start of new col
   jmp score1_col
 score1_v_out
@@ -463,12 +449,12 @@ score1_dr
   swap A,E          ; E=row (0)
 score1_dr_row
   mov E,A
-  add 96,A          ; test row with 4
+  addn 4,A          ; test row with 4
   jn score1_dr_u    ; if row>=4, must uncount row-4
   jmp score1_dr_c
 score1_dr_u
   mov B,A
-  add 68,A          ; offset-=4*8
+  addn 32,A         ; offset-=4*8
   swap A,B
   jsr s_uncount     ;
   swap B,A
@@ -481,11 +467,11 @@ score1_dr_c
   add 8,A           ; offset += 8
   mov A,B
   ; most right diagonals will end >= end of board
-  add dboardsize,A  ; compare offset with boardsize
+  addn boardsize,A  ; compare offset with boardsize
   jn score1_dr      ; if offset>=boardsize, done
   ; the diagonal (3,11,19,27) ends at 35
   mov B,A           ;
-  add 65,A          ; compare with 35 (lower left)
+  addn 35,A         ; compare with 35 (lower left)
   jz score1_dr      ; if offset==lower left, wrapped (done)
   swap E,A
   inc A             ; row += 1
@@ -515,12 +501,12 @@ score1_dl
   swap A,E          ; E=row (0)
 score1_dl_row
   mov E,A
-  add 96,A          ; test row with 4
+  addn 4,A          ; test row with 4
   jn score1_dl_u    ; if row>=4, must uncount row-4
   jmp score1_dl_c
 score1_dl_u
   mov B,A
-  add 76,A          ; offset-=4*6
+  addn 24,A         ; offset-=4*6
   swap A,B
   jsr s_uncount     ;
   swap B,A
@@ -533,15 +519,15 @@ score1_dl_c
   add 6,A           ; offset += 6
   mov A,B
   ; most left diagonals will end >= 41
-  add 59,A          ; compare offset with 41
+  addn 41,A         ; compare offset with 41
   jn score1_dl      ; if offset>=41, done
   ; the diagonal (4,10,16,22,28) ends at 34
   mov B,A           ;
-  add 66,A          ; compare with 34
+  addn 34,A         ; compare with 34
   jz score1_dl      ; if offset==34, wrapped (done)
   ; the diagonal (3,9,15,21) ends at 27
   mov B,A           ;
-  add 73,A          ; compare with 27
+  addn 27,A         ; compare with 27
   jz score1_dl      ; if offset==27, wrapped (done)
   swap E,A
   inc A             ; row += 1
@@ -558,7 +544,7 @@ s_count
   dec A
   jz s_count1       ; if board==1, count 1
   mov E,A
-  add 97,A          ; test size with 3
+  addn 3,A          ; test size with 3
   jn s_addscore     ; if size>=3, add to score
   ret
 s_count0
@@ -566,7 +552,7 @@ s_count0
   inc A             ; D += 01 (empty)
   swap A,D
   mov E,A
-  add 97,A          ; test size with 3
+  addn 3,A          ; test size with 3
   jn s_addscore     ; if size>=3, add to score
   ret
 s_count1
@@ -574,7 +560,7 @@ s_count1
   add 10,A          ; D += 10 (player1)
   swap A,D
   mov E,A
-  add 97,A          ; test size with 3
+  addn 3,A          ; test size with 3
   jn s_addscore     ; if size>=3, add to score
   ret
 
@@ -592,21 +578,20 @@ s_uncount0
   ret
 s_uncount1
   swap D,A
-  add 90,A          ; D -= 10 (player1)
+  addn 10,A         ; D -= 10 (player1)
   swap A,D
-  mov D,A           ; clear spurious - sign
   ret
 
 ; adjust score based on piece counts
 s_addscore
   mov D,A           ; get counts in A
-  add 60,A
+  addn 40,A
   jz s_win          ; if counts==4(player)0(empty), win
   mov D,A
-  add 69,A
+  addn 31,A
   jz s_run3         ; if counts==3(player)1(empty), run of 3
   mov D,A
-  add 78,A
+  addn 22,A
   jz s_run2         ; if counts==2(player)2(empty), run of 2
   mov D,A
   dec A
@@ -626,7 +611,6 @@ s_opprun3
   swap C,A
   add sorun3,A      ; score -= 4
   swap A,C
-  mov C,A           ; fix bogus sign
   ret
 s_win
   mov 99,A          ; score=99
@@ -661,7 +645,7 @@ printb_skip
   swap A,B          ;
   inc A             ; next word of board
   mov A,B
-  add dboardsize,A  ; test if A==42 (42+58=100)
+  addn boardsize,A  ; test if A==42 (42+58=100)
   jz printb_winner  ; if end of board, done
   jmp printb_loop
 printb_winner
@@ -692,7 +676,7 @@ move_drop
   mov C,A           ; A=current offset
   add 7,A           ; calc next row offset
   mov A,B           ;
-  add dboardsize,A  ; test if offset>=42
+  addn boardsize,A  ; test if offset>=42
   jn move_place     ; if past end of board, place at bottom
   mov [B],A         ; check if next row empty
   jz move_next      ; if so, keep scanning
@@ -726,16 +710,16 @@ win_col
   swap A,C          ;   (C=0)
   jmp win_col_next
 win_col_run
-  swap C,A          ; A=0 so safe to swap
+  swap C,A          ;
   inc A             ;
   mov A,C           ; C+=1 (count run)
-  add 96,A          ;
+  addn 4,A          ;
   jz win_won        ; if run length == 4, player won
 win_col_next        ; advance to next  row
-  swap B,A          ; A is known + here, so safe to swap
+  swap B,A          ;
   add 7,A           ;
   mov A,B           ; offset += 7
-  add dboardsize,A  ; check if offset past end of board
+  addn boardsize,A  ; check if offset past end of board
   jn win_col_done   ; if past end, done scanning col
   jmp win_col
 win_col_done
@@ -764,13 +748,13 @@ win_row
   swap A,C          ; C=0 (reset run)
   jmp win_row_next
 win_row_run
-  swap C,A          ; A=0 so safe to swap
+  swap C,A          ;
   inc A             ; C+=1 (count run)
   mov A,C           ; (save run length)
-  add 96,A          ;
+  addn 4,A          ;
   jz win_won        ; if run length == 4, player won
 win_row_next
-  swap B,A          ; A is known + here, so safe to swap
+  swap B,A          ;
   inc A             ; offset+=1
   swap A,B          ;
   swap A,E
@@ -792,12 +776,12 @@ win_ul0
   dec A
   swap A,E          ; column -= 1
   mov B,A
-  add 92,A          ; offset-=8 (setting sign if A>=8)
+  addn 8,A          ; offset-=8 (setting sign if A>=8)
   jn win_ul0_prev   ; if A>=8, check next column
   jmp win_ul0_done  ; would go off top row
 win_ul0_prev
   swap A,B          ; B=updated start offset
-  mov B,A           ; A=start offset; also clear sign
+  mov B,A           ; A=start offset
   jmp win_ul0
 win_ul0_done        ;
   ; scan down diagonal (B=start offset, E=column)
@@ -812,21 +796,21 @@ win_ul
   swap A,C          ; C=0 (reset run)
   jmp win_ul_next
 win_ul_run
-  swap C,A          ; A=0 so safe to swap
+  swap C,A          ;
   inc A             ;
   mov A,C           ; C+=1 (count run)
-  add 96,A          ;
+  addn 4,A          ;
   jz win_won        ; if run length == 4, player won
 win_ul_next
-  swap B,A          ; A is known + here, so safe to swap
+  swap B,A          ;
   add 8,A           ; offset+=8
   mov A,B
-  add dboardsize,A  ;
+  addn boardsize,A  ;
   jn win_ul_done    ; if A>=42, past last row of board
   swap E,A
   inc A             ; column+=1
   mov A,E
-  add 93,A          ; compare A with 7
+  addn 7,A          ; compare A with 7
   jn win_ul_done    ; if column>=7, past last col of board
   jmp win_ul
 win_ul_done
@@ -839,18 +823,18 @@ win_ul_done
   ; rewind to upper right of diagonal
 win_ur0
   mov E,A
-  add 94,A
+  addn 6,A
   jz win_ur0_done   ; if column==6, at start
   swap E,A
   inc A
   swap A,E          ; column += 1
   mov B,A
-  add 94,A          ; A-=6 (setting sign if A>=6)
+  addn 6,A          ; A-=6 (setting sign if A>=6)
   jn win_ur0_prev   ; if A>=6, check next column
   jmp win_ur0_done  ; would go off top row
 win_ur0_prev
   swap A,B          ; B=updated start offset
-  mov B,A           ; A=start offset; also clear sign
+  mov B,A           ; A=start offset
   jmp win_ur0
 win_ur0_done        ;
   ; scan down diagonal (B=start offset, E=column)
@@ -865,16 +849,16 @@ win_ur
   swap A,C          ; C=0 (reset run)
   jmp win_ur_next
 win_ur_run
-  swap C,A          ; A=0 so safe to swap
+  swap C,A          ;
   inc A             ;
   mov A,C           ; C+=1 (count run)
-  add 96,A          ;
+  addn 4,A          ;
   jz win_won        ; if run length == 4, player won
 win_ur_next
-  swap B,A          ; A is known + here, so safe to swap
+  swap B,A          ;
   add 6,A           ; offset+=6
   mov A,B
-  add dboardsize,A  ;
+  addn boardsize,A  ;
   jn win_ur_done    ; if A>=42, past last row of board
   swap E,A
   dec A             ; column-=1
@@ -886,7 +870,7 @@ win_ur_done
   ; if move was in top row, check for draw (after all possible wins)
   mov tmp,A<->B     ;
   mov [B],A         ; A=move offset from [tmp]
-  add 93,A
+  addn 7,A
   jn win_none       ; if A>=7 then no draw possible
   mov 6,A<->B       ; B=end of first row
 win_check_draw
@@ -927,7 +911,7 @@ undo_move_next
   swap B,A
   add 7,A           ; move down one row
   mov A,B
-  add dboardsize,A  ; past end of column?
+  addn boardsize,A  ; past end of column?
   jn undo_move_err  ; if so, error out
   jmp undo_move_scan
 undo_move_out

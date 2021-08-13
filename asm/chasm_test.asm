@@ -75,6 +75,7 @@ test_each_instruction
   flipn
   add D, A
   add 42, A
+  addn 42, A
   sub D, A
   jmp target
   jmp far faraway
