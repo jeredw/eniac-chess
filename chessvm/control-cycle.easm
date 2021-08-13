@@ -135,11 +135,12 @@ endif # RESET_SEQUENCE
 # -- FT DECODE --
 # The PM digits of a18, a19, and a20 select the current function table for
 # instruction fetch -- you can think of this as the current ROM bank. 
-# The Function Table Selection Group (FTSG), so named by Adele, is the upper two
-# digits of the PC and R registers. We use ft1 = 09, ft2 = 90, ft3 = 99.
-# This is translated by p-sub-discft using the inputs below into PM=P on the
-# selected ft, M otherwise. At fetch time we send on S on all three. This is how
-# we build a stateful demultiplexer that routes the fetch pulse to one FT only.
+# The Function Table Selection Group (FTSG), so named by Adele Goldstine, is
+# the upper two digits of the PC and R registers. We use ft1 = 09, ft2 = 90,
+# ft3 = 99. This is translated by p-sub-discft using the inputs below into
+# PM=P on the selected ft, M otherwise. At fetch time we send on S on all
+# three. This is how we build a stateful demultiplexer that routes the fetch
+# pulse to one FT only.
 
 defmacro discftaccum name ftnum
   # S.PM is wired to a dummy program to trigger an FT
@@ -173,7 +174,7 @@ if CONTROL_CYCLE
 #  - read out the contents of IR into EX
 #  - send next instruction (I1) to PC (assume PC.SS is 0)
 
-# Digit 9 normally 0, but it will 1 when executing from ft3 (see p-fetchread-f3)
+# Digit 9 is normally 0, but will be 1 when executing from ft3 (see p-fetchread-f3)
 $assert {p-fetch} {a-ex}~P0x00000000  
 $assert {p-fetch} {a-pc}~x0xxxxxxxxx
 
@@ -183,8 +184,8 @@ $discriminatec {p-fetch} {a-ir} {d-irA} {d-irS} {p-nofetch-eat-op} {p-fetchline}
 
 # IR -> EX 
 # $discriminatec sends IR=I5 I4 I3 I2 I1+1 on d-main, and EX receives it permuted
-# as I1+1 I5 I4 I3 I2. This puts the next instruction in the left (first two
-# digits) of EX for opcode discrimination.
+# as I1+1 I5 I4 I3 I2. This puts the next instruction in the left (most
+# significant) digits of EX for opcode discrimination.
 $recx {p-fetch} {a-ex} {r-fetch} {i-rotate-ir}
 
 # IR -shiftl8-> PC
