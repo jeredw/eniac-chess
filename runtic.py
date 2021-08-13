@@ -13,6 +13,7 @@ sim.stdin.flush()
 line1 = sim.stdout.readline().decode() 
 line2 = sim.stdout.readline().decode() 
 line3 = sim.stdout.readline().decode() 
+winner = sim.stdout.readline().decode()
 print(line1 + line2 + line3)
 
 while True:
@@ -29,9 +30,20 @@ while True:
   line1 = sim.stdout.readline().decode() 
   line2 = sim.stdout.readline().decode() 
   line3 = sim.stdout.readline().decode() 
+  winner = sim.stdout.readline().decode()
   print(line1 + line2 + line3)
+  if winner[0] != '0': break
   # sim will print board again after it moves
   line1 = sim.stdout.readline().decode() 
   line2 = sim.stdout.readline().decode() 
   line3 = sim.stdout.readline().decode() 
+  winner = sim.stdout.readline().decode()
   print(line1 + line2 + line3)
+  if winner[0] != '0': break
+
+if winner[0] == '1':
+  print("eniac wins")
+elif winner[0] == '2':
+  print("you win")
+elif winner[0] == '3':
+  print("draw")

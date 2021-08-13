@@ -22,6 +22,7 @@
   mov 1,A       ; A=play X
   mov A,[B]
   jsr printb
+  jsr no_winner
 
 game
   read          ; human plays next; read move into LS
@@ -30,21 +31,22 @@ game
   mov A,[B]
   jsr printb
 
-  mov 2,A<->D
-  jsr iswin
+  mov 2,A<->D   ; D=O
+  jsr iswin     ; test if O wins
   jz end_owins  ; if O wins, exit
-  jsr isfull
-  jz setup_search ; A=0 means still free squares
-  jmp end_draw  ; if draw, exit
+  jsr isdraw    ; test if draw
+  jz nodraw_o   ; if no draw, continue
+  jmp end_draw  ; else exit
+nodraw_o
+  jsr no_winner ; print no winner
 
-setup_search
   ; set up the initial search stack frame
   clr A
-  swap A,D      ; DI=best_move=none
-  mov 48,A<->C  ; CH=best_score=48
+  swap A,D      ; best_move=none
+  mov 48,A<->C  ; best_score=48
   clr A
-  swap A,B      ; BG=last_move=none
-  mov 1,A       ; AF=player=X
+  swap A,B      ; last_move=none
+  mov 1,A       ; player=X
   swapall       ;
   mov 3,A       ; write to top of stack
   storeacc A    ;
@@ -56,8 +58,7 @@ search
   dec A
   jn bug        ; stack underflow
   jz search_out ; if empty (i.e. 3), done
-  inc A         ; inc SP to net -1
-  inc A
+  add 2,A       ; inc SP to net -1
   mov A,E       ; E=SP
   ; load search state from stack
   loadacc A     ; F=player, G=last_move, H=best_score, I=best_move
@@ -73,30 +74,29 @@ search
   clr A         ; A=0
   mov A,[B]     ; erase last trial move
 
+  ; check if a better move was found
   mov E,A       ; A=SP
   loadacc A     ; reload frame
-  mov F,A       ; get player (1=X, 2=O)
-  dec A
-  jz cd_x       ; if X then max player, else min player
-cd_o
   mov H,A<->D   ; D=best_score
+  mov F,A<->C   ; C=player (1=X, 2=O)
   mov E,A       ; A=SP
   inc A
   loadacc A     ; sp+1th stack frame
-  mov H,A       ; value = best score from last stack frame
-  sub D,A       ; A = value - best_score
+  mov H,A       ; value=best_score from last stack frame
+  swap A,C      ; C=value, A=player
+  dec A
+  jz cd_x       ; if X then max player, else min player
+;cd_o
+  swap C,A      ; A=value
+  sub D,A       ; A=value - best_score
   jn better     ; best_score > value (better for min)
   jmp nextmove
 cd_x
-  mov H,A<->D   ; D=best_score
-  mov E,A       ; A=SP
-  inc A
-  loadacc A     ; sp+1th stack frame
-  mov H,A       ; value = best score from last stack frame
-  sub D,A       ; A = value - best_score
-  jn nextmove   ; best_score > value
-  jz nextmove   ; best_score == value
-  ; best_score < value (fall through to better)
+  swap C,A      ; A=value
+  swap A,D      ; A=best_score, D=value
+  sub D,A       ; A=best_score - value
+  jn better     ; value > best_score (better for max)
+  jmp nextmove
 
 ; better means the most recent recursive search had a better
 ; best_move than the current one, so we need to replace it
@@ -133,35 +133,24 @@ new_depth
   mov 2,A<->D
   jsr iswin     ; A=0 if ooo (clobbers LS)
   jz owin
-  jsr isfull    ; A=0 means still free squares
+  jsr isdraw    ; A=0 means still free squares
   jz initmove
 
 draw
-  swap A,E      ; get sp
-  loadacc A     ; get cur stack frame
-  swapall
-  swap A,C      ; put draw score = 50 into best_score
-  mov 50,A      ;
-  swap A,C      ;
-  swapall
-  storeacc A    ; update stack
-  jmp search
-xwin
-  swap A,E      ; get sp
-  loadacc A     ; get cur stack frame
-  swapall
-  swap A,C      ; put win score = 51 into best_score
-  mov 51,A      ;
-  swap A,C      ;
-  swapall
-  storeacc A    ; update stack
-  jmp search
+  mov 50,A      ; draw score is 50
+  jmp save_score
 owin
+  mov 49,A      ; owin score is 49
+  jmp save_score
+xwin
+  mov 51,A      ; xwin score is 51
+save_score
+  swap A,C      ; C=score
   swap A,E      ; get sp
   loadacc A     ; get cur stack frame
   swapall
-  swap A,C      ; put win score = 49 into best_score
-  mov 49,A      ;
+  swap A,C      ;
+  mov H,A       ; set best_score=score (from H=C)
   swap A,C      ;
   swapall
   storeacc A    ; update stack
@@ -241,12 +230,16 @@ search_out
   mov A,[B]
   jsr printb
 
-  mov 1,A<->D
-  jsr iswin
+  mov 1,A<->D   ; D=X
+  jsr iswin     ; test if X wins
   jz end_xwins  ; if X wins, exit
-  jsr isfull
-  jz game       ; A=0 means still free squares
-  jmp end_draw
+  jsr isdraw    ; test if draw
+  jz nodraw_x   ; if no draw, continue
+  jmp end_draw  ; else exit
+nodraw_x
+  jsr no_winner ; print no winner
+
+  jmp game
 
 ; stack underflow
 bug
@@ -257,35 +250,8 @@ bug
   print 
   halt
 
-; reached when the ending is a draw
-end_draw
-  mov 0,A
-  mov A,B
-  print 
-  print 
-  print 
-  halt
-
-; reached when the ending is a win for X
-end_xwins
-  mov 11,A
-  mov A,B
-  print 
-  print 
-  print 
-  halt
-
-; reached when the ending is a win for O
-end_owins:
-  mov 22,A
-  mov A,B
-  print 
-  print 
-  print 
-  halt
-
-
 ; print the current board state
+; halts if there is a winner
 printb
   clr A
   inc A         ; board begins at [1]
@@ -329,31 +295,57 @@ printb_loop
   print
 
   mov E,A
-  add 90,A      ; test if square >= 10
+  addn 10,A     ; test if square >= 10
   jn printb_out
   swap A,E      ; restore square
   jmp printb_loop
 printb_out
   ret
 
-  .org 200
+; reached when the ending is a win for X
+end_xwins
+  mov 11,A
+  mov A,B
+  print 
+  halt
+
+; reached when the ending is a win for O
+end_owins
+  mov 22,A
+  mov A,B
+  print 
+  halt
+
+; reached when the ending is a draw
+end_draw
+  mov 33,A
+  mov A,B
+  print 
+  halt
+
+; print when there is no winner
+no_winner
+  clr A
+  mov A,B
+  print
+  ret
 
 ; return A=0 if there are open squares, else nonzero
-isfull
+isdraw
   mov 1,A       ; start scan from A=1
-isfull_loop
+isdraw_loop
   swap A,B
   mov [B],A     ; get square at [B]
-  jz isfull_no  ; if empty, not full
+  jz isdraw_no  ; if empty, not full
   mov B,A
   addn 9,A      ; test B with 9
-  jn isfull_yes
+  jn isdraw_yes
   swap A,B
   inc A
-  jmp isfull_loop
-isfull_no
+  jmp isdraw_loop
+isdraw_no
   ret           ; A=0 here
-isfull_yes
+isdraw_yes
   clr A
   inc A
   ret
@@ -413,9 +405,9 @@ iswin_next
   addn 24,A     ;
   jn iswin_no   ; if run index >= 24, return
   jmp iswin_run ; else keep scanning
-iswin_no:
+iswin_no
   clr A
   inc A
   ret
-iswin_yes:
+iswin_yes
   ret           ; A=0 here
