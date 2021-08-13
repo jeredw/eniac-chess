@@ -30,7 +30,8 @@ game
   mov A,[B]
   jsr printb
 
-  jsr isooo
+  mov 2,A<->D
+  jsr iswin
   jz end_owins  ; if O wins, exit
   jsr isfull
   jz setup_search ; A=0 means still free squares
@@ -126,9 +127,11 @@ nextmove
 
 new_depth
   ; begin search at new depth
-  jsr isxxx     ; A=0 if xxx (clobbers LS)
+  mov 1,A<->D
+  jsr iswin     ; A=0 if xxx (clobbers LS)
   jz xwin
-  jsr isooo     ; A=0 if ooo (clobbers LS)
+  mov 2,A<->D
+  jsr iswin     ; A=0 if ooo (clobbers LS)
   jz owin
   jsr isfull    ; A=0 means still free squares
   jz initmove
@@ -238,7 +241,8 @@ search_out
   mov A,[B]
   jsr printb
 
-  jsr isxxx
+  mov 1,A<->D
+  jsr iswin
   jz end_xwins  ; if X wins, exit
   jsr isfull
   jz game       ; A=0 means still free squares
@@ -358,122 +362,60 @@ isfull_yes
 ; runs of squares to check in the board
 runs .table 1,2,3 , 4,5,6 , 7,8,9 , 1,4,7 , 2,5,8 , 3,6,9 , 1,5,9 ,  3,5,7
 
-; return A=0 if X wins else nonzero
-isxxx
+; return A=0 if player D wins else nonzero
+iswin
   clr A         ;
-  swap A,D      ; D=0 is the index in the runs table
-isxxx_run
-  mov D,A       ;
+  swap A,C      ; C=0 is the index in the runs table
+iswin_run
+  mov C,A       ;
   add runs,A    ; lookup runs+index
   ftl A         ; get next square# to check
   swap A,B      ; square in B
-  swap D,A
+  swap C,A
   inc A
-  swap A,D      ; D=index++
+  swap A,C      ; C=index++
   mov [B],A     ; check square
-  dec A         ;
-  jz isxxx_run2 ; if square=='X' goto run2
-  swap D,A      ; next run index
+  sub D,A       ; test square for player
+  jz iswin_run2 ; if square==player goto run2
+  swap C,A      ; next run index
   inc A         ; skip to next run
   inc A
-  jmp isxxx_next
-isxxx_run2
-  mov D,A       ;
+  jmp iswin_next
+iswin_run2
+  mov C,A       ;
   add runs,A
   ftl A         ; get next square# to check
   swap A,B      ; square in B
-  swap D,A
+  swap C,A
   inc A
-  swap A,D      ; D=index++
+  swap A,C      ; C=index++
   mov [B],A     ; check square
-  dec A         ;
-  jz isxxx_run3 ; if square=='X' goto run2
-  swap D,A      ; next run index
+  sub D,A       ; test square for player
+  jz iswin_run3 ; if square==player goto run2
+  swap C,A      ; next run index
   inc A         ; skip to next run
-  jmp isxxx_next
-isxxx_run3
-  mov D,A       ;
+  jmp iswin_next
+iswin_run3
+  mov C,A       ;
   add runs,A
   ftl A         ; get next square# to check
   swap A,B      ; square in B
-  swap D,A
+  swap C,A
   inc A
-  swap A,D      ; A=square D=index++
+  swap A,C      ; A=square C=index++
   mov [B],A     ; check square
-  dec A         ;
-  jz isxxx_yes  ; if square=='X' found run
-  swap D,A      ; next run index
-  ; fall through to isxxx_next
-isxxx_next
-  mov A,D
+  sub D,A       ; test square for player
+  jz iswin_yes  ; if square==player found run
+  swap C,A      ; next run index
+  ; fall through to iswin_next
+iswin_next
+  mov A,C
   addn 24,A     ;
-  jn isxxx_no   ; if run index >= 24, return
-  jmp isxxx_run ; else keep scanning
-isxxx_no:
+  jn iswin_no   ; if run index >= 24, return
+  jmp iswin_run ; else keep scanning
+iswin_no:
   clr A
   inc A
   ret
-isxxx_yes:
-  ret           ; A=0 here
-
-
-; return A=0 if O wins else nonzero
-isooo
-  clr A         ;
-  swap A,D      ; D=0 is the index in the runs table
-isooo_run
-  mov D,A
-  add runs,A
-  ftl A         ; get next square# to check
-  swap A,B      ; square in B
-  swap D,A
-  inc A
-  swap A,D      ; D=index++
-  mov [B],A     ; check square
-  dec A         ;
-  dec A         ;
-  jz isooo_run2 ; if square=='O' goto run2
-  swap D,A      ; next run index
-  inc A         ; skip to next run
-  inc A
-  jmp isooo_next
-isooo_run2
-  mov D,A
-  add runs,A
-  ftl A         ; get next square# to check
-  swap A,B      ; square in B
-  swap D,A
-  inc A
-  swap A,D      ; A=square D=index++
-  mov [B],A     ; check square
-  dec A         ;
-  dec A         ;
-  jz isooo_run3 ; if square=='O' goto run2
-  swap D,A      ; next run index
-  inc A         ; skip to next run
-  jmp isooo_next
-isooo_run3
-  mov D,A
-  add runs,A
-  ftl A         ; get next square# to check
-  swap A,B      ; square in B
-  swap D,A
-  inc A
-  swap A,D      ; D=index++
-  mov [B],A     ; check square
-  dec A         ;
-  dec A         ;
-  jz isooo_yes  ; if square=='O' found run
-  swap A,D      ; next run index
-  ; fall through to isooo_next
-isooo_next
-  mov A,D
-  addn 24,A     ;
-  jn isooo_no   ; if run index >= 24, return
-  jmp isooo_run ; else keep scanning
-isooo_no:
-  clr A
-  inc A
-  ret
-isooo_yes:
+iswin_yes:
   ret           ; A=0 here
