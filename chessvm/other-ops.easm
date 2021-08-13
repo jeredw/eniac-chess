@@ -111,8 +111,7 @@ if OP_READ
 # read in a new card into constant transmitter
 # (the assembler will make sure LS is clear)
 p {p-opread} i.Ri
-#$dummy {p-opread} {p-opread-2}
-$manual-dummy {p-opread} a4 {t-opread} 1 {p-opread-2}
+$ft-dummy {p-opread} 5 {p-opread-2}
 
 # wait for card to read
 p {p-opread-2} i.Rl
@@ -124,8 +123,8 @@ p {p-opread-2} i.Rl
 # constants from a card at reset time, we could get rid of that hack and be
 # able to read 10 digits at once here.
 p i.Ro {p-opread-3}
-$manual-dummy {p-opread-3} a19 {t-opread-3} 1 {p-opread-4}
-$manual-dummy {p-opread-3} a20 {t-opread-3} 1 {p-recls}
+$ft-dummy-exclude {p-opread-3} 5 {p-opread-4} -f2,f3
+$ft-dummy-exclude {p-opread-3} 5 {p-recls} -f1,f2
 p {p-opread-4} c.1i
 s c.s1 Al
 p c.1o {p-fetch}

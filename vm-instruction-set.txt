@@ -39,7 +39,7 @@
 51 - (reserved for 8x decode)
 52 - inc A
 53 - dec A
-54 -
+54 - flipn
 55 - (reserved for 7x decode)
 
 70 - add D,A

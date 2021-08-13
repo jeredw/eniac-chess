@@ -165,7 +165,6 @@ $recx {p-loadrf} {a-rf} {r-loadrf} {i-main}
 $sendx {p-send-rf} {a-rf} {t-send-rf} A
 $sendcx {p-sendc-rf} {a-rf} {t-sendc-rf} A
 $recx {p-rf-selDA} {a-rf} {r-rf-selDA} {i-selDA}
-$recx {p-rf-selEA} {a-rf} {r-rf-selEA} {i-selEA}
 
 # helper macros
 # receive rf from main

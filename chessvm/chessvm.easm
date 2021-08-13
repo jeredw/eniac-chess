@@ -61,6 +61,7 @@ enable OP_ADD         #  4 pas,  4 ts
 enable OP_ADDIMMA     #  ? pas,  ? ts (also required for OP_MOVIMMA)
 enable OP_SUB         #  6 pas,  3 ts
 enable OP_CLRA        #  1 pas,  1 ts
+enable OP_FLIPN       #
 # - control flow (19 pas, 26 ts)
 enable OP_JMPFAR      #  1 pas,  2 ts
 enable OP_JSR         #  1 pas,  2 ts

@@ -26,6 +26,7 @@
 {p-opswapdig}	= {p-op44}
 {p-opinc}	 	= {p-op52}
 {p-opdec}	 	= {p-op53}
+{p-opflipn} = {p-op54}
 {p-opadd}	 	= {p-op70}
 {p-opaddimmA}	= {p-op71}
 {p-opsub}	 	= {p-op72}

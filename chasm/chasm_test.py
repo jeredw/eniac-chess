@@ -642,6 +642,11 @@ class TestV4(AssemblerTestCase):
     self.isa.dispatch("", "dec", "B")
     self.assertEqual(self.out.errors, ["file:1: invalid argument 'B'"])
 
+  def testFlipN(self):
+    self.isa.dispatch("", "flipn", "")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 54})
+
   def testAddDA(self):
     self.isa.dispatch("", "add", "D, A")
     self.assertFalse(self.out.errors)

@@ -150,22 +150,22 @@ s f1.RB10L6 5  # inc A
 s f1.RB10L5 2
 s f1.RB10L4 5  # dec A
 s f1.RB10L3 3
-s f1.RB10L2 7  # add D, A
-s f1.RB10L1 0
+s f1.RB10L2 5  # flipn 
+s f1.RB10L1 4
 
 # address=111  PC=0911
-s f1.RA11L6 7  # add 42, A
-s f1.RA11L5 1
-s f1.RA11L4 4
+s f1.RA11L6 7  # add D, A
+s f1.RA11L5 0
+s f1.RA11L4 7  # add 42, A
 s f1.RA11L3 1
-s f1.RA11L2 7  # sub D, A
-s f1.RA11L1 2
-s f1.RB11L6 7  # jmp target # target=199
-s f1.RB11L5 3
-s f1.RB11L4 9
-s f1.RB11L3 8
+s f1.RA11L2 4
+s f1.RA11L1 1
+s f1.RB11L6 7  # sub D, A
+s f1.RB11L5 2
+s f1.RB11L4 7  # jmp target # target=199
+s f1.RB11L3 3
 s f1.RB11L2 9
-s f1.RB11L1 9
+s f1.RB11L1 8
 
 # address=112  PC=0912
 s f1.RA12L6 7  # jmp far faraway # faraway=300

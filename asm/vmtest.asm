@@ -325,6 +325,19 @@ t18out
   print
 
 
+; 19 flipn
+  mov 42,A
+  flipn
+  jn t19pos
+  jmp t19out
+t19pos
+  clr A
+t19out
+  swap A,B
+  mov 19,A
+  print
+
+
 ; -- 20-29 --
 ; RF and memory access, I/O
 ; MOV, LOADACC, STOREACC, READ, FTL

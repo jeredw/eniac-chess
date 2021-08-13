@@ -72,6 +72,7 @@ test_each_instruction
   mov A, [B]
   inc A
   dec A
+  flipn
   add D, A
   add 42, A
   sub D, A

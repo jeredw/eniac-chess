@@ -477,6 +477,7 @@ class V4(PrimitiveParsing):
       "swapdig": self.op(want_arg=r"A", opcode=44),
       "inc": self.op(want_arg=r"A", opcode=52),
       "dec": self.op(want_arg=r"A", opcode=53),
+      "flipn": self.op(opcode=54),
       "add": self._add,
       "sub": self.op(want_arg=r"D,\s*A", opcode=72),
       "jmp": self._jmp,

@@ -173,6 +173,16 @@ if OP_ADDIMMA
 
 # Consume the next word in IR, saving it into A, and then trigger p-fetch
 $consume-op {p-opaddimmA}
-$pulseamp {p-opaddimmA} {p-rf-selEA}  # save lowest word into A
+$recx {p-opaddimmA} {a-rf} {r-opaddimmA} {i-selEA}  # save lowest word into A
 
 endif # OP_ADDIMMA
+
+
+# - FLIPN -
+if OP_FLIPN
+
+$manual-dummy {p-opflipn} a4 {t-opflipn} 1 {p-sendM0}
+$manual-dummy {p-opflipn} a18 {t-opflipn} 1 {p-loadrf}
+$manual-dummy {p-opflipn} a19 {t-opflipn} 2 {p-fetch}
+
+endif # OP_FLIPN
