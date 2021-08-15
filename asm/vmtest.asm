@@ -538,6 +538,10 @@ t26_3
   add 2,A
   ftl A    ; A=-3 (M97)
   add 3,A
+  jn t26bad
+  jmp t26out
+t26bad
+  mov 99,A
 t26out
   swap A,B
   mov 26,A

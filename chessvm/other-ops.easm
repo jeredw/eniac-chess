@@ -1,6 +1,7 @@
 # -- Other opcodes --
 # Implements SWAPALL, LODIG, SWAPDIG, PRINT, READ, FTL, HALT
 
+s f3.mpm2 T  # send B signs through for ftl
 
 # - SUB_RFTMP_TO_RF -
 # Shared program to end SWAPALL, SWAPDIG, LODIG
