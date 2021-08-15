@@ -32,7 +32,7 @@ class App extends Component {
       <${Registers} regs=${this.state.regs} />
       <${Connect4Board} memory=${this.state.memory} />
       <${Connect4Stack} memory=${this.state.memory} />
-      <${LifeGrid} generation=${this.state.regs.E} memory=${this.state.memory} />
+      <${LifeGrid} memory=${this.state.memory} />
     `
   }
 }

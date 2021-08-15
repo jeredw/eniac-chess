@@ -1,23 +1,23 @@
 import { html, Component } from './preact.mjs'
 
 export class LifeGrid extends Component {
-  render({ generation, memory }) {
+  render({ memory }) {
     return html`
       <div class="life-grid">
-        <${LifeRows} generation=${generation} memory=${memory} />
+        <${LifeRows} memory=${memory} />
       </div>
     `;
   }
 }
 
-function LifeRows({ generation, memory }) {
+function LifeRows({ memory }) {
   const rows = [];
   for (let y = 0; y < 8; y++) {
     const cols = [];
     for (let x = 0; x < 8; x++) {
-      const address = y * 8 + x;
+      const address = Math.floor((y * 8 + x) / 2);
       const state = memory[address];
-      const cur = state ? (generation == '00' ? state[0] : state[1]) : '';
+      const cur = state ? (x%2 == 0 ? state[0] : state[1]) : '';
       switch (cur) {
         case '0':
           cols.push(html`<div class="life-square life-dead"></div>`);
