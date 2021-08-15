@@ -56,18 +56,27 @@ static bool read_program(const char* filename, VM* vm) {
     return false;
   }
   char line[128];
-  int line_number = 2;
+  int line_number = 1;
   if (!fgets(line, 128, fp) || strcmp(line, "# isa=v4\n") != 0) {
     fprintf(stderr, "expecting # isa=v4\n");
     goto error;
   }
+  bool ft3_signs[100];
+  for (int i = 0; i < 100; i++)
+    ft3_signs[i] = false;
   vm->isa_version = 4;
   while (fgets(line, 128, fp)) {
+    line_number++;
     if (line[0] == '#' || line[0] == '\n') {
       continue;
     }
     int ft, row, index, digit;
-    char bank;
+    char bank, sign;
+    if (sscanf(line, "s f3.RB%dS %c", &row, &sign) == 2) {
+      assert(row >= 0 && row < 100);
+      ft3_signs[row] = sign == 'M';
+      continue;
+    }
     if (sscanf(line, "s f%d.R%c%dL%d %d", &ft, &bank, &row, &index, &digit) != 5) {
       fprintf(stderr, "%s:%d: unrecognized directive\n", filename, line_number);
       goto error;
@@ -98,7 +107,11 @@ static bool read_program(const char* filename, VM* vm) {
     vm->function_table[row_index][word_index] += shifted_digit;
     assert(0 <= vm->function_table[row_index][word_index]);
     assert(vm->function_table[row_index][word_index] <= 99);
-    line_number++;
+  }
+  for (int i = 0; i < 100; i++) {
+    if (ft3_signs[i]) {
+      vm->function_table[300 + i][0] = vm->function_table[300 + i][0] - 100;
+    }
   }
   fclose(fp);
   return true;
