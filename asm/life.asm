@@ -13,7 +13,9 @@ init
   read            ; read F=position G=value
   swapall         ;
   jil gen         ; illegal position (e.g. 99) signals done
-  jsr index       ; get B=address, A=value
+  add offset,A
+  ftl A
+  swap A,B
   mov A,[B]       ; set initial value for cell 
   jmp init
 
@@ -38,7 +40,6 @@ pr_next_col
   mov A,C         ;
   jil pr_next_row ; if col==9, go to next row
 
-  jsr index       ; B=address for position
   jsr get_cell    ; A=cell value
   jz pr_next_col  ; if empty, don't print
   swap A,B        ; B=cell value
@@ -85,7 +86,6 @@ next_col
   dec A           ; A=(c-1, r-1)
   swapdig A       ; A=(r-1, c-1)
   jil count_n     ; skip if out-of-bounds
-  jsr index       ; B=address for (r-1,c-1)
   jsr get_cell    ; A=value
   jz count_n      ; 
   swap D,A        ;
@@ -98,7 +98,6 @@ count_n
   dec A           ; A=(c, r-1)
   swapdig A       ; A=(r-1, c)
   jil count_ne    ; skip if out-of-bounds
-  jsr index       ; B=address for (r-1,c)
   jsr get_cell    ; A=value
   jz count_ne     ; 
   swap D,A        ;
@@ -112,7 +111,6 @@ count_ne
   dec A           ; A=(c+1, r-1)
   swapdig A       ; A=(r-1, c+1)
   jil count_w     ; skip if out-of-bounds
-  jsr index       ; B=address for (r-1,c+1)
   jsr get_cell    ; A=value
   jz count_w      ; 
   swap D,A        ;
@@ -123,7 +121,6 @@ count_w
   mov C,A         ;
   dec A           ; A=(r, c-1)
   jil count_e     ; skip if out-of-bounds
-  jsr index       ; B=address for (r, c-1)
   jsr get_cell    ; A=value
   jz count_e      ; 
   swap D,A        ;
@@ -134,7 +131,6 @@ count_e
   mov C,A         ;
   inc A           ; A=(r, c+1)
   jil count_sw    ; skip if out-of-bounds
-  jsr index       ; B=address for (r, c+1)
   jsr get_cell    ; A=value
   jz count_sw     ; 
   swap D,A        ;
@@ -148,7 +144,6 @@ count_sw
   inc A           ; A=(c-1, r+1)
   swapdig A       ; A=(r+1, c-1)
   jil count_s     ; skip if out-of-bounds
-  jsr index       ; B=address for (r+1, c-1)
   jsr get_cell    ; A=value
   jz count_s      ; 
   swap D,A        ;
@@ -161,7 +156,6 @@ count_s
   inc A           ; A=(c, r+1)
   swapdig A       ; A=(r+1, c)
   jil count_se    ; skip if out-of-bounds
-  jsr index       ; B=address for (r+1, c)
   jsr get_cell    ; A=value
   jz count_se     ;
   swap D,A        ;
@@ -175,7 +169,6 @@ count_se
   inc A           ; A=(c+1, r+1)
   swapdig A       ; A=(r+1, c+1)
   jil rules       ; skip if out-of-bounds
-  jsr index       ; B=address for (r+1, c+1)
   jsr get_cell    ; A=value
   jz rules        ; 
   swap D,A        ;
@@ -185,7 +178,6 @@ count_se
   ; Apply rules for life
 rules
   mov C,A
-  jsr index       ; B=address for cur cel
   jsr get_cell    ; A=cur value
   jz cur_dead
 ;cur_alive        ; cell is currently alive
@@ -223,7 +215,7 @@ toggle .table 1,0
   jmp gen
 
 
-; Returns B=address for cell with index A
+; Returns A=current value of cell at position A
 ; offset table maps positions 11..88 to address
 ; NOTE relying on .table allocating this contiguously
 ; TODO support arithmetic on "offset" instead using a padding row
@@ -236,23 +228,20 @@ offset5 .table 0,32,33,34,35,36,37,38,39,0
 offset6 .table 0,40,41,42,43,44,45,46,47,0
 offset7 .table 0,48,49,50,51,52,53,54,55,0
 offset8 .table 0,56,57,58,59,60,61,62,63
-index
+
+get_cell
   add offset,A
   ftl A
   swap A,B
-  ret
-
-; Returns A=current value of cell at address B
-get_cell
   mov [B],A       ; read cell value
   swap E,A        ; A=generation
   jz get_cell_low ; if generation==0, low digit has cur state
   swap A,E        ; reset E=generation
   swapdig A       ; high digit has cur state 
-  jmp get_cell_out
+  lodig A
+  ret
 get_cell_low
   swap A,E        ; reset E=generation
-get_cell_out
   lodig A         ; get cur state
   ret
 
@@ -260,27 +249,19 @@ get_cell_out
 ; (A=10 means the cell should turn on)
 set_cell
   swap A,D        ; D=next value (in high digit)
-
-  ;jsr get_cell    ; A=current value (in low digit)
-    mov [B],A       ; read cell value
-    swap E,A        ; A=generation
-    jz sgt_cell_low ; if generation==0, low digit has cur state
-    swap A,E        ; reset E=generation
-    swapdig A       ; high digit has cur state 
-    jmp sgt_cell_out
-sgt_cell_low
-    swap A,E        ; reset E=generation
-sgt_cell_out
-    lodig A         ; get cur state
-
-  add D,A         ; add in next value
+  mov [B],A       ; read cell value
   swap E,A        ; A=generation
-  jz set_cell_hi  ; if generation==0, high digit has next state
+  jz set_cell_low ; if generation==0, low digit has cur state
   swap A,E        ; reset E=generation
-  swapdig A       ; low digit has next state
-  jmp set_cell_out
-set_cell_hi
-  swap E,A        ; reset E=generation
-set_cell_out
+  swapdig A       ; high digit has cur state 
+  lodig A
+  add D,A         ; add in next value
+  swapdig A       ;
+  mov A,[B]       ; set current+next state
+  ret
+set_cell_low
+  swap A,E        ; reset E=generation
+  lodig A         ; 
+  add D,A         ; add in next value
   mov A,[B]       ; set current+next state
   ret
