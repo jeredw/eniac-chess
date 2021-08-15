@@ -121,13 +121,16 @@ f r asm/vmtest.deck
 endif
 
 if TIC?
-# To run tic tac toe enable TIC and use runtic.py
 include tic.e
 endif
 
 if C4?
-# To run connect 4 enable C4 and use runc4.py
 include c4.e
+endif
+
+if LIFE?
+include life.e
+f r asm/life.deck
 endif
 
 if CHESS?

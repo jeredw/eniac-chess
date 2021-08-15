@@ -2,6 +2,7 @@ import { html, Component, render } from './preact.mjs'
 import { Registers, extractRegs } from './regs.mjs'
 import { MemoryDump, extractLinearMemory } from './memory.mjs'
 import { Connect4Board, Connect4Stack } from './c4.mjs'
+import { LifeGrid } from './life.mjs'
 
 class App extends Component {
   constructor() {
@@ -31,6 +32,7 @@ class App extends Component {
       <${Registers} regs=${this.state.regs} />
       <${Connect4Board} memory=${this.state.memory} />
       <${Connect4Stack} memory=${this.state.memory} />
+      <${LifeGrid} generation=${this.state.regs.E} memory=${this.state.memory} />
     `
   }
 }

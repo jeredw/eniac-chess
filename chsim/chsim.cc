@@ -363,8 +363,9 @@ static void step(VM* vm) {
     }
     case 82: { // jil
       int taken_pc = consume_near_address(vm);
-      int d1 = abs(vm->a) % 10;
-      int d2 = (abs(vm->a) / 10) % 10;
+      int digits = vm->a < 0 ? 100 + vm->a : vm->a;
+      int d1 = digits % 10;
+      int d2 = (digits / 10) % 10;
       if (d1 == 0 || d1 == 9 || d2 == 0 || d2 == 9) {
         vm->pc = taken_pc;
         vm->ir_index = 6;

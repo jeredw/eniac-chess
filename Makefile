@@ -19,6 +19,10 @@ c4: chasm/chasm.py asm/c4.asm easm/easm.py chessvm/chessvm.easm
 	python chasm/chasm.py asm/c4.asm c4.e
 	python easm/easm.py -EC4 chessvm/chessvm.easm chessvm.e
 
+life: chasm/chasm.py asm/life.asm easm/easm.py chessvm/chessvm.easm
+	python chasm/chasm.py asm/life.asm life.e
+	python easm/easm.py -ELIFE chessvm/chessvm.easm chessvm.e
+
 chess: chasm/chasm.py asm/chess.asm easm/easm.py chessvm/chessvm.easm
 	python chasm/chasm.py asm/chess.asm chess.e
 	python easm/easm.py -ECHESS chessvm/chessvm.easm chessvm.e

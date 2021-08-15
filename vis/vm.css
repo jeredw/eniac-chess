@@ -41,3 +41,25 @@ body {
 .c4-yellow {
   background: yellow;
 }
+
+.life-grid {
+  width: 168px;
+}
+.life-row {
+  display: flex;
+}
+.life-square {
+  border: 1px solid #000;
+  margin: 1px;
+  width: 20px;
+  height: 20px;
+}
+.life-alive {
+  background: #000;
+}
+.life-dead {
+  background: #fff;
+}
+.life-undef {
+  background: #ccc;
+}
