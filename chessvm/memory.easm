@@ -32,14 +32,12 @@ defmacro memcyc-prog x range
   $recx  {p-memcyc$x-3} {a-mem$x} {x-memcyc-3} {i-main}
 endmacro
 
-# Patch one digit of d-memcyc09S to a send reciever program on mem0..mem9
-# shift to get desired digit in 2 position, then use digit select adapter
-# 2 position because 1 position always generates 1'P pulse on S send. This
-# means trigger for 9 is stored in PM digit
+# Patch d-memcyc09S to reciever programs on mem0..mem9 using a digit select
+# adapter. Start at 2 position because 1 position always generates 1'P pulse on
+# S send. This means trigger for 9 is stored in PM digit
+p {d-memcyc09S} ad.dp.{ad-memcyc-dp09}.0
 defmacro select-memcyc09-acc x
-  p {d-memcyc09S} ad.s.{ad-memcyc-$x}.-$x
-  p ad.s.{ad-memcyc-$x}.-$x ad.dp.{ad-memcyc-dp$x}.2
-  p ad.dp.{ad-memcyc-dp$x}.2 {p-memcyc$x}
+  p ad.dp.{ad-memcyc-dp09}.${2 $x +} {p-memcyc$x}
 endmacro
 
 # Decode and allocate the memcyc programs for each acc
@@ -60,22 +58,21 @@ $connect-memcyc09 8
 $connect-memcyc09 9
 
 # similar for 10-14
-defmacro select-memcyc1014-acc x minus10
-  p {d-memcyc1014S} ad.s.{ad-memcyc-$x}.-$minus10
-  p ad.s.{ad-memcyc-$x}.-$minus10 ad.dp.{ad-memcyc-dp$x}.2
-  p ad.dp.{ad-memcyc-dp$x}.2 {p-memcyc$x}
+p {d-memcyc1014S} ad.dp.{ad-memcyc-dp1014}.0
+defmacro select-memcyc1014-acc x
+  p ad.dp.{ad-memcyc-dp1014}.${10 $x - 2 +} {p-memcyc$x}
 endmacro
 
-defmacro connect-memcyc1014 x minus10
-  $select-memcyc1014-acc $x $minus10
+defmacro connect-memcyc1014 x
+  $select-memcyc1014-acc $x
   $memcyc-prog $x 1014
 endmacro
 
-$connect-memcyc1014 10 0
-$connect-memcyc1014 11 1
-$connect-memcyc1014 12 2
-$connect-memcyc1014 13 3
-$connect-memcyc1014 14 4
+$connect-memcyc1014 10
+$connect-memcyc1014 11
+$connect-memcyc1014 12
+$connect-memcyc1014 13
+$connect-memcyc1014 14
 
 endif # ACC_MEMCYC
 
@@ -287,10 +284,9 @@ s f3.op{t-sub-wordcyc-3} A-2
 # These are the timers that "remember" which word index (0-4) is addressed in B,
 # on long timers while a LOADACC cycle takes place
 # Wire up the S outputs of LOADWORD (via d-loadword) to trigger mov programs
+p {d-loadword} ad.dp.{ad-loadword-dp}.0
 defmacro connect-loadword-1 x prog
-  p {d-loadword} ad.s.{ad-loadword-$x}.-$x
-  p ad.s.{ad-loadword-$x}.-$x ad.dp.{ad-loadword-dp$x}.2
-  p ad.dp.{ad-loadword-dp$x}.2 {p-loadword-$prog}
+  p ad.dp.{ad-loadword-dp}.${2 $x +} {p-loadword-$prog}
 endmacro
 
 # Wire up two digit lines to each of FGHIJ. This computes digit % 5
@@ -372,10 +368,9 @@ if OP_STOREWORD
 # - STOREWORD dummies -
 # Wire up the S outputs of STOREWORD (via d-storeword) to trigger mov programs
 # XXX more realistic if we can find a digit trunk somewhere for {a-storeword}.S?
+p {a-storeword}.S ad.dp.{ad-storeword-dp}.0
 defmacro connect-storeword-1 x prog
-  p {a-storeword}.S ad.s.{ad-storeword-$x}.-$x
-  p ad.s.{ad-storeword-$x}.-$x ad.dp.{ad-storeword-dp$x}.2
-  p ad.dp.{ad-storeword-dp$x}.2 {p-storeword-$prog}
+  p ad.dp.{ad-storeword-dp}.${2 $x +} {p-storeword-$prog}
 endmacro
 
 # Connect storeword.S to trigger second digit mod 5 program on ft2
