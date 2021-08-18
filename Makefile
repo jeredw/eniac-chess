@@ -26,3 +26,6 @@ life: chasm/chasm.py asm/life.asm easm/easm.py chessvm/chessvm.easm
 chess: chasm/chasm.py asm/chess.asm easm/easm.py chessvm/chessvm.easm
 	python chasm/chasm.py asm/chess.asm chess.e
 	python easm/easm.py -ECHESS chessvm/chessvm.easm chessvm.e
+
+vm.pdf: vm.dot
+	dot -Tpdf vm.dot > vm.pdf
