@@ -34,7 +34,8 @@ def print_board(board):
 
 run('python chasm/chasm.py asm/c4.asm c4.e', shell=True, check=True)
 run('python easm/easm.py -EC4 chessvm/chessvm.easm chessvm.e', shell=True, check=True)
-sim = Popen('./eniacsim -q chessvm.e', shell=True, stdin=PIPE, stdout=PIPE)
+run('make -C chsim lib', shell=True, check=True)
+sim = Popen('./eniacsim -q -v chsim/vm.so chessvm.e', shell=True, stdin=PIPE, stdout=PIPE)
 
 sim.stdin.write('g\n'.encode())
 sim.stdin.flush()
