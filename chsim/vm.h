@@ -67,6 +67,9 @@ void vm_export(VM* vm, ENIAC* eniac);
 // Steps program to next checkpoint where vm and eniac state should match
 void vm_step(VM* vm);
 
+// Steps program up to but not exceeding cycle
+void vm_step_to(VM* vm, unsigned long long cycle);
+
 // Frees vm state previously allocated with vm_new()
 void vm_free(VM* vm);
 

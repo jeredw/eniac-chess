@@ -599,7 +599,26 @@ extern "C" void vm_step(VM* vm) {
   for (;;) {
     step_one_instruction(vm);
     // Step until a new FT line is needed, or until I/O or break/halt.
-    if (vm->ir_index == 6 || vm->status != 0)
+    if (vm->ir_index == 6 || vm->status != 0 || vm->error != 0)
       break;
+  }
+}
+
+extern "C" void vm_step_to(VM* vm, unsigned long long cycle) {
+  if (vm->error != 0) {
+    return;
+  }
+  vm->status &= ~(BREAK | IO_READ | IO_PRINT);
+  VM next_vm = *vm;
+  for (;;) {
+    step_one_instruction(&next_vm);
+    if (next_vm.error != 0) {
+      *vm = next_vm;
+      return;
+    }
+    if (next_vm.cycles > cycle || next_vm.status != 0)
+      return;
+    if (next_vm.ir_index == 6)
+      *vm = next_vm;
   }
 }
