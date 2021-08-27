@@ -4,8 +4,7 @@ test:
 	python chasm/chasm_test.py
 	python chasm/chasm.py asm/chasm_test.asm /tmp/chasm_test.easm
 	cmp /tmp/chasm_test.easm chasm/chasm_test.easm
-	make -C chsim chsim_test
-	./chsim/chsim_test
+	make -C chsim test
 
 vmtest: chasm/chasm.py asm/vmtest.asm easm/easm.py chessvm/chessvm.easm
 	python chasm/chasm.py asm/vmtest.asm vmtest.e

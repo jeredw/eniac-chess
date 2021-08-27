@@ -306,6 +306,14 @@ p {p-opgt55-2} {p-mp-789x}
 
 
 # -- {p-fetchline} no more instructons in IR, load new line from ft
+
+# p-fetchline is the checkpoint for synchronizing pulse level (eniacsim) and
+# instruction level (chsim) simulation state, which avoids needing to
+# synchronize fetch uarch state.  It would be cleaner to checkpoint before each
+# instruction, and p-nofetch would be a logical place, but that would require
+# synchronizing p-nofetch-eat-op in addition to accumulator values.
+p {p-fetchline} cy.checkpoint
+
 # Trigger the currently selected FT to send
 $sendx {p-fetchline} {a-discft1} {r-fetchline} S 
 $sendx {p-fetchline} {a-discft2} {r-fetchline} S
