@@ -12,7 +12,7 @@
 | 05  | _(reserved)_ | -       | -                 | -     |
 | 10  | loadacc A    | 11      | FGHIJ←acc\[A\]    | M←acc[†](#macc) |
 | 11  | storeacc A   | 13      | acc\[A\]←FGHIJ    | M←acc[†](#macc) |
-| 12  | swapall      | 5       | ABCDE︎︎︎︎↔︎FGHIJ       | N↔M   |
+| 12  | swapall      | 5       | ABCDE︎︎︎︎↔︎FGHIJ       | N↔︎M   |
 | 13  | -            | -       | -                 | -     |
 | 14  | ftl A        | 7       | A←ft3\[A\]        | N←ft3 |
 | 15  | -            | -       | -                 | -     |
@@ -63,19 +63,25 @@
 
 <a name="cycles">¹</a> Timings are 5kHz ENIAC add cycles, excluding instruction
 fetch cycles.  Fetch costs are +6 cycles within a ft row; +12 cycles for a new
-row in ft1/2; and +13 cycles for a new row in ft3.  See [Control Cycle](#control-cycle) for more details.
+row in ft1/2; and +13 cycles for a new row in ft3.  See [Control
+Cycle](#control-cycle) for more details.
 
-<a name="macc">†</a> `loadacc` and `storeacc` set `M` from acc (prior to updating acc), so `M` always reflects acc and changes are not saved.
+<a name="macc">†</a> `loadacc` and `storeacc` set `M` from acc (prior to
+updating acc), so `M` always reflects acc and changes are not saved.
 
-<a name="msign">‡</a> `mov A,[B]` stores the digits of `A` but does not store `N`.
+<a name="msign">‡</a> `mov A,[B]` stores the digits of `A` but does not store
+`N`.
 
 <a name="arith">¶</a> `inc`, `dec`, `add`, and `sub` affect `A` and `N`
-according to 10's complement arithmetic, wrapping `N` from + to - or - to + at boundaries; e.g. for `inc A`, +98→+99, +99→-100, -100→-99, and -1→+0.
+according to 10's complement arithmetic, wrapping `N` from + to - or - to + at
+boundaries; e.g. for `inc A`, +98→+99, +99→-100, -100→-99, and -1→+0.
 
-<a name="jil">§</a> `jil` branches if either digit of A is 0 or 9, which would be an illegal
-square index on a chess board indexed by A₀=1-8 and A₁=1-8.
+<a name="jil">§</a> `jil` branches if either digit of A is 0 or 9, which would
+be an illegal square index on a chess board indexed by A₀=1-8 and A₁=1-8.
 
-<a name="read">‼</a> `read` adds into the aux RF accumulator without first clearing it, so relies on the assembler to emit necessary clearing instructions as a preamble.
+<a name="read">‼</a> `read` adds into the aux RF accumulator without first
+clearing it, so relies on the assembler to emit necessary clearing instructions
+as a preamble.
 
 ### Assembler pseudo-instructions
 
@@ -91,8 +97,8 @@ unsupported cases of `mov`.
 
 The chess VM operates on 2-digit decimal words in ENIAC accumulators using
 instructions and constant data stored in function tables.  Five of twenty
-accumulators are reserved for instruction fetch and execution, a register
-file (RF), and an auxiliary RF; the remaining fifteen accumulators form a
+accumulators are reserved for instruction fetch and execution, a register file
+(RF), and an auxiliary RF; the remaining fifteen accumulators form a
 word-addressable linear memory.
 
 |                     |     |
@@ -116,11 +122,12 @@ The aux RF has limited communication with the main RF and is overwritten by
 memory accesses.  The `swapall` instruction permits operating on aux register
 state via RF instructions, so `M` saves `N` in this special case.
 
-Function table rows are 12 digits wide, and `PC` and `RR` address only the first
-instruction of a row.  This means that branch targets must be aligned to row
-boundaries, so programs are subject to packing inefficiencies.  Additionally,
-some rows of ft3 are reserved for VM implementation, and the first two digits of
-ft3 rows are reserved for constant data instead of instructions.
+Function table rows are 12 digits wide, and `PC` and `RR` address only the
+first instruction of a row.  This means that branch targets must be aligned to
+row boundaries, so programs are subject to packing inefficiencies.
+Additionally, some rows of ft3 are reserved for VM implementation, and the
+first two digits of ft3 rows are reserved for constant data instead of
+instructions.
 
 ## VM Microarchitecture
 
