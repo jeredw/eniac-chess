@@ -510,13 +510,13 @@ goto step 2 of LOADACC
 . wait 8 cycles
 .
 11. main -signonly-> LS       # leaves LS contents intact, but saves memacc PM
+```
 
 
+#### MOV [B],A (aka LOADWORD)
 
 
-MOV [B],A (aka LOADWORD)
-
-
+```
 # Decode word index (0-4) and begin timers
 # i-windexB = X A2A1 XX XX XX XX -> 0 00 00 00 00 0A1
 
