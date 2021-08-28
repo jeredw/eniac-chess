@@ -36,13 +36,13 @@
 | 45  | _(reserved)_ | -       | -                 | -   |
 | 50  | _(reserved)_ | -       | -                 | -   |
 | 51  | _(reserved)_ | -       | -                 | -   |
-| 52  | inc A        | 1       | A←A+1             | N←A<a name="arith">¶</a> |
-| 53  | dec A        | 1       | A←A-1             | N←A<a name="arith">¶</a> |
+| 52  | inc A        | 1       | A←A+1             | N←A[¶](#arith) |
+| 53  | dec A        | 1       | A←A-1             | N←A[¶](#arith) |
 | 54  | flipn        | 2       | -                 | N←1-N |
 | 55  | _(reserved)_ | -       | -                 | -   |
-| 70  | add D,A      | 5       | A←A+D             | N←A<a name="arith">¶</a> |
-| 71 xx | add xx,A   | 2       | A←A+xx            | N←A<a name="arith">¶</a> |
-| 72  | sub D,A      | 5       | A←A-D             | N←A<a name="arith">¶</a> |
+| 70  | add D,A      | 5       | A←A+D             | N←A[¶](#arith) |
+| 71 xx | add xx,A   | 2       | A←A+xx            | N←A[¶](#arith) |
+| 72  | sub D,A      | 5       | A←A-D             | N←A[¶](#arith) |
 | 73 xx | jmp xx     | 2       | PC←xx  (cur ft)   | -   |
 | 74 xx xx | jmp far xxxx | 6  | PC←xxxx (any ft)  | -   |
 | 75  | -            | -       | -                 | -   |
