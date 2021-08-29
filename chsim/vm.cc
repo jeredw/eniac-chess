@@ -164,11 +164,6 @@ extern "C" void vm_export(VM* vm, ENIAC* eniac) {
     int m4 = vm->mem[i][4];
     pack_acc(m0, m1, m2, m3, m4, eniac->acc[a]);
   }
-
-  // Signs of a18, a19, and a20 reflect the current ft bank 
-  eniac->acc[17][0] = bank == 1 ? 'P' : 'M';
-  eniac->acc[18][0] = bank == 2 ? 'P' : 'M';
-  eniac->acc[19][0] = bank == 3 ? 'P' : 'M';
 }
 
 static void check_register_bounds(VM* vm) {
@@ -296,6 +291,14 @@ static inline void copy_ls_to_mem(VM *vm, int acc) {
   vm->mem[acc][4] = vm->j;
 }
 
+static void update_bank(VM* vm) {
+  int bank = (vm->pc / 100) % 10;
+  // Signs of a18, a19, and a20 reflect the current ft bank
+  vm->mem[12][0] = copy_sign(bank == 1 ? +1 : -1, vm->mem[12][0]);
+  vm->mem[13][0] = copy_sign(bank == 2 ? +1 : -1, vm->mem[13][0]);
+  vm->mem[14][0] = copy_sign(bank == 3 ? +1 : -1, vm->mem[14][0]);
+}
+
 static void step_one_instruction(VM* vm) {
   if (vm->status & HALT) return;
   vm->profile[vm->pc][vm->ir_index]++;
@@ -343,6 +346,7 @@ static void step_one_instruction(VM* vm) {
         vm->status |= HALT;
         break;
       }
+      vm->f = copy_sign(vm->mem[vm->a][0], vm->f);
       copy_ls_to_mem(vm, vm->a);
       vm->cycles += 13;
       break;
@@ -517,6 +521,7 @@ static void step_one_instruction(VM* vm) {
     }
     case 74: { // jmp far
       vm->pc = consume_far_address(vm);
+      update_bank(vm);
       vm->ir_index = 6;
       vm->cycles += 6;
       break;
@@ -555,12 +560,14 @@ static void step_one_instruction(VM* vm) {
       vm->old_pc = vm->pc;
       assert(vm->ir_index <= 5);
       vm->pc = consume_far_address(vm);
+      update_bank(vm);
       vm->ir_index = 6;
       vm->cycles += 6;
       break;
     }
     case 85: // ret
       vm->pc = vm->old_pc;
+      update_bank(vm);
       vm->old_pc = 0;
       vm->ir_index = 6;
       vm->cycles += 6;

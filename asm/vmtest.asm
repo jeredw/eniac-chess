@@ -546,7 +546,48 @@ t26out
   swap A,B
   mov 26,A
   print
-  
+  jmp far t27
+
+
+  .org 250
+; 27: test LS sign semantics
+t27
+  ; swapall swaps LS and RF signs
+  clr A    ; A=P00
+  swapall  ; init LS sign to +
+  clr A
+  dec A    ; A=M99
+  swapall  ; change RF sign to + (from LS)
+  jn t27bad;
+  swapall  ; change RF sign to - (from LS)
+  flipn
+  jn t27bad
+
+  ; loadacc clobbers LS sign
+  clr A
+  dec A    ; A=M99
+  swapall  ; init LS sign to -
+  mov 13,A ; load a19 which has sign=P because in ft2
+  loadacc A
+  swapall  ; get LS sign
+  jn t27bad; sign should be P
+  ; storeacc should clobber the LS sign
+  clr A
+  dec A    ; A=M99
+  swapall  ; attempt to set LS sign to -
+  mov 13,A ; try to store a19
+  storeacc A ; should overwrite LS sign with P
+  swapall  ; get LS sign
+  jn t27bad
+  clr A
+  jmp t27out
+t27bad
+  mov 99,A
+t27out
+  swap A,B
+  mov 27,A
+  print
+
 
 ; -- DONE --
   mov 99,A

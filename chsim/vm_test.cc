@@ -512,8 +512,8 @@ TEST_CASE(vm_export) {
   assert(strcmp(e.acc[2], "xxxxxxxxxxx") == 0);
   assert(strcmp(e.acc[3], "P0102030405") == 0);
   assert(strcmp(e.acc[12], "M9907080910") == 0);
-  // M because ft bank 2 is selected
-  assert(strcmp(e.acc[19], "M9596979899") == 0);
+  // when stepping, would be M because ft bank 2 is selected
+  assert(strcmp(e.acc[19], "P9596979899") == 0);
 }
 
 int main() {
