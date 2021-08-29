@@ -391,10 +391,11 @@ g - ftsg2: x xx xx xx Dx xx -> PM
 
 The control loop usually resumes from cycle 1.  It takes 6 cycles to dispatch
 instructions from the IR, and 12 cycles to dispatch instructions when we must
-load IR from an FT, ignoring the actual instruction time.  There is no `nop`
+load IR from an ft, ignoring the actual instruction time.  There is no `nop`
 instruction, but in theory one would take 0 cycles, so a program consisting
-entirely of `nop` would take 6*5+12*1 cycles per 6 `nop`s, or 7 cpi.  With 5kHz
-add cycles this would be about 714 instructions/second.
+entirely of `nop` would take 6 &times; 5 + 12 &times; 1 cycles per 6 `nop`s, or
+7 cpi.  With 5kHz add cycles this gives a theoretical maximum rate of 714
+instructions/second.
 
 ```
 1. [p-fetch] IR -> EX, IR-shiftl8->PC,
@@ -428,10 +429,26 @@ else
   5. [p-preinc-fetch]  EX += P01..., PC += P01...
   6. wait
   7. [p-fetchread]   FT -> IR,EX,PC, IR += 1
-                     goto p-nofetch*
+                     goto p-nofetch*, **
 
 * note this does not trigger p-eat-op so the top of IR is preserved.
+** see note about special case for ft3, below
 ```
+
+#### Special case for ft3
+
+ft1 and ft2 hold 6 instructions per row, so `p-fetchline` normally fills PC.SS
+with the first instruction of the line (`I1`) and IR with the following 5
+instructions (`I6 I5 I4 I3 I2`).  Since the `I1` slot of ft3 holds constant
+data for `ftl`, `p-fetchline` uses an alternate sequence for ft3 which only
+places instructions in IR (`I6 I5 I4 I3 I2`), and then resumes from `p-fetch`
+instead of `p-nofetch` to shift in `I2` as the next instruction.  This takes 13
+rather than 12 cycles.
+
+In principle the alternate sequence for ft3 could pre-shift IR and operate in
+12 cycles, but ft3 output is on a separate bus from ft1/2 so that it can be
+used for concurrent dummy programs, and EX doesn't have enough free inputs to
+read from the ft3 bus.
 
 #### Changing function tables
 
