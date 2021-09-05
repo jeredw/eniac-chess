@@ -9,10 +9,11 @@
 #include "vm.cc"
 
 static FILE* output_file = nullptr;
+static FILE* deck_file = nullptr;
 static bool interrupted = false;
 
 static void usage() {
-  fprintf(stderr, "Usage: chsim program.e\n");
+  fprintf(stderr, "Usage: chsim program.e [-f data.deck]\n");
 }
 
 static bool read_program(const char* filename, VM* vm) {
@@ -221,9 +222,11 @@ static void step_and_handle_status(VM* vm) {
   }
   if (vm->status & IO_READ) {
     int f, g, h1;
-    fprintf(stderr, "?");
-    fflush(stderr);
-    int result = scanf("%02d%02d%d", &f, &g, &h1);
+    if (deck_file == stdin) {
+      fprintf(stderr, "?");
+      fflush(stderr);
+    }
+    int result = fscanf(deck_file, "%02d%02d%d ", &f, &g, &h1);
     if (result != 3) {
       fprintf(stderr, "invalid read data\n");
       vm->status |= HALT;
@@ -243,15 +246,28 @@ static void step_and_handle_status(VM* vm) {
 }
 
 int main(int argc, char *argv[]) {
-  if (argc != 2) {
+  if (argc != 2 && !(argc == 4 && !strcmp(argv[2],"-f"))) {
     usage();
     exit(1);
   }
+  
   VM vm;
   init(&vm);
   if (!read_program(argv[1], &vm)) {
     exit(1);
   }
+
+  // open deck file if specified, otherwise read from stdin
+  if (argc==4 && !strcmp(argv[2],"-f")) {
+    deck_file = fopen(argv[3], "r");
+    if (!deck_file) {
+      fprintf(stderr, "could not open deck file %s\n", argv[3]);
+      exit(1);
+    }
+  } else {
+    deck_file = stdin;
+  }
+
   rl_outstream = stderr;
   output_file = fopen("/tmp/chsim.out", "w");
   signal(SIGINT, interrupt);
