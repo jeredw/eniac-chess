@@ -63,3 +63,32 @@ body {
 .life-undef {
   background: #ccc;
 }
+
+.chess-board {
+  width: 360px;
+}
+.chess-row {
+  display: flex;
+}
+.chess-square {
+  width: 40px;
+  height: 40px;
+  font-size: 40px;
+  line-height: 40px;
+  text-align: center;
+  vertical-align: middle;
+}
+.chess-file-label {
+  width: 35px;
+  padding-left: 5px;
+  text-align: left;
+}
+.chess-row-label {
+  padding-left: 3px;
+}
+.chess-square-black {
+  background: rgb(174, 138, 104);
+}
+.chess-square-white {
+  background: rgb(236, 218, 185);
+}

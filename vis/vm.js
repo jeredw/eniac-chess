@@ -3,11 +3,12 @@ import { Registers, extractRegs } from './regs.mjs'
 import { MemoryDump, extractLinearMemory } from './memory.mjs'
 import { Connect4Board, Connect4Stack } from './c4.mjs'
 import { LifeGrid } from './life.mjs'
+import { ChessBoard, extractChessBoardState } from './chess.mjs'
 
 class App extends Component {
   constructor() {
     super()
-    this.state = { memory: [], regs: {} };
+    this.state = { memory: [], regs: {}, chessBoard: [] };
     this.eventSource = null;
   }
 
@@ -15,9 +16,11 @@ class App extends Component {
     this.eventSource = new EventSource('/events');
     this.eventSource.addEventListener('message', (e) => {
       const simState = JSON.parse(e.data);
+      const memory = extractLinearMemory(simState.acc);
       this.setState({
-        memory: extractLinearMemory(simState.acc),
+        memory: memory,
         regs: extractRegs(simState.acc),
+        chessBoard: extractChessBoardState(memory),
       });
     });
   }
@@ -30,10 +33,11 @@ class App extends Component {
     return html`
       <${MemoryDump} memory=${this.state.memory} />
       <${Registers} regs=${this.state.regs} />
-      <${Connect4Board} memory=${this.state.memory} />
-      <${Connect4Stack} memory=${this.state.memory} />
-      <${LifeGrid} generation=${this.state.regs.E} memory=${this.state.memory} />
-    `
+      <${ChessBoard} chessBoard=${this.state.chessBoard} />
+    `;
+    //<${Connect4Board} memory=${this.state.memory} />
+    //<${Connect4Stack} memory=${this.state.memory} />
+    //<${LifeGrid} generation=${this.state.regs.E} memory=${this.state.memory} />
   }
 }
 
