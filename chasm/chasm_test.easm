@@ -30,8 +30,8 @@ s f1.RB1L1 9
 # address=102  PC=0902
 s f1.RA2L6 0  # clrall 
 s f1.RA2L5 0
-s f1.RA2L4 9
-s f1.RA2L3 9
+s f1.RA2L4 9  # halt 
+s f1.RA2L3 5
 s f1.RA2L2 9
 s f1.RA2L1 9
 s f1.RB2L6 9

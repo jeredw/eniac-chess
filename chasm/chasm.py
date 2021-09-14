@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """Assembler for the ENIAC chess VM.
 
-See chasm_test.asm and vm-instruction-set.txt for a description of the assembly
-language and available assembler directives.
+See chasm_test.asm and isa.md for a description of the assembly language and
+available assembler directives.
 """
 
 # This is a simple two pass table-driven assembler.
@@ -17,6 +17,7 @@ language and available assembler directives.
 
 import sys
 import re
+import os
 from dataclasses import dataclass
 
 def usage():
@@ -44,20 +45,21 @@ class Assembler(object):
                       print_errors=print_errors)
     self.builtins = Builtins(self.context, self.out)
 
-  def assemble(self, filename, text):
-    """Assemble one file of text.
-
-    filename is the name of the input file, used for printing error messages,
-    and text is all the file's text as a string.
-    """
-    self.context.filename = filename
+  def assemble(self, path):
+    """Assemble file at path."""
     self.context.assembler_pass = 0
-    # We don't know where in the function tables assembly will begin.
-    self.out.org(None)
-    self._scan(text)
+    self._do_pass(path)
     if not self.out.errors:
       self.context.assembler_pass = 1
-      self._scan(text)
+      self._do_pass(path)
+    return self.out
+
+  def _do_pass(self, path):
+    self.context.dirname = os.path.dirname(path)
+    self.context.filename = os.path.basename(path)
+    self.context.line_number = 0
+    text = open(path).read()
+    self._scan(text)
     return self.out
 
   def _scan(self, text):
@@ -85,7 +87,10 @@ class Assembler(object):
       if label and not op:
         self.builtins.dispatch(label, '.align', '')  # defining a label
       elif directive:
-        self.builtins.dispatch(label, op, arg)
+        if op == '.include':
+          self._include(arg)
+        else:
+          self.builtins.dispatch(label, op, arg)
       elif self.context.isa:  # delegate to table for ISA
         self.context.isa.dispatch(label, op, arg)
       else:
@@ -94,17 +99,32 @@ class Assembler(object):
       if self.context.had_fatal_error:
         break
 
+  def _include(self, filename):
+    self.context.push_file()
+    # Include paths are relative to the including source file
+    path = os.path.join(self.context.dirname, filename)
+    self._do_pass(path)
+    self.context.pop_file()
+
 
 class Context(object):
   """Global state for assembly, e.g. the current filename and line number."""
   def __init__(self):
     self.assembler_pass = 0
+    self.dirname = None
     self.filename = None
     self.line_number = 0
     self.had_fatal_error = False
     self.isa = None  # object that knows how to assemble the selected isa
     self.isa_version = ''
     self.labels = {}
+    self.file_stack = []  # (dirname, filename, line_number)
+
+  def push_file(self):
+    self.file_stack.append((self.dirname, self.filename, self.line_number))
+
+  def pop_file(self):
+    self.dirname, self.filename, self.line_number = self.file_stack.pop()
 
 
 @dataclass
@@ -683,9 +703,7 @@ def main():
   infile = sys.argv[1]
   outfile = sys.argv[2]
   asm = Assembler()
-  with open(infile) as f:
-    text = f.read()
-    out = asm.assemble(infile, text)
+  out = asm.assemble(infile)
   if out.errors:
     sys.exit(2)
   with open(outfile, 'w') as f:

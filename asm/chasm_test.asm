@@ -32,6 +32,7 @@ labeled_instr clrall
 ; following words are data values for that and subsequent rows of the table
 noms    .table 1, 2, 3
 nomnoms .table 4, 5, 6, -42, M03
+  .include chasm_test2.asm
 
 test_each_instruction
   ; instructions must be indented
