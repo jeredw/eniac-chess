@@ -5,6 +5,7 @@ test:
 	python chasm/chasm.py asm/chasm_test.asm /tmp/chasm_test.easm
 	cmp /tmp/chasm_test.easm chasm/chasm_test.easm
 	make -C chsim test
+	python asm_test.py
 
 vmtest: chasm/chasm.py asm/vmtest.asm easm/easm.py chessvm/chessvm.easm
 	python chasm/chasm.py asm/vmtest.asm vmtest.e

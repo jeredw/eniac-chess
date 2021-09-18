@@ -104,22 +104,3 @@ gs_empty
   swap A,B      ; clr B only needed for pretty printing 
   clr A
   ret
-
-
-; - Print Board -
-; Halts at end, not a subroutine because it calls get_square
-printboard
-  mov 11,A
-pb_nextsq
-  jsr get_square
-  print
-  mov D,A         ; restore square
-  inc A           ; move one square right
-  jil pb_nextline
-  jmp pb_nextsq
-pb_nextline
-  add 2,A         ; move to start of next line, e.g. 19 -> 21
-  jil pb_done
-  jmp pb_nextsq
-pb_done
-  halt

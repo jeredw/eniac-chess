@@ -9,11 +9,15 @@
 #include "vm.cc"
 
 static FILE* output_file = nullptr;
+const char* deck_filename = nullptr;
 static FILE* deck_file = nullptr;
+const char* program_filename = nullptr;
 static bool interrupted = false;
+static int test_cycles = 0;
 
 static void usage() {
-  fprintf(stderr, "Usage: chsim program.e [-f data.deck]\n");
+  fprintf(stderr, "Usage: chsim [-f data.deck] [-t cycles] program.e\n");
+  exit(1);
 }
 
 static bool read_program(const char* filename, VM* vm) {
@@ -245,31 +249,57 @@ static void step_and_handle_status(VM* vm) {
   }
 }
 
-int main(int argc, char *argv[]) {
-  if (argc != 2 && !(argc == 4 && !strcmp(argv[2],"-f"))) {
-    usage();
-    exit(1);
+static void parse_command_line(int argc, char **argv) {
+  if (argc == 1) usage();
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-f") == 0) {
+      if (i == argc-1) usage();
+      deck_filename = argv[++i];
+    } else if (strcmp(argv[i], "-t") == 0) {
+      if (i == argc-1) usage();
+      test_cycles = atoi(argv[++i]);
+    } else if (i == argc-1) {
+      program_filename = argv[i];
+    }
   }
-  
+  if (program_filename == nullptr) usage();
+}
+
+int main(int argc, char *argv[]) {
+  parse_command_line(argc, argv);
+
   VM vm;
   init(&vm);
-  if (!read_program(argv[1], &vm)) {
+  if (!read_program(program_filename, &vm)) {
     exit(1);
   }
 
   // open deck file if specified, otherwise read from stdin
-  if (argc==4 && !strcmp(argv[2],"-f")) {
-    deck_file = fopen(argv[3], "r");
+  if (deck_filename != nullptr) {
+    deck_file = fopen(deck_filename, "r");
     if (!deck_file) {
-      fprintf(stderr, "could not open deck file %s\n", argv[3]);
+      fprintf(stderr, "could not open deck file %s\n", deck_filename);
       exit(1);
     }
   } else {
     deck_file = stdin;
   }
 
-  rl_outstream = stderr;
+  // tee output to a tmp file
   output_file = fopen("/tmp/chsim.out", "w");
+
+  // non-interactive mode for unit tests
+  // run for a fixed number of cycles or until halt/brk, then exit
+  if (test_cycles > 0) {
+    while (vm.cycles < test_cycles && !(vm.status & (BREAK|HALT))) {
+      step_and_handle_status(&vm);
+    }
+    // exit 0 if halted, 1 otherwise
+    exit((vm.status & HALT) ? 0 : 1);
+  }
+
+  // interactive mode
+  rl_outstream = stderr;
   signal(SIGINT, interrupt);
   while (true) {
     char* command = readline("> ");
