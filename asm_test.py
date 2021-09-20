@@ -13,7 +13,7 @@ class TestMoveGen(unittest.TestCase):
       f.write(deck)
     result = run('./chsim/chsim -t 100000 -f /tmp/test.deck movegen_test.e', shell=True, stdin=PIPE, stdout=PIPE)
     self.assertEqual(result.returncode, 0)
-    return result.stdout.decode('utf-8').strip()
+    return result.stdout.decode('utf-8').strip().split()
 
   def convertPositionToDeck(self, position):
     memory = [0] * 75
@@ -47,9 +47,42 @@ class TestMoveGen(unittest.TestCase):
     deck.append(f'99000{" "*75}')
     return '\n'.join(deck)
 
-  def testOpeningMoves(self):
-    initial_board = self.convertPositionToDeck(Position.initial())
-    moves = self.simulate(initial_board)
+  def computeMoves(self, fen):
+    position = Position.fen(fen)
+    deck = self.convertPositionToDeck(position)
+    return self.simulate(deck)
+
+  def testPawnB2(self):
+    moves = self.computeMoves('8/8/8/8/8/8/1P6/8 w - - 0 1')
+    self.assertEqual(moves, ['2232', '2242'])
+
+  def testPawnB2_Blocked1(self):
+    moves = self.computeMoves('8/8/8/8/8/1P6/1P6/8 w - - 0 1')
+    self.assertEqual(moves, ['3242'])
+
+  def testPawnB2_Blocked2(self):
+    moves = self.computeMoves('8/8/8/8/1P6/8/1P6/8 w - - 0 1')
+    self.assertEqual(moves, ['2232', '4252'])
+
+  def testPawnB3(self):
+    moves = self.computeMoves('8/8/8/8/8/1P6/8/8 w - - 0 1')
+    self.assertEqual(moves, ['3242'])
+
+  def testPawnG7(self):
+    moves = self.computeMoves('8/6p1/8/8/8/8/8/8 b - - 0 1')
+    self.assertEqual(moves, ['7767', '7757'])
+
+  def testPawnG7_Blocked1(self):
+    moves = self.computeMoves('8/6p1/6p1/8/8/8/8/8 b - - 0 1')
+    self.assertEqual(moves, ['6757'])
+
+  def testPawnG7_Blocked2(self):
+    moves = self.computeMoves('8/6p1/8/6p1/8/8/8/8 b - - 0 1')
+    self.assertEqual(moves, ['5747', '7767'])
+
+  def testPawnG6(self):
+    moves = self.computeMoves('8/8/6p1/8/8/8/8/8 b - - 0 1')
+    self.assertEqual(moves, ['6757'])
 
 if __name__ == "__main__":
   unittest.main()

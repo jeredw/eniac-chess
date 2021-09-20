@@ -56,37 +56,29 @@ next_piece_move
   jmp next_square   ; no, keep scanning
 
 ; For pawns, the move state is as follows
-;  0 - push 1
-;  1 - push 2
-;  3 - capture left
-;  4 - capture right
+;  0 - capture left
+;  1 - capture right
+;  2 - push 1
+;  3 - push 2
 next_pawn_move      ; C=movestate, D=square, E=player
   mov C,A           ; move_step += 1
   inc A
   swap A,C
 
   lodig A           ; A=move_step before increment
-  jz push1          ; move_step=0 -> try advancing 1 square
-
+  jz pawn_capture_l ; try capturing left
   dec A
-  jz push2          ; move_step=1 -> try advancing 2 squares
-
-pawn_capture:       ; move_step 3,4 = captures
-  ; NYI
-  mov 99,A          ; no more moves for this pice
-  swap A,C
-  jmp next_piece_move
-
-; try advancing 1 square
-push1
-  mov E,A
-  add pawndir,A
-  ftl A             ; +10 for white, -10 for black
-  add D,A           ; compute destination square, one forward
-  jmp output_move
+  jz pawn_capture_r ; try capturing right
+  dec A
+  jz push1          ; try advancing 1 square
 
 ; try advancing 2 squares
-push2                 
+; this is only ever reached if push1 is allowed, so the square directly ahead
+; of the pawn is empty, and we only need to check that the pawn is in the
+; starting rank and the square +2 away is empty
+;push2
+  mov 99,A          ; no more pawn moves after push2
+  swap A,C
   mov E,A           ; E=player
   jz push2_white
 
@@ -97,6 +89,13 @@ push2
   jn next_square    ; nope, can't push 2
   mov D,A           ; A=square
   addn 20,A         ; compute destination square, two forward
+  jsr test_empty    ; test if square is already occupied
+  jz push2_black_ok ; zero means no piece in square
+  jmp next_square   ; if blocked, can't push1 or push2
+
+push2_black_ok
+  mov D,A           ; A=square
+  addn 20,A         ; compute destination square, two forward
   jmp output_move
 
 push2_white
@@ -105,4 +104,37 @@ push2_white
   jn next_square    ; nope, can't push 2
   mov D,A           ; A=square
   add 20,A          ; compute destination square, two forward
+  jsr test_empty    ; test if square is already occupied
+  jz push2_white_ok ; zero means no piece in square
+  jmp next_square   ; if blocked, can't push1 or push2
+
+push2_white_ok
+  mov D,A           ; A=square
+  add 20,A          ; compute destination square, two forward
+  jmp output_move
+
+pawn_capture_l      ; move_step 0,1 = captures
+  ; TODO
+  jmp next_pawn_move
+
+pawn_capture_r      ; move_step 0,1 = captures
+  ; TODO
+  jmp next_pawn_move
+
+; try advancing 1 square
+push1
+  mov E,A
+  add pawndir,A
+  ftl A             ; +10 for white, -10 for black
+  add D,A           ; compute destination square, one forward
+  jsr test_empty    ; test if square is already occupied
+  jz push1_ok       ; zero means no piece in square
+  jmp next_square   ; if blocked, can't push1 or push2
+
+push1_ok
+  mov PAWN,A<->B    ; restore B=ptype=PAWN
+  mov E,A           ; XXX recompute target square (out of regs)
+  add pawndir,A
+  ftl A             ; +10 for white, -10 for black
+  add D,A           ; compute destination square, one forward
   jmp output_move

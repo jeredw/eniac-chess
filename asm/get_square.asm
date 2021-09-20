@@ -104,3 +104,30 @@ gs_empty
   swap A,B      ; clr B only needed for pretty printing 
   clr A
   ret
+
+
+; Returns zero if square is empty and nonzero otherwise
+; Duplicates part of get_square to save some registers and avoid decoding
+; when it is not needed (for checking move eligibility)
+; Inputs: 
+;   A - square
+; Outputs:
+;   A - zero if empty, nonzero otherwise
+; Overwrites:
+;   B, LS
+test_empty
+  add offset,A
+  ftl A
+  jn te_hi      ; square mod 2 == 1?
+
+  swap A,B      ; mod2 = 0 means left of two pieces in word, thus pieces high digit
+  mov [B],A
+  swapdig A
+  lodig A
+  ret
+
+te_hi
+  swap A,B      ; piece in low digit
+  mov [B],A
+  lodig A
+  ret
