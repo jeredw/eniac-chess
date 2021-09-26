@@ -1,5 +1,4 @@
 ; - Movegen -
-; Just pawns for now
 
 ; Which direction do pawns go, per player?
 pawndir .table 10,-10
@@ -53,6 +52,8 @@ next_piece_move
   mov B,A           ; B=ptype
   dec A
   jz next_pawn_move ; is this a pawn? yes, move it
+  dec A
+  jz next_knight_move; is this a knight? yes, move it
   jmp next_square   ; no, keep scanning
 
 ; For pawns, the move state is as follows
@@ -127,6 +128,9 @@ push1
   add pawndir,A
   ftl A             ; +10 for white, -10 for black
   add D,A           ; compute destination square, one forward
+  ; NOTE we don't need to bounds check the destination square because a move to
+  ; the last rank will always be treated as a promotion to queen, so pawns
+  ; should never be on the last rank.
   jsr test_empty    ; test if square is already occupied
   jz push1_ok       ; zero means no piece in square
   jmp next_square   ; if blocked, can't push1 or push2
@@ -137,4 +141,20 @@ push1_ok
   add pawndir,A
   ftl A             ; +10 for white, -10 for black
   add D,A           ; compute destination square, one forward
+  jmp output_move
+
+; knights
+next_knight_move    ; C=movestate, D=square, E=player
+  mov C,A           ; move_step += 1
+  inc A
+  swap A,C          ; A=move_step before increment
+
+  ; movestate indexes a table of deltas
+nmoves .table 8, 12, 19, 21, 79, 81, 88, 92, 0
+  add nmoves,A      ; A+=table base address
+  ftl A             ; lookup move delta
+  jz next_square    ; 0 means end of table
+
+  add D,A           ; compute the target square
+  jil next_knight_move ; off the board
   jmp output_move

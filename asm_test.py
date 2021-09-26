@@ -84,5 +84,37 @@ class TestMoveGen(unittest.TestCase):
     moves = self.computeMoves('8/8/6p1/8/8/8/8/8 b - - 0 1')
     self.assertEqual(moves, ['6757'])
 
+  def testKnightAtD4(self):
+    moves = self.computeMoves('8/8/8/8/3N4/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4452', '4456', '4463', '4465', '4423', '4425', '4432', '4436'])
+
+  def testKnightAtD1(self):
+    moves = self.computeMoves('8/8/8/8/8/8/8/3N4 w - - 0 1')
+    self.assertEqual(moves, ['1422', '1426', '1433', '1435'])
+
+  def testKnightAtH1(self):
+    moves = self.computeMoves('8/8/8/8/8/8/8/7N w - - 0 1')
+    self.assertEqual(moves, ['1826', '1837'])
+
+  def testKnightAtH4(self):
+    moves = self.computeMoves('8/8/8/8/7N/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4856', '4867', '4827', '4836'])
+
+  def testKnightAtH8(self):
+    moves = self.computeMoves('7N/8/8/8/8/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['8867', '8876'])
+
+  def testKnightAtD8(self):
+    moves = self.computeMoves('3N4/8/8/8/8/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['8463', '8465', '8472', '8476'])
+
+  def testKnightAtA8(self):
+    moves = self.computeMoves('N7/8/8/8/8/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['8162', '8173'])
+
+  def testKnightAtA4(self):
+    moves = self.computeMoves('8/8/8/8/N7/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4153', '4162', '4122', '4133'])
+
 if __name__ == "__main__":
   unittest.main()
