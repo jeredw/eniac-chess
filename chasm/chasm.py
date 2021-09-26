@@ -150,7 +150,7 @@ class Output(object):
     self.output = {}
     self.output_row = None
     self.word_of_output_row = 0
-    self.table_output_row = 308
+    self.table_output_row = 8
     self.operand_correction = 0
     self.context = context
 
@@ -258,19 +258,19 @@ class Output(object):
     return 1 if self.function_table()==3 else 0
 
   def emit_table_value(self, row, word, comment=""):
-    assert row >= 308
-    if row > 399:
+    assert row >= 8
+    if row > 99:
       self.error(f"table data overflow")
       self.context.had_fatal_error = True
       return
-    if (row, 0) in self.output:
+    if (300 + row, 0) in self.output:
       self.error("overwriting values in table")
       self.context.had_fatal_error = True
       return
     if self.context.assembler_pass == 0:
       self.table_output_row += 1
     else:
-      self.output[(row, 0)] = Value(word, comment)
+      self.output[(300 + row, 0)] = Value(word, comment)
 
 
 class PrimitiveParsing(object):
@@ -282,27 +282,13 @@ class PrimitiveParsing(object):
     self.context = context
     self.out = out
 
-  def _word(self, arg):
-    """Parse arg as a two digit word."""
-    try:
-      value = (int(arg[1:], base=10) - 100 if arg.startswith('M') else
-               int(arg, base=10))
-      if value < -100:
-        raise ValueError("underflow")
-      if value >= 100:
-        raise ValueError("overflow")
-      return value
-    except ValueError as e:
-      self.out.error(f"invalid value '{arg}': {e}")
-      return 0
-
   def _address(self, arg):
     """Parse arg as a function table address.
 
     Two digit addresses are relative to the current function table, and three
     digit addresses are absolute (with the first digit giving FT number).
 
-    Note: You probably want _address_or_label, instead.
+    Note: You probably want _jump_target, instead.
     """
     try:
       value = int(arg, base=10)
@@ -319,7 +305,7 @@ class PrimitiveParsing(object):
       self.out.error(f"invalid address '{arg}': {e}")
       return 0
 
-  def _address_or_label(self, arg, far=False):
+  def _jump_target(self, arg, far=False):
     """Parse arg as a function table address, possibly given by a label.
 
     If far is false, the address must reside in the current output function
@@ -346,21 +332,39 @@ class PrimitiveParsing(object):
       self.out.error(f"unrecognized label '{arg}'")
       return 0
 
-  def _word_or_label(self, arg, require_defined=False):
-    """Parse arg as a two digit word or label with a two digit word value.
+  def _immediate(self, arg, require_defined=False):
+    """Parse arg as a sum of two digit words or labels.
 
     If require_defined is true then labels must be defined even on the first
     assembly pass (used by .equ).
     """
-    if re.match(r"[-M]?\d+", arg):
-      return self._word(arg)
-    if self.context.assembler_pass == 0 and not require_defined:
-      return 0
-    try:
-      return self.context.labels[arg]
-    except KeyError:
-      self.out.error(f"unrecognized label '{arg}'")
-      return 0
+    value = 0
+    m = re.match(r"([-M]?\d+)(.*)", arg)
+    if m and len(m.groups()) == 2:
+      # parse unary literal at start of expression
+      literal = m.groups()[0]
+      value = (int(literal[1:], base=10) - 100 if literal.startswith('M') else
+               int(literal, base=10))
+      arg = m.groups()[1]
+    # rest of expression is +/- separated positive terms which may also be labels
+    sign = +1
+    for token in re.split(r'([-+])', arg):
+      token = token.strip()
+      if token == '': continue
+      elif token == '-': sign = -1
+      elif token == '+': sign = +1
+      elif re.match(r'\d+', token):
+        value += sign * int(token, base=10)
+      elif self.context.assembler_pass == 1 or require_defined:
+        try:
+          value += sign * self.context.labels[token]
+        except KeyError:
+          self.out.error(f"unrecognized label '{token}'")
+    if value < -100:
+      self.out.error(f"invalid value '{value}': underflow")
+    if value >= 100:
+      self.out.error(f"invalid value '{value}': overflow")
+    return value
 
   def op(self, opcode='', want_arg=''):
     """Make a function to parse a simple instruction.
@@ -421,7 +425,7 @@ class Builtins(PrimitiveParsing):
     values = re.split(r",\s*", arg)
     for value in values:
       # emit only does anything on pass 1 which also requires label defined
-      word = self._word_or_label(value)
+      word = self._immediate(value)
       if word < 0:
         self.out.error(".dw argument cannot be negative")
         return
@@ -445,8 +449,8 @@ class Builtins(PrimitiveParsing):
       assert label in self.context.labels
       base = self.context.labels[label]
     for i, value in enumerate(values):
-      word = self._word_or_label(value)
-      self.out.emit_table_value(base + i, word, comment=f"{op} {base}[{i}]={word}")
+      word = self._immediate(value)
+      self.out.emit_table_value(base + i, word, comment=f"{op} {300 + base}[{i}]={word}")
 
   def _equ(self, label, op, arg):
     """Assigns a value to a label directly."""
@@ -463,7 +467,7 @@ class Builtins(PrimitiveParsing):
       # last_piece .equ bishop
       # Forward references aren't allowed because they'd require another
       # assembly pass.
-      self.context.labels[label] = self._word_or_label(arg, require_defined=True)
+      self.context.labels[label] = self._immediate(arg, require_defined=True)
 
   def _isa(self, label, op, arg):
     """Selects what isa to use."""
@@ -558,13 +562,11 @@ class V4(PrimitiveParsing):
         elif not arg_type:
           self.out.emit(opcode, comment=f"{op} {arg}")
         else:
-          symbol = m.group('source')
-          word = self._word_or_label(symbol)
-          if word < 0:
-            self.out.error("mov argument cannot be negative")
-            return
+          source = m.group('source')
+          word = self._immediate(source)
+          if word < 0: word += 100
           self.out.emit(opcode, word % 100,
-                        comment=self._comment(op, arg, symbol, word))
+                        comment=self._comment(op, arg, source, word))
         if 'target' in m.groupdict() and m.group('target'):
           target = m.group('target')
           self._swap('', 'swap', f'A,{target}')
@@ -578,26 +580,22 @@ class V4(PrimitiveParsing):
     else:
       m = re.match(r"\s*(.+),\s*A", arg)
       if m:
-        symbol = m.group(1)
-        word = self._word_or_label(symbol)
-        if word < 0:
-          self.out.error("add argument cannot be negative")
-          return
+        source = m.group(1)
+        word = self._immediate(source)
+        if word < 0: word += 100
         self.out.emit(71, word % 100,
-                      comment=self._comment(op, arg, symbol, word))
+                      comment=self._comment(op, arg, source, word))
       else:
         self.out.error(f"invalid argument '{arg}'")
 
   def _addn(self, label, op, arg):
     m = re.match(r"\s*(.+),\s*A", arg)
     if m:
-      symbol = m.group(1)
-      word = self._word_or_label(symbol)
-      if word < 0:
-        self.out.error("addn argument cannot be negative")
-        return
+      source = m.group(1)
+      word = self._immediate(source)
+      if word < 0: word += 100
       self.out.emit(71, ((100 - word) % 100),
-                    comment=self._comment(op, arg, symbol, word))
+                    comment=self._comment(op, arg, source, word))
     else:
       self.out.error(f"invalid argument '{arg}'")
 
@@ -620,28 +618,28 @@ class V4(PrimitiveParsing):
       # There is a separate "jmp far" menmonic so that we always know the size
       # of instructions, so we can unambiguously compute label targets on the
       # first pass.  arg[4:] strips off the leading "far ".
-      address = self._address_or_label(arg[4:], far=True)
+      address = self._jump_target(arg[4:], far=True)
       self.out.emit(74, address % 100, self.encode_ft_number(address // 100),
                     comment=self._comment(op, arg, arg[4:], address))
     else:
-      address = self._address_or_label(arg, far=False)
+      address = self._jump_target(arg, far=False)
       self.out.emit(73, address % 100, comment=self._comment(op, arg, arg, address))
     self.out.pad_to_new_row()  # The rest of the row is unreachable
 
   def _jn(self, label, op, arg):
-    address = self._address_or_label(arg, far=False)
+    address = self._jump_target(arg, far=False)
     self.out.emit(80, address % 100, comment=self._comment(op, arg, arg, address))
 
   def _jz(self, label, op, arg):
-    address = self._address_or_label(arg, far=False)
+    address = self._jump_target(arg, far=False)
     self.out.emit(81, address % 100, comment=self._comment(op, arg, arg, address))
 
   def _jil(self, label, op, arg):
-    address = self._address_or_label(arg, far=False)
+    address = self._jump_target(arg, far=False)
     self.out.emit(82, address % 100, comment=self._comment(op, arg, arg, address))
 
   def _jsr(self, label, op, arg):
-    address = self._address_or_label(arg, far=True)
+    address = self._jump_target(arg, far=True)
     self.out.emit(84, address % 100, self.encode_ft_number(address // 100),
                   comment=self._comment(op, arg, arg, address))
     self.out.pad_to_new_row()  # The rest of the row is unreachable

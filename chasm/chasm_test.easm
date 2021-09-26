@@ -130,64 +130,64 @@ s f1.RA9L6 4  # mov king, A # king=10
 s f1.RA9L5 0
 s f1.RA9L4 0
 s f1.RA9L3 9
-s f1.RA9L2 4  # mov 10, A<->B
+s f1.RA9L2 4  # mov king+2, A # king+2=12
 s f1.RA9L1 0
-s f1.RB9L6 0
-s f1.RB9L5 9
-s f1.RB9L4 0  # swap A,B
-s f1.RB9L3 1
-s f1.RB9L2 4  # mov [B], A
-s f1.RB9L1 1
+s f1.RB9L6 1
+s f1.RB9L5 1
+s f1.RB9L4 4  # mov king-2, A # king-2=8
+s f1.RB9L3 0
+s f1.RB9L2 0
+s f1.RB9L1 7
 
 # address=110  PC=0910
-s f1.RA10L6 4  # mov [B], A<->C
-s f1.RA10L5 1
-s f1.RA10L4 0  # swap A,C
-s f1.RA10L3 2
-s f1.RA10L2 4  # mov A, [B]
-s f1.RA10L1 2
-s f1.RB10L6 5  # inc A
-s f1.RB10L5 2
-s f1.RB10L4 5  # dec A
-s f1.RB10L3 3
-s f1.RB10L2 5  # flipn 
-s f1.RB10L1 4
+s f1.RA10L6 4  # mov 10, A<->B
+s f1.RA10L5 0
+s f1.RA10L4 0
+s f1.RA10L3 9
+s f1.RA10L2 0  # swap A,B
+s f1.RA10L1 1
+s f1.RB10L6 4  # mov [B], A
+s f1.RB10L5 1
+s f1.RB10L4 4  # mov [B], A<->C
+s f1.RB10L3 1
+s f1.RB10L2 0  # swap A,C
+s f1.RB10L1 2
 
 # address=111  PC=0911
-s f1.RA11L6 7  # add D, A
-s f1.RA11L5 0
-s f1.RA11L4 7  # add 42, A
-s f1.RA11L3 1
-s f1.RA11L2 4
-s f1.RA11L1 1
-s f1.RB11L6 7  # addn 42, A
-s f1.RB11L5 1
-s f1.RB11L4 5
-s f1.RB11L3 7
-s f1.RB11L2 7  # sub D, A
-s f1.RB11L1 2
+s f1.RA11L6 4  # mov A, [B]
+s f1.RA11L5 2
+s f1.RA11L4 5  # inc A
+s f1.RA11L3 2
+s f1.RA11L2 5  # dec A
+s f1.RA11L1 3
+s f1.RB11L6 5  # flipn 
+s f1.RB11L5 4
+s f1.RB11L4 7  # add D, A
+s f1.RB11L3 0
+s f1.RB11L2 9
+s f1.RB11L1 9
 
 # address=112  PC=0912
-s f1.RA12L6 7  # jmp target # target=199
-s f1.RA12L5 3
-s f1.RA12L4 9
-s f1.RA12L3 8
-s f1.RA12L2 9
-s f1.RA12L1 9
-s f1.RB12L6 9
-s f1.RB12L5 9
-s f1.RB12L4 9
-s f1.RB12L3 9
+s f1.RA12L6 7  # add 42, A
+s f1.RA12L5 1
+s f1.RA12L4 4
+s f1.RA12L3 1
+s f1.RA12L2 7  # addn 42, A
+s f1.RA12L1 1
+s f1.RB12L6 5
+s f1.RB12L5 7
+s f1.RB12L4 7  # sub D, A
+s f1.RB12L3 2
 s f1.RB12L2 9
 s f1.RB12L1 9
 
 # address=113  PC=0913
-s f1.RA13L6 7  # jmp far faraway # faraway=300
-s f1.RA13L5 4
+s f1.RA13L6 7  # jmp target # target=199
+s f1.RA13L5 3
 s f1.RA13L4 9
-s f1.RA13L3 9
+s f1.RA13L3 8
 s f1.RA13L2 9
-s f1.RA13L1 8
+s f1.RA13L1 9
 s f1.RB13L6 9
 s f1.RB13L5 9
 s f1.RB13L4 9
@@ -196,40 +196,40 @@ s f1.RB13L2 9
 s f1.RB13L1 9
 
 # address=114  PC=0914
-s f1.RA14L6 8  # jn target # target=199
-s f1.RA14L5 0
+s f1.RA14L6 7  # jmp far faraway # faraway=300
+s f1.RA14L5 4
 s f1.RA14L4 9
-s f1.RA14L3 8
-s f1.RA14L2 8  # jz target # target=199
-s f1.RA14L1 1
+s f1.RA14L3 9
+s f1.RA14L2 9
+s f1.RA14L1 8
 s f1.RB14L6 9
-s f1.RB14L5 8
-s f1.RB14L4 8  # jil target # target=199
-s f1.RB14L3 2
+s f1.RB14L5 9
+s f1.RB14L4 9
+s f1.RB14L3 9
 s f1.RB14L2 9
-s f1.RB14L1 8
+s f1.RB14L1 9
 
 # address=115  PC=0915
-s f1.RA15L6 8  # jsr faraway # faraway=300
-s f1.RA15L5 4
+s f1.RA15L6 8  # jn target # target=199
+s f1.RA15L5 0
 s f1.RA15L4 9
-s f1.RA15L3 9
-s f1.RA15L2 9
-s f1.RA15L1 8
+s f1.RA15L3 8
+s f1.RA15L2 8  # jz target # target=199
+s f1.RA15L1 1
 s f1.RB15L6 9
-s f1.RB15L5 9
-s f1.RB15L4 9
-s f1.RB15L3 9
+s f1.RB15L5 8
+s f1.RB15L4 8  # jil target # target=199
+s f1.RB15L3 2
 s f1.RB15L2 9
-s f1.RB15L1 9
+s f1.RB15L1 8
 
 # address=116  PC=0916
-s f1.RA16L6 8  # ret 
-s f1.RA16L5 5
+s f1.RA16L6 8  # jsr faraway # faraway=300
+s f1.RA16L5 4
 s f1.RA16L4 9
 s f1.RA16L3 9
 s f1.RA16L2 9
-s f1.RA16L1 9
+s f1.RA16L1 8
 s f1.RB16L6 9
 s f1.RB16L5 9
 s f1.RB16L4 9
@@ -238,128 +238,128 @@ s f1.RB16L2 9
 s f1.RB16L1 9
 
 # address=117  PC=0917
-s f1.RA17L6 9  # clr A
-s f1.RA17L5 0
-s f1.RA17L4 1  # read sequence
-s f1.RA17L3 2
-s f1.RA17L2 0
-s f1.RA17L1 0
-s f1.RB17L6 1
-s f1.RB17L5 2
+s f1.RA17L6 8  # ret 
+s f1.RA17L5 5
+s f1.RA17L4 9
+s f1.RA17L3 9
+s f1.RA17L2 9
+s f1.RA17L1 9
+s f1.RB17L6 9
+s f1.RB17L5 9
 s f1.RB17L4 9
-s f1.RB17L3 1
-s f1.RB17L2 9  # print 
-s f1.RB17L1 2
+s f1.RB17L3 9
+s f1.RB17L2 9
+s f1.RB17L1 9
 
 # address=118  PC=0918
-s f1.RA18L6 9  # brk 
-s f1.RA18L5 4
-s f1.RA18L4 9  # halt 
-s f1.RA18L3 5
-s f1.RA18L2 9
-s f1.RA18L1 9
-s f1.RB18L6 9
-s f1.RB18L5 9
+s f1.RA18L6 9  # clr A
+s f1.RA18L5 0
+s f1.RA18L4 1  # read sequence
+s f1.RA18L3 2
+s f1.RA18L2 0
+s f1.RA18L1 0
+s f1.RB18L6 1
+s f1.RB18L5 2
 s f1.RB18L4 9
-s f1.RB18L3 9
-s f1.RB18L2 9
-s f1.RB18L1 9
+s f1.RB18L3 1
+s f1.RB18L2 9  # print 
+s f1.RB18L1 2
 
 # address=119  PC=0919
-s f1.RA19L6 0  # clrall 
-s f1.RA19L5 0
-s f1.RA19L4 0  # clrall 
-s f1.RA19L3 0
-s f1.RA19L2 0  # clrall 
-s f1.RA19L1 0
-s f1.RB19L6 0  # clrall 
-s f1.RB19L5 0
-s f1.RB19L4 0  # clrall 
-s f1.RB19L3 0
+s f1.RA19L6 9  # brk 
+s f1.RA19L5 4
+s f1.RA19L4 9  # halt 
+s f1.RA19L3 5
+s f1.RA19L2 9
+s f1.RA19L1 9
+s f1.RB19L6 9
+s f1.RB19L5 9
+s f1.RB19L4 9
+s f1.RB19L3 9
 s f1.RB19L2 9
 s f1.RB19L1 9
 
 # address=120  PC=0920
-s f1.RA20L6 4  # mov 99, A
+s f1.RA20L6 0  # clrall 
 s f1.RA20L5 0
-s f1.RA20L4 9
-s f1.RA20L3 8
-s f1.RA20L2 9
-s f1.RA20L1 9
-s f1.RB20L6 9
-s f1.RB20L5 9
-s f1.RB20L4 9
-s f1.RB20L3 9
+s f1.RA20L4 0  # clrall 
+s f1.RA20L3 0
+s f1.RA20L2 0  # clrall 
+s f1.RA20L1 0
+s f1.RB20L6 0  # clrall 
+s f1.RB20L5 0
+s f1.RB20L4 0  # clrall 
+s f1.RB20L3 0
 s f1.RB20L2 9
 s f1.RB20L1 9
 
 # address=121  PC=0921
-s f1.RA21L6 0  # clrall 
+s f1.RA21L6 4  # mov 99, A
 s f1.RA21L5 0
-s f1.RA21L4 0  # clrall 
-s f1.RA21L3 0
-s f1.RA21L2 0  # clrall 
-s f1.RA21L1 0
-s f1.RB21L6 0  # clrall 
-s f1.RB21L5 0
-s f1.RB21L4 0  # clrall 
-s f1.RB21L3 0
+s f1.RA21L4 9
+s f1.RA21L3 8
+s f1.RA21L2 9
+s f1.RA21L1 9
+s f1.RB21L6 9
+s f1.RB21L5 9
+s f1.RB21L4 9
+s f1.RB21L3 9
 s f1.RB21L2 9
 s f1.RB21L1 9
 
 # address=122  PC=0922
-s f1.RA22L6 7  # jmp 99 # 99=199
-s f1.RA22L5 3
-s f1.RA22L4 9
-s f1.RA22L3 8
-s f1.RA22L2 9
-s f1.RA22L1 9
-s f1.RB22L6 9
-s f1.RB22L5 9
-s f1.RB22L4 9
-s f1.RB22L3 9
+s f1.RA22L6 0  # clrall 
+s f1.RA22L5 0
+s f1.RA22L4 0  # clrall 
+s f1.RA22L3 0
+s f1.RA22L2 0  # clrall 
+s f1.RA22L1 0
+s f1.RB22L6 0  # clrall 
+s f1.RB22L5 0
+s f1.RB22L4 0  # clrall 
+s f1.RB22L3 0
 s f1.RB22L2 9
 s f1.RB22L1 9
 
 # address=123  PC=0923
-s f1.RA23L6 0  # clrall 
-s f1.RA23L5 0
-s f1.RA23L4 0  # clrall 
-s f1.RA23L3 0
-s f1.RA23L2 0  # clrall 
-s f1.RA23L1 0
-s f1.RB23L6 0  # clrall 
-s f1.RB23L5 0
+s f1.RA23L6 7  # jmp 99 # 99=199
+s f1.RA23L5 3
+s f1.RA23L4 9
+s f1.RA23L3 8
+s f1.RA23L2 9
+s f1.RA23L1 9
+s f1.RB23L6 9
+s f1.RB23L5 9
 s f1.RB23L4 9
 s f1.RB23L3 9
 s f1.RB23L2 9
 s f1.RB23L1 9
 
 # address=124  PC=0924
-s f1.RA24L6 7  # jmp far 399
-s f1.RA24L5 4
-s f1.RA24L4 9
-s f1.RA24L3 8
-s f1.RA24L2 9
-s f1.RA24L1 9
-s f1.RB24L6 9
-s f1.RB24L5 9
+s f1.RA24L6 0  # clrall 
+s f1.RA24L5 0
+s f1.RA24L4 0  # clrall 
+s f1.RA24L3 0
+s f1.RA24L2 0  # clrall 
+s f1.RA24L1 0
+s f1.RB24L6 0  # clrall 
+s f1.RB24L5 0
 s f1.RB24L4 9
 s f1.RB24L3 9
 s f1.RB24L2 9
 s f1.RB24L1 9
 
 # address=125  PC=0925
-s f1.RA25L6 0  # clrall 
-s f1.RA25L5 0
-s f1.RA25L4 0  # clrall 
-s f1.RA25L3 0
-s f1.RA25L2 0  # clrall 
-s f1.RA25L1 0
-s f1.RB25L6 7  # jmp far 399
-s f1.RB25L5 4
+s f1.RA25L6 7  # jmp far 399
+s f1.RA25L5 4
+s f1.RA25L4 9
+s f1.RA25L3 8
+s f1.RA25L2 9
+s f1.RA25L1 9
+s f1.RB25L6 9
+s f1.RB25L5 9
 s f1.RB25L4 9
-s f1.RB25L3 8
+s f1.RB25L3 9
 s f1.RB25L2 9
 s f1.RB25L1 9
 
@@ -370,66 +370,66 @@ s f1.RA26L4 0  # clrall
 s f1.RA26L3 0
 s f1.RA26L2 0  # clrall 
 s f1.RA26L1 0
-s f1.RB26L6 0  # clrall 
-s f1.RB26L5 0
+s f1.RB26L6 7  # jmp far 399
+s f1.RB26L5 4
 s f1.RB26L4 9
-s f1.RB26L3 9
+s f1.RB26L3 8
 s f1.RB26L2 9
 s f1.RB26L1 9
 
 # address=127  PC=0927
-s f1.RA27L6 7  # jmp far 399
-s f1.RA27L5 4
-s f1.RA27L4 9
-s f1.RA27L3 8
-s f1.RA27L2 9
-s f1.RA27L1 9
-s f1.RB27L6 9
-s f1.RB27L5 9
+s f1.RA27L6 0  # clrall 
+s f1.RA27L5 0
+s f1.RA27L4 0  # clrall 
+s f1.RA27L3 0
+s f1.RA27L2 0  # clrall 
+s f1.RA27L1 0
+s f1.RB27L6 0  # clrall 
+s f1.RB27L5 0
 s f1.RB27L4 9
 s f1.RB27L3 9
 s f1.RB27L2 9
 s f1.RB27L1 9
 
 # address=128  PC=0928
-s f1.RA28L6 0  # clrall 
-s f1.RA28L5 0
-s f1.RA28L4 0  # clrall 
-s f1.RA28L3 0
-s f1.RA28L2 0  # clrall 
-s f1.RA28L1 0
-s f1.RB28L6 0  # clrall 
-s f1.RB28L5 0
+s f1.RA28L6 7  # jmp far 399
+s f1.RA28L5 4
+s f1.RA28L4 9
+s f1.RA28L3 8
+s f1.RA28L2 9
+s f1.RA28L1 9
+s f1.RB28L6 9
+s f1.RB28L5 9
 s f1.RB28L4 9
 s f1.RB28L3 9
 s f1.RB28L2 9
 s f1.RB28L1 9
 
 # address=129  PC=0929
-s f1.RA29L6 8  # jsr 399
-s f1.RA29L5 4
-s f1.RA29L4 9
-s f1.RA29L3 8
-s f1.RA29L2 9
-s f1.RA29L1 9
-s f1.RB29L6 9
-s f1.RB29L5 9
+s f1.RA29L6 0  # clrall 
+s f1.RA29L5 0
+s f1.RA29L4 0  # clrall 
+s f1.RA29L3 0
+s f1.RA29L2 0  # clrall 
+s f1.RA29L1 0
+s f1.RB29L6 0  # clrall 
+s f1.RB29L5 0
 s f1.RB29L4 9
 s f1.RB29L3 9
 s f1.RB29L2 9
 s f1.RB29L1 9
 
 # address=130  PC=0930
-s f1.RA30L6 0  # clrall 
-s f1.RA30L5 0
-s f1.RA30L4 0  # clrall 
-s f1.RA30L3 0
-s f1.RA30L2 0  # clrall 
-s f1.RA30L1 0
-s f1.RB30L6 8  # jsr 399
-s f1.RB30L5 4
+s f1.RA30L6 8  # jsr 399
+s f1.RA30L5 4
+s f1.RA30L4 9
+s f1.RA30L3 8
+s f1.RA30L2 9
+s f1.RA30L1 9
+s f1.RB30L6 9
+s f1.RB30L5 9
 s f1.RB30L4 9
-s f1.RB30L3 8
+s f1.RB30L3 9
 s f1.RB30L2 9
 s f1.RB30L1 9
 
@@ -440,116 +440,116 @@ s f1.RA31L4 0  # clrall
 s f1.RA31L3 0
 s f1.RA31L2 0  # clrall 
 s f1.RA31L1 0
-s f1.RB31L6 0  # clrall 
-s f1.RB31L5 0
+s f1.RB31L6 8  # jsr 399
+s f1.RB31L5 4
 s f1.RB31L4 9
-s f1.RB31L3 9
+s f1.RB31L3 8
 s f1.RB31L2 9
 s f1.RB31L1 9
 
 # address=132  PC=0932
-s f1.RA32L6 8  # jsr 399
-s f1.RA32L5 4
-s f1.RA32L4 9
-s f1.RA32L3 8
-s f1.RA32L2 9
-s f1.RA32L1 9
-s f1.RB32L6 9
-s f1.RB32L5 9
+s f1.RA32L6 0  # clrall 
+s f1.RA32L5 0
+s f1.RA32L4 0  # clrall 
+s f1.RA32L3 0
+s f1.RA32L2 0  # clrall 
+s f1.RA32L1 0
+s f1.RB32L6 0  # clrall 
+s f1.RB32L5 0
 s f1.RB32L4 9
 s f1.RB32L3 9
 s f1.RB32L2 9
 s f1.RB32L1 9
 
 # address=133  PC=0933
-s f1.RA33L6 0  # clrall 
-s f1.RA33L5 0
-s f1.RA33L4 0  # clrall 
-s f1.RA33L3 0
-s f1.RA33L2 0  # clrall 
-s f1.RA33L1 0
-s f1.RB33L6 0  # clrall 
-s f1.RB33L5 0
-s f1.RB33L4 0  # clrall 
-s f1.RB33L3 0
+s f1.RA33L6 8  # jsr 399
+s f1.RA33L5 4
+s f1.RA33L4 9
+s f1.RA33L3 8
+s f1.RA33L2 9
+s f1.RA33L1 9
+s f1.RB33L6 9
+s f1.RB33L5 9
+s f1.RB33L4 9
+s f1.RB33L3 9
 s f1.RB33L2 9
 s f1.RB33L1 9
 
 # address=134  PC=0934
-s f1.RA34L6 8  # jn 99 # 99=199
+s f1.RA34L6 0  # clrall 
 s f1.RA34L5 0
-s f1.RA34L4 9
-s f1.RA34L3 8
-s f1.RA34L2 9
-s f1.RA34L1 9
-s f1.RB34L6 9
-s f1.RB34L5 9
-s f1.RB34L4 9
-s f1.RB34L3 9
+s f1.RA34L4 0  # clrall 
+s f1.RA34L3 0
+s f1.RA34L2 0  # clrall 
+s f1.RA34L1 0
+s f1.RB34L6 0  # clrall 
+s f1.RB34L5 0
+s f1.RB34L4 0  # clrall 
+s f1.RB34L3 0
 s f1.RB34L2 9
 s f1.RB34L1 9
 
 # address=135  PC=0935
-s f1.RA35L6 0  # clrall 
+s f1.RA35L6 8  # jn 99 # 99=199
 s f1.RA35L5 0
-s f1.RA35L4 0  # clrall 
-s f1.RA35L3 0
-s f1.RA35L2 0  # clrall 
-s f1.RA35L1 0
-s f1.RB35L6 0  # clrall 
-s f1.RB35L5 0
-s f1.RB35L4 0  # clrall 
-s f1.RB35L3 0
+s f1.RA35L4 9
+s f1.RA35L3 8
+s f1.RA35L2 9
+s f1.RA35L1 9
+s f1.RB35L6 9
+s f1.RB35L5 9
+s f1.RB35L4 9
+s f1.RB35L3 9
 s f1.RB35L2 9
 s f1.RB35L1 9
 
 # address=136  PC=0936
-s f1.RA36L6 8  # jz 99 # 99=199
-s f1.RA36L5 1
-s f1.RA36L4 9
-s f1.RA36L3 8
-s f1.RA36L2 9
-s f1.RA36L1 9
-s f1.RB36L6 9
-s f1.RB36L5 9
-s f1.RB36L4 9
-s f1.RB36L3 9
+s f1.RA36L6 0  # clrall 
+s f1.RA36L5 0
+s f1.RA36L4 0  # clrall 
+s f1.RA36L3 0
+s f1.RA36L2 0  # clrall 
+s f1.RA36L1 0
+s f1.RB36L6 0  # clrall 
+s f1.RB36L5 0
+s f1.RB36L4 0  # clrall 
+s f1.RB36L3 0
 s f1.RB36L2 9
 s f1.RB36L1 9
 
 # address=137  PC=0937
-s f1.RA37L6 0  # clrall 
-s f1.RA37L5 0
-s f1.RA37L4 0  # clrall 
-s f1.RA37L3 0
-s f1.RA37L2 0  # clrall 
-s f1.RA37L1 0
-s f1.RB37L6 0  # clrall 
-s f1.RB37L5 0
-s f1.RB37L4 0  # clrall 
-s f1.RB37L3 0
+s f1.RA37L6 8  # jz 99 # 99=199
+s f1.RA37L5 1
+s f1.RA37L4 9
+s f1.RA37L3 8
+s f1.RA37L2 9
+s f1.RA37L1 9
+s f1.RB37L6 9
+s f1.RB37L5 9
+s f1.RB37L4 9
+s f1.RB37L3 9
 s f1.RB37L2 9
 s f1.RB37L1 9
 
 # address=138  PC=0938
-s f1.RA38L6 8  # jil 99 # 99=199
-s f1.RA38L5 2
-s f1.RA38L4 9
-s f1.RA38L3 8
-s f1.RA38L2 9
-s f1.RA38L1 9
-s f1.RB38L6 9
-s f1.RB38L5 9
-s f1.RB38L4 9
-s f1.RB38L3 9
+s f1.RA38L6 0  # clrall 
+s f1.RA38L5 0
+s f1.RA38L4 0  # clrall 
+s f1.RA38L3 0
+s f1.RA38L2 0  # clrall 
+s f1.RA38L1 0
+s f1.RB38L6 0  # clrall 
+s f1.RB38L5 0
+s f1.RB38L4 0  # clrall 
+s f1.RB38L3 0
 s f1.RB38L2 9
 s f1.RB38L1 9
 
 # address=139  PC=0939
-s f1.RA39L6 0  # clrall 
-s f1.RA39L5 0
+s f1.RA39L6 8  # jil 99 # 99=199
+s f1.RA39L5 2
 s f1.RA39L4 9
-s f1.RA39L3 9
+s f1.RA39L3 8
 s f1.RA39L2 9
 s f1.RA39L1 9
 s f1.RB39L6 9
@@ -560,9 +560,9 @@ s f1.RB39L2 9
 s f1.RB39L1 9
 
 # address=140  PC=0940
-s f1.RA40L6 7  # jmp force # force=140
-s f1.RA40L5 3
-s f1.RA40L4 3
+s f1.RA40L6 0  # clrall 
+s f1.RA40L5 0
+s f1.RA40L4 9
 s f1.RA40L3 9
 s f1.RA40L2 9
 s f1.RA40L1 9
@@ -572,6 +572,20 @@ s f1.RB40L4 9
 s f1.RB40L3 9
 s f1.RB40L2 9
 s f1.RB40L1 9
+
+# address=141  PC=0941
+s f1.RA41L6 7  # jmp force # force=141
+s f1.RA41L5 3
+s f1.RA41L4 4
+s f1.RA41L3 0
+s f1.RA41L2 9
+s f1.RA41L1 9
+s f1.RB41L6 9
+s f1.RB41L5 9
+s f1.RB41L4 9
+s f1.RB41L3 9
+s f1.RB41L2 9
+s f1.RB41L1 9
 
 # address=308  PC=9908
 s f3.RA8L6 0  # .table 308[0]=1

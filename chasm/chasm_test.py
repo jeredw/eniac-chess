@@ -182,21 +182,21 @@ class TestOutput(AssemblerTestCase):
 
   def testEmitTableValue(self):
     self.context.assembler_pass = 1
-    self.out.emit_table_value(308, 42)
-    self.out.emit_table_value(309, 43)
-    self.out.emit_table_value(310, 44)
+    self.out.emit_table_value(8, 42)
+    self.out.emit_table_value(9, 43)
+    self.out.emit_table_value(10, 44)
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(308, 0): 42, (309, 0): 43, (310, 0): 44})
 
   def testEmitTableValue_ErrorAddress(self):
     self.context.assembler_pass = 1
-    self.out.emit_table_value(400, 42)
+    self.out.emit_table_value(100, 42)
     self.assertEqual(self.out.errors, ["file:1: table data overflow"])
 
   def testEmitTableValue_ErrorConflict(self):
     self.context.assembler_pass = 1
-    self.out.emit_table_value(308, 42)
-    self.out.emit_table_value(308, 42)
+    self.out.emit_table_value(8, 42)
+    self.out.emit_table_value(8, 42)
     self.assertEqual(self.out.errors, ["file:1: overwriting values in table"])
 
   def testGet(self):
@@ -270,14 +270,6 @@ class TestBuiltins(AssemblerTestCase):
     self.builtins.dispatch("", ".dw", "42, stuff")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 42, (100, 1): 43})
-
-  def testDwFar(self):
-    self.out.output_row = 100
-    self.context.labels = {"stuff": 399}
-    self.context.assembler_pass = 1
-    self.builtins.dispatch("", ".dw", "42, stuff")
-    self.assertFalse(self.out.errors)
-    self.assertOutputValues({(100, 0): 42, (100, 1): 99})
 
   def testDw_ErrorUnrecognizedLabel(self):
     self.out.output_row = 100
@@ -382,7 +374,7 @@ class TestBuiltins(AssemblerTestCase):
     self.context.assembler_pass = 1
     self.builtins.dispatch("foo", ".table", "42, stuff")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.context.labels, {"stuff": 43, "foo": 308})
+    self.assertEqual(self.context.labels, {"stuff": 43, "foo": 8})
     self.assertOutputValues({(308, 0): 42, (309, 0): 43})
 
   def testTable_ErrorMissingLabel(self):
@@ -657,11 +649,17 @@ class TestV4(AssemblerTestCase):
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 71, (100, 1): 98})
 
-  def testAddImmediateAWraps(self):
-    self.context.labels = {"sometab": 308}
+  def testAddImmediateALabel(self):
+    self.context.labels = {"sometab": 8}
     self.isa.dispatch("", "add", "sometab, A")
     self.assertFalse(self.out.errors)
     self.assertOutputValues({(100, 0): 71, (100, 1): 7})
+
+  def testAddImmediateAExpression(self):
+    self.context.labels = {"sometab": 8}
+    self.isa.dispatch("", "add", "sometab+11, A")
+    self.assertFalse(self.out.errors)
+    self.assertOutputValues({(100, 0): 71, (100, 1): 18})
 
   def testAdd_ErrorInvalidArgument(self):
     self.isa.dispatch("", "add", "B, A")

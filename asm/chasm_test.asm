@@ -67,6 +67,8 @@ test_each_instruction
   mov A, E    ; pseudo op
   mov 10, A
   mov king, A
+  mov king+2, A ; can do basic arithmetic
+  mov king-2, A ;
   mov 10, A<->B ; psuedo op
   mov [B], A
   mov [B], A<->C ; psuedo op

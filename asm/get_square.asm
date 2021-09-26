@@ -12,10 +12,7 @@
 ; Offset table maps positions 11..88 to address
 ; Value = square div 2, sign = square mod 2, indicates low or high digit
 ; NOTE relying on .table allocating this contiguously
-; TODO support arithmetic on "offset" instead using a padding row, will free up 11 words
-
-offset  .table 0,  0,   0,   0,  0,    0,   0,   0,   0,  0
-offset1 .table 0,  0,  M0,   1,  M1,   2,  M2,   3,  M3,  0
+offset  .table     0,  M0,   1,  M1,   2,  M2,   3,  M3,  0
 offset2 .table 0,  4,  M4,   5,  M5,   6,  M6,   7,  M7,  0
 offset3 .table 0,  8,  M8,   9,  M9,  10, M10,  11, M11,  0
 offset4 .table 0, 12, M12,  13, M13,  14, M14,  15, M15,  0
@@ -26,7 +23,7 @@ offset8 .table 0, 28, M28,  29, M29,  30, M30,  31, M31
 
 get_square
   mov A,D       ; save sq to D in case piece=OTHER
-  add offset,A
+  add offset-11,A
   ftl A
   jn gs_hi      ; square mod 2 == 1?
 
@@ -116,7 +113,7 @@ gs_empty
 ; Overwrites:
 ;   B, LS
 test_empty
-  add offset,A
+  add offset-11,A
   ftl A
   jn te_hi      ; square mod 2 == 1?
 
