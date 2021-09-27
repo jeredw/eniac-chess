@@ -38,7 +38,7 @@ class TestMoveGen(unittest.TestCase):
           rook += 1
         else:
           assert piece == 'r'
-    memory[38] = 0 if position.to_move == 'w' else 1
+    memory[38] = 0 if position.to_move == 'w' else 10
 
     deck = []
     for address, data in enumerate(memory):
@@ -51,6 +51,22 @@ class TestMoveGen(unittest.TestCase):
     position = Position.fen(fen)
     deck = self.convertPositionToDeck(position)
     return self.simulate(deck)
+
+  def testMoveOwnPiecesB(self):
+    moves = self.computeMoves('8/8/8/8/8/8/1P6/8 b - - 0 1')
+    self.assertEqual(moves, [])
+
+  def testMoveOwnPiecesB2(self):
+    moves = self.computeMoves('8/3p4/8/8/8/8/3P4/8 b - - 0 1')
+    self.assertEqual(moves, ['7464', '7454'])
+
+  def testMoveOwnPiecesW(self):
+    moves = self.computeMoves('8/8/8/8/8/8/1p6/8 w - - 0 1')
+    self.assertEqual(moves, [])
+
+  def testMoveOwnPiecesW2(self):
+    moves = self.computeMoves('8/3p4/8/8/8/8/3P4/8 w - - 0 1')
+    self.assertEqual(moves, ['2434', '2444'])
 
   def testPawnB2(self):
     moves = self.computeMoves('8/8/8/8/8/8/1P6/8 w - - 0 1')
@@ -115,6 +131,18 @@ class TestMoveGen(unittest.TestCase):
   def testKnightAtA4(self):
     moves = self.computeMoves('8/8/8/8/N7/8/8/8 w - - 0 1')
     self.assertEqual(moves, ['4153', '4162', '4122', '4133'])
+
+  def testKnightAtA1_Blocked(self):
+    moves = self.computeMoves('8/8/8/8/8/1P6/2P5/N7 w - - 0 1')
+    self.assertEqual(moves, ['2333', '2343', '3242'])
+
+  def testKnightAtA1_Capture1(self):
+    moves = self.computeMoves('8/8/8/8/8/1P6/2p5/N7 w - - 0 1')
+    self.assertEqual(moves, ['1123', '3242'])
+
+  def testKnightAtA1_Capture2(self):
+    moves = self.computeMoves('8/8/8/8/8/1p6/2p5/N7 w - - 0 1')
+    self.assertEqual(moves, ['1123', '1132'])
 
 if __name__ == "__main__":
   unittest.main()

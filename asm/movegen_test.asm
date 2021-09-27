@@ -10,14 +10,14 @@ start
   .include get_square.asm
 
 output_move
-  ; A=to, B=ptype, C=movestate, D=from, E=player
+  ; A=to, B=?, C=movestate, D=from, E=player|piece
   swap A,B
-  swap A,D          ; now A=from, B=to, D=ptype
+  swap A,D          ; now A=from, B=to
 
   print
 
   swap A,D          
-  swap A,B          ; now B=ptype, D=from
+  swap A,B          ; now B=?, D=from
 
   jmp next_piece_move
 

@@ -3,11 +3,10 @@
 ; Inputs: 
 ;   A - square
 ; Outputs:
-;   A - piece type
-;   B - player (NB: undefined if nothing on this square)
+;   A - 0 if empty, else player|piece type
 ;   D - square
 ; Overwrites:
-;   LS (aka FGHIJ)
+;   B, LS (aka FGHIJ)
 
 ; Offset table maps positions 11..88 to address
 ; Value = square div 2, sign = square mod 2, indicates low or high digit
@@ -48,17 +47,11 @@ decode
 
 ; white, A = piece + 94 (after dec, add 95)
   add 5,A       ; 5 = PAWN - WPAWN - 94 + 100  (1 - 2 - 94 + 100)  
-  swap A,B
-  clr A         ; mov WHITE,A
-  swap A,B
   ret
 
 ; black, A = piece + 95 (after dec, add 96)
-gs_black        
-  inc A         ; add PAWN,A
-  swap A,B
-  mov BLACK,A
-  swap A,B
+gs_black
+  add 11,A      ; add BLACK in high digit + PAWN
   ret
 
 ; piece == OTHER
@@ -82,23 +75,20 @@ gs_other
   jz gs_wrook
 
 ; there is a piece here and it's not a king or white rook, must be black rook
-  mov BLACK,A
+  add 10,A      ; A+=BLACK
 
 gs_wrook        ; A=0=WHITE if we jump here
-  swap A,B
-  mov ROOK,A
+  add ROOK,A
   ret
 
 gs_bking        ; A=0 here
-  inc A         ; mov BLACK,A
+  add 10,A      ; A+=BLACK
   
 gs_wking        ; A=0=WHITE if we jump here
-  swap A,B
-  mov KING,A
+  add KING,A
   ret
 
 gs_empty
-  swap A,B      ; clr B only needed for pretty printing 
   clr A
   ret
 

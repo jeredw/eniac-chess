@@ -23,8 +23,12 @@ wrook2 .equ 35
 ; brook1 .equ 36      not needed, if square is occupied and not king or wrook, it's brook
 ; brook2 .equ 37
 
-; Which player goes next? 0 = white, 1 = black
-player .equ 38
+; Generic spill space
+tmp    .equ 36
+; Current movegen square
+square .equ 37
+; Current player (high digit) and piece type (low digit)
+pp     .equ 38
 
 ; - Piece and Player constants -
 ; While the board is stored in a two-level encoding, get_square returns piece, player as below
