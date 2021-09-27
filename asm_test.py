@@ -84,6 +84,26 @@ class TestMoveGen(unittest.TestCase):
     moves = self.computeMoves('8/8/8/8/8/1P6/8/8 w - - 0 1')
     self.assertEqual(moves, ['3242'])
 
+  def testPawnB2_CaptureL(self):
+    moves = self.computeMoves('8/8/8/8/8/p7/1P6/8 w - - 0 1')
+    self.assertEqual(moves, ['2231', '2232', '2242'])
+
+  def testPawnB2_CaptureR(self):
+    moves = self.computeMoves('8/8/8/8/8/2p5/1P6/8 w - - 0 1')
+    self.assertEqual(moves, ['2233', '2232', '2242'])
+
+  def testPawnB2_CaptureRL(self):
+    moves = self.computeMoves('8/8/8/8/8/n1p5/1P6/8 w - - 0 1')
+    self.assertEqual(moves, ['2231', '2233', '2232', '2242'])
+
+  def testPawnA3_CaptureR(self):
+    moves = self.computeMoves('8/8/8/8/pp6/P7/8/8 w - - 0 1')
+    self.assertEqual(moves, ['3142'])
+
+  def testPawnH3_CaptureL(self):
+    moves = self.computeMoves('8/8/8/8/6pp/7P/8/8 w - - 0 1')
+    self.assertEqual(moves, ['3847'])
+
   def testPawnG7(self):
     moves = self.computeMoves('8/6p1/8/8/8/8/8/8 b - - 0 1')
     self.assertEqual(moves, ['7767', '7757'])
@@ -95,6 +115,18 @@ class TestMoveGen(unittest.TestCase):
   def testPawnG7_Blocked2(self):
     moves = self.computeMoves('8/6p1/8/6p1/8/8/8/8 b - - 0 1')
     self.assertEqual(moves, ['5747', '7767'])
+
+  def testPawnG7(self):
+    moves = self.computeMoves('8/6p1/8/8/8/8/8/8 b - - 0 1')
+    self.assertEqual(moves, ['7767', '7757'])
+
+  def testPawnG7_CaptureRL(self):
+    moves = self.computeMoves('8/6p1/5PPP/8/8/8/8/8 b - - 0 1')
+    self.assertEqual(moves, ['7766', '7768'])
+
+  def testPawnH7_CaptureL(self):
+    moves = self.computeMoves('8/7p/6PP/8/8/8/8/8 b - - 0 1')
+    self.assertEqual(moves, ['7867'])
 
   def testPawnG6(self):
     moves = self.computeMoves('8/8/6p1/8/8/8/8/8 b - - 0 1')

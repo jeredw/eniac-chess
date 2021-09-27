@@ -67,15 +67,19 @@ next_piece_move
 ;  1 - capture right
 ;  2 - push 1
 ;  3 - push 2
+
+; Which direction do pawns go, per player?
+pawndir .table 10,-10
+
 next_pawn_move      ; C=movestate, D=square, E=pp
   mov C,A           ; movestate += 1
   inc A
   swap A,C
 
   ; A=movestate before increment
-  jz pawn_capture_l ; try capturing left
+  jz pawn_capture_l ; try capturing -1 file
   dec A
-  jz pawn_capture_r ; try capturing right
+  jz pawn_capture_r ; try capturing +1 file
   dec A
   jz push1          ; try advancing 1 square
 
@@ -122,16 +126,41 @@ push2_white_ok
   add 20,A          ; compute destination square, two forward
   jmp output_move
 
-pawn_capture_l      ; move_step 0,1 = captures
-  ; TODO
-  jmp next_pawn_move
+pawn_capture_l      ; capture -1 file
+  mov E,A
+  swapdig A
+  lodig A           ; player index
+  add pawndir,A
+  ftl A             ; +10 for white, -10 for black
+  add D,A           ; compute destination square
+  dec A             ; -1 file
+  jil next_pawn_move ; off the board
+  ; clobber D (stored in [square]) to spill target square
+  swap A,D          ; D=save target square
+  mov tmp,A<->B     ;
+  swap D,A          ;
+  mov A,[B]         ; [tmp]=target square
+  jsr get_square    ; get piece currently on target square
+  jz move_bad
+  jmp move_if_capture
 
 pawn_capture_r      ; move_step 0,1 = captures
-  ; TODO
-  jmp next_pawn_move
-
-; Which direction do pawns go, per player?
-pawndir .table 10,-10
+  mov E,A
+  swapdig A
+  lodig A           ; player index
+  add pawndir,A
+  ftl A             ; +10 for white, -10 for black
+  add D,A           ; compute destination square
+  inc A             ; +1 file
+  jil next_pawn_move ; off the board
+  ; clobber D (stored in [square]) to spill target square
+  swap A,D          ; D=save target square
+  mov tmp,A<->B     ;
+  swap D,A          ;
+  mov A,[B]         ; [tmp]=target square
+  jsr get_square    ; get piece currently on target square
+  jz move_bad
+  jmp move_if_capture
 
 ; try advancing 1 square
 push1
@@ -179,11 +208,11 @@ nmoves .table 8, 12, 19, 21, 79, 81, 88, 92, 0
   mov tmp,A<->B     ;
   swap D,A          ;
   mov A,[B]         ; [tmp]=target square
-
-; output move if target is empty square or an opponent's piece
-output_if_ok
   jsr get_square    ; get piece currently on target square
   jz move_ok        ; if target is empty, can move there
+
+; output move if target is empty square or an opponent's piece
+move_if_capture
   swapdig A
   lodig A           ; A=piece color on target
   swap A,D          ; D=piece color on target
