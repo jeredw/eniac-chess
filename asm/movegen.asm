@@ -60,16 +60,14 @@ next_piece_move
   jz next_pawn_move ; is this a pawn? yes, move it
   dec A
   jz next_knight_move; is this a knight? yes, move it
-  jmp next_square   ; no, keep scanning
+  ; TODO bqrk
+  jmp next_square
 
 ; For pawns, the move state is as follows
 ;  0 - capture left
 ;  1 - capture right
 ;  2 - push 1
 ;  3 - push 2
-
-; Which direction do pawns go, per player?
-pawndir .table 10,-10
 
 next_pawn_move      ; C=movestate, D=square, E=pp
   mov C,A           ; movestate += 1
@@ -189,15 +187,16 @@ push1_ok
 ; knights
 ; C=movestate, D=square, E=pp
 next_knight_move
-  mov C,A           ; move_step += 1
-  inc A
-  swap A,C          ; A=move_step before increment
+  mov C,A           ; movestate is ndir table offset
+  addn 80,A
+  jn next_square    ; if offset >= 80, done
+  mov C,A
+  add 10,A          ; next offset is +10
+  swap A,C          ; A=movestate before increment
 
-  ; movestate indexes a table of deltas
-nmoves .table 8, 12, 19, 21, 79, 81, 88, 92, 0
-  add nmoves,A      ; A+=table base address
+  ; lookup deltas for this move direction
+  add ndir,A        ; A+=table base address
   ftl A             ; lookup move delta
-  jz next_square    ; 0 means end of table
   add D,A           ; compute the target square
 
   ; check if the square is a valid target

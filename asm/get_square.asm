@@ -8,18 +8,6 @@
 ; Overwrites:
 ;   B, LS (aka FGHIJ)
 
-; Offset table maps positions 11..88 to address
-; Value = square div 2, sign = square mod 2, indicates low or high digit
-; NOTE relying on .table allocating this contiguously
-offset  .table     0,  M0,   1,  M1,   2,  M2,   3,  M3,  0
-offset2 .table 0,  4,  M4,   5,  M5,   6,  M6,   7,  M7,  0
-offset3 .table 0,  8,  M8,   9,  M9,  10, M10,  11, M11,  0
-offset4 .table 0, 12, M12,  13, M13,  14, M14,  15, M15,  0
-offset5 .table 0, 16, M16,  17, M17,  18, M18,  19, M19,  0
-offset6 .table 0, 20, M20,  21, M21,  22, M22,  23, M23,  0
-offset7 .table 0, 24, M24,  25, M25,  26, M26,  27, M27,  0
-offset8 .table 0, 28, M28,  29, M29,  30, M30,  31, M31
-
 get_square
   mov A,D       ; save sq to D in case piece=OTHER
   add offset-11,A
