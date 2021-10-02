@@ -1,38 +1,35 @@
 ; - Movegen -
-
-  mov pp,A<->B      ; E = [pp]
-  mov [B],A
-  swap A,E
-
   mov 11,A          ; A = square = 11, begin board scan here
 
-try_sq              ; A=square, E=pp
+try_sq              ; A=square
   jsr get_square    ; what's here?
   jz next_square    ; empty?
   ; does the piece belong to the current player?
-  swap A,B          ; B=pp on square
+  swap A,C          ; C=pp on square
+  mov pp,A<->B      ; E=saved [pp]
+  mov [B],A<->E
   mov E,A           ; A=current pp
   swapdig A
   lodig A           ; A=player to move
   jz try_sq_w       ; white to move?
 ;try_sq_b           ; black to move
-  mov B,A
+  mov C,A
   swapdig A
   lodig A           ; A=piece color
   jz next_square    ; if piece is white, skip
   jmp try_sq_ours
 try_sq_w            ; white to move
-  mov B,A
+  mov C,A
   swapdig A
   lodig A           ; A=piece color
   jz try_sq_ours    ; if piece is white, ours
   jmp next_square
 try_sq_ours
-  swap B,A
+  swap C,A
   swap A,E          ; E=pp here
-  mov square,A<->B
+  mov from,A<->B
   mov D,A
-  mov A,[B]         ; [square]=current square
+  mov A,[B]         ; [from]=current square
   clr A
   swap A,C          ; C=movestate=0
   jmp next_piece_move
@@ -49,7 +46,7 @@ next_line
   jmp try_sq
 
 next_piece_move           
-  ; A=?, B=?, C=movestate, D=square, E=pp
+  ; A=?, B=?, C=movestate, D=from square, E=pp
   mov C,A           ; movestate == 99?
   inc A
   jz next_square    ; yes, no more moves from this piece
@@ -60,15 +57,13 @@ next_piece_move
   jz next_pawn_move ; is this a pawn? yes, move it
   dec A
   jz next_knight_move; is this a knight? yes, move it
-  ; TODO bqrk
-  jmp next_square
+  jmp next_bqrk_move ; sliding piece
 
 ; For pawns, the move state is as follows
 ;  0 - capture left
 ;  1 - capture right
 ;  2 - push 1
 ;  3 - push 2
-
 next_pawn_move      ; C=movestate, D=square, E=pp
   mov C,A           ; movestate += 1
   inc A
@@ -132,15 +127,7 @@ pawn_capture_l      ; capture -1 file
   ftl A             ; +10 for white, -10 for black
   add D,A           ; compute destination square
   dec A             ; -1 file
-  jil next_pawn_move ; off the board
-  ; clobber D (stored in [square]) to spill target square
-  swap A,D          ; D=save target square
-  mov tmp,A<->B     ;
-  swap D,A          ;
-  mov A,[B]         ; [tmp]=target square
-  jsr get_square    ; get piece currently on target square
-  jz move_bad
-  jmp move_if_capture
+  jmp check_pawn_capture
 
 pawn_capture_r      ; move_step 0,1 = captures
   mov E,A
@@ -150,12 +137,16 @@ pawn_capture_r      ; move_step 0,1 = captures
   ftl A             ; +10 for white, -10 for black
   add D,A           ; compute destination square
   inc A             ; +1 file
-  jil next_pawn_move ; off the board
-  ; clobber D (stored in [square]) to spill target square
+
+; like check_square but specific to pawn captures
+; (pawns can only move diagonally when capturing, so can't move to an empty
+; square in that case)
+check_pawn_capture
+  jil next_pawn_move; if off the board, no go
   swap A,D          ; D=save target square
-  mov tmp,A<->B     ;
+  mov target,A<->B  ;
   swap D,A          ;
-  mov A,[B]         ; [tmp]=target square
+  mov A,[B]         ; [target]=target square
   jsr get_square    ; get piece currently on target square
   jz move_bad
   jmp move_if_capture
@@ -185,7 +176,7 @@ push1_ok
   jmp output_move
 
 ; knights
-; C=movestate, D=square, E=pp
+; C=movestate, D=from square, E=pp
 next_knight_move
   mov C,A           ; movestate is ndir table offset
   addn 80,A
@@ -193,24 +184,33 @@ next_knight_move
   mov C,A
   add 10,A          ; next offset is +10
   swap A,C          ; A=movestate before increment
-
-  ; lookup deltas for this move direction
   add ndir,A        ; A+=table base address
   ftl A             ; lookup move delta
   add D,A           ; compute the target square
+  jil next_knight_move ; off the board means no go
 
-  ; check if the square is a valid target
-  jil next_knight_move ; off the board
-  ; need to see what is there, which means calling get_square.
-  ; clobber D (stored in [square]) to spill target square
+; output move if target square is empty or capture
+; On entry
+;   A=target square, will be saved in [target]
+; On exit
+;   D will get reset from [from]
+;   [blocked] will be set if target is nonempty
+check_square
   swap A,D          ; D=save target square
-  mov tmp,A<->B     ;
+  mov target,A<->B  ;
   swap D,A          ;
-  mov A,[B]         ; [tmp]=target square
+  mov A,[B]         ; [target]=target square
   jsr get_square    ; get piece currently on target square
   jz move_ok        ; if target is empty, can move there
+  ; record that there is something in the square so that sliding pieces
+  ; stop sliding at this position
+  swap A,D
+  mov blocked,A<->B
+  mov A,[B]         ; set blocked=nonzero value
+  swap D,A
 
-; output move if target is empty square or an opponent's piece
+; output move if empty square or an opponent's piece
+; - A has the contents of the new square
 move_if_capture
   swapdig A
   lodig A           ; A=piece color on target
@@ -222,13 +222,92 @@ move_if_capture
   jz move_bad       ; can't capture own piece
 
 move_ok
-  mov square,A<->B
+  mov from,A<->B
   mov [B],A<->D     ; D=from square
-  mov tmp,A<->B
+  mov target,A<->B
   mov [B],A         ; A=target square
   jmp output_move
 
 move_bad
-  mov square,A<->B
+  mov from,A<->B
   mov [B],A<->D     ; D=from square
   jmp next_piece_move
+
+; Sliding pieces (bishop / queen / rook / king)
+; C=movestate is d where d=dir index
+; [target] is the current square along dir
+next_bqrk_move
+  mov C,A
+  jz init_sliding   ; d=0 means initialize
+  mov blocked,A<->B ;
+  mov [B],A         ; test if last move was blocked
+  jz not_blocked    ; if not, continue sliding
+  jmp next_dir_b    ; else reset blocked flag+change dir
+not_blocked
+  mov E,A
+  lodig A           ; isolate piece
+  addn KING,A       ; test if piece==KING
+  jz block_king
+do_bqrk_move
+  mov target,A<->B  ;
+  mov [B],A<->D     ; D=cur square
+  mov C,A           ; A=movestate (d)
+  add bqrkdir-1,A   ; index bqrkdir[d-1]
+  ftl A             ; lookup move delta for dir
+  jz next_square    ; 0 means past last dir, done
+  add D,A           ; A=D(square) + A(delta)
+  jil next_dir      ; if off board, next direction
+  jmp check_square  ; output move if valid
+
+; always flag king moves as blocked so they only move one step
+block_king
+  inc A
+  mov A,[B]         ; set [B]=[blocked] to a nonzero value
+  jmp do_bqrk_move
+
+; set starting dir index based on piece type
+; (this could use ftl, but conserving table space)
+init_sliding
+  mov blocked,A<->B
+  clr A
+  mov A,[B]         ; clear blocked flag
+  mov target,A<->B
+  mov D,A           ; D is from square on entry
+  mov A,[B]         ; [target] = from square
+  mov E,A           ; E=player|piece
+  lodig A           ; isolate piece
+  addn BISHOP,A     ; test if piece==BISHOP
+  jz init_dir_5     ; bishop starts from diagonal moves
+  swap C,A
+  inc A             ; start from d=1 (orthogonal moves)
+  swap A,C
+  jmp next_bqrk_move
+init_dir_5
+  swap C,A
+  add 5,A           ; start from d=5 (diagonal moves)
+  swap A,C
+  jmp next_bqrk_move
+
+next_dir_b
+  clr A
+  mov A,[B]         ; clear blocked flag
+; select next dir index based on piece type
+next_dir
+  mov from,A<->B
+  mov [B],A<->D     ; restore D=[from]
+  mov target,A<->B
+  mov D,A
+  mov A,[B]         ; [target]=D
+  mov E,A           ; E=player|piece
+  swap C,A
+  inc A             ; next direction
+  swap A,C
+  lodig A           ; isolate piece
+  addn ROOK,A       ; test if piece==ROOK
+  jz next_dir_rook  ; special case for rook
+  jmp next_bqrk_move
+next_dir_rook
+  mov C,A
+  addn 5,A          ; test if dir is diagonal
+  jz next_square    ; if so, done with rook moves
+  jmp next_bqrk_move

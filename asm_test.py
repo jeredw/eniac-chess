@@ -176,5 +176,34 @@ class TestMoveGen(unittest.TestCase):
     moves = self.computeMoves('8/8/8/8/8/1p6/2p5/N7 w - - 0 1')
     self.assertEqual(moves, ['1123', '1132'])
 
+  def testBishopAtE4(self):
+    moves = self.computeMoves('8/8/8/8/4B3/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4554', '4563', '4572', '4581',
+                             '4556', '4567', '4578',
+                             '4534', '4523', '4512',
+                             '4536', '4527', '4518'])
+
+  def testQueenAtE4(self):
+    moves = self.computeMoves('8/8/8/8/4Q3/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4546', '4547', '4548',
+                             '4544', '4543', '4542', '4541',
+                             '4555', '4565', '4575', '4585',
+                             '4535', '4525', '4515',
+                             '4554', '4563', '4572', '4581',
+                             '4556', '4567', '4578',
+                             '4534', '4523', '4512',
+                             '4536', '4527', '4518'])
+
+  def testKingAtE4(self):
+    moves = self.computeMoves('8/8/8/8/4K3/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4546', '4544', '4555', '4535', '4554', '4556', '4534', '4536'])
+
+  def testRookAtE4(self):
+    moves = self.computeMoves('8/8/8/8/4R3/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4546', '4547', '4548',
+                             '4544', '4543', '4542', '4541',
+                             '4555', '4565', '4575', '4585',
+                             '4535', '4525', '4515'])
+
 if __name__ == "__main__":
   unittest.main()
