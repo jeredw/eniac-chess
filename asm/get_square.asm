@@ -63,7 +63,7 @@ gs_other
   jz gs_wrook
 
 ; there is a piece here and it's not a king or white rook, must be black rook
-  add 10,A      ; A+=BLACK
+  mov 10,A      ; A=BLACK
 
 gs_wrook        ; A=0=WHITE if we jump here
   add ROOK,A

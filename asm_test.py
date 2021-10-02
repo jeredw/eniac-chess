@@ -183,6 +183,30 @@ class TestMoveGen(unittest.TestCase):
                              '4534', '4523', '4512',
                              '4536', '4527', '4518'])
 
+  def testBishopAtD4_Blocked(self):
+    moves = self.computeMoves('8/8/8/2P1P3/3B4/2P1P3/8/8 w - - 0 1')
+    self.assertEqual(moves, ['3343', '3545', '5363', '5565'])
+
+  def testBishopAtD4_Capture1(self):
+    moves = self.computeMoves('8/8/1p6/4P3/3B4/2P1P3/8/8 w - - 0 1')
+    self.assertEqual(moves, ['3343', '3545',
+                             '4453', '4462',
+                             '5565'])
+
+  def testBishopAtD4_Capture2(self):
+    moves = self.computeMoves('8/8/1p6/4p3/3B4/2P1P3/8/8 w - - 0 1')
+    self.assertEqual(moves, ['3343', '3545',
+                             '4453', '4462', '4455'])
+
+  def testBishopAtD4_Capture3(self):
+    moves = self.computeMoves('8/8/1p6/4p3/3B4/2P1p3/8/8 w - - 0 1')
+    self.assertEqual(moves, ['3343',
+                             '4453', '4462', '4455', '4435'])
+
+  def testBishopAtD4_Capture4(self):
+    moves = self.computeMoves('8/8/8/2p1p3/3B4/2p1p3/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4453', '4455', '4433', '4435'])
+
   def testQueenAtE4(self):
     moves = self.computeMoves('8/8/8/8/4Q3/8/8/8 w - - 0 1')
     self.assertEqual(moves, ['4546', '4547', '4548',
@@ -194,9 +218,25 @@ class TestMoveGen(unittest.TestCase):
                              '4534', '4523', '4512',
                              '4536', '4527', '4518'])
 
+  def testQueenAtD4_Blocked(self):
+    moves = self.computeMoves('8/8/8/2PPP3/2PQP3/2PPP3/8/8 w - - 0 1')
+    self.assertEqual(moves, ['5363', '5464', '5565'])
+
+  def testQueenAtD4_Capture8(self):
+    moves = self.computeMoves('8/8/8/2ppp3/2pQp3/2ppp3/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4445', '4443', '4454', '4434', '4453', '4455', '4433', '4435'])
+
   def testKingAtE4(self):
     moves = self.computeMoves('8/8/8/8/4K3/8/8/8 w - - 0 1')
     self.assertEqual(moves, ['4546', '4544', '4555', '4535', '4554', '4556', '4534', '4536'])
+
+  def testKingAtD4_Blocked(self):
+    moves = self.computeMoves('8/8/8/2PPP3/2PKP3/2PPP3/8/8 w - - 0 1')
+    self.assertEqual(moves, ['5363', '5464', '5565'])
+
+  def testKingAtD4_Capture8(self):
+    moves = self.computeMoves('8/8/8/2ppp3/2pKp3/2ppp3/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4445', '4443', '4454', '4434', '4453', '4455', '4433', '4435'])
 
   def testRookAtE4(self):
     moves = self.computeMoves('8/8/8/8/4R3/8/8/8 w - - 0 1')
@@ -204,6 +244,47 @@ class TestMoveGen(unittest.TestCase):
                              '4544', '4543', '4542', '4541',
                              '4555', '4565', '4575', '4585',
                              '4535', '4525', '4515'])
+
+  def testRookAtE4_Black(self):
+    moves = self.computeMoves('8/8/8/8/4r3/8/8/8 b - - 0 1')
+    self.assertEqual(moves, ['4546', '4547', '4548',
+                             '4544', '4543', '4542', '4541',
+                             '4555', '4565', '4575', '4585',
+                             '4535', '4525', '4515'])
+
+  def testRookAtD4_Blocked(self):
+    moves = self.computeMoves('8/8/8/3P4/2PRP3/3P4/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4353', '4555', '5464'])
+
+  def testRookAtD4_Capture4(self):
+    moves = self.computeMoves('8/8/8/3p4/2pRp3/3p4/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4445', '4443', '4454', '4434'])
+
+  def testInitialPosition_White(self):
+    moves = self.computeMoves('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1')
+    self.assertEqual(moves, ['1231', '1233',
+                             '1736', '1738',
+                             '2131', '2141',
+                             '2232', '2242',
+                             '2333', '2343',
+                             '2434', '2444',
+                             '2535', '2545',
+                             '2636', '2646',
+                             '2737', '2747',
+                             '2838', '2848'])
+
+  def testInitialPosition_Black(self):
+    moves = self.computeMoves('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b - - 0 1')
+    self.assertEqual(moves, ['7161', '7151',
+                             '7262', '7252',
+                             '7363', '7353',
+                             '7464', '7454',
+                             '7565', '7555',
+                             '7666', '7656',
+                             '7767', '7757',
+                             '7868', '7858',
+                             '8261', '8263',
+                             '8766', '8768'])
 
 if __name__ == "__main__":
   unittest.main()
