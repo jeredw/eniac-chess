@@ -25,7 +25,7 @@ def usage():
 
 # These REs are all we need for the grammar of the assembly language.
 COMMENT = re.compile(r";.*")
-LINE = re.compile(r"""^(?P<label>\w*)\s*  # optional label
+LINE = re.compile(r"""^(?P<label>\.?\w*)\s*  # optional label
                        (?P<op>\.?\w*)\s*  # directive or mnemonic
                        (?P<arg>.*)$       # optional argument""", re.X)
 
@@ -117,8 +117,30 @@ class Context(object):
     self.had_fatal_error = False
     self.isa = None  # object that knows how to assemble the selected isa
     self.isa_version = ''
+    self.base_label = ''  # last base label, for .local labels
     self.labels = {}
     self.file_stack = []  # (dirname, filename, line_number)
+
+  def _qualify_label(self, name):
+    if name.startswith('.'):
+      if not self.base_label:
+        raise SyntaxError(f"unknown base label for local label '{name}'")
+      return self.base_label + name
+    return name
+
+  def update_base_label(self, name):
+    if not name.startswith('.'):
+      self.base_label = name
+
+  def lookup_label(self, name):
+    qualified_name = self._qualify_label(name)
+    return self.labels[qualified_name]
+
+  def define_label(self, name, value):
+    qualified_name = self._qualify_label(name)
+    if qualified_name in self.labels:
+      raise SyntaxError(f"redefinition of '{qualified_name}'")
+    self.labels[qualified_name] = value
 
   def push_file(self):
     self.file_stack.append((self.dirname, self.filename, self.line_number))
@@ -323,7 +345,7 @@ class PrimitiveParsing(object):
       # Labels aren't resolved yet on the first pass.
       return 0
     try:
-      address = self.context.labels[arg]
+      address = self.context.lookup_label(arg)
       if address < 0:
         self.out.error(f"expecting address but got negative label '{arg}'")
         return 0
@@ -357,7 +379,7 @@ class PrimitiveParsing(object):
         value += sign * int(token, base=10)
       elif self.context.assembler_pass == 1 or require_defined:
         try:
-          value += sign * self.context.labels[token]
+          value += sign * self.context.lookup_label(token)
         except KeyError:
           self.out.error(f"unrecognized label '{token}'")
     if value < -100:
@@ -408,17 +430,22 @@ class Builtins(PrimitiveParsing):
     except KeyError:
       self.out.error(f"unrecognized directive '{op}'")
 
+  def _define_label(self, label, value):
+    try:
+      self.context.define_label(label, value)
+    except SyntaxError as e:
+      self.out.error(str(e))
+
   def _align(self, label, op, arg):
     """Forces output to the start of a function table row."""
     if arg != "":
       self.out.error(f"invalid .align argument '{arg}'")
       return
     self.out.pad_to_new_row()
-    if self.context.assembler_pass == 0:
-      if label in self.context.labels:
-        self.out.error(f"redefinition of '{label}'")
-        return
-      if label: self.context.labels[label] = self.out.output_row
+    if label:
+      self.context.update_base_label(label)
+      if self.context.assembler_pass == 0:
+        self._define_label(label, self.out.output_row)
 
   def _dw(self, label, op, arg):
     """Emits a literal value or values at the current output position."""
@@ -440,14 +467,10 @@ class Builtins(PrimitiveParsing):
     if not label:
       self.out.error("expecting label for .table")
     if self.context.assembler_pass == 0:
-      if label in self.context.labels:
-        self.out.error(f"redefinition of '{label}'")
-        return
       base = self.out.table_output_row
-      self.context.labels[label] = base
+      self._define_label(label, base)
     else:
-      assert label in self.context.labels
-      base = self.context.labels[label]
+      base = self.context.lookup_label(label)
     for i, value in enumerate(values):
       word = self._immediate(value)
       self.out.emit_table_value(base + i, word, comment=f"{op} {300 + base}[{i}]={word}")
@@ -458,16 +481,14 @@ class Builtins(PrimitiveParsing):
       if not label:
         self.out.error("missing label for '.equ'")
         return
-      if label in self.context.labels:
-        self.out.error(f"redefinition of '{label}'")
-        return
       # argument may be a label to permit things like
       # rook   .equ 1
       # bishop .equ 2
       # last_piece .equ bishop
       # Forward references aren't allowed because they'd require another
       # assembly pass.
-      self.context.labels[label] = self._immediate(arg, require_defined=True)
+      value = self._immediate(arg, require_defined=True)
+      self._define_label(label, value)
 
   def _isa(self, label, op, arg):
     """Selects what isa to use."""
@@ -482,7 +503,8 @@ class Builtins(PrimitiveParsing):
   def _org(self, label, op, arg):
     """Sets output position for the assembler."""
     self.out.org(self._address(arg))
-    if label: self.context.labels[label] = self.out.output_row
+    if self.context.assembler_pass == 0 and label:
+      self._define_label(label, self.out.output_row)
 
 
 class V4(PrimitiveParsing):

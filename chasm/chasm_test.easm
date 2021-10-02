@@ -574,7 +574,7 @@ s f1.RB40L2 9
 s f1.RB40L1 9
 
 # address=141  PC=0941
-s f1.RA41L6 7  # jmp force # force=141
+s f1.RA41L6 7  # jmp .foo # .foo=141
 s f1.RA41L5 3
 s f1.RA41L4 4
 s f1.RA41L3 0
@@ -586,6 +586,20 @@ s f1.RB41L4 9
 s f1.RB41L3 9
 s f1.RB41L2 9
 s f1.RB41L1 9
+
+# address=142  PC=0942
+s f1.RA42L6 7  # jmp .foo # .foo=142
+s f1.RA42L5 3
+s f1.RA42L4 4
+s f1.RA42L3 1
+s f1.RA42L2 9
+s f1.RA42L1 9
+s f1.RB42L6 9
+s f1.RB42L5 9
+s f1.RB42L4 9
+s f1.RB42L3 9
+s f1.RB42L2 9
+s f1.RB42L1 9
 
 # address=308  PC=9908
 s f3.RA8L6 0  # .table 308[0]=1

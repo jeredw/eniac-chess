@@ -177,7 +177,11 @@ test_each_instruction
   .align
   clrall
 force
-  jmp force
+.foo
+  jmp .foo
+foo
+.foo
+  jmp .foo
 
 target .org 99
 faraway .org 300
