@@ -97,14 +97,7 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   jn next_square    ; nope, can't push 2
   mov D,A           ; A=from square
   addn 20,A         ; compute target square, two forward
-  jsr test_empty    ; test if square is already occupied
-  jz .push2_black_ok; zero means no piece in square
-  jmp next_square   ; if blocked, can't push1 or push2
-
-.push2_black_ok
-  mov D,A           ; A=from square
-  addn 20,A         ; compute target square, two forward
-  jmp output_move
+  jmp .check_move
 
 .push2_white
   mov D,A           ; A=from square
@@ -112,14 +105,7 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   jn next_square    ; nope, can't push 2
   mov D,A           ; A=from square
   add 20,A          ; compute target square, two forward
-  jsr test_empty    ; test if square is already occupied
-  jz .push2_white_ok; zero means no piece in square
-  jmp next_square   ; if blocked, can't push1 or push2
-
-.push2_white_ok
-  mov D,A           ; A=from square
-  add 20,A          ; compute target square, two forward
-  jmp output_move
+  jmp .check_move
 
 .capture_left       ; capture -1 file
   mov E,A
@@ -162,21 +148,20 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   add pawndir,A
   ftl A             ; +10 for white, -10 for black
   add D,A           ; compute target square, one forward
-  ; NOTE we don't need to bounds check the target square because a move to
-  ; the last rank will always be treated as a promotion to queen, so pawns
-  ; should never be on the last rank.
-  jsr test_empty    ; test if square is already occupied
-  jz .push1_ok      ; zero means no piece in square
-  jmp next_square   ; if blocked, can't push1 or push2
+  ; fallthrough
 
-.push1_ok
-  mov E,A           ; XXX recompute target square (out of regs)
-  swapdig A
-  lodig A           ; player index
-  add pawndir,A
-  ftl A             ; +10 for white, -10 for black
-  add D,A           ; compute target square, one forward
-  jmp output_move
+.check_move
+  jil next_pawn_move; if off the board, no go
+  swap A,D          ; D=save target square
+  mov target,A<->B  ;
+  swap D,A          ;
+  mov A,[B]         ; [target]=target square
+  jsr get_square    ; get piece currently on target square
+  jz move_ok
+  mov 99,A          ; skip push2 if push1 fails
+  swap A,C
+  jmp move_bad
+
 
 ; knights
 ; C=movestate, D=from square, E=player_piece
