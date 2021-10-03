@@ -1,40 +1,42 @@
 ; - Movegen -
-  mov 11,A          ; A = square = 11, begin board scan here
+  mov 11,A          ; A=square=11, begin board scan here
 
 try_square          ; A=square
   jsr get_square    ; what's here?
   jz next_square    ; empty?
-  ; does the piece belong to the current player?
-  swap A,C          ; C=player_piece on square
-  mov player_piece,A<->B ; E=saved [player_piece]
-  mov [B],A<->E
-  mov E,A           ; A=current player_piece
+  ; there is a piece here so A=10*player + piece.  we need to check if it
+  ; belongs to the current player, tracked in [from_piece]=10*cur_player + ?
+  ; do so by computing (10*cur_player + 9) - (10*player + piece) and checking
+  ; that the high digit is 0
+  ; TODO consider storing piece_player instead to reduce swapdigs?
+  swap D,A          ; A=square, D=player_piece on square
+  swap A,C          ; C=square
+  mov from_piece,A<->B
+  mov [B],A         ; A=current player_piece
+  swapdig A         ;
+  lodig A           ; isolate current player
+  swapdig A         ; get 10*current player + 0
+  add 9,A           ; prevent sub from borrowing
+  sub D,A           ; A -= player_piece on square
   swapdig A
-  lodig A           ; A=player to move
-  jz .white         ; white to move?
-;.black             ; black to move
-  mov C,A
-  swapdig A
-  lodig A           ; A=piece color
-  jz next_square    ; if piece is white, skip
-  jmp .ours
-.white              ; white to move
-  mov C,A
-  swapdig A
-  lodig A           ; A=piece color
-  jz .ours          ; if piece is white, ours
-  jmp next_square
-.ours
+  lodig A           ; isolate player difference
+  jz .ours          ; if 0, piece is ours
   swap C,A
-  swap A,E          ; E=player_piece here
+  swap A,D          ; D=square
+  jmp next_square   ; not our piece
+.ours
+  swap D,A
+  mov A,[B]         ; [from_piece]=player_piece on square
+  swap A,E          ; E=from_piece
   mov from,A<->B
-  mov D,A
-  mov A,[B]         ; [from]=current square
+  swap C,A
+  mov A,[B]         ; [from]=square
+  swap A,D          ; D=square
   clr A
   swap A,C          ; C=movestate=0
   jmp next_piece_move
 
-next_square         ; D=square, E=player_piece
+next_square         ; D=square
   swap A,D          
   inc A             ; advance one square right
   jil .next_line
@@ -46,7 +48,7 @@ next_square         ; D=square, E=player_piece
   jmp try_square
 
 next_piece_move           
-  ; A=?, B=?, C=movestate, D=from square, E=player_piece
+  ; A=?, B=?, C=movestate, D=from square, E=from player_piece
   mov C,A           ; movestate == 99?
   inc A
   jz next_square    ; yes, no more moves from this piece
@@ -64,7 +66,7 @@ next_piece_move
 ;  1 - capture right
 ;  2 - push 1
 ;  3 - push 2
-next_pawn_move      ; C=movestate, D=square, E=player_piece
+next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   mov C,A           ; movestate += 1
   inc A
   swap A,C
@@ -89,34 +91,34 @@ next_pawn_move      ; C=movestate, D=square, E=player_piece
   jz .push2_white
 
 ;.push2_black
-  mov D,A           ; A=square
-  addn 70,A         ; square >= 70? 
+  mov D,A           ; A=from square
+  addn 70,A         ; from square >= 70? 
   flipn
   jn next_square    ; nope, can't push 2
-  mov D,A           ; A=square
-  addn 20,A         ; compute destination square, two forward
+  mov D,A           ; A=from square
+  addn 20,A         ; compute target square, two forward
   jsr test_empty    ; test if square is already occupied
   jz .push2_black_ok; zero means no piece in square
   jmp next_square   ; if blocked, can't push1 or push2
 
 .push2_black_ok
-  mov D,A           ; A=square
-  addn 20,A         ; compute destination square, two forward
+  mov D,A           ; A=from square
+  addn 20,A         ; compute target square, two forward
   jmp output_move
 
 .push2_white
-  mov D,A           ; A=square
-  addn 30,A         ; square < 30? 
+  mov D,A           ; A=from square
+  addn 30,A         ; from square < 30? 
   jn next_square    ; nope, can't push 2
-  mov D,A           ; A=square
-  add 20,A          ; compute destination square, two forward
+  mov D,A           ; A=from square
+  add 20,A          ; compute target square, two forward
   jsr test_empty    ; test if square is already occupied
   jz .push2_white_ok; zero means no piece in square
   jmp next_square   ; if blocked, can't push1 or push2
 
 .push2_white_ok
-  mov D,A           ; A=square
-  add 20,A          ; compute destination square, two forward
+  mov D,A           ; A=from square
+  add 20,A          ; compute target square, two forward
   jmp output_move
 
 .capture_left       ; capture -1 file
@@ -125,7 +127,7 @@ next_pawn_move      ; C=movestate, D=square, E=player_piece
   lodig A           ; player index
   add pawndir,A
   ftl A             ; +10 for white, -10 for black
-  add D,A           ; compute destination square
+  add D,A           ; compute target square
   dec A             ; -1 file
   jmp .check_capture
 
@@ -135,7 +137,7 @@ next_pawn_move      ; C=movestate, D=square, E=player_piece
   lodig A           ; player index
   add pawndir,A
   ftl A             ; +10 for white, -10 for black
-  add D,A           ; compute destination square
+  add D,A           ; compute target square
   inc A             ; +1 file
   ; fallthrough
 
@@ -159,8 +161,8 @@ next_pawn_move      ; C=movestate, D=square, E=player_piece
   lodig A           ; player index
   add pawndir,A
   ftl A             ; +10 for white, -10 for black
-  add D,A           ; compute destination square, one forward
-  ; NOTE we don't need to bounds check the destination square because a move to
+  add D,A           ; compute target square, one forward
+  ; NOTE we don't need to bounds check the target square because a move to
   ; the last rank will always be treated as a promotion to queen, so pawns
   ; should never be on the last rank.
   jsr test_empty    ; test if square is already occupied
@@ -173,7 +175,7 @@ next_pawn_move      ; C=movestate, D=square, E=player_piece
   lodig A           ; player index
   add pawndir,A
   ftl A             ; +10 for white, -10 for black
-  add D,A           ; compute destination square, one forward
+  add D,A           ; compute target square, one forward
   jmp output_move
 
 ; knights

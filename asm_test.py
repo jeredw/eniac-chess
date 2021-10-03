@@ -11,7 +11,7 @@ class TestMoveGen(unittest.TestCase):
   def simulate(self, deck):
     with open('/tmp/test.deck', 'w') as f:
       f.write(deck)
-    result = run('./chsim/chsim -t 100000 -f /tmp/test.deck movegen_test.e', shell=True, stdin=PIPE, stdout=PIPE)
+    result = run('./chsim/chsim -t 120000 -f /tmp/test.deck movegen_test.e', shell=True, stdin=PIPE, stdout=PIPE)
     self.assertEqual(result.returncode, 0)
     return result.stdout.decode('utf-8').strip().split()
 
