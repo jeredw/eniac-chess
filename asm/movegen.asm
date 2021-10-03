@@ -176,6 +176,7 @@ next_knight_move
   ftl A             ; lookup move delta
   add D,A           ; compute the target square
   jil next_knight_move ; off the board means no go
+  ; fallthrough
 
 ; output move if target square is empty or capture
 ; On entry

@@ -17,26 +17,13 @@ Doing this involves multiple layers of tools and cross-validation.
 | File                     | Description                                     |
 | ------------------------ | ----------------------------------------------- |
 | `Makefile`               | `make` to build everything, `make test` to test |
-| `vm-instruction-set.txt` | A description of VM opcodes and accumulator layout      | 
-| `easm.py`                | An ENIAC "patch assembler" which converts `.easm` we code into `.e` the simulator runs |        
+| `isa.md`                 | A description of VM opcodes and accumulator layout |
+| `easm.py`                | An ENIAC "patch assembler" which converts `.easm` we code into `.e` the simulator runs |
 | `chessvm.easm`           | VM source code, written in the custom patch assembly language |
 | `chessvm.e`              | Assembled VM (output of `easm` on `chessvm.easm`). Effectively a [netlist](https://en.wikipedia.org/wiki/Netlist) for the VM which the simulator can run. |
+| `chess.asm`              | Chess program written in VM assembly |
 | `chasm.py`               | Assembler targeting chess VM. Turns `.asm` into object code representing function table switch settings -- the ENIAC's "ROM" |
-| `chsim.cc`     | Simulator for the chess VM, for efficient development and cross-validation of the `.easm` implementation |
-| `model/`       | High level models for the chess engine, written in Python to test tiny chess algorithms |
-| `chester.asm`  | Chess program written in VM assembly |
-| `chester.e`    | Chess for the ENIAC. Result of concatenating `chessvm.e` (VM patch settings) with output of `chasm` on `chester.asm` (code in function tables) |
+| `chsim.cc`               | Simulator for the chess VM, for efficient development and cross-validation of the `.easm` implementation |
+| `model/`                 | High level models for the chess engine, written in Python to test tiny chess algorithms |
 
-We then run `chester.e` on an [ENIAC simulator](https://www.github.com/jeredw/eniacsim).
-
-# Playing with SCID
-
-`model/uci_driver.py` communicates between UCI-compatible Chess software like
-[SCID vs Mac](http://scidvspc.sourceforge.net/#toc3) and engines wrapped by the
-`uciengine.UCIEngine` class.  To configure SCID, go to Tools > Analysis Engines
-and press New.  Then set Command to `/usr/local/bin/python3`, Directory to
-`/.../eniac-chess/model`, and parameters to `uci_driver.py`.  (In the future,
-different engines will be selectable by command-line arguments.)
-
-To play games directly in SCID, select Play > Computer - UCI Engine.  No UCI
-options are supported yet, so best to uncheck most everything.
+We then run `chessvm.e` on an [ENIAC simulator](https://www.github.com/jeredw/eniacsim).
