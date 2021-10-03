@@ -28,7 +28,7 @@ from   .equ 36
 ; Current movegen target square
 target .equ 37
 ; Current player (high digit) and piece type (low digit)
-pp     .equ 38
+player_piece .equ 38
 ; Flag that current target square is blocked, to stop sliding moves
 blocked .equ 39
 

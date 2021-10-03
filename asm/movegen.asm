@@ -1,32 +1,32 @@
 ; - Movegen -
   mov 11,A          ; A = square = 11, begin board scan here
 
-try_sq              ; A=square
+try_square          ; A=square
   jsr get_square    ; what's here?
   jz next_square    ; empty?
   ; does the piece belong to the current player?
-  swap A,C          ; C=pp on square
-  mov pp,A<->B      ; E=saved [pp]
+  swap A,C          ; C=player_piece on square
+  mov player_piece,A<->B ; E=saved [player_piece]
   mov [B],A<->E
-  mov E,A           ; A=current pp
+  mov E,A           ; A=current player_piece
   swapdig A
   lodig A           ; A=player to move
-  jz try_sq_w       ; white to move?
-;try_sq_b           ; black to move
+  jz .white         ; white to move?
+;.black             ; black to move
   mov C,A
   swapdig A
   lodig A           ; A=piece color
   jz next_square    ; if piece is white, skip
-  jmp try_sq_ours
-try_sq_w            ; white to move
+  jmp .ours
+.white              ; white to move
   mov C,A
   swapdig A
   lodig A           ; A=piece color
-  jz try_sq_ours    ; if piece is white, ours
+  jz .ours          ; if piece is white, ours
   jmp next_square
-try_sq_ours
+.ours
   swap C,A
-  swap A,E          ; E=pp here
+  swap A,E          ; E=player_piece here
   mov from,A<->B
   mov D,A
   mov A,[B]         ; [from]=current square
@@ -34,19 +34,19 @@ try_sq_ours
   swap A,C          ; C=movestate=0
   jmp next_piece_move
 
-next_square         ; D=square, E=pp
+next_square         ; D=square, E=player_piece
   swap A,D          
   inc A             ; advance one square right
-  jil next_line
-  jmp try_sq
+  jil .next_line
+  jmp try_square
 
-next_line
+.next_line
   add 2,A           ; advance to left of next rank, e.g. 19->21
   jil done_squares  ; finished scanning squares for moves?
-  jmp try_sq
+  jmp try_square
 
 next_piece_move           
-  ; A=?, B=?, C=movestate, D=from square, E=pp
+  ; A=?, B=?, C=movestate, D=from square, E=player_piece
   mov C,A           ; movestate == 99?
   inc A
   jz next_square    ; yes, no more moves from this piece
@@ -64,31 +64,31 @@ next_piece_move
 ;  1 - capture right
 ;  2 - push 1
 ;  3 - push 2
-next_pawn_move      ; C=movestate, D=square, E=pp
+next_pawn_move      ; C=movestate, D=square, E=player_piece
   mov C,A           ; movestate += 1
   inc A
   swap A,C
 
   ; A=movestate before increment
-  jz pawn_capture_l ; try capturing -1 file
+  jz .capture_left  ; try capturing -1 file
   dec A
-  jz pawn_capture_r ; try capturing +1 file
+  jz .capture_right ; try capturing +1 file
   dec A
-  jz push1          ; try advancing 1 square
+  jz .push1         ; try advancing 1 square
 
 ; try advancing 2 squares
 ; this is only ever reached if push1 is allowed, so the square directly ahead
 ; of the pawn is empty, and we only need to check that the pawn is in the
 ; starting rank and the square +2 away is empty
-;push2
+;.push2
   mov 99,A          ; no more pawn moves after push2
   swap A,C
-  mov E,A           ; E=pp
+  mov E,A           ; E=player_piece
   swapdig A
   lodig A           ; A=player
-  jz push2_white
+  jz .push2_white
 
-; push2_black
+;.push2_black
   mov D,A           ; A=square
   addn 70,A         ; square >= 70? 
   flipn
@@ -96,30 +96,30 @@ next_pawn_move      ; C=movestate, D=square, E=pp
   mov D,A           ; A=square
   addn 20,A         ; compute destination square, two forward
   jsr test_empty    ; test if square is already occupied
-  jz push2_black_ok ; zero means no piece in square
+  jz .push2_black_ok; zero means no piece in square
   jmp next_square   ; if blocked, can't push1 or push2
 
-push2_black_ok
+.push2_black_ok
   mov D,A           ; A=square
   addn 20,A         ; compute destination square, two forward
   jmp output_move
 
-push2_white
+.push2_white
   mov D,A           ; A=square
   addn 30,A         ; square < 30? 
   jn next_square    ; nope, can't push 2
   mov D,A           ; A=square
   add 20,A          ; compute destination square, two forward
   jsr test_empty    ; test if square is already occupied
-  jz push2_white_ok ; zero means no piece in square
+  jz .push2_white_ok; zero means no piece in square
   jmp next_square   ; if blocked, can't push1 or push2
 
-push2_white_ok
+.push2_white_ok
   mov D,A           ; A=square
   add 20,A          ; compute destination square, two forward
   jmp output_move
 
-pawn_capture_l      ; capture -1 file
+.capture_left       ; capture -1 file
   mov E,A
   swapdig A
   lodig A           ; player index
@@ -127,9 +127,9 @@ pawn_capture_l      ; capture -1 file
   ftl A             ; +10 for white, -10 for black
   add D,A           ; compute destination square
   dec A             ; -1 file
-  jmp check_pawn_capture
+  jmp .check_capture
 
-pawn_capture_r      ; move_step 0,1 = captures
+.capture_right      ; move_step 0,1 = captures
   mov E,A
   swapdig A
   lodig A           ; player index
@@ -137,11 +137,12 @@ pawn_capture_r      ; move_step 0,1 = captures
   ftl A             ; +10 for white, -10 for black
   add D,A           ; compute destination square
   inc A             ; +1 file
+  ; fallthrough
 
 ; like check_square but specific to pawn captures
 ; (pawns can only move diagonally when capturing, so can't move to an empty
 ; square in that case)
-check_pawn_capture
+.check_capture
   jil next_pawn_move; if off the board, no go
   swap A,D          ; D=save target square
   mov target,A<->B  ;
@@ -152,7 +153,7 @@ check_pawn_capture
   jmp move_if_capture
 
 ; try advancing 1 square
-push1
+.push1
   mov E,A
   swapdig A
   lodig A           ; player index
@@ -163,10 +164,10 @@ push1
   ; the last rank will always be treated as a promotion to queen, so pawns
   ; should never be on the last rank.
   jsr test_empty    ; test if square is already occupied
-  jz push1_ok       ; zero means no piece in square
+  jz .push1_ok      ; zero means no piece in square
   jmp next_square   ; if blocked, can't push1 or push2
 
-push1_ok
+.push1_ok
   mov E,A           ; XXX recompute target square (out of regs)
   swapdig A
   lodig A           ; player index
@@ -176,7 +177,7 @@ push1_ok
   jmp output_move
 
 ; knights
-; C=movestate, D=from square, E=pp
+; C=movestate, D=from square, E=player_piece
 next_knight_move
   mov C,A           ; movestate is ndir table offset
   addn 80,A
@@ -238,17 +239,17 @@ move_bad
 ; [target] is the current square along dir
 next_bqrk_move
   mov C,A
-  jz init_sliding   ; d=0 means initialize
+  jz .init          ; d=0 means initialize
   mov blocked,A<->B ;
   mov [B],A         ; test if last move was blocked
-  jz not_blocked    ; if not, continue sliding
-  jmp next_dir_b    ; else reset blocked flag+change dir
-not_blocked
+  jz .not_blocked   ; if not, continue sliding
+  jmp .next_dir_b   ; else reset blocked flag+change dir
+.not_blocked
   mov E,A
   lodig A           ; isolate piece
   addn KING,A       ; test if piece==KING
-  jz block_king
-do_bqrk_move
+  jz .block_king
+.move
   mov target,A<->B  ;
   mov [B],A<->D     ; D=cur square
   mov C,A           ; A=movestate (d)
@@ -256,18 +257,18 @@ do_bqrk_move
   ftl A             ; lookup move delta for dir
   jz next_square    ; 0 means past last dir, done
   add D,A           ; A=D(square) + A(delta)
-  jil next_dir      ; if off board, next direction
+  jil .next_dir     ; if off board, next direction
   jmp check_square  ; output move if valid
 
 ; always flag king moves as blocked so they only move one step
-block_king
+.block_king
   inc A
   mov A,[B]         ; set [B]=[blocked] to a nonzero value
-  jmp do_bqrk_move
+  jmp .move
 
 ; set starting dir index based on piece type
 ; (this could use ftl, but conserving table space)
-init_sliding
+.init
   mov blocked,A<->B
   clr A
   mov A,[B]         ; clear blocked flag
@@ -277,22 +278,22 @@ init_sliding
   mov E,A           ; E=player|piece
   lodig A           ; isolate piece
   addn BISHOP,A     ; test if piece==BISHOP
-  jz init_dir_5     ; bishop starts from diagonal moves
+  jz .start_at_5    ; bishop starts from diagonal moves
   swap C,A
   inc A             ; start from d=1 (orthogonal moves)
   swap A,C
   jmp next_bqrk_move
-init_dir_5
+.start_at_5
   swap C,A
   add 5,A           ; start from d=5 (diagonal moves)
   swap A,C
   jmp next_bqrk_move
 
-next_dir_b
+.next_dir_b
   clr A
   mov A,[B]         ; clear blocked flag
 ; select next dir index based on piece type
-next_dir
+.next_dir
   mov from,A<->B
   mov [B],A<->D     ; restore D=[from]
   mov target,A<->B
@@ -304,9 +305,9 @@ next_dir
   swap A,C
   lodig A           ; isolate piece
   addn ROOK,A       ; test if piece==ROOK
-  jz next_dir_rook  ; special case for rook
+  jz .rook          ; special case for rook
   jmp next_bqrk_move
-next_dir_rook
+.rook
   mov C,A
   addn 5,A          ; test if dir is diagonal
   jz next_square    ; if so, done with rook moves
