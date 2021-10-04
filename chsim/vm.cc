@@ -112,8 +112,9 @@ extern "C" int vm_import(VM* vm, ENIAC* eniac) {
 
   if (!vm->ft_initialized) {
     for (int t = 0; t < 3; t++) {
-      for (int r = 2; r < 104; r++) {
-        int offset = (t+1)*100 + (r-2);
+      // Index 0 -> row -2, so indices 4..104 correspond to 2..101.
+      for (int r = 4; r < 104; r++) {
+        int offset = (t+1)*100 + (r-4);
         int b_sign = t == 2 ? eniac->ft[2][r][13] : 0;
         int i1_digits = 10 * eniac->ft[t][r][1] + eniac->ft[t][r][2];
         vm->function_table[offset][0] = b_sign ? i1_digits - 100 : i1_digits;
@@ -360,7 +361,7 @@ static void step_one_instruction(VM* vm) {
       break;
     case 14: { // ftl A
       int offset = drop_sign(vm->a);
-      if (!(8 <= offset && offset <= 99)) {
+      if (!(6 <= offset && offset <= 99)) {
         vm->error |= ERROR_ILLEGAL_FTL;
         vm->status |= HALT;
         break;

@@ -182,11 +182,11 @@ class TestOutput(AssemblerTestCase):
 
   def testEmitTableValue(self):
     self.context.assembler_pass = 1
-    self.out.emit_table_value(8, 42)
-    self.out.emit_table_value(9, 43)
-    self.out.emit_table_value(10, 44)
+    self.out.emit_table_value(6, 42)
+    self.out.emit_table_value(7, 43)
+    self.out.emit_table_value(8, 44)
     self.assertFalse(self.out.errors)
-    self.assertOutputValues({(308, 0): 42, (309, 0): 43, (310, 0): 44})
+    self.assertOutputValues({(306, 0): 42, (307, 0): 43, (308, 0): 44})
 
   def testEmitTableValue_ErrorAddress(self):
     self.context.assembler_pass = 1
@@ -201,14 +201,14 @@ class TestOutput(AssemblerTestCase):
 
   def testGet(self):
     self.context.assembler_pass = 1
-    for i in range(6 * 200 + 5 * 92):
+    for i in range(6 * 200 + 5 * 94):
       self.out.emit(i % 100)
     self.assertFalse(self.out.errors)
     self.assertEqual(self.out.output_row, 400)
     self.assertEqual(self.out.word_of_output_row, 0)
     self.assertEqual(self.out.get(1, 42, 0), Value(word=52, comment=""))
     self.assertEqual(self.out.get(2, 42, 5), Value(word=57, comment=""))
-    self.assertEqual(self.out.get(3, 42, 1), Value(word=70, comment=""))
+    self.assertEqual(self.out.get(3, 42, 1), Value(word=80, comment=""))
 
   def testFunctionTable(self):
     self.out.output_row = 236
@@ -374,8 +374,8 @@ class TestBuiltins(AssemblerTestCase):
     self.context.assembler_pass = 1
     self.builtins.dispatch("foo", ".table", "42, stuff")
     self.assertFalse(self.out.errors)
-    self.assertEqual(self.context.labels, {"stuff": 43, "foo": 8})
-    self.assertOutputValues({(308, 0): 42, (309, 0): 43})
+    self.assertEqual(self.context.labels, {"stuff": 43, "foo": 6})
+    self.assertOutputValues({(306, 0): 42, (307, 0): 43})
 
   def testTable_ErrorMissingLabel(self):
     self.builtins.dispatch("", ".table", "8")

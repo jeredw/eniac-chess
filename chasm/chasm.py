@@ -172,7 +172,7 @@ class Output(object):
     self.output = {}
     self.output_row = None
     self.word_of_output_row = 0
-    self.table_output_row = 8
+    self.table_output_row = 6
     self.operand_correction = 0
     self.context = context
 
@@ -225,7 +225,7 @@ class Output(object):
           self.error("overwriting output, conflicting .org?")
           self.context.had_fatal_error = True
           break
-        elif 300 <= self.output_row < 308:
+        elif 300 <= self.output_row < 306:
           self.error(f"location {self.output_row} is reserved")
           self.context.had_fatal_error = True
           break
@@ -256,7 +256,7 @@ class Output(object):
         self.output_row += 1
         self.word_of_output_row = self.row_start()
         if self.output_row == 300:
-          self.output_row = 308  # skip table at start of ft3
+          self.output_row = 306  # skip table at start of ft3
         self.operand_correction = 0
 
   def get(self, ft, row, word):
@@ -280,7 +280,7 @@ class Output(object):
     return 1 if self.function_table()==3 else 0
 
   def emit_table_value(self, row, word, comment=""):
-    assert row >= 8
+    assert row >= 6
     if row > 99:
       self.error(f"table data overflow")
       self.context.had_fatal_error = True
@@ -697,6 +697,7 @@ def print_easm(out, f):
       logical_address = 100 * ft + row
       pc = 100 * out.context.isa.encode_ft_number(ft) + row
       print(f"# address={logical_address}  PC={pc:04}", file=f)
+      physical_row = row + 2  # programs use A+2 addressing
       for word_index in range(6):
         value = out.get(ft, row, word_index)
         bank = "A" if word_index < 3 else "B"
@@ -705,10 +706,10 @@ def print_easm(out, f):
           assert ft == 3
           assert word_index == 0
           word = 100 + word
-          print(f"s f3.RB{row}S M", file=f)
+          print(f"s f3.RB{physical_row}S M", file=f)
         for digit in range(2):
           line = 6 - (2 * (word_index%3) + digit)
-          s = f"s f{ft}.R{bank}{row}L{line} {(word//10)%10}"
+          s = f"s f{ft}.R{bank}{physical_row}L{line} {(word//10)%10}"
           word *= 10
           if digit == 0 and value.comment:
             s += f"  # {value.comment}"

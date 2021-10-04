@@ -43,8 +43,11 @@ static bool read_program(const char* filename, VM* vm) {
     int ft, row, index, digit;
     char bank, sign;
     if (sscanf(line, "s f3.RB%dS %c", &row, &sign) == 2) {
-      assert(row >= 0 && row < 100);
-      ft3_signs[row] = sign == 'M';
+      if (row < 8 || row > 101) {
+        fprintf(stderr, "%s:%d: expecting ft3 row 6-101 %d\n", filename, line_number, row);
+        goto error;
+      }
+      ft3_signs[row-2] = sign == 'M';
       continue;
     }
     if (sscanf(line, "s f%d.R%c%dL%d %d", &ft, &bank, &row, &index, &digit) != 5) {
@@ -59,8 +62,8 @@ static bool read_program(const char* filename, VM* vm) {
       fprintf(stderr, "%s:%d: expecting ft bank A or B %c\n", filename, line_number, bank);
       goto error;
     }
-    if (row < 0 || row >= 100) {
-      fprintf(stderr, "%s:%d: expecting ft row 0-99 %d\n", filename, line_number, row);
+    if (row < 2 || row > 101) {
+      fprintf(stderr, "%s:%d: expecting ft row 2-101 %d\n", filename, line_number, row);
       goto error;
     }
     if (index < 1 || index > 6) {
@@ -71,6 +74,7 @@ static bool read_program(const char* filename, VM* vm) {
       fprintf(stderr, "%s:%d: expecting ft digit %d\n", filename, line_number, digit);
       goto error;
     }
+    row -= 2;
     int row_index = ft * 100 + row;
     int word_index = (bank == 'A' ? 0 : 3) + (6 - index) / 2;
     int shifted_digit = index % 2 == 0 ? 10 * digit : digit;

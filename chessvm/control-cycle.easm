@@ -325,8 +325,10 @@ $send {p-fetchline} {a-discft3} {t-fetchline} S {p-fetchtrig} # save r for r-mem
 # Trigger FT from trigger lines from disctft[123].S
 defmacro triggerft num
   p {p-trigger-ft$num} f$num.{t-fetchline}i
-  # TODO switch to A+2 addressing to minimize overlap with accumulator decode
-  s f$num.op{t-fetchline} A0  # send uncomplemented, don't offset argument
+  # Accumulator decode reserves lines -2 through 7 of FT 3, so offset program
+  # addresses by +2 to use FT lines 2 through 101 to maximize the number of
+  # FT lines available to programs.
+  s f$num.op{t-fetchline} A+2  # send uncomplemented, +2 offset
 endmacro
 $triggerft 1
 $triggerft 2

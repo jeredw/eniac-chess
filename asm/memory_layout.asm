@@ -60,11 +60,10 @@ tab5    .table 17, M17,  18, M18,  19, M19,  79,   0,  20, M20
 tab6    .table 21, M21,  22, M22,  23, M23,  81,   0,  24, M24
 tab7    .table 25, M25,  26, M26,  27, M27,  88,   0,  28, M28
 tab8    .table 29, M29,  30, M30,  31, M31,  92,   0,   0,   0
-tab9    .table 10, -10
+tab9    .table 10, -10,   0,   0
 
 ; ft3-relative base address for table data
-; TODO modify vm+chasm to use -2 addressing to get 2 more constants
-tables  .equ 8
+tables  .equ 6
 
 ; bqrkdir has ±1,±1 square deltas for sliding piece moves
 ; note terminated by the 0 which begins the offset table

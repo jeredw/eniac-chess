@@ -146,8 +146,8 @@ $recx {p-opftl-2} {a-ftl} {x-opftl-2} {i-shiftA}
 
 p {p-opftl-2} f3.{t-opftl-2}i
 s f3.rp{t-opftl-2} 1
-# TODO switch to A+2 addressing
-s f3.op{t-opftl-2} A0
+# A+2 addressing to minimize overlap with accumulator decode in FT 3.
+s f3.op{t-opftl-2} A+2
 s f3.cl{t-opftl-2} NC
 
 # 3. send FTL argument
