@@ -28,9 +28,10 @@ from   .equ 36
 target .equ 37
 ; Current movegen player_piece on from square
 ; Note the player field needs to be set to the current player on entry to movegen
-from_piece .equ 38
-; Flag that current target square is blocked, to stop sliding moves
-blocked .equ 39
+fromp  .equ 38
+; Current movegen player_piece on target square
+; Blocking piece, capture piece, or zero if square is empty
+targetp .equ 39
 
 ; - Piece and Player constants -
 ; While the board is stored in a two-level encoding, get_square returns piece, player as below

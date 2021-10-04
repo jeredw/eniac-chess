@@ -8,7 +8,7 @@ try_square          ; A=square
   swap A,E          ; E=player_piece on square
   swap D,A          ;
   swap A,C          ; C=square
-  mov from_piece,A<->B
+  mov fromp,A<->B
   mov [B],A         ; A=current player_piece
   swapdig A
   lodig A           ; A=current player
@@ -23,7 +23,7 @@ try_square          ; A=square
   jmp next_square   ; not our piece
 .ours
   mov E,A
-  mov A,[B]         ; [from_piece]=player_piece on square
+  mov A,[B]         ; [fromp]=player_piece on square
   mov from,A<->B
   swap C,A
   mov A,[B]         ; [from]=square
@@ -135,6 +135,10 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   mov A,[B]         ; [target]=target square
   jsr get_square    ; get piece currently on target square
   jz move_bad       ; if empty, no capture possible
+  swap A,D
+  mov targetp,A<->B
+  swap D,A
+  mov A,[B]         ; [targetp]=player_piece on target
   jmp move_if_capture ; capture if occupied by opposite player
 
 ; try advancing 1 square
@@ -154,6 +158,10 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   swap D,A          ;
   mov A,[B]         ; [target]=target square
   jsr get_square    ; get piece currently on target square
+  swap A,D
+  mov targetp,A<->B
+  swap D,A
+  mov A,[B]         ; [targetp]=player_piece on target
   jz move_ok
   mov 99,A          ; skip push2 if push1 fails
   swap A,C
@@ -180,7 +188,7 @@ next_knight_move
 ;   A=target square, will be saved in [target]
 ; On exit
 ;   D will get reset from [from]
-;   [blocked] will be set if target is nonempty
+;   [targetp] will be set if target is nonempty
 ;   Jump to output_move for valid moves
 check_square
   swap A,D          ; D=save target square
@@ -188,13 +196,11 @@ check_square
   swap D,A          ;
   mov A,[B]         ; [target]=target square
   jsr get_square    ; get piece currently on target square
-  jz move_ok        ; if target is empty, can move there
-  ; record that there is something in the square so that sliding pieces
-  ; stop sliding at this position
   swap A,D
-  mov blocked,A<->B
-  mov A,[B]         ; set blocked=nonzero value
+  mov targetp,A<->B
   swap D,A
+  mov A,[B]         ; [targetp]=player_piece on target
+  jz move_ok        ; if target is empty, can move there
 
 ; output move if empty square or an opponent's piece
 ; - A has the contents of the new square
@@ -221,24 +227,25 @@ move_bad
   jmp next_piece_move
 
 ; Sliding pieces (bishop / queen / rook / king)
-; C=movestate is d where d=dir index
+; C=movestate is nd where d=dir index, n=steps (for king)
 ; [target] is the current square along dir
 next_bqrk_move
   mov C,A
   jz .init          ; d=0 means initialize
-  mov blocked,A<->B ;
-  mov [B],A         ; test if last move was blocked
+  mov targetp,A<->B ;
+  mov [B],A         ; test if last move was blocked/capture
   jz .not_blocked   ; if not, continue sliding
-  jmp .next_dir_b   ; else reset blocked flag+change dir
+  jmp .next_dir_b   ; else reset targetp+change dir
 .not_blocked
   mov E,A
   lodig A           ; isolate piece
   addn KING,A       ; test if piece==KING
-  jz .block_king
+  jz .king
 .move
   mov target,A<->B  ;
   mov [B],A<->D     ; D=cur square
   mov C,A           ; A=movestate (d)
+  lodig A           ; isolate d (king uses high digit as n)
   add bqrkdir-1,A   ; index bqrkdir[d-1]
   ftl A             ; lookup move delta for dir
   jz next_square    ; 0 means past last dir, done
@@ -246,18 +253,22 @@ next_bqrk_move
   jil .next_dir     ; if off board, next direction
   jmp check_square  ; output move if valid
 
-; always flag king moves as blocked so they only move one step
-.block_king
-  inc A
-  mov A,[B]         ; set [B]=[blocked] to a nonzero value
-  jmp .move
+; king can only move one step in each direction
+.king
+  mov C,A           ;
+  add 10,A          ; inc current step
+  swap A,C          ; A=movestate before update
+  swapdig A         ;
+  lodig A           ; get step number
+  jz .move          ; if first step, move
+  jmp .next_dir     ; else select new dir
 
 ; set starting dir index based on piece type
 ; (this could use ftl, but conserving table space)
 .init
-  mov blocked,A<->B
+  mov targetp,A<->B
   clr A
-  mov A,[B]         ; clear blocked flag
+  mov A,[B]         ; clear [targetp]
   mov target,A<->B
   mov D,A           ; D is from square on entry
   mov A,[B]         ; [target] = from square
@@ -277,7 +288,7 @@ next_bqrk_move
 
 .next_dir_b
   clr A
-  mov A,[B]         ; clear blocked flag
+  mov A,[B]         ; clear [targetp]
 ; select next dir index based on piece type
 .next_dir
   mov from,A<->B
@@ -287,6 +298,7 @@ next_bqrk_move
   mov A,[B]         ; [target]=D
   mov E,A           ; E=player|piece
   swap C,A
+  lodig A           ; clear step number (for king)
   inc A             ; next direction
   swap A,C
   lodig A           ; isolate piece
