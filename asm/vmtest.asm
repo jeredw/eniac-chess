@@ -71,7 +71,7 @@
 
 
 ; 7: test mov #X, A
-.align     ; don't test opcode line boundary handling here
+  .align     ; don't test opcode line boundary handling here
   inc A
   swap A,B
 
@@ -131,7 +131,7 @@
 ; We also switch to bank 2 here
 
 ; 10: JMP
-.align
+  .align
   mov 10,A
   swap A,B
   jmp jmptest
@@ -143,7 +143,7 @@ jmptest
 
 
 ; 11: JN. Also tests that DEC A can produce a negative result
-.align
+  .align
   inc A
   swap A,B
   dec A
@@ -157,7 +157,7 @@ jntest
 
 
 ; 12: jmp far, with and without bank switch
-.align
+  .align
   inc A
   swap A,B
   jmp far jmpfar1
@@ -181,7 +181,7 @@ inca
 
 
 ; continue in new bank
-.org 200      ; tests chasm encoding of bank:line as 90:00 = 8999
+  .org 200      ; tests chasm encoding of bank:line as 90:00 = 8999
 jmpfar2
   jmp far jmpfar3
   inc A
@@ -220,7 +220,7 @@ fillLS        ; set LS = A A+1 A+2 A+3 A+4. Destroys RF
   swapall     ; LS <-> RF
   ret
 
-.org 310
+  .org 310
 jmpft3:
   inc A     ; will fail test if chasm puts first op in I1 not I2
   dec A
@@ -272,7 +272,7 @@ t15next
 
 
 ; 16: JZ
-.align
+  .align
   inc A
   swap A, B
 
@@ -287,7 +287,7 @@ t16out
 
 
 ; 17: JIL
-.align
+  .align
   inc A
   swap A, B
 
