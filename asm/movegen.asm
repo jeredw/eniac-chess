@@ -4,30 +4,26 @@
 try_square          ; A=square
   jsr get_square    ; what's here?
   jz next_square    ; empty?
-  ; there is a piece here so A=10*player + piece.  we need to check if it
-  ; belongs to the current player, tracked in [from_piece]=10*cur_player + ?
-  ; do so by computing (10*cur_player + 9) - (10*player + piece) and checking
-  ; that the high digit is 0
-  ; TODO consider storing piece_player instead to reduce swapdigs?
-  swap D,A          ; A=square, D=player_piece on square
+  ; check if the piece here is ours
+  swap A,E          ; E=player_piece on square
+  swap D,A          ;
   swap A,C          ; C=square
   mov from_piece,A<->B
   mov [B],A         ; A=current player_piece
-  swapdig A         ;
-  lodig A           ; isolate current player
-  swapdig A         ; get 10*current player + 0
-  add 9,A           ; prevent sub from borrowing
-  sub D,A           ; A -= player_piece on square
   swapdig A
-  lodig A           ; isolate player difference
-  jz .ours          ; if 0, piece is ours
+  lodig A           ; A=current player
+  swap A,D          ; D=current player
+  mov E,A
+  swapdig A
+  lodig A           ; A=player on square
+  sub D,A           ; test if curent player==player on square
+  jz .ours          ; if yes, piece is ours
   swap C,A
   swap A,D          ; D=square
   jmp next_square   ; not our piece
 .ours
-  swap D,A
+  mov E,A
   mov A,[B]         ; [from_piece]=player_piece on square
-  swap A,E          ; E=from_piece
   mov from,A<->B
   swap C,A
   mov A,[B]         ; [from]=square
@@ -77,6 +73,7 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   jz .capture_right ; try capturing +1 file
   dec A
   jz .push1         ; try advancing 1 square
+  ; fallthrough
 
 ; try advancing 2 squares
 ; this is only ever reached if push1 is allowed, so the square directly ahead
@@ -117,7 +114,7 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   dec A             ; -1 file
   jmp .check_capture
 
-.capture_right      ; move_step 0,1 = captures
+.capture_right      ; capture +1 file
   mov E,A
   swapdig A
   lodig A           ; player index
@@ -137,8 +134,8 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   swap D,A          ;
   mov A,[B]         ; [target]=target square
   jsr get_square    ; get piece currently on target square
-  jz move_bad
-  jmp move_if_capture
+  jz move_bad       ; if empty, no capture possible
+  jmp move_if_capture ; capture if occupied by opposite player
 
 ; try advancing 1 square
 .push1
@@ -160,7 +157,7 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   jz move_ok
   mov 99,A          ; skip push2 if push1 fails
   swap A,C
-  jmp move_bad
+  jmp move_bad      ; restore D=[from square]
 
 
 ; knights
@@ -184,6 +181,7 @@ next_knight_move
 ; On exit
 ;   D will get reset from [from]
 ;   [blocked] will be set if target is nonempty
+;   Jump to output_move for valid moves
 check_square
   swap A,D          ; D=save target square
   mov target,A<->B  ;

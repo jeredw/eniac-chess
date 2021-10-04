@@ -14,14 +14,13 @@ BBISHOP .equ 8
 BQUEEN  .equ 9
 
 ; OTHER means white/black rook/king. We store the squares of these pieces in another six words
-; We'll always have only one queen and two rooks per side (no reason to promote to rook)
+; We'll always have only one king and two rooks per side (no reason to promote to rook)
 ; This allows us to represent any number of promoted queens
 wking  .equ 32
 bking  .equ 33
 wrook1 .equ 34
 wrook2 .equ 35
-; brook1 .equ 36      not needed, if square is occupied and not king or wrook, it's brook
-; brook2 .equ 37
+; if square is occupied and not king or wrook, it's brook
 
 ; Current movegen from square
 from   .equ 36

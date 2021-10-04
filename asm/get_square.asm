@@ -76,6 +76,5 @@ get_square
   add KING,A
   ret
 
-.empty
-  clr A
+.empty          ; A=0 here
   ret
