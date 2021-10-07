@@ -1,21 +1,19 @@
 #!/usr/bin/env python3
+# note https://www.chess-poster.com/english/fen/fen_epd_viewer.htm is a handy
+# web page for visualizing FEN/EPD strings used to represent chess positions
 import unittest
 from subprocess import run, PIPE, Popen
-from game import Board, Position, Square
+from game import Board, Position, Square, Move
 
-class TestMoveGen(unittest.TestCase):
-  def setUpClass():
-    run('python chasm/chasm.py asm/movegen_test.asm movegen_test.e', shell=True, check=True)
-    run('make -C chsim chsim', shell=True, check=True)
-
-  def simulate(self, deck):
+class SimTestCase(unittest.TestCase):
+  def simulate(self, program, deck):
     with open('/tmp/test.deck', 'w') as f:
       f.write(deck)
-    result = run('./chsim/chsim -t 120000 -f /tmp/test.deck movegen_test.e', shell=True, stdin=PIPE, stdout=PIPE)
+    result = run(f'./chsim/chsim -t 120000 -f /tmp/test.deck {program}', shell=True, stdin=PIPE, stdout=PIPE)
     self.assertEqual(result.returncode, 0)
     return result.stdout.decode('utf-8').strip().split()
 
-  def convertPositionToDeck(self, position):
+  def initMemory(self, position, move=None):
     memory = [0] * 75
     piece_code = '??PNBQpnbq'
     rook = 0
@@ -38,8 +36,17 @@ class TestMoveGen(unittest.TestCase):
           rook += 1
         else:
           assert piece == 'r'
-    memory[38] = 0 if position.to_move == 'w' else 10
+    if move:
+      encode_piece = lambda k: '.PNBQRK????pnbqrk'.find(k)
+      memory[36] = move.fro.y * 10 + move.fro.x
+      memory[37] = move.to.y * 10 + move.to.x
+      memory[38] = encode_piece(position.board[move.fro])
+      memory[39] = encode_piece(position.board[move.to])
+    else:
+      memory[38] = 0 if position.to_move == 'w' else 10
+    return memory
 
+  def convertMemoryToDeck(self, memory):
     deck = []
     for address, data in enumerate(memory):
       if data != 0:
@@ -47,10 +54,17 @@ class TestMoveGen(unittest.TestCase):
     deck.append(f'99000{" "*75}')
     return '\n'.join(deck)
 
+
+class TestMoveGen(SimTestCase):
+  def setUpClass():
+    run('python chasm/chasm.py asm/movegen_test.asm movegen_test.e', shell=True, check=True)
+    run('make -C chsim chsim', shell=True, check=True)
+
   def computeMoves(self, fen):
     position = Position.fen(fen)
-    deck = self.convertPositionToDeck(position)
-    return self.simulate(deck)
+    memory = self.initMemory(position)
+    deck = self.convertMemoryToDeck(memory)
+    return self.simulate('movegen_test.e', deck)
 
   def testMoveOwnPiecesB(self):
     moves = self.computeMoves('8/8/8/8/8/8/1P6/8 b - - 0 1')
@@ -285,6 +299,123 @@ class TestMoveGen(unittest.TestCase):
                              '7868', '7858',
                              '8261', '8263',
                              '8766', '8768'])
+
+
+class TestMove(SimTestCase):
+  def setUpClass():
+    run('python chasm/chasm.py asm/move_test.asm move_test.e', shell=True, check=True)
+    run('make -C chsim chsim', shell=True, check=True)
+
+  def readBoard(self, state):
+    board = Board.unpack('8/8/8/8/8/8/8/8')
+    decode_piece = lambda k: '.PNBQRK????pnbqrk'[int(k)]
+    for line in state:
+      pos = Square(y=int(line[0]), x=int(line[1]))
+      piece = decode_piece(line[2:4])
+      board[pos] = piece
+    return board
+
+  def makeMove(self, fen, move):
+    position = Position.fen(fen)
+    memory = self.initMemory(position, move=move)
+    deck = self.convertMemoryToDeck(memory)
+    output = self.simulate('move_test.e', deck)
+    return self.readBoard(output)
+
+  def testMovePawnE2(self):
+    board = self.makeMove('8/8/8/8/8/8/4P3/8 w - - 0 1',
+                          Move(fro=Square.e2, to=Square.e4))
+    self.assertEqual(str(board), '8/8/8/8/4P3/8/8/8')
+
+  def testMoveKnightB2ToC3(self):
+    board = self.makeMove('8/8/8/8/8/8/8/1N6 w - - 0 1',
+                          Move(fro=Square.b1, to=Square.c3))
+    self.assertEqual(str(board), '8/8/8/8/8/2N5/8/8')
+
+  def testMoveBishopC1ToA3(self):
+    board = self.makeMove('8/8/8/8/8/8/8/2B5 w - - 0 1',
+                          Move(fro=Square.c1, to=Square.a3))
+    self.assertEqual(str(board), '8/8/8/8/8/B7/8/8')
+
+  def testMoveQueenD1ToD8(self):
+    board = self.makeMove('8/8/8/8/8/8/8/3Q4 w - - 0 1',
+                          Move(fro=Square.d1, to=Square.d8))
+    self.assertEqual(str(board), '3Q4/8/8/8/8/8/8/8')
+
+  def testMoveKingE1ToF2(self):
+    board = self.makeMove('8/8/8/8/8/8/8/4K3 w - - 0 1',
+                          Move(fro=Square.e1, to=Square.f2))
+    self.assertEqual(str(board), '8/8/8/8/8/8/5K2/8')
+
+  def testMoveRookA1ToA4(self):
+    board = self.makeMove('8/8/8/8/8/8/8/R7 w - - 0 1',
+                          Move(fro=Square.a1, to=Square.a4))
+    self.assertEqual(str(board), '8/8/8/8/R7/8/8/8')
+
+  def testMovePawnD7(self):
+    board = self.makeMove('8/3p4/8/8/8/8/8/8 b - - 0 1',
+                          Move(fro=Square.d7, to=Square.d5))
+    self.assertEqual(str(board), '8/8/8/3p4/8/8/8/8')
+
+  def testMoveKnightG8ToH6(self):
+    board = self.makeMove('6n1/8/8/8/8/8/8/8 b - - 0 1',
+                          Move(fro=Square.g8, to=Square.h6))
+    self.assertEqual(str(board), '8/8/7n/8/8/8/8/8')
+
+  def testMoveBishopF8ToA3(self):
+    board = self.makeMove('5b2/8/8/8/8/8/8/8 b - - 0 1',
+                          Move(fro=Square.f8, to=Square.a3))
+    self.assertEqual(str(board), '8/8/8/8/8/b7/8/8')
+
+  def testMoveQueenD8ToD1(self):
+    board = self.makeMove('3q4/8/8/8/8/8/8/8 b - - 0 1',
+                          Move(fro=Square.d8, to=Square.d1))
+    self.assertEqual(str(board), '8/8/8/8/8/8/8/3q4')
+
+  def testMoveKingE8ToF7(self):
+    board = self.makeMove('4k3/8/8/8/8/8/8/8 b - - 0 1',
+                          Move(fro=Square.e8, to=Square.f7))
+    self.assertEqual(str(board), '8/5k2/8/8/8/8/8/8')
+
+  def testMoveRookH8ToH5(self):
+    board = self.makeMove('7r/8/8/8/8/8/8/8 b - - 0 1',
+                          Move(fro=Square.h8, to=Square.h5))
+    self.assertEqual(str(board), '8/8/8/7r/8/8/8/8')
+
+  def testMovePawnE2_CapturePawn(self):
+    board = self.makeMove('8/8/8/8/8/5p2/4P3/8 w - - 0 1',
+                          Move(fro=Square.e2, to=Square.f3))
+    self.assertEqual(str(board), '8/8/8/8/8/5P2/8/8')
+
+  def testMovePawnE2_CaptureKing(self):
+    board = self.makeMove('8/8/8/8/8/5k2/4P3/8 w - - 0 1',
+                          Move(fro=Square.e2, to=Square.f3))
+    self.assertEqual(str(board), '8/8/8/8/8/5P2/8/8')
+
+  def testMovePawnE2_CaptureRook(self):
+    board = self.makeMove('8/8/8/8/8/5r2/4P3/8 w - - 0 1',
+                          Move(fro=Square.e2, to=Square.f3))
+    self.assertEqual(str(board), '8/8/8/8/8/5P2/8/8')
+
+  def testMovePawnD7_CapturePawn(self):
+    board = self.makeMove('8/3p4/2P5/8/8/8/8/8 b - - 0 1',
+                          Move(fro=Square.d7, to=Square.c6))
+    self.assertEqual(str(board), '8/8/2p5/8/8/8/8/8')
+
+  def testMovePawnD7_CaptureRook(self):
+    board = self.makeMove('8/3p4/2R5/8/8/8/8/8 b - - 0 1',
+                          Move(fro=Square.d7, to=Square.c6))
+    self.assertEqual(str(board), '8/8/2p5/8/8/8/8/8')
+
+  def testMovePawnD7_CaptureRook1(self):
+    board = self.makeMove('8/3p4/2R1R3/8/8/8/8/8 b - - 0 1',
+                          Move(fro=Square.d7, to=Square.c6))
+    self.assertEqual(str(board), '8/8/2p1R3/8/8/8/8/8')
+
+  def testMovePawnD7_CaptureKing(self):
+    board = self.makeMove('8/3p4/2K5/8/8/8/8/8 b - - 0 1',
+                          Move(fro=Square.d7, to=Square.c6))
+    self.assertEqual(str(board), '8/8/2p5/8/8/8/8/8')
 
 if __name__ == "__main__":
   unittest.main()

@@ -12,7 +12,7 @@ get_square
   mov A,D       ; save sq to D in case piece=OTHER
   add offset-11,A
   ftl A
-  jn .hi        ; square mod 2 == 1?
+  jn .low       ; square mod 2 == 1?
 
   swap A,B      ; mod2 = 0 means left of two pieces in word, thus pieces high digit
   mov [B],A
@@ -20,7 +20,7 @@ get_square
   lodig A
   jmp .decode
 
-.hi
+.low
   swap A,B      ; piece in low digit
   mov [B],A
   lodig A
