@@ -1,4 +1,4 @@
-CCFLAGS=--std=c++17 -Wall -Werror -pedantic
+CCFLAGS=--std=c++17 -Wall -Werror
 
 chsim: main.cc vm.cc vm.h
 	c++ -g $(CCFLAGS) -O2 -o chsim -lreadline main.cc
