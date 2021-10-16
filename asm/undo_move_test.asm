@@ -1,4 +1,4 @@
-; test bench for move.asm (move)
+; test bench for move.asm (undo_move)
 ; tests board state updates
   .isa v4
   .org 100
@@ -6,7 +6,7 @@
   .include memory_layout.asm
   .include load_board.asm
 start
-  jsr move
+  jsr undo_move
   jmp print_board
 
   .include move.asm

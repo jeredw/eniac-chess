@@ -5,7 +5,11 @@ import unittest
 from subprocess import run, PIPE, Popen
 from game import Board, Position, Square, Move
 
+
 class SimTestCase(unittest.TestCase):
+  def setUp(self):
+    self.memory = [0] * 75
+
   def simulate(self, program, deck):
     with open('/tmp/test.deck', 'w') as f:
       f.write(deck)
@@ -13,8 +17,7 @@ class SimTestCase(unittest.TestCase):
     self.assertEqual(result.returncode, 0)
     return result.stdout.decode('utf-8').strip().split()
 
-  def initMemory(self, position, move=None):
-    memory = [0] * 75
+  def initBoard(self, position):
     piece_code = '??PNBQpnbq'
     rook = 0
     for square, piece in position.board:
@@ -23,32 +26,31 @@ class SimTestCase(unittest.TestCase):
       shift = 10 if square.x % 2 == 1 else 1
       if piece in piece_code:
         code = piece_code.index(piece)
-        memory[offset] += shift * code
+        self.memory[offset] += shift * code
       elif piece != '.':
-        memory[offset] += shift * 1
+        self.memory[offset] += shift * 1
         if piece == 'K':
-          memory[32] = yx
+          self.memory[32] = yx
         elif piece == 'k':
-          memory[33] = yx
+          self.memory[33] = yx
         elif piece == 'R':
           assert rook < 2
-          memory[34 + rook] = yx
+          self.memory[34 + rook] = yx
           rook += 1
         else:
           assert piece == 'r'
-    if move:
-      encode_piece = lambda k: '.PNBQRK????pnbqrk'.find(k)
-      memory[36] = move.fro.y * 10 + move.fro.x
-      memory[37] = move.to.y * 10 + move.to.x
-      memory[38] = encode_piece(position.board[move.fro])
-      memory[39] = encode_piece(position.board[move.to])
-    else:
-      memory[38] = 0 if position.to_move == 'w' else 10
-    return memory
+    self.memory[38] = 0 if position.to_move == 'w' else 10
 
-  def convertMemoryToDeck(self, memory):
+  def initMove(self, position, move):
+    encode_piece = lambda k: '.PNBQRK????pnbqrk'.find(k)
+    self.memory[36] = move.fro.y * 10 + move.fro.x
+    self.memory[37] = move.to.y * 10 + move.to.x
+    self.memory[38] = encode_piece(position.board[move.fro])
+    self.memory[39] = encode_piece(position.board[move.to])
+
+  def convertMemoryToDeck(self):
     deck = []
-    for address, data in enumerate(memory):
+    for address, data in enumerate(self.memory):
       if data != 0:
         deck.append(f'{address:02}{data:02}0{" "*75}')
     deck.append(f'99000{" "*75}')
@@ -62,8 +64,8 @@ class TestMoveGen(SimTestCase):
 
   def computeMoves(self, fen):
     position = Position.fen(fen)
-    memory = self.initMemory(position)
-    deck = self.convertMemoryToDeck(memory)
+    self.initBoard(position)
+    deck = self.convertMemoryToDeck()
     return self.simulate('movegen_test.e', deck)
 
   def testMoveOwnPiecesB(self):
@@ -317,8 +319,9 @@ class TestMove(SimTestCase):
 
   def makeMove(self, fen, move):
     position = Position.fen(fen)
-    memory = self.initMemory(position, move=move)
-    deck = self.convertMemoryToDeck(memory)
+    self.initBoard(position)
+    self.initMove(position, move)
+    deck = self.convertMemoryToDeck()
     output = self.simulate('move_test.e', deck)
     return self.readBoard(output)
 
@@ -416,6 +419,147 @@ class TestMove(SimTestCase):
     board = self.makeMove('8/3p4/2K5/8/8/8/8/8 b - - 0 1',
                           Move(fro=Square.d7, to=Square.c6))
     self.assertEqual(str(board), '8/8/2p5/8/8/8/8/8')
+
+
+class TestUndoMove(SimTestCase):
+  def setUpClass():
+    run('python chasm/chasm.py asm/undo_move_test.asm undo_move_test.e', shell=True, check=True)
+    run('make -C chsim chsim', shell=True, check=True)
+
+  def readBoard(self, state):
+    board = Board.unpack('8/8/8/8/8/8/8/8')
+    decode_piece = lambda k: '.PNBQRK????pnbqrk'[int(k)]
+    for line in state:
+      pos = Square(y=int(line[0]), x=int(line[1]))
+      piece = decode_piece(line[2:4])
+      board[pos] = piece
+    return board
+
+  def undoMove(self, from_fen, to_fen, move):
+    from_position = Position.fen(from_fen)
+    to_position = Position.fen(to_fen)
+    # assume the move was made correctly so current board state is to_position
+    self.initBoard(to_position)
+    # initialize move's fromp and targetp from from_position
+    self.initMove(from_position, move)
+    deck = self.convertMemoryToDeck()
+    output = self.simulate('undo_move_test.e', deck)
+    return self.readBoard(output)
+
+  def testUndoMovePawnE2(self):
+    board = self.undoMove('8/8/8/8/8/8/4P3/8 w - - 0 1',
+                          '8/8/8/8/4P3/8/8/8 b - - 0 1',
+                          Move(fro=Square.e2, to=Square.e4))
+    self.assertEqual(str(board), '8/8/8/8/8/8/4P3/8')
+
+  def testUndoMoveKnightB2ToC3(self):
+    board = self.undoMove('8/8/8/8/8/8/8/1N6 w - - 0 1',
+                          '8/8/8/8/8/2N5/8/8 b - - 0 1',
+                          Move(fro=Square.b1, to=Square.c3))
+    self.assertEqual(str(board), '8/8/8/8/8/8/8/1N6')
+
+  def testUndoMoveBishopC1ToA3(self):
+    board = self.undoMove('8/8/8/8/8/8/8/2B5 w - - 0 1',
+                          '8/8/8/8/8/B7/8/8 b - - 0 1',
+                          Move(fro=Square.c1, to=Square.a3))
+    self.assertEqual(str(board), '8/8/8/8/8/8/8/2B5')
+
+  def testUndoMoveQueenD1ToD8(self):
+    board = self.undoMove('8/8/8/8/8/8/8/3Q4 w - - 0 1',
+                          '3Q4/8/8/8/8/8/8/8 b - - 0 1',
+                          Move(fro=Square.d1, to=Square.d8))
+    self.assertEqual(str(board), '8/8/8/8/8/8/8/3Q4')
+
+  def testUndoMoveKingE1ToF2(self):
+    board = self.undoMove('8/8/8/8/8/8/8/4K3 w - - 0 1',
+                          '8/8/8/8/8/8/5K2/8 b - - 0 1',
+                          Move(fro=Square.e1, to=Square.f2))
+    self.assertEqual(str(board), '8/8/8/8/8/8/8/4K3')
+
+  def testUndoMoveRookA1ToA4(self):
+    board = self.undoMove('8/8/8/8/8/8/8/R7 w - - 0 1',
+                          '8/8/8/8/R7/8/8/8 b - - 0 1',
+                          Move(fro=Square.a1, to=Square.a4))
+    self.assertEqual(str(board), '8/8/8/8/8/8/8/R7')
+
+  def testUndoMovePawnD7(self):
+    board = self.undoMove('8/3p4/8/8/8/8/8/8 b - - 0 1',
+                          '8/8/8/3p4/8/8/8/8 w - - 0 2',
+                          Move(fro=Square.d7, to=Square.d5))
+    self.assertEqual(str(board), '8/3p4/8/8/8/8/8/8')
+
+  def testUndoMoveKnightG8ToH6(self):
+    board = self.undoMove('6n1/8/8/8/8/8/8/8 b - - 0 1',
+                          '8/8/7n/8/8/8/8/8 w - - 0 2',
+                          Move(fro=Square.g8, to=Square.h6))
+    self.assertEqual(str(board), '6n1/8/8/8/8/8/8/8')
+
+  def testUndoMoveBishopF8ToA3(self):
+    board = self.undoMove('5b2/8/8/8/8/8/8/8 b - - 0 1',
+                          '8/8/8/8/8/b7/8/8 w - - 0 2',
+                          Move(fro=Square.f8, to=Square.a3))
+    self.assertEqual(str(board), '5b2/8/8/8/8/8/8/8')
+
+  def testUndoMoveQueenD8ToD1(self):
+    board = self.undoMove('3q4/8/8/8/8/8/8/8 b - - 0 1',
+                          '8/8/8/8/8/8/8/3q4 w - - 0 2',
+                          Move(fro=Square.d8, to=Square.d1))
+    self.assertEqual(str(board), '3q4/8/8/8/8/8/8/8')
+
+  def testUndoMoveKingE8ToF7(self):
+    board = self.undoMove('4k3/8/8/8/8/8/8/8 b - - 0 1',
+                          '8/5k2/8/8/8/8/8/8 w - - 0 2',
+                          Move(fro=Square.e8, to=Square.f7))
+    self.assertEqual(str(board), '4k3/8/8/8/8/8/8/8')
+
+  def testUndoMoveRookH8ToH5(self):
+    board = self.undoMove('7r/8/8/8/8/8/8/8 b - - 0 1',
+                          '8/8/8/7r/8/8/8/8 w - - 0 2',
+                          Move(fro=Square.h8, to=Square.h5))
+    self.assertEqual(str(board), '7r/8/8/8/8/8/8/8')
+
+  def testUndoMovePawnE2_CapturePawn(self):
+    board = self.undoMove('8/8/8/8/8/5p2/4P3/8 w - - 0 1',
+                          '8/8/8/8/8/5P2/8/8 b - - 0 1',
+                          Move(fro=Square.e2, to=Square.f3))
+    self.assertEqual(str(board), '8/8/8/8/8/5p2/4P3/8')
+
+  def testUndoMovePawnE2_CaptureKing(self):
+    board = self.undoMove('8/8/8/8/8/5k2/4P3/8 w - - 0 1',
+                          '8/8/8/8/8/5P2/8/8 b - - 0 1',
+                          Move(fro=Square.e2, to=Square.f3))
+    self.assertEqual(str(board), '8/8/8/8/8/5k2/4P3/8')
+
+  def testUndoMovePawnE2_CaptureRook(self):
+    board = self.undoMove('8/8/8/8/8/5r2/4P3/8 w - - 0 1',
+                          '8/8/8/8/8/5P2/8/8 b - - 0 1',
+                          Move(fro=Square.e2, to=Square.f3))
+    self.assertEqual(str(board), '8/8/8/8/8/5r2/4P3/8')
+
+  def testUndoMovePawnD7_CapturePawn(self):
+    board = self.undoMove('8/3p4/2P5/8/8/8/8/8 b - - 0 1',
+                          '8/8/2p5/8/8/8/8/8 w - - 0 2',
+                          Move(fro=Square.d7, to=Square.c6))
+    self.assertEqual(str(board), '8/3p4/2P5/8/8/8/8/8')
+
+  def testUndoMovePawnD7_CaptureRook(self):
+    board = self.undoMove('8/3p4/2R5/8/8/8/8/8 b - - 0 1',
+                          '8/8/2p5/8/8/8/8/8 w - - 0 2',
+                          Move(fro=Square.d7, to=Square.c6))
+    self.assertEqual(str(board), '8/3p4/2R5/8/8/8/8/8')
+
+  def testUndoMovePawnD7_CaptureRook1(self):
+    board = self.undoMove('8/3p4/2R1R3/8/8/8/8/8 b - - 0 1',
+                          '8/8/2p1R3/8/8/8/8/8 w - - 0 2',
+                          Move(fro=Square.d7, to=Square.c6))
+    self.assertEqual(str(board), '8/3p4/2R1R3/8/8/8/8/8')
+
+  def testUndoMovePawnD7_CaptureKing(self):
+    board = self.undoMove('8/3p4/2K5/8/8/8/8/8 b - - 0 1',
+                          '8/8/2p5/8/8/8/8/8 w - - 0 2',
+                          Move(fro=Square.d7, to=Square.c6))
+    self.assertEqual(str(board), '8/3p4/2K5/8/8/8/8/8')
+
 
 if __name__ == "__main__":
   unittest.main()
