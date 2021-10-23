@@ -1,7 +1,7 @@
 ; - get_square -
 ; Find the piece on a square
 ; Inputs: 
-;   A - square
+;   D - square
 ; Outputs:
 ;   A - 0 if empty, else player|piece type
 ;   D - square
@@ -9,7 +9,7 @@
 ;   B, LS (aka FGHIJ)
 
 get_square
-  mov A,D       ; save sq to D in case piece=OTHER
+  mov D,A
   add offset-11,A
   ftl A
   jn .low       ; square mod 2 == 1?

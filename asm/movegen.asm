@@ -1,7 +1,16 @@
+; Variable names:
+;  square         - square where we are trying to move a piece, aka from
+;  player_piece   - player in high digit, piece type in low digit (from get_square)
+;  current_player - who is moving a piece?
+;  fromp          - memory location, stores player_piece on from square 
+
 ; - Movegen -
   mov 11,A          ; A=square=11, begin board scan here
 
+; At this point: A=square, [fromp]=player*10
+
 try_square          ; A=square
+  swap A,D
   jsr get_square    ; what's here?
   jz next_square    ; empty?
   ; check if the piece here is ours
@@ -107,7 +116,7 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
 .capture_left       ; capture -1 file
   mov E,A
   swapdig A
-  lodig A           ; player index
+  lodig A           ; A=player
   add pawndir,A
   ftl A             ; +10 for white, -10 for black
   add D,A           ; compute target square
@@ -133,6 +142,7 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   mov target,A<->B  ;
   swap D,A          ;
   mov A,[B]         ; [target]=target square
+  swap D,A
   jsr get_square    ; get piece currently on target square
   jz move_bad       ; if empty, no capture possible
   swap A,D
@@ -157,6 +167,7 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   mov target,A<->B  ;
   swap D,A          ;
   mov A,[B]         ; [target]=target square
+  swap D,A          ;
   jsr get_square    ; get piece currently on target square
   swap A,D
   mov targetp,A<->B
@@ -195,6 +206,7 @@ check_square
   mov target,A<->B  ;
   swap D,A          ;
   mov A,[B]         ; [target]=target square
+  swap D,A          ;
   jsr get_square    ; get piece currently on target square
   swap A,D
   mov targetp,A<->B
