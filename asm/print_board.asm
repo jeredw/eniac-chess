@@ -3,6 +3,7 @@
 print_board
   mov 11,A
 .next_square
+  mov A,D
   jsr get_square
   swap A,B        ; B=what is here
   mov D,A         ; A=square
