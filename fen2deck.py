@@ -8,7 +8,7 @@ import sys
 WHITE = 0
 BLACK = 1
 
-FROMP = 38  # fromp in memory_layout.asm, used to indicate current player
+FROMP = 65  # fromp in memory_layout.asm, used to indicate current player
 
 # piece encoding for add_piece
 PAWN = 1
