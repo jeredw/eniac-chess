@@ -22,15 +22,6 @@ wrook1 .equ 34
 wrook2 .equ 35
 ; if square is occupied and not king or wrook, it's brook
 
-; TODO Material score for current position, updated incrementally on calls to
-; move and undo_move.
-;score  .equ 45
-; TODO Current search stack depth
-;depth  .equ 55
-; Player and piece to move - player in high digit, piece in low digit.
-; TODO This is redundant. Should we remove it? It saves looking up what is
-; on the from square when doing trial moves, but maybe we don't need it.
-fromp  .equ 65
 
 ; The remaining 36 words of memory form a 4-level software stack for
 ; alpha/beta search. Since the top of the stack is working memory, this allows
@@ -54,20 +45,34 @@ fromp  .equ 65
 ; Current move
 ; targetp - player_piece captured, or zero if square is empty
 ; from - from square index
+; fromp - player|piece to move
 ; target - to square index
 ; movestate - iterator for move generation
-targetp .equ 36
-from   .equ 37
-target .equ 38
-movestate .equ 39
+from   .equ 36
+; Player and piece to move - player in high digit, piece in low digit.
+; TODO This is redundant. Should we remove it? It saves looking up what is
+; on the from square when doing trial moves, but maybe we don't need it.
+fromp  .equ 37
+movestate .equ 38
+target .equ 39
+targetp .equ 40
+
+
 ; Best move
-bestfrom .equ 40
-bestto .equ 41
+bestfrom .equ 41
+bestto .equ 42
 ; Score after best move
-bestscore .equ 42
+bestscore .equ 43
 ; Pruning thresholds for alpha/beta search
-alpha  .equ 43
-beta   .equ 44
+alpha  .equ 44
+beta   .equ 45
+
+; TODO Material score for current position, updated incrementally on calls to
+; move and undo_move.
+;score  .equ 46
+
+; TODO Current search stack depth
+;depth  .equ 55
 
 ; (Top-1 of stack from 46 on)
 

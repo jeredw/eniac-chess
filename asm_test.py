@@ -39,14 +39,14 @@ class SimTestCase(unittest.TestCase):
           rook += 1
         else:
           assert piece == 'r'
-    self.memory[65] = 0 if position.to_move == 'w' else 10
+    self.memory[37] = 0 if position.to_move == 'w' else 10
 
   def initMove(self, position, move):
     encode_piece = lambda k: '.PNBQRK????pnbqrk'.find(k)
-    self.memory[65] = encode_piece(position.board[move.fro])
-    self.memory[36] = encode_piece(position.board[move.to])
-    self.memory[37] = move.fro.y * 10 + move.fro.x
-    self.memory[38] = move.to.y * 10 + move.to.x
+    self.memory[37] = encode_piece(position.board[move.fro])
+    self.memory[40] = encode_piece(position.board[move.to])
+    self.memory[36] = move.fro.y * 10 + move.fro.x
+    self.memory[39] = move.to.y * 10 + move.to.x
 
   def convertMemoryToDeck(self):
     deck = []
@@ -252,7 +252,7 @@ class TestMoveGen(SimTestCase):
 
   def testKingAtD4_Capture8(self):
     moves = self.computeMoves('8/8/8/2ppp3/2pKp3/2ppp3/8/8 w - - 0 1')
-    self.assertEqual(moves, ['4445', '4443', '4454', '4434', '4453', '4455', '4433', '4435'])
+    self.assertEqual(moves, ['4454', '4453', '4455', '4433', '4435'])
 
   def testRookAtE4(self):
     moves = self.computeMoves('8/8/8/8/4R3/8/8/8 w - - 0 1')
@@ -275,6 +275,10 @@ class TestMoveGen(SimTestCase):
   def testRookAtD4_Capture4(self):
     moves = self.computeMoves('8/8/8/3p4/2pRp3/3p4/8/8 w - - 0 1')
     self.assertEqual(moves, ['4445', '4443', '4454', '4434'])
+
+  def testKingAtD4_PawnCheck(self):
+    moves = self.computeMoves('8/8/4p3/8/3K4/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4445', '4443', '4434', '4453', '4455', '4433', '4435'])
 
   def testInitialPosition_White(self):
     moves = self.computeMoves('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1')
