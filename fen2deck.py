@@ -38,10 +38,10 @@ WROOK2 = 35
 # we print the memory when we are done
 memory = [0]*75
 
+# player = WHITE,BLACK, piece=PAWN,KNIGHT,..., rank and file are 0..7
 def add_piece(player, piece, rank, file):
-#	print(f'add_piece {player} {piece} {rank} {file}')
 	global memory
-	loc0 = (rank-1)*8 + file-1
+	loc0 = rank*8 + file
 	loc = loc0 // 2
 
 	if piece<=QUEEN:
@@ -59,10 +59,8 @@ def add_piece(player, piece, rank, file):
 					memory[WROOK + (memory[WROOK]!=0)] = square
 
 	if loc0%2:
-#		print(f'writing {digit} to low {loc}')
 		memory[loc] += digit
 	else:
-#		print(f'writing {digit} to high {loc}')
 		memory[loc] += digit*10
 
 
@@ -74,7 +72,7 @@ def read_fen(fen):
 	for rank in range(0,8):
 		s = ranks[7-rank]   	# fen reverses rank order
 #		print(s)
-		file = 1
+		file = 0
 		while s != '':
 			c = s[0]
 			s = s[1:]
@@ -87,7 +85,7 @@ def read_fen(fen):
 					piece -= 6
 				else:
 					player = WHITE
-				add_piece(player, piece+1, rank+1, file)
+				add_piece(player, piece+PAWN, rank, file)
 				file += 1
 
 	if fields[1] == 'b':
@@ -99,7 +97,6 @@ def print_deck():
 	global memory
 	out = ''
 	for (a,d) in enumerate(memory):
-#		print(f'{a} {d}')
 		if d!=0:
 			out += f'{a:02}{d:02}0' + 75*' ' + '\n'
 	out += '99000' + 75*' ' + '\n'
