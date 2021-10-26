@@ -13,7 +13,7 @@ class SimTestCase(unittest.TestCase):
   def simulate(self, program, deck):
     with open('/tmp/test.deck', 'w') as f:
       f.write(deck)
-    result = run(f'./chsim/chsim -t 120000 -f /tmp/test.deck {program}', shell=True, stdin=PIPE, stdout=PIPE)
+    result = run(f'./chsim/chsim -t 250000 -f /tmp/test.deck {program}', shell=True, stdin=PIPE, stdout=PIPE)
     self.assertEqual(result.returncode, 0)
     return result.stdout.decode('utf-8').strip().split()
 
