@@ -29,29 +29,31 @@ checkcheckret
   jsr undo_move
 
   ; all this should be in movegen.asm
+  ; F=35,G=36,H=37,I=38,J=39
   mov 7,A
   loadacc A
-  mov I,A           ; C = movestate = [38]
+  mov J,A           ; C = movestate = [39]
   swap A,C
-  mov G,A           ; D = from = [36]
-  swap D,A
-  mov H,A           ; E = fromp = player|piece = [37]
+  mov H,A           ; D = from = [37]
+  swap A,D
+  mov F,A           ; E = fromp = player|piece = [35]
   swap A,E
-  mov J,A           ; A = target = [39]
+  mov I,A           ; A = target = [38]
   jmp next_piece_move
 
 no_check
   jsr undo_move
 
+  ; F=35,G=36,H=37,I=38,J=39
   mov 7,A
   loadacc A
-  mov I,A           ; C = movestate = [38]
+  mov J,A           ; C = movestate = [39]
   swap A,C
-  mov H,A           ; E = fromp = player|piece = [37]
+  mov F,A           ; E = fromp = player|piece = [35]
   swap A,E
-  mov J,A           ; B = target = [39]
+  mov I,A           ; B = target = [38]
   swap A,B
-  mov G,A           ; A = from = [36]
+  mov H,A           ; A = from = [37]
 
   print
 

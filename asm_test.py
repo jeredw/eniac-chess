@@ -33,20 +33,22 @@ class SimTestCase(unittest.TestCase):
           self.memory[32] = yx
         elif piece == 'k':
           self.memory[33] = yx
-        elif piece == 'R':
-          assert rook < 2
-          self.memory[34 + rook] = yx
+        elif piece == 'R' and rook == 0:
+          self.memory[34] = yx
+          rook += 1
+        elif piece == 'R' and rook == 1:
+          self.memory[45] = yx
           rook += 1
         else:
           assert piece == 'r'
-    self.memory[37] = 0 if position.to_move == 'w' else 10
+    self.memory[35] = 0 if position.to_move == 'w' else 10
 
   def initMove(self, position, move):
     encode_piece = lambda k: '.PNBQRK????pnbqrk'.find(k)
-    self.memory[37] = encode_piece(position.board[move.fro])
-    self.memory[40] = encode_piece(position.board[move.to])
-    self.memory[36] = move.fro.y * 10 + move.fro.x
-    self.memory[39] = move.to.y * 10 + move.to.x
+    self.memory[35] = encode_piece(position.board[move.fro])
+    self.memory[36] = encode_piece(position.board[move.to])
+    self.memory[37] = move.fro.y * 10 + move.fro.x
+    self.memory[38] = move.to.y * 10 + move.to.x
 
   def convertMemoryToDeck(self):
     deck = []

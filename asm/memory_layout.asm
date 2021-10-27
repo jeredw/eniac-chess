@@ -19,18 +19,24 @@ BQUEEN  .equ 9
 wking  .equ 32
 bking  .equ 33
 wrook1 .equ 34
-wrook2 .equ 35
+wrook2 .equ 45  ; not adjacent to wrook1 so movegen state fits in a7
 ; if square is occupied and not king or wrook, it's brook
 
+; Player and piece currently to move - player in high digit, piece in low digit.
+; TODO This is redundant. Should we remove it? It saves looking up what is
+; on the from square when doing trial moves, but maybe we don't need it.
+fromp  .equ 35
 
-; The remaining 36 words of memory form a 4-level software stack for
-; alpha/beta search. Since the top of the stack is working memory, this allows
-; us to search up to 3 ply.
+
+; 36 words of memory form a 4-level software stack for alpha/beta search.
+; Since the top of the stack is working memory, this allows us to search up
+; to 3 ply.
 ;
 ; Instead of indirecting through a stack pointer, the top of stack is kept at
 ; a fixed address to save code space. This requires copying on push and pop.
 ; To make that copying more efficient using loadacc/storeacc, stack entries are
 ; stored with a stride of 10 words at offsets 36, 46, 56, and 66.
+;
 ; a7  |xx 36 37 38 39
 ; a8   40 41 42 43 44|
 ; a9  |xx 46 47 48 49
@@ -40,41 +46,33 @@ wrook2 .equ 35
 ; a13 |xx 66 67 68 69
 ; a14  70 71 72 73 74|
 
-; Top of stack
-
+; Top of stack:
 ; Current move
 ; targetp - player_piece captured, or zero if square is empty
 ; from - from square index
-; fromp - player|piece to move
 ; target - to square index
 ; movestate - iterator for move generation
-from   .equ 36
-; Player and piece to move - player in high digit, piece in low digit.
-; TODO This is redundant. Should we remove it? It saves looking up what is
-; on the from square when doing trial moves, but maybe we don't need it.
-fromp  .equ 37
-movestate .equ 38
-target .equ 39
-targetp .equ 40
-
-
+targetp   .equ 36
+from      .equ 37
+target    .equ 38
+movestate .equ 39
 ; Best move
-bestfrom .equ 41
-bestto .equ 42
+bestfrom  .equ 40
+bestto    .equ 41
 ; Score after best move
-bestscore .equ 43
+bestscore .equ 42
 ; Pruning thresholds for alpha/beta search
-alpha  .equ 44
-beta   .equ 45
+alpha     .equ 43
+beta      .equ 44
+; Remaining stack entries begin at 46, 56, 66
 
 ; TODO Material score for current position, updated incrementally on calls to
 ; move and undo_move.
-;score  .equ 46
+;score  .equ 55
 
 ; TODO Current search stack depth
-;depth  .equ 55
+;depth  .equ 65
 
-; (Top-1 of stack from 46 on)
 
 ; - Piece and Player constants -
 ; While the board is stored in a two-level encoding, get_square returns piece, player as below

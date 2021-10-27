@@ -8,7 +8,7 @@ import sys
 WHITE = 0
 BLACK = 1
 
-FROMP = 65  # fromp in memory_layout.asm, used to indicate current player
+FROMP = 35  # fromp in memory_layout.asm, used to indicate current player
 
 # piece encoding for add_piece
 PAWN = 1
@@ -33,7 +33,7 @@ BQUEEN = 9
 WKING = 32
 BKING = 33
 WROOK = 34
-WROOK2 = 35
+WROOK2 = 45
 
 # we print the memory when we are done
 memory = [0]*75
@@ -46,17 +46,20 @@ def add_piece(player, piece, rank, file):
 
 	if piece<=QUEEN:
 		# pawn, knight, bishop, queen are stored directly
-	  digit = piece+WPAWN-PAWN if player==WHITE else piece+BPAWN-PAWN
+		digit = piece+WPAWN-PAWN if player==WHITE else piece+BPAWN-PAWN
 	else:
 		# king and rook encoded as other, their positions stored after board
 		digit = OTHER
-		square = rank*10+file
+		square = (1+rank)*10+(1+file)
 		if piece==KING:
 				memory[WKING + player]=square
 		else: 
 			# piece == ROOK, but we only store positions of white rooks
 			if player==WHITE:
-					memory[WROOK + (memory[WROOK]!=0)] = square
+				if memory[WROOK]==0:
+					memory[WROOK]=square
+				else:
+					memory[WROOK2]=square
 
 	if loc0%2:
 		memory[loc] += digit
