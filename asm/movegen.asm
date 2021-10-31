@@ -5,6 +5,7 @@
 ;  fromp          - memory location, stores player_piece on from square 
 
 ; - Movegen -
+movegen
   mov 11,A          ; A=square=11, begin board scan here
 
 ; At this point: A=square, [fromp]=player*10
@@ -227,11 +228,13 @@ move_if_capture
   jz move_bad       ; can't capture own piece
 
 move_ok
-  mov from,A<->B
-  mov [B],A<->D     ; D=from square
-  mov target,A<->B
-  mov [B],A         ; A=target square
-  jmp output_move
+  ; We have a move to output and need to save movegen state.
+  ; [from], [target] and [targetp] are already up to date, just need to save
+  ; [movestate].
+  mov movestate,A<->B
+  swap A,C
+  mov A,[B]         ; save [movestate]
+  jmp far output_move
 
 move_bad
   mov from,A<->B

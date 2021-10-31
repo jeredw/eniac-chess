@@ -9,16 +9,6 @@ start
   .include movegen.asm
 
 output_move
-  ; save generated move to memory - should be in movegen.asm
-  ; A=to, B=?, C=movestate, D=from, E=player|piece
-  swap A,B
-  mov target,A
-  swap A,B
-  mov A,[B]         ; target = A
-  mov movestate,A<->B
-  swap A,C
-  mov A,[B]         ; movestate = C
-
   ; make the move, then check for check
   jsr move
   jmp far checkcheck
