@@ -309,6 +309,22 @@ class TestMoveGen(SimTestCase):
     moves = self.computeMoves('8/8/4p3/8/3K4/8/8/8 w - - 0 1')
     self.assertEqual(moves, ['4445', '4443', '4434', '4453', '4455', '4433', '4435'])
 
+  def testKingAtD4_BishopCheck(self):
+    moves = self.computeMoves('8/8/4b3/8/3K4/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4445', '4434', '4453', '4455', '4433', '4435'])
+
+  def testKingAtD4_RookCheck(self):
+    moves = self.computeMoves('8/8/4r3/8/3K4/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4443', '4454', '4434', '4453', '4433'])
+
+  def testKingAtD4_KingCheck(self):
+    moves = self.computeMoves('8/8/4k3/8/3K4/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4445', '4443', '4434', '4453', '4433', '4435'])
+
+  def testKingAtD4_QueenCheck(self):
+    moves = self.computeMoves('8/8/4q3/8/3K4/8/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4434', '4453', '4433'])
+
   def testInitialPosition_White(self):
     moves = self.computeMoves('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1')
     self.assertEqual(moves, ['1231', '1233',

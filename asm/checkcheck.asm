@@ -75,18 +75,20 @@ checkcheck
 ; first_step is used to tell if enemy king is too far away to put us in check
 
 .checksliding
+  mov 17,A
+  swap A,C          ; C = 17 = first_step | current_dir
+
+startslide
   mov E,A           ; get king square for player E
   add wking,A
   swap A,B
   mov [B],A
   swap A,D          ; D = king square
 
-  mov 16,A
-  swap A,C          ; C = first_step | next direction of 6
-  mov 7,A           ; A = current direction
-
+; C=first_step|current_dir, D=current square, E=player
 checkslidesquare
-  ; A=current directoon, C=first_step|next direction, D=current square, E=player
+  mov C,A
+  lodig A           ; clear first_step if set
   add bqrkdir,A
   ftl A 			
   add D,A 			    ; A=square after step
@@ -121,12 +123,13 @@ checkslidesquare
   mov C,A
   swapdig A
   lodig A           ; A = first_step flag
-  jz nextslidedir  ; not first step in this direction, too far for capture
+  jz nextslidedir   ; not first step in this direction, too far for capture
   jmp in_check
   
 ; rook can only capture if dir<4
 .ccrook
-  mov C,A  
+  mov C,A
+  lodig A           ; clear first_step
   add 96,A
   jn nextslidedir 	; dir >= 4
   jmp in_check
@@ -134,6 +137,7 @@ checkslidesquare
 ; bishop can only capture if dir>=4
 .ccbishop
   mov C,A           ; A=dir
+  lodig A           ; clear first_step
   add 96,A
   flipn
   jn nextslidedir   ; dir < 4
@@ -148,24 +152,19 @@ not_in_check
   jmp far checkcheckret
 
 nextslidesquare
-  swap C,A          ; load direction
+  swap A,C          ; load direction
   lodig A           ; clear first_step flag
-  mov A,C           ; store cleared first_step
+  swap A,C          ; store cleared flag
   jmp checkslidesquare
 
 nextslidedir
-  mov E,A           ; reload D=king square for player E
-  add wking,A
-  swap A,B
-  mov [B],A
-  swap A,D
-
   mov C,A
-  lodig A           ; clear first_step
+  lodig A           ; clear first_step (could already be clear if more than one step)
   dec A             ; next direction
   jn checkknight    ; out of directions
-  swap A,C          ; C=dir after decrement, A=dir before decrement 
-  jmp checkslidesquare
+  add 10,A          ; set first_step
+  swap A,C          ; C = first_step|current_dur
+  jmp startslide
 
 ; No sliding captures, can a knight get us?
 checkknight
