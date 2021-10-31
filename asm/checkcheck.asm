@@ -168,9 +168,48 @@ nextslidedir
 
 ; No sliding captures, can a knight get us?
 checkknight
-  ; NYI
-  clr A
-  jmp far checkcheckret ; pseudo-return
+  mov ndir,A
+  swap A,C          ; C = current_dir
 
+.checkknightsquare
+  mov E,A           ; get king square for player E
+  add wking,A
+  swap A,B
+  mov [B],A
+  swap A,D          ; D = king square
+
+  mov C,A           ; C = index into knight move table
+  ftl A
+  add D,A
+  jil .nextknightdir ; square off the board
+  swap A,D          ; D = new square
+  jsr get_square
+  jz .nextknightdir  ; nothing here
+
+; is this an enemy knight?
+  mov A,B           ; save player|piece
+  lodig A
+  addn KNIGHT,A
+  jz .itsaknight
+  jmp .nextknightdir ; it's not a knight
+
+; it's knight, is it an enemy knight?
+; B=player|piece, C=dir, D=king sq, E=current player
+.itsaknight
+  mov E,A
+  swap A,D          ; D = E = player
+  swap A,B          ; A = knight player|piece
+  swapdig A
+  lodig A           ; A = knight player
+  sub D,A
+  jz .nextknightdir ; it's our knight, nevermind
+  jmp in_check
+
+.nextknightdir
+  swap A,C
+  add 10,A          ; advance to next index in knight direction table
+  jn not_in_check   ; ran out of directions
+  swap A,C
+  jmp .checkknightsquare
 
 

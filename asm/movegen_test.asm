@@ -66,9 +66,9 @@ done_squares
   halt
 
   .org 200
-  .include move.asm
   .include checkcheck.asm
-
-  .org 306
-  .include get_square.asm
   .include score.asm
+ 
+  .org 306
+  .include move.asm  
+  .include get_square.asm

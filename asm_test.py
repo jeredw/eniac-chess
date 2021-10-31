@@ -13,7 +13,7 @@ class SimTestCase(unittest.TestCase):
   def simulate(self, program, deck):
     with open('/tmp/test.deck', 'w') as f:
       f.write(deck)
-    result = run(f'./chsim/chsim -t 250000 -f /tmp/test.deck {program}', shell=True, stdin=PIPE, stdout=PIPE)
+    result = run(f'./chsim/chsim -t 450000 -f /tmp/test.deck {program}', shell=True, stdin=PIPE, stdout=PIPE)
     self.assertEqual(result.returncode, 0)
     return result.stdout.decode('utf-8').strip().split()
 
@@ -324,6 +324,14 @@ class TestMoveGen(SimTestCase):
   def testKingAtD4_QueenCheck(self):
     moves = self.computeMoves('8/8/4q3/8/3K4/8/8/8 w - - 0 1')
     self.assertEqual(moves, ['4434', '4453', '4433'])
+
+  def testKingAtD4_KnightCheck(self):
+    moves = self.computeMoves('8/8/5n2/8/3K4/5n2/8/8 w - - 0 1')
+    self.assertEqual(moves, ['4443', '4434', '4453', '4433', '4435'])
+
+  def testKingAtD4_Black_KnightCheck(self):
+    moves = self.computeMoves('8/8/5N2/8/3k4/5N2/8/8 b - - 0 1')
+    self.assertEqual(moves, ['4443', '4434', '4453', '4433', '4435'])
 
   def testInitialPosition_White(self):
     moves = self.computeMoves('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1')

@@ -175,6 +175,7 @@ class Output(object):
     self.table_output_row = 6
     self.operand_correction = 0
     self.context = context
+    self.wrapped_row = False
 
   def error(self, what):
     """Log an error message with context about where it happened."""
@@ -190,6 +191,7 @@ class Output(object):
     self.output_row = output_row
     self.word_of_output_row = self.row_start()
     self.operand_correction = 0
+    self.wrapped_row = False
 
   def pad_to_new_row(self):
     """Aligns output to start of a new function table row."""
@@ -203,6 +205,11 @@ class Output(object):
     Places values on the same function table row, if necessary padding out the
     current row with 99s and moving to a new row to guarantee this.
     """
+    if self.wrapped_row:
+      self.error(f"out of space on function table {self.output_row//100 - 1}")
+      self.context.had_fatal_error = True
+      return
+
     assert len(values) <= self.row_length()
     assert self.row_start() <= self.word_of_output_row < 6
     space_left_in_row = 6 - self.word_of_output_row
@@ -251,9 +258,11 @@ class Output(object):
           # If this emit() has operands, the next value emitted should be -1
           if i == 0 and len(values) > 1 and self.minus1_operands:
             self.operand_correction = 99
+
       self.word_of_output_row += 1
       if self.word_of_output_row == 6:
         self.output_row += 1
+        self.wrapped_row = self.output_row % 100 == 0
         self.word_of_output_row = self.row_start()
         if self.output_row == 300:
           self.output_row = 306  # skip table at start of ft3
