@@ -66,9 +66,17 @@ alpha     .equ 43
 beta      .equ 44
 ; Remaining stack entries begin at 46, 56, 66
 
-; TODO Material score for current position, updated incrementally on calls to
-; move and undo_move.
-;score  .equ 55
+; mscore gives the material score advantage for white in the current position
+; plus 50, so 50 means a tied material score.  It is updated incrementally
+; on calls to move and undo_move.
+;
+; Pieces have value 1=PAWN, 3=KNIGHT/BISHOP, 5=ROOK, 9=QUEEN, given by pval.
+; This means the total initial material per side is 8+2*5+4*3+9=39. In theory,
+; promoted queens could overflow mscore, but this is unlikely.
+;
+; Kings have no explicit material value and instead search uses composite score
+; values <= 10 or >= 90 to encode king conditions.
+mscore    .equ 55
 
 ; TODO Current search stack depth
 ;depth  .equ 65
@@ -92,11 +100,11 @@ BLACK   .equ  1
 ; available space.
 ;               0    1    2    3    4    5    6    7    8    9
 tab0    .table  1,  99,  10,  90,   9,  11,  89,  91,   0,  M0
-tab1    .table  1,  M1,   2,  M2,   3,  M3,   8,   0,   4,  M4
-tab2    .table  5,  M5,   6,  M6,   7,  M7,  12,   0,   8,  M8
-tab3    .table  9,  M9,  10, M10,  11, M11,  19,   0,  12, M12
-tab4    .table 13, M13,  14, M14,  15, M15,  21,   0,  16, M16
-tab5    .table 17, M17,  18, M18,  19, M19,  79,   0,  20, M20
+tab1    .table  1,  M1,   2,  M2,   3,  M3,   8,   1,   4,  M4
+tab2    .table  5,  M5,   6,  M6,   7,  M7,  12,   3,   8,  M8
+tab3    .table  9,  M9,  10, M10,  11, M11,  19,   3,  12, M12
+tab4    .table 13, M13,  14, M14,  15, M15,  21,   9,  16, M16
+tab5    .table 17, M17,  18, M18,  19, M19,  79,   5,  20, M20
 tab6    .table 21, M21,  22, M22,  23, M23,  81,   0,  24, M24
 tab7    .table 25, M25,  26, M26,  27, M27,  88,   0,  28, M28
 tab8    .table 29, M29,  30, M30,  31, M31,  92,   0,   0,   0
@@ -115,5 +123,8 @@ offset  .equ tables + 8
 ; ndir has deltas for L-shaped knight moves
 ; entries run vertically at ndir + 10*i
 ndir    .equ tables + 16
+; pval has material scores for kinds of pieces (note king has score 0)
+; entries run vertically at pval + 10*i
+pval    .equ tables + 17
 ; pawndir has deltas for pawn moves per player
 pawndir .equ tables + 90

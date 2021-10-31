@@ -7,6 +7,10 @@ move
   mov [B],A         ; A=[targetp]
   jz clear_from     ; no, target square already clear
 
+  ; TODO can this just be inline here?
+  jmp far score     ; fix material score
+score_ret
+
   lodig A
   addn ROOK,A       ; test if piece >= ROOK
   flipn
@@ -129,14 +133,18 @@ undo_move
 reset_target
   mov targetp,A<->B ;
   mov [B],A         ; A=[targetp]
-  jz .out           ; if no capture, done
+  jz reset_out      ; if no capture, done
+
+  ; TODO can this just be inline here?
+  jmp far unscore   ; fix material score
+unscore_ret
+  ; C=[targetp] here
+
   ; move targetp back to target square
-  mov targetp,A<->B
-  mov [B],A<->C     ; C=player_piece=[targetp]
   clr A
   swap A,D          ; D=old pos=0
   jmp set_square    ; tail call set_square
-.out
+reset_out
   ret
 
   ; set auxiliary position [target] back to [from]. for example if [wrook1]

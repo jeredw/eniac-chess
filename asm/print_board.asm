@@ -16,4 +16,9 @@ print_board
   jil .done
   jmp .next_square
 .done
+  mov mscore,A<->B
+  mov [B],A
+  swap A,B
+  mov 99,A
+  print           ; A=99, B=score
   halt

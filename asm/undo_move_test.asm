@@ -7,8 +7,11 @@
   .include load_board.asm
 start
   jsr undo_move
-  jmp print_board
+  jmp far print_board
 
   .include move.asm
-  .include print_board.asm
   .include get_square.asm
+
+  .org 200
+  .include score.asm
+  .include print_board.asm
