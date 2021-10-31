@@ -46,7 +46,9 @@ fromp  .equ 35
 ; a13 |xx 66 67 68 69
 ; a14  70 71 72 73 74|
 
-; Top of stack:
+; Top of stack accumulators
+TOPM      .equ 7  ; floor(36/5)
+TOPS      .equ 8  ; floor(40/5)
 ; Current move
 ; targetp - player_piece captured, or zero if square is empty
 ; from - from square index
@@ -76,10 +78,15 @@ beta      .equ 44
 ;
 ; Kings have no explicit material value and instead search uses composite score
 ; values <= 10 or >= 90 to encode king conditions.
-mscore    .equ 55
+mscore  .equ 55
 
-; TODO Current search stack depth
-;depth  .equ 65
+; The zero value for score is set at 50 so values < 50 are negative.
+SZERO   .equ 50
+
+; Current search stack depth
+depth   .equ 65
+; The stack can have at most 4 entries
+MAXD    .equ 4
 
 
 ; - Piece and Player constants -
