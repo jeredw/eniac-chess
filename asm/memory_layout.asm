@@ -29,9 +29,6 @@ fromp  .equ 35
 
 
 ; 36 words of memory form a 4-level software stack for alpha/beta search.
-; Since the top of the stack is working memory, this allows us to search up
-; to 3 ply.
-;
 ; Instead of indirecting through a stack pointer, the top of stack is kept at
 ; a fixed address to save code space. This requires copying on push and pop.
 ; To make that copying more efficient using loadacc/storeacc, stack entries are

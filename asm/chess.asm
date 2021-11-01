@@ -1,5 +1,5 @@
 ; ENIAC chess search program
-; 3-ply minimax search with alpha/beta pruning and simple material scoring,
+; 4-ply minimax search with alpha/beta pruning and simple material scoring,
 ; and no special opening or endgame logic.  ENIAC always plays white.
   .isa v4
   .include memory_layout.asm
