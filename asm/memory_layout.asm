@@ -89,7 +89,7 @@ SZERO   .equ 50
 ; Current search stack depth
 depth   .equ 65
 ; The stack can have at most 4 entries
-MAXD    .equ 4
+MAXD    .equ 1
 
 
 ; - Piece and Player constants -

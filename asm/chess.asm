@@ -6,18 +6,15 @@
 
   .org 100
   jmp far game       ; the game outer loop is in ft3
-
+done_squares         ; where movegen jumps when done
+  jmp far no_more_moves
   .include movegen.asm
   .include get_square.asm
-done_squares
-output_move
-  halt
-checkcheckret
-  .include score.asm
 
   .org 200
   .include move.asm
-  .include checkcheck.asm
+  .include score.asm
+  ;.include checkcheck.asm
 
   .org 306
 game
@@ -31,68 +28,178 @@ start
   mov 1,A
   mov A,[B]         ; depth=1 i.e. one entry on stack
   ; XXX if needed we could delegate this to load_board.asm
-  mov 99,A<->E      ; beta=99
-  clr A
-  swap A,D          ; alpha=0
-  mov SZERO,A<->C   ; best_score=50 (zero)
-  clr A
-  swap A,B          ; bestto=0
-  clr A             ; bestfrom=0
+  clrall            ; ABCDE=0
+  mov 99,A<->E      ; E=beta=99
+                    ; D=alpha=0
+                    ; C=best_score=0
+                    ; B=bestto=0
+  clr A             ; A=bestfrom=0
   swapall
-  mov TOPS,A
-  storeacc A        ; store TOPS
-  ; [movestate]=0 makes movegen initialize TOPM
-  mov movestate,A<->B
-  clr A
-  mov A,[B]         ; movestate=0
+  mov TOP1,A
+  storeacc A        ; store TOP1
+  ; init TOP0 to 0, setting all move-related state to zero
+  clrall
+  swapall
+  mov TOP0,A        ;
+  storeacc A
 
 search
+  jmp far next_move
+
+; movegen jumps here when there are no more moves possible
+no_more_moves
+  ; if depth==1 then we have the best move at top of stack
   mov depth,A<->B
-  mov [B],A         ; check stack depth
-  jz search_done    ; if stack is empty, done
-  ; top of stack contains the current search state
+  mov [B],A
+  dec A
+  jz search_done    ; if depth==1, done
 
-  ; movestate==0 signals the start of a search at new depth
-  mov movestate,A<->B
-  mov [B],A         ; A=[movestate]
-  jz new_depth      ; if movestate=0, new depth
-  ; else iterating over possible moves at current depth
+  mov bestscore,A<->B
+  mov [B],A<->D     ; D=best score for this node
+  ; determine if the parent stack frame is for min or max
+  ; if parent is max, it will take max of its children, and so we should update
+  ; it only if our best score is better than its best, etc.
+  mov fromp,A<->B
+  mov [B],A         ; get current player (from player|piece)
+  swapdig A
+  lodig A           ; A=player
+  add oplayer,A
+  ftl A             ; A=1-player
+  jz .pmax          ; if white, score pmax
+;.pmin               ; else, score pmin
+  mov pbestscore,A<->B
+  mov [B],A         ; A=pbestscore
+  sub D,A           ; A=pbestscore - mscore
+  flipn
+  jn .newbest       ; if mscore < bestscore, new best move
+  jmp .pop
+.pmax
+  mov pbestscore,A<->B
+  mov [B],A         ; A=pbestscore
+  sub D,A           ; A=pbestscore - mscore
+  flipn
+  jn .pop           ; if mscore < pbestscore, not a best move
+.newbest
+  swap D,A
+  mov A,[B]         ; [pbestscore] = current score
+  mov from,A<->B
+  mov [B],A<->D     ; D=[from]
+  mov bestfrom,A<->B
+  swap D,A
+  mov A,[B]         ; [pbestfrom]=D
+  mov target,A<->B
+  mov [B],A<->D     ; D=[target]
+  mov bestto,A<->B
+  swap D,A
+  mov A,[B]         ; [pbestto]=D
 
-  ; TODO jsr undo_move
-  ; TODO update the best move at current depth
-  jmp next_move
-
-  ; cannot search deeper, cut off at current depth
-search_cutoff
+.pop
+  ; no more moves at current depth.  parent stack frame has already
+  ; been updated with best move and score, so just pop
+  jsr pop
+  jsr undo_move
+  jsr flip_player
   jmp search
 
-next_move
-  ; TODO before iterating to next move, apply alpha/beta pruning
-  ; can stop searching moves at this depth if alpha >= beta
-  jmp check_move
-
-new_depth
-  ; begin search at new depth, unless search should terminate here
-  ; TODO check for a winner. if the game is won, short-circuit
-  ; check for stack cutoff
+; movegen jumps here when there is a move to try
+output_move
+  ; apply the move (updating mscore)
+  jsr move
   mov depth,A<->B
-  mov [B],A         ; read stack depth
-  addn MAXD,A
-  jz search_cutoff
+  mov [B],A         ; A=stack depth
+  addn MAXD,A       ; is depth at maximum?
+  jz leaf           ; if yes, this is a leaf node
+  ; TODO if someone won, this is also definitely a leaf node
 
-check_move
-  ; TODO call movegen
-  ; TODO if no more moves, pop and jmp back to search
-  ; else current stack frame will reflect movegen iteration
-  ; apply move and push a new recursive frame
-  ; jsr push
-  ; TODO init bestscore according to whether this is a min/max frame
-  ; TODO tell movegen to start over for this new frame
+  ; the score for this node is the min or max of its children
+  ; push a child search node
+  jsr push
+  ; init bestscore according to whether this is a min/max frame
+  jsr flip_player
+  jz .max           ; if player is white then maximize score
+;.min
+  mov bestscore,A<->B
+  mov 99,A
+  mov A,[B]         ; init best score=99
+  jmp .reset_movegen
+.max
+  mov bestscore,A<->B
+  clr A
+  mov A,[B]         ; init best score=0
+  ; fallthrough
+.reset_movegen
+  ; tell movegen to start over for this new recursive stack frame
+  mov from,A<->B
+  clr A
+  mov A,[B]         ; set from=0 so movegen starts over
+  jmp search
+
+  ; update best score for leaf nodes using material score
+  ; TODO should probably have a special case for no king/checkmate
+leaf
+  mov mscore,A<->B
+  mov [B],A<->D     ; D=mscore
+  ; determine if the current stack frame is for min or max
+  mov fromp,A<->B
+  mov [B],A         ; get current player (from player|piece)
+  swapdig A
+  lodig A           ; A=player
+  jz .max           ; if white, score max
+;.min               ; else, score min
+  mov bestscore,A<->B
+  mov [B],A         ; A=bestscore
+  sub D,A           ; A=bestscore - mscore
+  flipn
+  jn .newbest       ; if mscore < bestscore, new best move
+  jmp .movedone
+.max
+  mov bestscore,A<->B
+  mov [B],A         ; A=bestscore
+  sub D,A           ; A=bestscore - mscore
+  flipn
+  jn .movedone      ; if mscore < bestscore, not a best move
+.newbest
+  swap D,A
+  mov A,[B]         ; [bestscore] = current score
+  mov from,A<->B
+  mov [B],A<->D     ; D=[from]
+  mov bestfrom,A<->B
+  swap D,A
+  mov A,[B]         ; [bestfrom]=D
+  mov target,A<->B
+  mov [B],A<->D     ; D=[target]
+  mov bestto,A<->B
+  swap D,A
+  mov A,[B]         ; [bestto]=D
+.movedone
+  jsr undo_move
+  jmp search
+
+checkcheckret
   jmp search
 
 search_done
-  ; TODO copy bestfrom/bestto into move fields and jsr move
-  ; TODO print out the board state before looping
+  ; print the best move found during the search
+  mov bestfrom,A<->B  ; 
+  mov [B],A<->D       ; D=[bestfrom]
+  mov bestto,A<->B
+  mov [B],A<->B       ; B=[bestto]
+  swap D,A            ; A=[bestfrom]
+  print               ;
+  halt
   jmp game
 
   .include stack.asm
+
+; flip the current player for movegen
+; returns new player in A
+flip_player
+  mov fromp,A<->B
+  mov [B],A         ; A=[fromp]
+  swapdig A         ;
+  lodig A           ; A=player field from current fromp
+  add oplayer,A     ; 
+  ftl A             ; A=1-current player
+  swapdig A         ; (swap into player field)
+  mov A,[B]         ; store new fromp
+  ret
