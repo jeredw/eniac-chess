@@ -4,12 +4,35 @@
 ;  current_player - who is moving a piece?
 ;  fromp          - memory location, stores player_piece on from square 
 
-; - Movegen -
-movegen
-  mov 11,A          ; A=square=11, begin board scan here
+; next_move jumps to output_move for each valid move
+; and jumps to done_squares when all squares have been searched
+next_move           
+  mov TOP0,A
+  loadacc A         ; (F=fromp, G=targetp, H=from, I=target, J=movestate)
+  mov J,A<->C       ; C=movestate
+  mov H,A           ;
+  jz init_move      ; [from]==0 means start of iteration
+  swap A,D          ; D=from
+  mov F,A<->E       ; E=fromp
+  ; A=?, B=?, C=movestate, D=from square, E=from player_piece
+next_move_inner
+  mov C,A           ; movestate == 99?
+  inc A
+  jz next_square    ; yes, no more moves from this piece
+
+  mov E,A
+  lodig A           ; A=piece type
+  dec A
+  jz next_pawn_move ; is this a pawn? yes, move it
+  dec A
+  jz next_knight_move; is this a knight? yes, move it
+  jmp next_bqrk_move ; sliding piece
+
+init_move
+  mov 11,A
+  ; fallthrough to try_square
 
 ; At this point: A=square, [fromp]=player*10
-
 try_square          ; A=square
   swap A,D
   jsr get_square    ; what's here?
@@ -40,7 +63,7 @@ try_square          ; A=square
   swap A,D          ; D=square
   clr A
   swap A,C          ; C=movestate=0
-  jmp next_piece_move
+  jmp next_move_inner
 
 next_square         ; D=square
   swap A,D          
@@ -52,20 +75,6 @@ next_square         ; D=square
   add 2,A           ; advance to left of next rank, e.g. 19->21
   jil done_squares  ; finished scanning squares for moves?
   jmp try_square
-
-next_piece_move           
-  ; A=?, B=?, C=movestate, D=from square, E=from player_piece
-  mov C,A           ; movestate == 99?
-  inc A
-  jz next_square    ; yes, no more moves from this piece
-
-  mov E,A
-  lodig A           ; A=piece type
-  dec A
-  jz next_pawn_move ; is this a pawn? yes, move it
-  dec A
-  jz next_knight_move; is this a knight? yes, move it
-  jmp next_bqrk_move ; sliding piece
 
 ; For pawns, the move state is as follows
 ;  0 - capture left
@@ -239,7 +248,8 @@ move_ok
 move_bad
   mov from,A<->B
   mov [B],A<->D     ; D=from square
-  jmp next_piece_move
+  ; note we do not update [movestate] here
+  jmp next_move_inner
 
 ; Sliding pieces (bishop / queen / rook / king)
 ; C=movestate is nd where d=dir index, n=steps (for king)

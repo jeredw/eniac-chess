@@ -47,8 +47,8 @@ fromp  .equ 35
 ; a14  70 71 72 73 74|
 
 ; Top of stack accumulators
-TOPM      .equ 7  ; floor(36/5)
-TOPS      .equ 8  ; floor(40/5)
+TOP0      .equ 7  ; floor(36/5)
+TOP1      .equ 8  ; floor(40/5)
 ; Current move
 ; targetp - player_piece captured, or zero if square is empty
 ; from - from square index
@@ -67,6 +67,9 @@ bestscore .equ 42
 alpha     .equ 43
 beta      .equ 44
 ; Remaining stack entries begin at 46, 56, 66
+pbestfrom .equ 47
+pbestto   .equ 48
+pbestscore .equ 52
 
 ; mscore gives the material score advantage for white in the current position
 ; plus 50, so 50 means a tied material score.  It is updated incrementally
@@ -115,7 +118,7 @@ tab5    .table 17, M17,  18, M18,  19, M19,  79,   5,  20, M20
 tab6    .table 21, M21,  22, M22,  23, M23,  81,   0,  24, M24
 tab7    .table 25, M25,  26, M26,  27, M27,  88,   0,  28, M28
 tab8    .table 29, M29,  30, M30,  31, M31,  92,   0,   0,   0
-tab9    .table 10, -10,   0,   0
+tab9    .table 10, -10,   1,   0
 
 ; ft3-relative base address for table data
 tables  .equ 6
@@ -135,3 +138,5 @@ ndir    .equ tables + 16
 pval    .equ tables + 17
 ; pawndir has deltas for pawn moves per player
 pawndir .equ tables + 90
+; other player for current player
+oplayer .equ tables + 92
