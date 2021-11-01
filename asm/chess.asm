@@ -116,7 +116,8 @@ output_move
   mov [B],A         ; A=stack depth
   addn MAXD,A       ; is depth at maximum?
   jz leaf           ; if yes, this is a leaf node
-  ; TODO if someone won, this is also definitely a leaf node
+  ; TODO if a king is missing, the previous move wasn't legal
+  ; deal with this in some intelligent way
 
   ; the score for this node is the min or max of its children
   ; push a child search node

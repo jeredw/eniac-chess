@@ -78,11 +78,10 @@ pbestscore .equ 52
 ; on calls to move and undo_move.
 ;
 ; Pieces have value 1=PAWN, 3=KNIGHT/BISHOP, 5=ROOK, 9=QUEEN, given by pval.
-; This means the total initial material per side is 8+2*5+4*3+9=39. In theory,
-; promoted queens could overflow mscore, but this is unlikely.
 ;
-; Kings have no explicit material value and instead search uses composite score
-; values <= 10 or >= 90 to encode king conditions.
+; It is assumed that mscore will be set to 50 each time search begins because
+; only the relative cost/benefit matters during a search.  So we are not very
+; worried about overflowing it.
 mscore  .equ 55
 
 ; The zero value for score is set at 50 so values < 50 are negative.
@@ -91,7 +90,7 @@ SZERO   .equ 50
 ; Current search stack depth
 depth   .equ 65
 ; The stack can have at most 4 entries
-MAXD    .equ 2
+MAXD    .equ 4
 
 
 ; - Piece and Player constants -
@@ -117,7 +116,7 @@ tab2    .table  5,  M5,   6,  M6,   7,  M7,  12,   3,   8,  M8
 tab3    .table  9,  M9,  10, M10,  11, M11,  19,   3,  12, M12
 tab4    .table 13, M13,  14, M14,  15, M15,  21,   9,  16, M16
 tab5    .table 17, M17,  18, M18,  19, M19,  79,   5,  20, M20
-tab6    .table 21, M21,  22, M22,  23, M23,  81,   0,  24, M24
+tab6    .table 21, M21,  22, M22,  23, M23,  81,  30,  24, M24
 tab7    .table 25, M25,  26, M26,  27, M27,  88,   0,  28, M28
 tab8    .table 29, M29,  30, M30,  31, M31,  92,   0,   0,   0
 tab9    .table 10, -10,   1,   0
@@ -135,7 +134,8 @@ offset  .equ tables + 8
 ; ndir has deltas for L-shaped knight moves
 ; entries run vertically at ndir + 10*i
 ndir    .equ tables + 16
-; pval has material scores for kinds of pieces (note king has score 0)
+; pval has material scores for kinds of pieces
+; (note king has score 30)
 ; entries run vertically at pval + 10*i
 pval    .equ tables + 17
 ; pawndir has deltas for pawn moves per player
