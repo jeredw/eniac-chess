@@ -69,27 +69,27 @@ no_more_moves
 ;.pmin               ; else, score pmin
   mov pbestscore,A<->B
   mov [B],A         ; A=pbestscore
-  sub D,A           ; A=pbestscore - mscore
+  sub D,A           ; A=pbestscore - bestscore
   flipn
-  jn .newbest       ; if mscore < bestscore, new best move
+  jn .newbest       ; if bestscore < pbestscore, new best move
   jmp .pop
 .pmax
   mov pbestscore,A<->B
   mov [B],A         ; A=pbestscore
-  sub D,A           ; A=pbestscore - mscore
+  sub D,A           ; A=pbestscore - bestscore
   flipn
-  jn .pop           ; if mscore < pbestscore, not a best move
+  jn .pop           ; if bestscore < pbestscore, not a best move
 .newbest
   swap D,A
   mov A,[B]         ; [pbestscore] = current score
-  mov from,A<->B
-  mov [B],A<->D     ; D=[from]
-  mov bestfrom,A<->B
+  mov pfrom,A<->B
+  mov [B],A<->D     ; D=[pfrom]
+  mov pbestfrom,A<->B
   swap D,A
   mov A,[B]         ; [pbestfrom]=D
-  mov target,A<->B
-  mov [B],A<->D     ; D=[target]
-  mov bestto,A<->B
+  mov ptarget,A<->B
+  mov [B],A<->D     ; D=[ptarget]
+  mov pbestto,A<->B
   swap D,A
   mov A,[B]         ; [pbestto]=D
 
@@ -98,7 +98,14 @@ no_more_moves
   ; been updated with best move and score, so just pop
   jsr pop
   jsr undo_move
-  jsr flip_player
+  ; reset [fromp] for movegen
+  mov from,A<->B
+  mov [B],A<->D     ; D=[from] square
+  jsr get_square
+  swap A,D
+  mov fromp,A<->B
+  swap D,A
+  mov A,[B]         ; [fromp]
   jmp search
 
 ; movegen jumps here when there is a move to try
@@ -158,7 +165,7 @@ leaf
   sub D,A           ; A=bestscore - mscore
   flipn
   jn .movedone      ; if mscore < bestscore, not a best move
-.newbest
+.newbest            ; else >=
   swap D,A
   mov A,[B]         ; [bestscore] = current score
   mov from,A<->B

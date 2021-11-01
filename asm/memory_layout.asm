@@ -67,8 +67,10 @@ bestscore .equ 42
 alpha     .equ 43
 beta      .equ 44
 ; Remaining stack entries begin at 46, 56, 66
-pbestfrom .equ 47
-pbestto   .equ 48
+pfrom     .equ 47
+ptarget   .equ 48
+pbestfrom .equ 50
+pbestto   .equ 51
 pbestscore .equ 52
 
 ; mscore gives the material score advantage for white in the current position
@@ -89,7 +91,7 @@ SZERO   .equ 50
 ; Current search stack depth
 depth   .equ 65
 ; The stack can have at most 4 entries
-MAXD    .equ 1
+MAXD    .equ 2
 
 
 ; - Piece and Player constants -

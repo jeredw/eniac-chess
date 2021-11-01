@@ -35,6 +35,9 @@ BKING = 33
 WROOK = 34
 WROOK2 = 45
 
+# material score difference between white and black (50 is no difference)
+MSCORE = 55
+
 # we print the memory when we are done
 memory = [0]*75
 
@@ -103,10 +106,12 @@ def print_deck():
 		if d!=0:
 			out += f'{a:02}{d:02}0' + 75*' ' + '\n'
 	out += '99000' + 75*' ' + '\n'
-	return out 
+	return out.strip()
 
 
 read_fen(sys.stdin.read().rstrip())
+# initialize starting material score to balanced
+memory[MSCORE] = 50
 print(print_deck())
 
 

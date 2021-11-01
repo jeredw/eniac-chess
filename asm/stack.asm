@@ -12,9 +12,10 @@ pop
   dec A
   dec A
   storeacc A      ; copy to A-2
-  addn 14,A       ; 
-  jz .out         ; if A==14, done copying
-  add 14+3,A
+  addn 12,A       ;
+  jz .out         ; if A==12, done copying
+  add 12+3,A
+  flipn
   jmp .loop
 .out
   ; fix [35], [45] and [55] which got clobbered
@@ -27,15 +28,20 @@ pop
   mov 55,A<->B
   swap D,A
   mov A,[B]       ; restore [55]
+  ; dec stack depth
+  mov depth,A<->B
+  mov [B],A
+  dec A
+  mov A,[B]
   ret
 
 ; Push the search stack
 push
-  mov 45,A
+  mov 45,A<->B
   mov [B],A<->C   ; C=save [45]
-  mov 55,A
+  mov 55,A<->B
   mov [B],A<->D   ; D=save [55]
-  mov 65,A
+  mov 65,A<->B
   mov [B],A<->E   ; E=save [65]
   mov 12,A
 .loop
@@ -46,6 +52,7 @@ push
   addn 9,A        ;
   jz .out         ; if A==9, done copying
   add 9-3,A
+  flipn
   jmp .loop
 .out
   ; fix [45], [55], and [65] which got clobbered
@@ -58,4 +65,9 @@ push
   mov 65,A<->B
   swap E,A
   mov A,[B]       ; restore [65]
+  ; inc stack depth
+  mov depth,A<->B
+  mov [B],A
+  inc A
+  mov A,[B]
   ret
