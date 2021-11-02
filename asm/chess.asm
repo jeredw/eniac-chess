@@ -50,6 +50,16 @@ search
 
 ; movegen jumps here when there is a move to try
 output_move
+  ; before iterating to next move, apply alpha/beta pruning
+  ; can stop searching moves at this depth if alpha >= beta
+  mov alpha,A<->B   ;
+  mov [B],A<->D     ; D=alpha
+  mov beta,A<->B    ;
+  mov [B],A         ; A=beta
+  sub D,A
+  jn no_more_moves  ; if beta<=alpha, stop iteration
+  jz no_more_moves  ; if beta==alpha, stop iteration
+
   ; apply the move (updating mscore)
   jsr move
   mov depth,A<->B
@@ -140,8 +150,16 @@ no_more_moves
   ; determine if the parent stack frame is for min or max
   jsr other_player  ; get 1-player in A's low digit
   jz .pmax          ; if white, score pmax
-;.pmin               ; else, score pmin
+;.pmin              ; else, score pmin
   ; parent is min, update its best move if bestscore < pbestscore
+  ; (if this is a new low, first update beta)
+  mov pbeta,A<->B
+  mov [B],A         ; A=pbeta
+  sub D,A           ; A=pbeta - bestscore
+  jn .minbest       ; if beta < bestscore, no update
+  mov D,A
+  mov A,[B]         ; set new pbeta
+.minbest
   mov pbestscore,A<->B
   mov [B],A         ; A=pbestscore
   sub D,A           ; A=pbestscore - bestscore
@@ -150,6 +168,15 @@ no_more_moves
   jmp .pop
 .pmax
   ; parent is max, update its best move if bestscore >= pbestscore
+  ; (if this is a new high, first update alpha)
+  mov palpha,A<->B
+  mov [B],A         ; A=palpha
+  sub D,A           ; A=palpha - bestscore
+  flipn
+  jn .maxbest       ; if bestscore < palpha, no update
+  mov D,A
+  mov A,[B]         ; set new palpha
+.maxbest
   mov pbestscore,A<->B
   mov [B],A         ; A=pbestscore
   sub D,A           ; A=pbestscore - bestscore

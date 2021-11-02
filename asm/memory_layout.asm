@@ -69,6 +69,8 @@ ptarget   .equ 48
 pbestfrom .equ 50
 pbestto   .equ 51
 pbestscore .equ 52
+palpha    .equ 53
+pbeta     .equ 54
 
 ; mscore gives the material score advantage for white in the current position
 ; plus 50, so 50 means a tied material score.  It is updated incrementally
