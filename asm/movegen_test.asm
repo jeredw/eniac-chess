@@ -35,7 +35,7 @@ no_check
   
   jmp next_move
 
-done_squares
+no_more_moves
   halt
 
   .include movegen.asm

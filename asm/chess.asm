@@ -7,7 +7,7 @@
 ; and no special opening or endgame logic. ENIAC always plays white.
 ;
 ; This file, like all asm files in this project, is written in the custom VM language
-; It is assembled by chasm.py into simulator switch settings chess.e, concatenated by
+; It is assembled by chasm.py into simulator switch settings chess.e, concatenated 
 ; with VM wiring patch setup chessvm.e, and then executed by eniacsim. 
 
   .isa v4

@@ -11,7 +11,7 @@
 ; To call: jump to next_move
 ; Initializes move generation if [from]=0
 ; Returns next move in updated top of stack, via far jump to output_move
-; When no more moves, far jump to done_squares
+; When no more moves, far jump to no_more_moves
 ; 
 ; Approach:
 ;  - check for pawn moves

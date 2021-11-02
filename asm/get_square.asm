@@ -1,9 +1,21 @@
+; GET_SQUARE.ASM
+; Lookup piece at board square.
+
+; See memory_layout.asm for board encoding, but briefly:
+;   - Board layout is 64 digits in 32 words in addresses 0-31.
+;   - Digit 0=empty, digit=OTHER, meaning a king or rook, 
+;     digit 2-9=white/black pawn/bishop/queen/knight
+;   - Location of kings and white rooks are in [wking], [bking], [wrook1], [wrook2]
+;   - If it's OTHER but not in those four locations, it's black rook
+;
+; This layout is compact while remaining constant time to lookup 
+
 ; - get_square -
 ; Find the piece on a square
 ; Inputs: 
-;   D - square
+;   D - square, numbered rank|file from 11 to 88
 ; Outputs:
-;   A - 0 if empty, else player|piece type
+;   A - 0 if empty, else player|piece
 ;   D - square
 ; Overwrites:
 ;   B, LS (aka FGHIJ)

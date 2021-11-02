@@ -1,13 +1,20 @@
-; CHECKCHECK - Check if the king is in check
-; Current player defined by high digit of fromp. Not a subroutine, calls get_square 
-; "Returns" with a far jump to checkcheckret
-; Input:
-;   fromp, board
-; Output:
-;   A=nonzero if current player king in check
+; CHECKCHECK.ASM 
+; Check if the king is in check
+
+; NOTE: Not currently used in chess.asm, though tested in movegen_test.asm
+; The last ply of a 4 ply search is always the opponent move, where we detect check
+
+
+; To call: jump to checkcheck
+; Returns via far jump to checkcheckret
+;
+; Inputs:
+;   board, [fromp] to define current player
+; Outputs:
+;   A=1 if in current player king in check, 0 otherwise
 ; Trashes:
 ;   everything
-
+;
 ; Approach:
 ; - look for pawns
 ; - check for sliding pieces in 8 directions
