@@ -196,7 +196,7 @@ class Output(object):
   def pad_to_new_row(self):
     """Aligns output to start of a new function table row."""
     # If already at the start of a row, no need to pad.
-    while self.word_of_output_row != self.row_start():
+    while not self.context.had_fatal_error and self.word_of_output_row != self.row_start():
       self.emit(99)
 
   def emit(self, *values, comment=""):
