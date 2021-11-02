@@ -10,10 +10,10 @@ class SimTestCase(unittest.TestCase):
   def setUp(self):
     self.memory = [0] * 75
 
-  def simulate(self, program, deck):
+  def simulate(self, program, deck, max_cycles=500000):
     with open('/tmp/test.deck', 'w') as f:
       f.write(deck)
-    result = run(f'./chsim/chsim -t 500000 -f /tmp/test.deck {program}', shell=True, stdin=PIPE, stdout=PIPE)
+    result = run(f'./chsim/chsim -t {max_cycles} -f /tmp/test.deck {program}', shell=True, stdin=PIPE, stdout=PIPE)
     self.assertEqual(result.returncode, 0)
     return result.stdout.decode('utf-8').strip().split()
 
@@ -639,6 +639,44 @@ class TestUndoMove(SimTestCase):
                           Move(fro=Square.d7, to=Square.c6))
     self.assertEqual(str(board), '8/3p4/2K5/8/8/8/8/8')
     self.assertEqual(board.score, 29)
+
+
+class TestChess(SimTestCase):
+  def setUpClass():
+    run('python chasm/chasm.py asm/chess_test.asm chess_test.e', shell=True, check=True)
+    run('make -C chsim chsim', shell=True, check=True)
+
+  def findBestMove(self, fen):
+    position = Position.fen(fen)
+    self.initBoard(position)
+    deck = self.convertMemoryToDeck()
+    moves = self.simulate('chess_test.e', deck, max_cycles=1000000000)
+    self.assertEqual(1, len(moves))
+    return moves[0]
+
+  def testPuzzle_1(self):
+    best = self.findBestMove('1k1r1q1r/pb3ppp/4p3/3p2b1/3P4/PP1B4/KBP2PPP/2R1Q2R w KQkq - 0 1')
+    self.assertEqual(best, '1555') 
+
+  def testAvoidRecapture_1(self):
+    # XXX use an example with a legal start position
+    best = self.findBestMove('8/8/8/8/3k4/1p1p4/2P5/8 w KQkq - 0 1')
+    self.assertEqual(best, '2332') 
+
+  def testAvoidRecapture_2(self):
+    # XXX use an example with a legal start position
+    best = self.findBestMove('8/8/8/8/1k6/1p1p4/2P5/8 w KQkq - 0 1')
+    self.assertEqual(best, '2334') 
+
+  def testMustDoSomething(self):
+    # this test would return 0000 if we did not choose an infinitely bad move
+    # XXX use an example with a legal start position
+    best = self.findBestMove('8/8/8/8/3k4/1r1r4/2P5/8 w KQkq - 0 1')
+    self.assertEqual(best, '2332') 
+
+  def testInitialPosition(self):
+    best = self.findBestMove('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
+    self.assertEqual(best, '1231') 
 
 
 if __name__ == "__main__":
