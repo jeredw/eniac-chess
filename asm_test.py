@@ -47,6 +47,8 @@ class SimTestCase(unittest.TestCase):
   def initScore(self, position):
     # since the program only updates material score incrementally we have to
     # help it a bit by computing the initial material score for a position
+    # NB: not really needed, at each move we start at 50 and compute change for 4 ply
+    # So could just mscore=50 here, but would break scoring tests below
     value = {'p': -1, 'n': -3, 'b': -3, 'r': -5, 'q': -9,
              'P': +1, 'N': +3, 'B': +3, 'R': +5, 'Q': +9}
     delta_score = 0
@@ -458,7 +460,7 @@ class TestMove(SimTestCase):
     board = self.makeMove('8/8/8/8/8/5k2/4P3/8 w - - 0 1',
                           Move(fro=Square.e2, to=Square.f3))
     self.assertEqual(str(board), '8/8/8/8/8/5P2/8/8')
-    self.assertEqual(board.score, +1)
+    self.assertEqual(board.score, +31)
 
   def testMovePawnE2_CaptureRook(self):
     board = self.makeMove('8/8/8/8/8/5r2/4P3/8 w - - 0 1',
@@ -488,7 +490,7 @@ class TestMove(SimTestCase):
     board = self.makeMove('8/3p4/2K5/8/8/8/8/8 b - - 0 1',
                           Move(fro=Square.d7, to=Square.c6))
     self.assertEqual(str(board), '8/8/2p5/8/8/8/8/8')
-    self.assertEqual(board.score, -1)
+    self.assertEqual(board.score, -31)
 
 
 class TestUndoMove(SimTestCase):
@@ -601,7 +603,7 @@ class TestUndoMove(SimTestCase):
                           '8/8/8/8/8/5P2/8/8 b - - 0 1',
                           Move(fro=Square.e2, to=Square.f3))
     self.assertEqual(str(board), '8/8/8/8/8/5k2/4P3/8')
-    self.assertEqual(board.score, +1)
+    self.assertEqual(board.score, -29)
 
   def testUndoMovePawnE2_CaptureRook(self):
     board = self.undoMove('8/8/8/8/8/5r2/4P3/8 w - - 0 1',
@@ -636,7 +638,7 @@ class TestUndoMove(SimTestCase):
                           '8/8/2p5/8/8/8/8/8 w - - 0 2',
                           Move(fro=Square.d7, to=Square.c6))
     self.assertEqual(str(board), '8/3p4/2K5/8/8/8/8/8')
-    self.assertEqual(board.score, -1)
+    self.assertEqual(board.score, 29)
 
 
 if __name__ == "__main__":

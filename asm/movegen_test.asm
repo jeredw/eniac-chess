@@ -1,4 +1,6 @@
-; test bench for movegen.asm
+; MOVEGEN_TEST.ASM
+;
+; Test harness for movegen.asm and checkcheck.asm, to be called by asm_test.py
 ; reads initial memory state then outputs possible moves
   .isa v4
   .org 100

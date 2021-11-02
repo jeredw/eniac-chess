@@ -1,5 +1,7 @@
+; SCORE.ASM
+;
 ; These helpers update incremental material score.
-; TODO Ideally these would just be inline in move.asm
+; TODO Ideally these would just be inline in move.asm. Can't be a subroutine because move is.
 
 ; update material score when capturing a piece
 ; A=player_piece captured

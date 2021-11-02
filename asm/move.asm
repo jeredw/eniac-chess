@@ -1,3 +1,5 @@
+; MOVE.ASM
+
 ; - move -
 ; Modifies the board in place to move piece [fromp] from square [from] to square
 ; [target], first removing piece [targetp] if any.
@@ -61,7 +63,7 @@ clear_from
 ; to square [from], and replaces the captured piece [targetp] (if any) on square
 ; [target].
 ;
-; Does not read [fromp], which is inferred from board state.
+; Does not read [fromp], which is inferred via [target] square instead
 undo_move
   ; clear [target], placing its former encoded piece in the low digit of D
   mov target,A<->B
@@ -70,6 +72,7 @@ undo_move
   ftl A             ; lookup square offset
   jn .low           ; square mod 2 == 1?
 
+; clear high digit of target square word
 ;.hi
   swap A,B          ;
   mov [B],A         ; get board at offset
@@ -81,6 +84,7 @@ undo_move
   mov A,[B]         ; clear target square
   jmp .reset_from
 
+; clear low digit of target square word
 .low
   swap A,B          ;
   mov [B],A         ; get board at offset
@@ -101,6 +105,7 @@ undo_move
   ftl A             ; lookup square offset
   jn .reset_low
 
+; write high digit of from square word
 ;.reset_hi
   swap A,B          ;
   mov [B],A         ; get board at offset
@@ -111,6 +116,7 @@ undo_move
   mov A,[B]         ; update board
   jmp .check_other
 
+; write low digit of from square word
 .reset_low
   swap A,B          ;
   mov [B],A         ; get board at offset

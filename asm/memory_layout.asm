@@ -1,4 +1,5 @@
-; - MEMORY LAYOUT -
+; MEMORY_LAYOUT.ASM
+; We use all 75 words for board, globals, and search stack
 
 ; - Board representation - 
 ; We have room for only a single board, stored as 64 digits in 32 words in addresses 0-31.
@@ -117,7 +118,6 @@ pbestto   .equ 51
 pbestscore .equ 52
 palpha    .equ 53
 pbeta     .equ 54
-
 
 
 ; - Data tables -

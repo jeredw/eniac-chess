@@ -1,4 +1,5 @@
-; stack.asm -- push and pop the search stack
+; STACK.ASM 
+; Push and pop the search stack
 ; 
 ; 36 words of memory form a 4-level software stack for alpha/beta search.
 ; Instead of indirecting through a stack pointer, the top of stack is kept at

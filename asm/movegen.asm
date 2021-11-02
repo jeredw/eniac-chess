@@ -1,11 +1,27 @@
-; Variable names:
-;  square         - square where we are trying to move a piece, aka from
-;  player_piece   - player in high digit, piece type in low digit (from get_square)
-;  current_player - who is moving a piece?
-;  fromp          - memory location, stores player_piece on from square 
+; MOVE_GEN.ASM
+; Main move generator
 
-; next_move jumps to output_move for each valid move
-; and jumps to done_squares when all squares have been searched
+; Communicates through top of stack: 
+;  [from]       - from square
+;  [fromp]      - current player player | piece on from
+;  [target]     - to square
+;  [targetp]    - 0 if empty, or opposing player | piece on to
+;  [move_state] - opaque iteration state
+;
+; To call: jump to next_move
+; Initializes move generation if [from]=0
+; Returns next move in updated top of stack, via far jump to output_move
+; When no more moves, far jump to done_squares
+; 
+; Approach:
+;  - check for pawn moves
+;  - check for BRQK moves in 4 or 8 directions
+;  - check for knight moves
+;
+; Returns psuedo-legal moves, that is, does not check for check
+
+; - next_move - 
+; Main entrypoint
 next_move           
   mov TOP0,A
   loadacc A         ; (F=fromp, G=targetp, H=from, I=target, J=movestate)
@@ -14,7 +30,9 @@ next_move
   jz init_move      ; [from]==0 means start of iteration
   swap A,D          ; D=from
   mov F,A<->E       ; E=fromp
-  ; A=?, B=?, C=movestate, D=from square, E=from player_piece
+
+; Generate next move for current piece 
+; Here: C=movestate, D=from square, E=from player_piece
 next_move_inner
   mov C,A           ; movestate == 99?
   inc A
@@ -32,11 +50,13 @@ init_move
   mov 11,A
   ; fallthrough to try_square
 
-; At this point: A=square, [fromp]=player*10
+; Try a new square. See if one our pieces is there.
+; Here: A=square, [fromp]=player*10
 try_square          ; A=square
   swap A,D
   jsr get_square    ; what's here?
   jz next_square    ; empty?
+
   ; check if the piece here is ours
   swap A,E          ; E=player_piece on square
   swap D,A          ;
@@ -54,6 +74,7 @@ try_square          ; A=square
   swap C,A
   swap A,D          ; D=square
   jmp next_square   ; not our piece
+
 .ours
   mov E,A
   mov A,[B]         ; [fromp]=player_piece on square
@@ -68,20 +89,21 @@ try_square          ; A=square
 next_square         ; D=square
   swap A,D          
   inc A             ; advance one square right
-  jil .next_line
+  jil .next_line    ; roll over to next rank?
   jmp try_square
 
 .next_line
   add 2,A           ; advance to left of next rank, e.g. 19->21
-  jil done_squares  ; finished scanning squares for moves?
+  jil done_squares  ; finished scanning all squares for moves?
   jmp try_square
 
-; For pawns, the move state is as follows
+; For pawns, move_state is coded as follows
 ;  0 - capture left
 ;  1 - capture right
 ;  2 - push 1
 ;  3 - push 2
-next_pawn_move      ; C=movestate, D=from square, E=from player_piece
+; Here: C=movestate, D=from, E=fromp
+next_pawn_move      
   mov C,A           ; movestate += 1
   inc A
   swap A,C
@@ -112,7 +134,7 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   flipn
   jn next_square    ; nope, can't push 2
   mov D,A           ; A=from square
-  addn 20,A         ; compute target square, two forward
+  addn 20,A         ; compute target square, two down
   jmp .check_move
 
 .push2_white
@@ -120,7 +142,7 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   addn 30,A         ; from square < 30? 
   jn next_square    ; nope, can't push 2
   mov D,A           ; A=from square
-  add 20,A          ; compute target square, two forward
+  add 20,A          ; compute target square, two up
   jmp .check_move
 
 .capture_left       ; capture -1 file
@@ -158,7 +180,7 @@ next_pawn_move      ; C=movestate, D=from square, E=from player_piece
   swap A,D
   mov targetp,A<->B
   swap D,A
-  mov A,[B]         ; [targetp]=player_piece on target
+  mov A,[B]         ; [targetp]=player|piece on target
   jmp move_if_capture ; capture if occupied by opposite player
 
 ; try advancing 1 square
@@ -252,7 +274,7 @@ move_bad
   jmp next_move_inner
 
 ; Sliding pieces (bishop / queen / rook / king)
-; C=movestate is nd where d=dir index, n=steps (for king)
+; C=movestate is n|d where d=dir index, n=steps (for king)
 ; [target] is the current square along dir
 next_bqrk_move
   mov C,A
@@ -335,3 +357,6 @@ next_bqrk_move
   addn 5,A          ; test if dir is diagonal
   jz next_square    ; if so, done with rook moves
   jmp next_bqrk_move
+
+done_squares         
+  jmp far no_more_moves

@@ -1,4 +1,6 @@
-; test bench for move.asm (move)
+; MOVETEST.ASM
+;
+; test harness for move.asm (move), to be called by asm_test.py
 ; tests board state updates
   .isa v4
   .org 100

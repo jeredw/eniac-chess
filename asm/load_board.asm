@@ -1,5 +1,9 @@
-; Read initial memory state. Each card is AADD = address, data
-; address 99 to end
+; LOAD_BOARD.ASM
+
+; Read initial memory state, one word per card.
+; Each card is AADD = address, data
+; Card with address=99 to end
+; Near jump to "start" on exit
 init_memory
   read
   swapall
