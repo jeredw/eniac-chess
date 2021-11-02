@@ -16,6 +16,21 @@ done_squares         ; where movegen jumps when done
   .include score.asm      ; 11 lines
   ;.include checkcheck.asm ; 41 lines
 
+;debug_print
+;  mov depth,A<->B  ; 
+;  mov [B],A<->D       ; D=[depth]
+;  mov bestscore,A<->B
+;  mov [B],A<->B       ; B=[bestscore]
+;  swap D,A            ; A=[depth]
+;  print               ;
+;  mov bestfrom,A<->B  ; 
+;  mov [B],A<->D       ; D=[bestfrom]
+;  mov bestto,A<->B
+;  mov [B],A<->B       ; B=[bestto]
+;  swap D,A            ; A=[bestfrom]
+;  print               ;
+;  ret
+
   .org 306
 game
   ; set memory state from cards
@@ -50,6 +65,16 @@ search
 
 ; movegen jumps here when there is a move to try
 output_move
+  ; init best move to the current move if there is none
+  ; this is needed in case there are no child moves
+  mov bestfrom,A<->B
+  mov [B],A
+  jz .set_best
+  jmp .prune
+.set_best
+  jsr set_best_move
+
+.prune
   ; before iterating to next move, apply alpha/beta pruning
   ; can stop searching moves at this depth if alpha >= beta
   mov alpha,A<->B   ;
@@ -117,20 +142,11 @@ leaf
   mov [B],A         ; A=bestscore
   sub D,A           ; A=bestscore - mscore
   flipn
-  jn .movedone      ; if mscore < bestscore, not a best move
-.newbest            ; else >=
+  jn .movedone      ; if mscore <= bestscore, not a best move
+.newbest            ; else >
   swap D,A
   mov A,[B]         ; [bestscore] = current score
-  mov from,A<->B
-  mov [B],A<->D     ; D=[from]
-  mov bestfrom,A<->B
-  swap D,A
-  mov A,[B]         ; [bestfrom]=D
-  mov target,A<->B
-  mov [B],A<->D     ; D=[target]
-  mov bestto,A<->B
-  swap D,A
-  mov A,[B]         ; [bestto]=D
+  jsr set_best_move
 .movedone
   jsr undo_move
   jmp search
@@ -200,6 +216,10 @@ no_more_moves
   ; no more moves at current depth.  parent stack frame has already
   ; been updated with best move and score, so just pop
   jsr pop
+
+  ; DEBUG <depth><bestscore> <bestfrom><bestto>
+  ;jsr debug_print
+
   jsr undo_move
   ; reset [fromp] from board state for movegen
   mov from,A<->B
@@ -232,4 +252,18 @@ other_player
   lodig A           ; A=player field from current fromp
   add oplayer,A     ; 
   ftl A             ; A=1-current player
+  ret
+
+; sets the best move at top of stack to the current move
+set_best_move
+  mov from,A<->B
+  mov [B],A<->D     ; D=[from]
+  mov bestfrom,A<->B
+  swap D,A
+  mov A,[B]         ; [bestfrom]=D
+  mov target,A<->B
+  mov [B],A<->D     ; D=[target]
+  mov bestto,A<->B
+  swap D,A
+  mov A,[B]         ; [bestto]=D
   ret
