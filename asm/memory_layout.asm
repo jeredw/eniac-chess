@@ -1,6 +1,7 @@
 ; - MEMORY LAYOUT -
 
-; The board is stored as 64 digits in 32 words in addresses 0-31.
+; - Board representation - 
+; We have room for only a single board, stored as 64 digits in 32 words in addresses 0-31.
 ; Digit coding:
 EMPTY   .equ 0
 OTHER   .equ 1
@@ -13,21 +14,59 @@ BKNIGHT .equ 7
 BBISHOP .equ 8
 BQUEEN  .equ 9
 
-; OTHER means white/black rook/king. We store the squares of these pieces in another six words
+; OTHER means white/black rook/king. We store the squares of these pieces in another four words
 ; We'll always have only one king and two rooks per side (no reason to promote to rook)
 ; This allows us to represent any number of promoted queens
 wking  .equ 32
 bking  .equ 33
 wrook1 .equ 34
 wrook2 .equ 45  ; not adjacent to wrook1 so movegen state fits in a7
-; if square is occupied and not king or wrook, it's brook
+; if square is occupied with OTHER and it's not king or wrook, it's brook
 
-; Player and piece currently to move - player in high digit, piece in low digit.
-; TODO This is redundant. Should we remove it? It saves looking up what is
-; on the from square when doing trial moves, but maybe we don't need it.
+
+; - Piece and Player constants -
+; While the board is stored in a two-level encoding, get_square returns player|piece as below
+WHITE   .equ  0
+BLACK   .equ  1
+
+; Note that 1) OTHER pieces RK are contiguous and 2) sliding pieces BQRK are contiguous
+PAWN    .equ  1
+KNIGHT  .equ  2
+BISHOP  .equ  3
+QUEEN   .equ  4
+ROOK    .equ  5
+KING    .equ  6
+
+
+; - Globals -
+
+; fromp - player and piece currently to move. 
+; Player in high digit, piece in low digit, which we write as player|piece.
+; It's not in the stack because we can find it by calling get_square with [from] 
+; Once initialized that way, it's awfully useful to know whose turn it is.
 fromp  .equ 35
 
+; mscore - material score advantage for white in the current position
+; plus 50, so 50 means a tied material score.  It is updated incrementally
+; on calls to move and undo_move.
+;
+; Pieces have value 1=PAWN, 3=KNIGHT/BISHOP, 5=ROOK, 9=QUEEN, 30=KING, given by pval.
+;
+; It is assumed that mscore will be set to 50 each time search begins because
+; only the relative cost/benefit matters during a search. In 4 ply, we won't overflow.
+mscore  .equ 55
 
+; The zero value for score is set at 50 so values < 50 are negative.
+SZERO   .equ 50
+
+; Current search stack depth
+depth   .equ 65
+
+; The stack can have at most 4 entries, reduce for debugging
+MAXD    .equ 4
+
+
+; - Stack - 
 ; 36 words of memory form a 4-level software stack for alpha/beta search.
 ; Instead of indirecting through a stack pointer, the top of stack is kept at
 ; a fixed address to save code space. This requires copying on push and pop.
@@ -43,9 +82,13 @@ fromp  .equ 35
 ; a13 |xx 66 67 68 69
 ; a14  70 71 72 73 74|
 
-; Top of stack accumulators
+
+; Top of stack - lastest move in search
+
+; Accumulator indices
 TOP0      .equ 7  ; floor(36/5)
 TOP1      .equ 8  ; floor(40/5)
+
 ; Current move
 ; targetp - player_piece captured, or zero if square is empty
 ; from - from square index
@@ -55,15 +98,18 @@ targetp   .equ 36
 from      .equ 37
 target    .equ 38
 movestate .equ 39
-; Best move
+
+; Best move so far
 bestfrom  .equ 40
 bestto    .equ 41
 ; Score after best move
 bestscore .equ 42
+
 ; Pruning thresholds for alpha/beta search
 alpha     .equ 43
 beta      .equ 44
-; Remaining stack entries begin at 46, 56, 66
+
+; Equivalent parent stack entries - top of stack minus 1
 pfrom     .equ 47
 ptarget   .equ 48
 pbestfrom .equ 50
@@ -72,39 +118,9 @@ pbestscore .equ 52
 palpha    .equ 53
 pbeta     .equ 54
 
-; mscore gives the material score advantage for white in the current position
-; plus 50, so 50 means a tied material score.  It is updated incrementally
-; on calls to move and undo_move.
-;
-; Pieces have value 1=PAWN, 3=KNIGHT/BISHOP, 5=ROOK, 9=QUEEN, given by pval.
-;
-; It is assumed that mscore will be set to 50 each time search begins because
-; only the relative cost/benefit matters during a search.  So we are not very
-; worried about overflowing it.
-mscore  .equ 55
-
-; The zero value for score is set at 50 so values < 50 are negative.
-SZERO   .equ 50
-
-; Current search stack depth
-depth   .equ 65
-; The stack can have at most 4 entries
-MAXD    .equ 4
 
 
-; - Piece and Player constants -
-; While the board is stored in a two-level encoding, get_square returns piece, player as below
-PAWN    .equ  1
-KNIGHT  .equ  2
-BISHOP  .equ  3
-QUEEN   .equ  4
-ROOK    .equ  5
-KING    .equ  6
-
-WHITE   .equ  0
-BLACK   .equ  1
-
-; Data tables
+; - Data tables -
 
 ; Tables are manually placed because they overlap and use all
 ; available space.
@@ -120,24 +136,31 @@ tab7    .table 25, M25,  26, M26,  27, M27,  88,   0,  28, M28
 tab8    .table 29, M29,  30, M30,  31, M31,  92,   0,   0,   0
 tab9    .table 10, -10,   1,   0
 
-; ft3-relative base address for table data
+; ft3-relative base address for table data. 
+; First 10 ft3 lines are 1-of-10 decoder. But data starts at offset 6 because we use 
+; -2 addressing (lines -2..7) for decoding and +2 addressing (lines 8-102) for FTL
 tables  .equ 6
 
 ; bqrkdir has ±1,±1 square deltas for sliding piece moves
 ; note terminated by the 0 which begins the offset table
 bqrkdir .equ tables + 0
+
 ; offset maps positions 11..88 to address
 ; value = square div 2, sign = square mod 2, indicates low or high digit
 ; note x6/x7 entries are padding reused for other tables
 offset  .equ tables + 8
+
 ; ndir has deltas for L-shaped knight moves
 ; entries run vertically at ndir + 10*i
 ndir    .equ tables + 16
+
 ; pval has material scores for kinds of pieces
 ; (note king has score 30)
 ; entries run vertically at pval + 10*i
 pval    .equ tables + 17
+
 ; pawndir has deltas for pawn moves per player
 pawndir .equ tables + 90
-; other player for current player
+
+; oplayer computes 1-A, maps to opposite player
 oplayer .equ tables + 92
