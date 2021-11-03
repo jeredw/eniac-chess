@@ -1,0 +1,16 @@
+# print integers, let easm take care of things
+
+p i.io {p-print}
+
+p {p-print} i.pi   	# print!
+s pr.3 P      		# prints low half of acc 13 
+p i.po {p-inc}    	# go to increment
+
+p {p-inc} a13.{t-inc}i 		# take any available transciever
+s a13.op{t-inc} a   		# recieve on input a
+s a13.cc{t-inc} C   		# add +1
+p a13.{t-inc}o {p-print}    # go back to print
+
+# press the start button
+b i
+g

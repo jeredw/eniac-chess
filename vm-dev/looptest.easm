@@ -1,0 +1,41 @@
+include ../chessvm/macros.easm
+
+set a1 10       # set loop limit 
+
+{a-limit} = a1  # tell easm to bind symbols to physical accumulators
+{a-count} = a13 # put counter here so we can print
+
+# LIMIT and COUNT write to main bus, TEST reads from it.
+p {a-limit}.A {d-main}
+p {a-count}.S {d-main}
+p {d-main} {a-test}.{i-main}
+
+p i.io {p-print}
+
+# print low half of COUNT
+p {p-print} i.pi
+s pr.3 P
+p i.po {p-inc}
+
+# increment via recinc from a disconnected input
+$recinc {p-inc} {a-count} {t-inc} {i-no-connection} {p-test-1}
+
+# first step of test: LIMIT -> TEST
+$send {p-test-1} {a-limit} {t-test-1} A {p-test-2}
+$recx {p-test-1} {a-test} {r-test-1} {i-main}
+
+# subtract count: COUNT -S-> TEST
+$send {p-test-2} {a-count} {t-test-1} S {p-test-3}
+$recx {p-test-2} {a-test} {r-test-2} {i-main}
+
+# test is now negative if we should stop. Discriminate with positive output looping
+$discriminatec {p-test-3} {a-test} {a-test}.A {a-test}.S {p-print} {p-exit}
+
+# {p-exit} is not connected, so the program halts when COUNT > LIMIT
+
+# allocate the dummies for $discriminatec
+insert-deferred
+
+# go
+b i
+g
