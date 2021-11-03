@@ -59,6 +59,8 @@ make life; eniacsim chess.e
 ```
 
 ## Testing
+Do `make test` to test easm, chasm, chsim, and chess.
+
 To test the VM implementation, do `make vmtest` to assemble `chessvm.easm` into an ENIAC patch, assemble `asm/vmtest.asm` into switch settings, and then concatenate the two into the simulator to run a self test. A successful test will print out TTSS where TT=incrementing test numbers and SS=test status code, where success is 00 and anything else is failure. The ENIAC may also hang or loop, of course. This also tests `chsim` by running the VM emulator in parallel and comparing the results to the simulator state.
 
 To test the chess engine, do `python asm_test.py`. This will assemble `asm/movegen_test.asm`,`asm/move_test.asm` and `asm/chess.asm` to test move generation, move execution, and move search respectively.
