@@ -39,7 +39,7 @@ python fen2deck.py < board.fen > asm/chess.deck
 eniacsim chess.e
 ```
 
-This will read in the deck, and (eventually) output a single card with four digits FFTT, where FF=from square, TT=tosquare. The squares are numbered 11 to 88 in rank,file notation. 
+This will read in the deck, and (eventually) output a single card with four digits FFTT, where FF=from square, TT=tosquare. The squares are numbered 11 to 88 in rank,file notation. Currently ENIAC always plays white, though setting memory location [fromp] to 10 (adding a 3310 card to the intial deck) should make it play black.
 
 You can also run the chess program much faster (~1000x vs ~100x realtime) by executing on the VM emulator `chsim`, which skips pulse-level simulation. Note that eniacsim also executes `chsim` in parallel to validate the ENIAC VM implementation `chessvm.easm` against the VM emulator `chsim.cc`.
 ```
