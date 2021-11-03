@@ -2,7 +2,7 @@
 This project began with Briain Stuart's pulse-level [simulator](https://www.cs.drexel.edu/~bls96/eniac/eniac.html) which we forked and [further developed](https://github.com/jeredw/eniacsim). Although a faithful and full-featured simulation of the ENIAC, the input format is nothing more than a list of patch wires and switch settings. Easm is an assembler that provides named resources, macros, includes, conditionals and more and makes ENIAC programming far easier than it has ever been. This document describes how easm works, and how it was used to build chessvm.
 
 # What is the ENIAC?
-The rest of this document assumes some familiarity with ENIAC's hardware and basic programming theory. For an introduction, see Stuart's series of articles:
+This document is a very gentle introduction to parts of the ENIAC hardware and programming model, but to do any real programming you'll need some familiarity with ENIAC's hardware and basic programming theory. For an introduction, see Stuart's series of articles:
  - [Simulating the ENIAC](https://ieeexplore.ieee.org/document/8540483)
  - [Programming the ENAIC](https://ieeexplore.ieee.org/document/8467000)
  - [Debugging the ENIAC](https://ieeexplore.ieee.org/document/8540483)
@@ -11,26 +11,57 @@ Or perhaps watch [his talk](https://www.youtube.com/watch?v=u5WYj11cJrY).
 
 We also recommend the excellent book [ENIAC In Action](https://eniacinaction.com/) by Crispin Rope and Thomas Haigh, who have also published all kinds of fascinating original ENIAC documents.
 
-# A Word on Words
+# The Accumulator
+ENIAC is a series of refrigerator-sized units with different functions. The unit we'll use most for programming is the accumulator, a device that holds ten digits plus a sign. It's basically a vaccuum tube version of a [mechanical adding machine accumulator](https://hackaday.com/2018/05/01/inside-mechanical-calculators/). The accumulator is both memory and arithmetic, and its basic function is to add a number recieved on one of its inputs alpha through epsilon (hence a, b, g, d, e). It can also send the stored number in its A (add) output, or its 10's complement on the S (subtract) output.
+```
+               Outputs
+ 
+               A    S
+               |    |
+    +---------------------------+
+    |      PM DDDDD DDDDD       |     One sign (PM) plus ten digits
+    +---------------------------+
+        |    |    |    |    |
+        a    b    g    d    e
+        
+               Inputs
+
+```
+PM is short for "plus minus" and you can think of it as a sign bit. The accumulator is triggered by a pulse into one of 12 "program controls". Each of these has switches that control the operation executed when that "program" is executed. If X is the value in the accumulator, the available operations are
+| Operation  | Description
+| - | - |
+| X += a,b,g,d,e      | Add |
+| X += a,b,g,d,e + 1  | Add and increment |
+| X=0                 | Clear |
+| X->A              | Output |
+| -X->S               | Output complement
+| X->A, -X->S          | Output both |
+| X->A, X=0           | Output and clear |
+| -X->S, X=0          | Output complement and clear |
+| X->A, -X->S, X=0     | Output both and clear |
+
+The accumulator is the backbone of the machine, and is simultaneously memory, addition, and subtraction. There are 20 accumulators in the ENIAC, for a total writable memory of 200 digits. This is more or less the only writable memory in the machine (excluding a few internal registers in other units). Note that the resources available on each accumulator are limited in several ways: there are only five different inputs, only one uncomplemented and one complemented output, and most of all only 12 program inputs, meaning that without more advanced sequencing techniques each accumulator can be involved in at most 12 program steps.
+
+# Programs and patches
 The world of ENIAC programming, and the surviving technical documentation, is full of words that meant somewhat different things at the dawn of computing. An ENIAC "program" is a single action on one of the functional units (accumulators, function tables, etc.) that can be triggered by a pulse. A "program line" was a physical wire that triggered a particular program on a particular unit.
 
 What we might consider a "program" today, that is, the sequence of operations to accomplish something, was wired with patch cables (program lines and data trunks) that set the sequence of functional unit program activations, the parameters of each, and the dataflow. We'll use "patch" to refer to the complete set of wires and switch settings, which at the time they called a "setup."  A "patch" is what is in the `.e` file that the simulator loads.
 
 # Hello EASM
-In [`vm-dev/print-naturals.e`](vm-dev/print-naturals.e) is the Hello World of ENIAC programming. It cycles a pulse forever between two units, the printer and an accumulator.
+In [`vm-dev/print-naturals.e`](vm-dev/print-naturals.e) is the Hello World of ENIAC programming. It cycles a pulse forever between two units, the printer and an accumulator. We use accumulator 13 because 13-20 are hard wired to connect to the 80 columns of the punch card printer, ten digits from each of eight accumulators. 
 ```
 # initiating pulse to program line 1-1
 p i.io 1-1
 
 # 1-1: print accumulator 13
-p 1-1 i.pi        # print!
+p 1-1 i.pi        # trigger printer by connecting program line 1-1 to printer program input
 s pr.3 P          # prints low half of acc 13 
 p i.po 1-2        # go to 1-2
 
 # 1-2: increment accumulator 13
 # Receive but don't connect anything to the input. Set cc switch to C for an extra +1
-p 1-2 a13.5i      # use program 5 because 1-4 don't have outputs 
-s a13.op5 a       # recieve on null input a
+p 1-2 a13.5i      # connect program line to program input, use program 5 because 1-4 don't have outputs 
+s a13.op5 a       # recieve on input a (no connection, hence zero)
 s a13.cc5 C       # add +1
 p a13.5o 1-1      # back to 1-1
 
@@ -58,12 +89,12 @@ This sort of thing gets very tedious very quickly with larger ENIAC programs. It
 
 p i.io {p-print}
 
-p {p-print} i.pi         # print!
+p {p-print} i.pi         # trigger printer by connecting program line 1-1 to printer program input
 s pr.3 P                 # prints low half of acc 13 
 p i.po {p-inc}           # go to increment
 
-p {p-inc} a13.{t-inc}i   # take any available transciever
-s a13.op{t-inc} a        # recieve on null input a
+p {p-inc} a13.{t-inc}i   # connect program line to program input, use any available transciever
+s a13.op{t-inc} a        # recieve on input a (no connection, hence zero)
 s a13.cc{t-inc} C        # add +1
 p a13.{t-inc}o {p-print} # go back to print
 
@@ -86,7 +117,7 @@ If you were actually running the machine you could feed it a punched card, set f
 ```
 p i.io {p-init}
 
-# send 11 from constant transmitter
+# send 56 from constant transmitter
 p {p-init} c.26i # 26 is the first program that can send a constant (as opposed to card contents)
 s c.s26 Jlr      # send left and right 5 digit halves of J switches
 s c.j2 5   
@@ -100,7 +131,9 @@ s a13.op{t-init} {i-main}
 p a13.{t-init}i {p-print}
 
 ```
-This is the first use of what they called a data trunk and we'd call a data bus, allocated as `{d-main}`. The output of the constant transmitter is connected to this bus and thence to the `{i-main}` input on the accumulator, of which five are available, and the operation is set to add from that input. Both units are triggered on the same initial cycle, and the accumulator enters the {p-print} loop as before once initialized. The full program is [here](vm-dev/transfer.easm).
+This is the first use of what they called a data trunk and we'd call a data bus, allocated as `{d-main}`. This is actually a collection of 11 individual wires, each of which transmits one digit (plus the PM digit, the sign) in base one. That is, a six is represented by six pulses. This is how telephone equipment worked at the time, so it was familiar to the designers who based the ENIAC heavily on pre-existing mechanical calculators and electro-mechanical phone switches.
+
+The output of the constant transmitter is connected to this main bus and thence to the `{i-main}` input on the accumulator, of which five are available, and the operation is set to add from that input. Both units are triggered on the same initial cycle, and the accumulator enters the {p-print} loop as before once initialized. The full program is [here](vm-dev/transfer.easm).
 
 This is a lot of code to move a number from one place to another, so chessvm is mostly written using a set of macros. The fundamental operations are send and receive. 
 ```
