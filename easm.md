@@ -3,7 +3,7 @@ ENIAC Chess began with Briain Stuart's pulse-level [simulator](https://www.cs.dr
 
 This document describes how easm works, and how it was used to build the [chessvm virtual machine](isa.md). The core idea of chessvm is similar to the [ENIAC implementation of "central control"](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) in 1948, but with a sophisticated instruction set that makes it act much more like a modern computer. 
 
-# What is the ENIAC?
+## What is the ENIAC?
 This document is a very gentle introduction to parts of the ENIAC hardware and programming model, but to do any real programming you'll need some familiarity with ENIAC's hardware and basic programming theory. For an introduction, see Stuart's series of articles:
  - [Simulating the ENIAC](https://ieeexplore.ieee.org/document/8540483)
  - [Programming the ENAIC](https://ieeexplore.ieee.org/document/8467000)
@@ -13,7 +13,8 @@ This document is a very gentle introduction to parts of the ENIAC hardware and p
 
 We also recommend the excellent book [ENIAC In Action](https://eniacinaction.com/) by Crispin Rope and Thomas Haigh, who have also published all kinds of fascinating original ENIAC [documents](https://eniacinaction.com/the-book/supporting-technical-materials/).
 
-# The Accumulator
+# Coding the ENIAC
+## The Accumulator
 ENIAC is a series of refrigerator-sized units with different functions. The unit we'll use most for programming is the accumulator, a device that holds ten digits plus a sign. It's basically a vaccuum tube version of a [mechanical adding machine accumulator](https://hackaday.com/2018/05/01/inside-mechanical-calculators/). The accumulator is both memory and arithmetic, and its basic function is to add a number recieved on one of its inputs alpha through epsilon (hence a, b, g, d, e). It can also send the stored number in its A (add) output, or its 10's complement on the S (subtract) output. The details are somewhat baroque, but you can think of it abstractly like this:
 ```
                Outputs
@@ -46,12 +47,12 @@ The accumulator is the backbone of the machine, and is simultaneously memory, ad
 
 To describe the contents of an accumulator (or its value on a data bus) we follow the original sign notation of P or M followed by ten digits, in 10's complement form. Hence P0000000005 is 5 and M9999999995 is -5. To negate a value in 10's complement, take the 9's complement of each digit (subtract from 9) and then add 1. When sending the PM digit, a P is transmitted as a 0 while an M is transmitted as a 9.
 
-# Programs and patches
+## Programs and patches
 The world of ENIAC programming, and the surviving technical documentation, is full of words that meant somewhat different things at the dawn of computing. An ENIAC "program" is a single action on one of the functional units (accumulators, function tables, etc.) that can be triggered by a pulse. A "program line" was a physical wire that triggered a particular program on a particular unit.
 
 What we might consider a "program" today, that is, the sequence of operations to accomplish something, was wired with patch cables (program lines and data trunks) that set the sequence of functional unit program activations, the parameters of each, and the dataflow. We'll use "patch" to refer to the complete set of wires and switch settings, which at the time they called a "setup."  A "patch" is what is in the `.e` file that the simulator loads.
 
-# Hello EASM
+## Hello punch cards
 In [`vm-dev/print-naturals.e`](vm-dev/print-naturals.e) is the Hello World of ENIAC programming. It cycles a pulse forever between two units, the printer and an accumulator. It's written in eniacsim patch format, which is defined [here](https://www.cs.drexel.edu/~bls96/eniac/ref.pdf).
 ```
 # initiating pulse to program line 1-1
@@ -111,7 +112,7 @@ Easm variables are always of the form `{[type]-[name]}`, and on first use they t
 
 This file can be assembled into a runnable patch by `python easm/easm.py vm-dev/print-naturals-2.easm print-naturals-2.e`.
 
-# Moving data around
+## Moving data around
 Suppose we want to start counting at a different number. There are many ways to do this, including the way you use when you're debugging and you just want to set the machine state:
 ```
 set a13 56  # start at 56
@@ -164,7 +165,7 @@ $recx {p-xfer} {a-dst} {r-xfer} {i-main}
 ```
 Much shorter: one line to send from `{a-src}` and one line to receive and add at `{a-dst}`. Note that it's still necessary to connect the data bus to outputs and input. The macros in chessvm are designed this way to separate datapath wiring from program step sequencing. Also, only one of these accumulators needs to trigger the next program step. This is why the send uses a transciever `{t-xfer}` while the recx needs only a recieiver `{r-xfer}`. Chessvm uses macros which end in x to denote that an output pulse is not transmitted, hence `recx` vs `rec`, and `sendx` also exists.
 
-# Registers, Arithmetic, and Permutation
+## Registers, Arithmetic, and Permutation
 The original [instruction sets](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) for the ENIAC were all based on moving 10 digit numbers around, because the ENIAC was primarily used for scientific computation. But there are only 20 accumulators, so after allocating a few to machine functions like the program counter and instruction register, this meant there were very few memory locations left. Chessvm uses two digit words instead, making the ENIAC into a 100 word machine. The main [register file](isa.md) is one accumulator broken down into five two-digit registers A-E, plus the PM digit used as an overflow flag N.
 ```
 +------------------+
@@ -239,7 +240,7 @@ Finally, this example introduces the register transfer notation X -> Y which is 
 In most cases "clear X after sending" is implied.
 
 
-# Conditional Branching
+## Conditional Branching
 There are several ways to conditionally route a pulse based on data in an accumulator, which is how conditional branching is accomplished in the ENIAC's chained program pulse scheme. This was understood at the time and there are several ways of doing it, including multi-way selection and constant size loops using the master programmer unit. We're going to use the sign of an accumulator to implement a simple branch, a technique documented in Goldstine IV-28.
 
 The idea is that we trigger an accumulator to send on both the uncomplemented A (add) output and the complemented S (subtract) output at the same time, and then use the sign wires of both outputs to trigger one of two programs. 
@@ -265,9 +266,9 @@ p {p-negative-dummy} {a-dummy}.{t-neg}i
 s {a-dummy}.op{t-neg} 0
 p {a-dummy}.{t-neg}o {p-negative-branch}
 ```
-All of this is nicely packaged up into a `$discriminate` macro. There's also `discriminatec` to additionally clear the accumulator, which we use to write a loop with a number of iterations set by another accumulator
+All of this is nicely packaged up into a `$discriminate` macro. There's also `discriminatec` to additionally clear the accumulator, which we use to write a loop with a number of iterations set by another accumulator. This is [`looptest.easm`](vm-dev/looptest.easm)
 ```
-include macros.easm
+include ../chessvm/macros.easm
 
 set a1 10       # set loop limit 
 
@@ -302,11 +303,17 @@ $discriminatec {p-test-3} {a-test} {a-test}.A {a-test}.S {p-print} {p-exit}
 
 # {p-exit} is not connected, so the program halts when COUNT > LIMIT
 
+# allocate the dummies for $discriminatec
+insert-deferred
+
 # go
 b i
 g
 
 ```
+One new wrinkle: the real `discriminatec` macro uses allocated dummies, meaning that it looks for free transcivers rather than trying to put all dummies on accumulator {a-dummy} as we wrote above. The `insert-deferred` statement tells easm that all other accumulator programs have been allocated, so whatever is left can be used. We'll discuss dummy allocation much more, below.
 
+# Building a control Cycle
 
+# Making it all fit
 
