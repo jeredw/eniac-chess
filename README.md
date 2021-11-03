@@ -23,11 +23,13 @@ Creating this program involves multiple layers of tools and cross-validation.
 | `easm/easm.py`           | An ENIAC "patch assembler" which converts `.easm` code into `.e` patches the simulator runs |
 | `chessvm/chessvm.easm`   | VM source code, written in the custom patch assembly language |
 | `chessvm.e`              | Assembled VM (output of `easm` on `chessvm.easm`). Effectively a [netlist](https://en.wikipedia.org/wiki/Netlist) for the VM which the simulator can run. |
-| `chasm/chasm.py`         | Assembler targeting chess VM. Turns `.asm` into `.e` consisting of ENIAC function table switch seetings (ROM)|
+| `chsim/chsim.cc`         | Emulator for the chess VM, for efficient development of asm programs and cross-validation of `chessvm.easm` VM implementation |
+| `chasm/chasm.py`         | Assembler targeting chess VM. Turns `.asm` into `.e` ENIAC function table switch seetings (ROM)|
 | `asm/chess.asm`          | Chess program written in VM assembly |
 | `chess.e`                | Assembled chess program, the object code for `chess.asm`
-| `chsim/chsim.cc`         | Emulator for the chess VM, for efficient development of asm programs and cross-validation of `chessvm.easm` VM implementation |
+| `asm_test.py`            | Python unit tests for the chess engine move generation, move execution, and search. |
 | `fen2deck.py`            | Converts [FEN notation](https://www.chess-poster.com/english/fen/fen_epd_viewer.htm) board setups into `.deck` files for the simulator |
+| `vis/`                   | HTML/JS visualizations of the ENIAC state, for the VM registers, chess, life, and connect 4 |
 | `model/`                 | High level models for the chess engine, written in Python to test tiny chess algorithms |
 
 
@@ -56,8 +58,10 @@ make c4; python runc4.py
 make life; eniacsim chess.e
 ```
 
-### Testing the VM
-Do `make vmtest` to assemble `chessvm.easm` into an ENIAC patch, assemble `asm/vmtest.asm` into switch settings, and then concatenate the two into the simulator to run a self test. A successful test will print out TTSS where TT=incrementing test numbers and SS=test status code, where success is 00 and anything else is failure. The ENIAC may also hang or loop, of course.
+## Testing
+To test the VM implementation, do `make vmtest` to assemble `chessvm.easm` into an ENIAC patch, assemble `asm/vmtest.asm` into switch settings, and then concatenate the two into the simulator to run a self test. A successful test will print out TTSS where TT=incrementing test numbers and SS=test status code, where success is 00 and anything else is failure. The ENIAC may also hang or loop, of course. This also tests `chsim` by running the VM emulator in parallel and comparing the results to the simulator state.
+
+To test the chess engine, do `python asm_test.py`. This will assemble `asm/movegen_test.asm`,`asm/move_test.asm` and `asm/chess.asm` to test move generation, move execution, and move search respectively.
 
 
 ## Documentation
