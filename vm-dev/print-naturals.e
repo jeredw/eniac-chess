@@ -18,5 +18,7 @@ s a13.cc5 C   # add +1 at the end
 # back to 1-1. If commented out, steps once on each initiating pulse
 p a13.5o 1-1
 
-# press the start button
+# press the start button and start the sim
 b i
+g
+

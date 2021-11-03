@@ -1,0 +1,32 @@
+# Start counting from a predefined number.
+# Demonstrates constant transmitter and accumulator receive.
+
+p i.io {p-init}
+
+# send 56 from constant transmitter on main data bus 
+p {p-init} c.26i # 26 is the first program that can send a constant (as opposed to card contents)
+s c.s26 Jlr      # send left and right 5 digit halves of J switches
+s c.j2 5   
+s c.j1 6
+p c.o {d-main}   # put output on main data bus
+
+# add number from main data bus into a13
+p {p-init} a13.{t-init}i
+p {d-main} a13.{i-main}
+s a13.op{t-init} {i-main}
+p a13.{t-init}o {p-print}
+
+# print, increment, and loop
+p {p-print} i.pi
+s pr.3 P
+p i.po {p-inc}
+
+p {p-inc} a13.{t-inc}i
+s a13.op{t-inc} {i-nothing} # recieve on disconnected input a
+s a13.cc{t-inc} C
+p a13.{t-inc}o {p-print}
+
+# go
+b i
+g
+
