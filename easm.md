@@ -1,18 +1,20 @@
 # Programming an ENIAC VM with EASM
-ENIAC Chess began with Briain Stuart's pulse-level [simulator](https://www.cs.drexel.edu/~bls96/eniac/eniac.html) which we forked and [further developed](https://github.com/jeredw/eniacsim). Although a faithful and full-featured simulation of the ENIAC, the input format is nothing more than a list of patch wires and switch settings. Easm is an assembler that provides named resources, macros, includes, conditionals and more and makes ENIAC programming far easier than it has ever been. This document describes how easm works, and how it was used to build chessvm.
+ENIAC Chess began with Briain Stuart's pulse-level [simulator](https://www.cs.drexel.edu/~bls96/eniac/eniac.html) which we forked and [further developed](https://github.com/jeredw/eniacsim). Although a faithful and full-featured simulation of the ENIAC, the input format is nothing more than a list of patch wires and switch settings. Easm is an assembler that provides named symbols, macros, and more to make relatively high-level ENIAC programming possible. 
+
+This document describes how easm works, and how it was used to build the [chessvm virtual machine](isa.md). The core idea of chessvm is similar to the [ENIAC implementation of "central control"](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) in 1948, but with a sophisticated instruction set that makes it act much more like a modern computer. 
 
 # What is the ENIAC?
 This document is a very gentle introduction to parts of the ENIAC hardware and programming model, but to do any real programming you'll need some familiarity with ENIAC's hardware and basic programming theory. For an introduction, see Stuart's series of articles:
  - [Simulating the ENIAC](https://ieeexplore.ieee.org/document/8540483)
  - [Programming the ENAIC](https://ieeexplore.ieee.org/document/8467000)
  - [Debugging the ENIAC](https://ieeexplore.ieee.org/document/8540483)
+ - Or perhaps watch [his talk](https://www.youtube.com/watch?v=u5WYj11cJrY). 
+ - eniacsim [commands](https://www.cs.drexel.edu/~bls96/eniac/cmd.pdf) and [patch file](https://www.cs.drexel.edu/~bls96/eniac/ref.pdf) reference.
 
-Or perhaps watch [his talk](https://www.youtube.com/watch?v=u5WYj11cJrY). 
-
-We also recommend the excellent book [ENIAC In Action](https://eniacinaction.com/) by Crispin Rope and Thomas Haigh, who have also published all kinds of fascinating original ENIAC documents.
+We also recommend the excellent book [ENIAC In Action](https://eniacinaction.com/) by Crispin Rope and Thomas Haigh, who have also published all kinds of fascinating original ENIAC [documents](https://eniacinaction.com/the-book/supporting-technical-materials/).
 
 # The Accumulator
-ENIAC is a series of refrigerator-sized units with different functions. The unit we'll use most for programming is the accumulator, a device that holds ten digits plus a sign. It's basically a vaccuum tube version of a [mechanical adding machine accumulator](https://hackaday.com/2018/05/01/inside-mechanical-calculators/). The accumulator is both memory and arithmetic, and its basic function is to add a number recieved on one of its inputs alpha through epsilon (hence a, b, g, d, e). It can also send the stored number in its A (add) output, or its 10's complement on the S (subtract) output.
+ENIAC is a series of refrigerator-sized units with different functions. The unit we'll use most for programming is the accumulator, a device that holds ten digits plus a sign. It's basically a vaccuum tube version of a [mechanical adding machine accumulator](https://hackaday.com/2018/05/01/inside-mechanical-calculators/). The accumulator is both memory and arithmetic, and its basic function is to add a number recieved on one of its inputs alpha through epsilon (hence a, b, g, d, e). It can also send the stored number in its A (add) output, or its 10's complement on the S (subtract) output. The details are somewhat baroque, but you can think of it abstractly like this:
 ```
                Outputs
  
@@ -27,7 +29,7 @@ ENIAC is a series of refrigerator-sized units with different functions. The unit
               Inputs
 
 ```
-PM is short for "plus minus" and you can think of it as a sign bit. The accumulator is triggered by a pulse into one of 12 "program controls". Each of these has switches that control the operation executed when that "program" is executed. If X is the value in the accumulator, the available operations are
+PM is short for "plus minus" and is essentially a sign bit. The accumulator is triggered by a pulse into one of 12 "program controls". Each of these has switches that control the operation executed when that "program" is executed. If X is the value in the accumulator, the available operations are
 | Operation  | Description |
 | - | - |
 | X += a,b,g,d,e      | Add |
@@ -50,7 +52,7 @@ The world of ENIAC programming, and the surviving technical documentation, is fu
 What we might consider a "program" today, that is, the sequence of operations to accomplish something, was wired with patch cables (program lines and data trunks) that set the sequence of functional unit program activations, the parameters of each, and the dataflow. We'll use "patch" to refer to the complete set of wires and switch settings, which at the time they called a "setup."  A "patch" is what is in the `.e` file that the simulator loads.
 
 # Hello EASM
-In [`vm-dev/print-naturals.e`](vm-dev/print-naturals.e) is the Hello World of ENIAC programming. It cycles a pulse forever between two units, the printer and an accumulator. We use accumulator 13 because 13-20 are hard wired to connect to the 80 columns of the punch card printer, ten digits from each of eight accumulators. 
+In [`vm-dev/print-naturals.e`](vm-dev/print-naturals.e) is the Hello World of ENIAC programming. It cycles a pulse forever between two units, the printer and an accumulator. It's written in eniacsim patch format, which is defined [here](https://www.cs.drexel.edu/~bls96/eniac/ref.pdf).
 ```
 # initiating pulse to program line 1-1
 p i.io 1-1
@@ -74,7 +76,7 @@ g
 ```
 If you have eniacsim installed, you can run this like so and watch it use up cards
 ```
-% ./eniacsim vm-dev/print-naturals.e
+% eniacsim vm-dev/print-naturals.e
           00000                                                                 
           00001                                                                 
           00002                                                                 
@@ -155,7 +157,7 @@ endmacro
 p {a-src} {d-main}
 p {d-main} {a-dst}.{i-main}
 
-# add Alice into Bob
+# add src to dst
 $send {p-xfer} {a-src} {t-xfer} A {p-next}
 $recx {p-xfer} {a-dst} {r-xfer} {i-main}
 
@@ -225,7 +227,7 @@ $permute {d-main} 11,8,7,10,9,6,5,4,3,2,1 {a-tmp}.{i-swapab}
 ```
 Note the use of `%` to create a named temporary variable that is visible only inside the macro.
 
-Finally, this example introduces the register transfer notation X -> Y which is used extensively in chessvm comments and design docs. Here's how it works:
+Finally, this example introduces the register transfer notation X -> Y which is used extensively in chessvm comments, and as the microcode notation in the [instruction set reference](isa.md). Here's how it works:
 
 | Notation  | Meaning |
 | - | - |
@@ -262,6 +264,48 @@ p {a-dummy}.{t-pos}o {p-positive-branch}
 p {p-negative-dummy} {a-dummy}.{t-neg}i
 s {a-dummy}.op{t-neg} 0
 p {a-dummy}.{t-neg}o {p-negative-branch}
+```
+All of this is nicely packaged up into a `$discriminate` macro. There's also `discriminatec` to additionally clear the accumulator, which we use to write a loop with a number of iterations set by another accumulator
+```
+include macros.easm
+
+set a1 10       # set loop limit 
+
+{a-limit} = a1  # tell easm to bind symbols to physical accumulators
+{a-count} = a13 # put counter here so we can print
+
+# LIMIT and COUNT write to main bus, TEST reads from it.
+p {a-limit}.A {d-main}
+p {a-count}.S {d-main}
+p {d-main} {a-test}.{i-main}
+
+p i.io {p-print}
+
+# print low half of COUNT
+p {p-print} i.pi
+s pr.3 P
+p i.po {p-inc}
+
+# increment via recinc from a disconnected input
+$recinc {p-inc} {a-count} {t-inc} {i-no-connection} {p-test-1}
+
+# first step of test: LIMIT -> TEST
+$send {p-test-1} {a-limit} {t-test-1} A {p-test-2}
+$recx {p-test-1} {a-test} {r-test-1} {i-main}
+
+# subtract count: COUNT -S-> TEST
+$send {p-test-2} {a-count} {t-test-1} S {p-test-3}
+$recx {p-test-2} {a-test} {r-test-2} {i-main}
+
+# test is now negative if we should stop. Discriminate with positive output looping
+$discriminatec {p-test-3} {a-test} {a-test}.A {a-test}.S {p-print} {p-exit}
+
+# {p-exit} is not connected, so the program halts when COUNT > LIMIT
+
+# go
+b i
+g
+
 ```
 
 
