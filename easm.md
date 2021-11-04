@@ -14,12 +14,13 @@ This document describes how easm works, and how it was used to build the [chessv
     - [Conditional branching](#conditional-branching)
   - [Building A Control Cycle](#building-a-control-cycle)
     - [Fetching from the function tables](#fetching-from-the-function-tables)
-    - [Bank switching](#bank-switching)
     - [Instruction decoding](#instruction-decoding)
+    - [Bank switching](#bank-switching)
   - [Addressable memory](#addressable-memory)
     - [Addressing accumulators](#addressing-accumulators)
     - [Addressing words](#addressing-words)
   - [Making it all fit](#making-it-all-fit)
+    - [Bouncing around](#bouncing-around)
     - [Dummy program allocation](#dummy-program-allocation)
     - [Subprograms](#subprograms)
     - [Exotic uses for things](#exotic-uses-for-things)
@@ -428,57 +429,6 @@ This example also shows the weird data format of the function table: each row is
 
 This layout also means that the program counter cannot point to any instruction that's not at the beginning of a row. All jump locations have to be row-aligned. Also, two and three word instructions (those with immediate data or addresses) cannot cross a row. Unused words in each row could be filled with NOP instructions, but if they are filled with 99 instead, which we call SLED, then the control cycle immediately fetches a new row without trying to decode the empty words.
 
-## Bank switching
-The above example showed how to fetch from one function table, but we want to use all three. That's why the program counter PPPP and return address RRRR are four digits each. The low two digits are just the row in the current function table, while the high two digits are known as the "functional table selection group" or FTSG, a 1947 name we kept.
-
-| FTSG | Function Table |
-| - | - |
-| 09 | 1 |
-| 90 | 2 |
-| 99 | 3 |
-
-Near addresses are two digits and reference the current function table only. All conditional jumps are near addresses, which saves code space. Far jumps and subroutine call and return use four digit far addresses.
-
-To actually do this ROM bank switching, chessvm routes the fetch initiation pulse (`{p-fetch}` above) to only the currently selected table. This is done by wiring the PM digits of the S outout of three accumulators to program inputs on three different function tables, something like
-
-```
-defmacro trigger-ft n 
-  $sendx {p-fetch} {a-discft$n} {r-fetch} S
-  p {a-discft$n}.S ad.dp.{ad-discft$n}.11
-  p ad.dp.{ad-discft$n}.11 f$n.{t-fetch}i
-endmacro
-
-$trigger-ft 1
-$trigger-ft 2
-$trigger-ft 3
-```
-If only one of these accumulators has a positive sign (P in the PM digit) then only one function table will be triggered. This is similar to how discrimination works, and we can't otherwise use the sign or the S output if we store other data in these accumulators (which we do; this represents 15 words of our VM memory). The FTSG is designed so these program counter digits can be sent to the sign digits of the three accumulators once to select only one bank, then again to clear it.
-```
-# Set/unset current bank using FTSG of PC, that is, digits 4 and 3. Trigger with {p-selft}
-# Starting from all accs PM=P, call once to select bank. Calling twice reverts to all P.
-
-$permute {a-pc}.A 4,0,0,0,0,0,0,0,0,0,0 {d-ftsg1}
-$permute {a-pc}.A 3,0,0,0,0,0,0,0,0,0,0 {d-ftsg2}
-
-# Send FTSG digits from PC twice
-$sendx {p-selft} {a-pc} {t-selft} A
-s {a-pc}.rp{t-selft} 2
-
-# Deselect FT1 if FTSG1 set
-p {d-ftsg1} {a-discft1}.{i-ftsg1}
-$recx {p-selft} {a-discft1} {t-selft} {i-ftsg1} 
-
-# Deselect FT2 if FTSG2 set
-p {d-ftsg2} {a-discft2}.{i-ftsg2}
-$recx {p-selft} {a-discft2} {t-selft} {i-ftsg2}
-
-# Deselect FT3 if exactly one of FTSG1, FTSG2 set
-p {d-ftsg1} {a-discft3}.{i-ftsg1}
-$rec {p-selft} {a-discft3} {t-selft} {i-ftsg1} {p-selft-2}
-p {d-ftsg2} {a-discft3}.{i-ftsg2}
-$recx {p-selft-2} {a-discft3} {r-selft} {i-ftsg2}
-```
-We borrowed the 09/90/99 encoding from the 1947 design, but this method of multiplexing function tables is a little cleaner and faster than the original, which triggered multiple FTs on different cycles and then selectively activated receive programs.
 
 ## Instruction decoding
 By "decode" we mean trigger one of 51 different program lines based on an opcode in an accumulator. By 1948 there was a custom hardware unit that integrated the instruction register (including shifts to consume opcodes) and the decoder. But the stock ENIAC had nothing like this, which makes the 1947 design using the master programmer unit particularly ingenious.
@@ -551,6 +501,58 @@ p p.G6o {p-opcode-55}
 ```
 This 36 opcode decoder can be extended to 51 by decoding using 33 outputs as above, then using the last three outputs of stepper G to route a pulse between steppers H,I, and J. That's 33 + 18 = 51 outputs. This requires a little more complexity in the control loop to decide whether to route the tens or the ones digit to stepper G, requiring a conditional branch to discriminate between opcodes <= 55 and >= 55. This entire scheme was in the 1947 design and we adopted it for chessvm, though our version is different in the details.
 
+## Bank switching
+The above example showed how to fetch from one function table, but we want to use all three. That's why the program counter PPPP and return address RRRR are four digits each. The low two digits are just the row in the current function table, while the high two digits are known as the "functional table selection group" or FTSG, a 1947 name we kept.
+
+| FTSG | Function Table |
+| - | - |
+| 09 | 1 |
+| 90 | 2 |
+| 99 | 3 |
+
+Near addresses are two digits and reference the current function table only. All conditional jumps are near addresses, which saves code space. Far jumps and subroutine call and return use four digit far addresses.
+
+To actually do this ROM bank switching, chessvm routes the fetch initiation pulse (`{p-fetch}` above) to only the currently selected table. This is done by wiring the PM digits of the S outout of three accumulators to program inputs on three different function tables, something like
+
+```
+defmacro trigger-ft n 
+  $sendx {p-fetch} {a-discft$n} {r-fetch} S
+  p {a-discft$n}.S ad.dp.{ad-discft$n}.11
+  p ad.dp.{ad-discft$n}.11 f$n.{t-fetch}i
+endmacro
+
+$trigger-ft 1
+$trigger-ft 2
+$trigger-ft 3
+```
+If only one of these accumulators has a positive sign (P in the PM digit) then only one function table will be triggered. This is similar to how discrimination works, and we can't otherwise use the sign or the S output if we store other data in these accumulators (which we do; this represents 15 words of our VM memory). The FTSG is designed so these program counter digits can be sent to the sign digits of the three accumulators once to select only one bank, then again to clear it.
+```
+# Set/unset current bank using FTSG of PC, that is, digits 4 and 3. Trigger with {p-selft}
+# Starting from all accs PM=P, call once to select bank. Calling twice reverts to all P.
+
+$permute {a-pc}.A 4,0,0,0,0,0,0,0,0,0,0 {d-ftsg1}
+$permute {a-pc}.A 3,0,0,0,0,0,0,0,0,0,0 {d-ftsg2}
+
+# Send FTSG digits from PC twice
+$sendx {p-selft} {a-pc} {t-selft} A
+s {a-pc}.rp{t-selft} 2
+
+# Deselect FT1 if FTSG1 set
+p {d-ftsg1} {a-discft1}.{i-ftsg1}
+$recx {p-selft} {a-discft1} {t-selft} {i-ftsg1} 
+
+# Deselect FT2 if FTSG2 set
+p {d-ftsg2} {a-discft2}.{i-ftsg2}
+$recx {p-selft} {a-discft2} {t-selft} {i-ftsg2}
+
+# Deselect FT3 if exactly one of FTSG1, FTSG2 set
+p {d-ftsg1} {a-discft3}.{i-ftsg1}
+$rec {p-selft} {a-discft3} {t-selft} {i-ftsg1} {p-selft-2}
+p {d-ftsg2} {a-discft3}.{i-ftsg2}
+$recx {p-selft-2} {a-discft3} {r-selft} {i-ftsg2}
+```
+We borrowed the 09/90/99 encoding from the 1947 design, but this method of multiplexing function tables is a little cleaner and faster than the original, which triggered multiple FTs on different cycles and then selectively activated receive programs.
+
 
 # Addressable memory
 ENIAC had no addressable memory. It had no instruction set either, but even after the crazy hacks to turn it into a stored program computer there were still no instructions that could access a data-dependent location in memory. The instruction sets of the time devoted a considerable number of their limited opcodes to load and store instructions, each hard wired for a specific accumulator. There was simply no way to implement something like an array or a pointer.
@@ -558,14 +560,14 @@ ENIAC had no addressable memory. It had no instruction set either, but even afte
 This had to change. 
 
 ## Addressing accumulators
-We'll start with whole accumulators since that's easier, and our VM has 15 accumulators addressable through the `loadacc A` and `storeacc A` instructions. The challenge is to decode the value stored in A and use it to trigger one of 15 load program lines or one of 15 store program lines, each on a different accumulator. The master programmer could do this but only if we move hardware over from instruction decoding, which means we'd lose at least 30 (!) of our 51 opcodes. Instead we do something a bit terrifyin, a trick that unlocked the whole project.
+We'll start with whole accumulators since that's easier, and our VM has 15 accumulators addressable through the `loadacc A` and `storeacc A` instructions. The challenge is to decode the value stored in A and use it to trigger one of 15 load program lines or one of 15 store program lines, each on a different accumulator. The master programmer could do this but only if we move hardware over from instruction decoding, which means we'd lose at least 30 (!) of our 51 opcodes. Instead we do something vaugley terrifying, a trick that unlocked the whole project.
 
 Address decoding is based on two ideas: a 10 entry lookup table which is stored in the first rows of FT3, and using the S outputs of accumulators as program triggers. To decode a single digit, we can:
 
   1. Send the low digit of A to FT3
-  2. Store the result in accumulator {a-decode}
-  3. Send the contents of {a-decode} on the S output
-  4. Wire the ten digits of the {a-decode} S output to ten different programs
+  2. Store the result in accumulator `{a-decode}`
+  3. Send the contents of `{a-decode}` on the `S` output
+  4. Wire the ten digits of the `{a-decode}.S` output to ten different programs
 
 The lookup table has entries which are all 9s except for one digit, like this:
 ```
@@ -580,9 +582,10 @@ row 7: 9909999999
 row 8: 9099999999
 row 9: 0999999999
 ```
-When we send this value on the {a-decode} S output, the nine's complement means all digit lines will be zero, except for the selected one. These digit lines can then trigger ten different programs on ten different accumulators. Extending this scheme to 15 accumulators requires only a conditional to distinguish 0-9 from 10-14. The same low-digit lookup happens, but the result is stored to and sent from two different accumulators wired to two different sets of programs. In chessvm these are called {a-memcyc09} and {a-memcyc1014}.
+When we send this value on the `{a-decode}.S` output, the nine's complement means all digit lines will be zero, except for the selected one. These digit lines can then trigger ten different programs on ten different accumulators. Extending this scheme to 15 accumulators requires only a conditional to distinguish 0-9 from 10-14. The same low-digit lookup happens, but the result is stored to and sent from two different accumulators wired to two different sets of programs. In chessvm these are called `{a-memcyc09}` and `{a-memcyc1014}`.
 
-In principle, load and store could use two different programs on each addressable accumulator, one which sends and one which receives. But because storing a value requires clearing first, and connecting the S digit lines to program lines requires a dummy program, this would use up five scarce programs on each accumulator. Instead we combine load and store into a single program, the memory cycle.
+In principle, load and store could use two different programs on each addressable accumulator, one which sends and one which receives. But because storing a value requires clearing first, and connecting the `S` digit lines to program lines requires a dummy program, this would use up five scarce programs on each accumulator. Instead we combine load and store into a single three step sequence, the memory cycle.
+
 ```
 # Accumulator memory cycle: sends, clears, and recieves
 defmacro memcycle x
@@ -591,9 +594,17 @@ defmacro memcycle x
   $recx  {p-memcyc$x-3} {a-mem$x} {x-memcyc-3} {i-main}
 endmacro
 ```
-Combining load and store into a single cycle has another resource-reducing benefit: the `loadacc` and `storeacc` instructions are almost identical and can share most of their code. The only difference is that `loadacc` executes MEM->LS, LS->MEM during the memory cycle to restore the memory value, while `storeacc` executes only LS->MEM.
+Combining load and store into a single cycle has another important benefit: the `loadacc` and `storeacc` instructions are almost identical and can share most of their sequence. The only difference is that `loadacc` executes MEM->LS, LS->MEM during the memory cycle to restore the memory value, while `storeacc` executes only LS->MEM.
 
 ## Addressing words
 
+
 # Making it all fit
 
+## Bouncing around
+
+## Dummy program allocation
+
+## Subprograms
+
+## Exotic uses for things
