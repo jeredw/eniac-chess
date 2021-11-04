@@ -105,12 +105,12 @@ word-addressable linear memory.
 | ------------------- | --- |
 | `PC`                | Program counter, ft(1-3) and row (0-99) |
 | `RR`                | Return address, ft(1-3) and row (0-99) |
-| `A`,`B`,`C`,`D`,`E` | RF, 5 words (0-99) |
-| `F`,`G`,`H`,`I`,`J` | Aux RF, 5 words (0-99) |
+| `A`,`B`,`C`,`D`,`E` | RF, 5 words  |
+| `F`,`G`,`H`,`I`,`J` | Aux RF, 5 words  |
 | `N`                 | RF sign (0/1 i.e. +/-) |
 | `M`                 | Aux sign (0/1 i.e. +/-) |
-| `acc[0-14]`         | Memory, 75 words (0-99) |
-| `ft3[]`             | Constant data, 92 words (0-99) |
+| `acc[0-14]`         | Memory, 75 words (0-74) |
+| `ft3[]`             | Constant data, 94 words (6-99) |
 | `ft1-3[]`           | Instructions, 1660 words |
 
 Arithmetic treats `A` as a 2-digit 10's complement number -100 ≤ A < 100 with
@@ -129,6 +129,29 @@ Additionally, some rows of ft3 are reserved for VM implementation, and the
 first two digits of ft3 rows are reserved for constant data instead of
 instructions.
 
+## Memory map
+| accumulator | name | contents |
+| - | - | - |
+| 1 | Program counter      | `SS` `RRRR` `PPPP` |
+| 2 | Instruction register | `I5` `I4` `I3` `I2` `I1` | 
+| 3 | Execution register   | `I1` `XX` `XX` `XX` `XX` | 
+| 4 | Aux register file | `FF` `GG` `HH` `II` `JJ` |
+| 5 | memory 0 | `00` `01` `02` `03` `04` |
+| 6 | memory 1 | `05` `06` `07` `08` `09` |
+| 7 | memory 2 | `10` `11` `12` `13` `14` |
+| 8 | memory 3 | `15` `16` `17` `18` `19` |
+| 9 | memory 4 | `21` `22` `23` `24` `25` |
+| 10 | memory 5 | `25` `26` `27` `28` `29` |
+| 11 | memory 6 | `30` `31` `32` `33` `34` |
+| 12 | memory 7 | `35` `36` `37` `38` `39` |
+| 13 | Register File | `AA` `BB` `CC` `DD` `EE` | 
+| 14 | memory 8 | `40` `41` `42` `42` `44`  |
+| 15 | memory 9 | `45` `46` `47` `48` `49`  |
+| 16 | memory 10 | `50` `51` `52` `53` `54` |
+| 17 | memory 11| `55` `56` `57` `58` `59` |
+| 18 | memory 12 | `60` `61` `62` `63` `64` |
+| 19 | memory 13| `65` `66` `67` `68` `69` |
+| 20 | memory 14 | `70` `71` `72` `73` `74` |
 ## VM Microarchitecture
 
 ### Accumulator layout 
