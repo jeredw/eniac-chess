@@ -43,7 +43,7 @@ PM is short for "plus minus" and is essentially a sign bit. The accumulator is t
 | -X->S, X=0          | Output complement and clear |
 | X->A, -X->S, X=0     | Output both and clear |
 
-The accumulator is the backbone of the machine, and is simultaneously memory, addition, and subtraction. There are 20 accumulators in the ENIAC, for a total writable memory of 200 digits. This is more or less the only writable memory in the machine (excluding a few internal registers in other units). Note that the resources available on each accumulator are limited in several ways: there are only five different inputs, only one uncomplemented and one complemented output, and most of all only 12 program inputs, meaning that without more advanced sequencing techniques each accumulator can be involved in at most 12 program steps.
+The accumulator is the backbone of the machine, and is simultaneously memory and arithmetic. There are 20 accumulators in the ENIAC, for a total writable memory of 200 digits. This is more or less the only writable memory in the machine (excluding a few internal registers in other units). Note that the resources available on each accumulator are limited in several ways: there are only five different inputs, only one uncomplemented and one complemented output, and most of all only 12 program inputs, meaning that without more advanced sequencing techniques each accumulator can be involved in at most 12 program steps.
 
 To describe the contents of an accumulator (or its value on a data bus) we follow the original sign notation of P or M followed by ten digits, in 10's complement form. Hence P0000000005 is 5 and M9999999995 is -5. To negate a value in 10's complement, take the 9's complement of each digit (subtract from 9) and then add 1. When sending the PM digit, a P is transmitted as a 0 while an M is transmitted as a 9.
 
@@ -404,7 +404,7 @@ This example also shows the weird data format of the function table: each row is
 
 This layout also means that the program counter cannot point to any instruction that's not at the beginning of a row. All jump locations have to be row-aligned. Also, two and three word instructions (those with immediate data or addresses) cannot cross a row. Unused words in each row could be filled with NOP instructions, but if they are filled with 99 instead, which we call SLED, then the control cycle immediately fetches a new row without trying to decode the empty words.
 
-# Bank switching
+## Bank switching
 The above example showed how to fetch from one function table, but we want to use all three. That's why the program counter PPPP and return address RRRR are four digits each. The low two digits are just the row in the current function table, while the high two digits are known as the "functional table selection group" or FTSG, a 1947 name we kept.
 
 | FTSG | Function Table |
@@ -456,10 +456,76 @@ $recx {p-selft-2} {a-discft3} {r-selft} {i-ftsg2}
 ```
 We borrowed the 09/90/99 encoding from the 1947 design, but this method of multiplexing function tables is a little cleaner and faster than the original, which triggered multiple FTs on different cycles and then selectively activated receive programs.
 
-## Insrtruction decoding
+## Instruction decoding
 By "decode" we mean trigger one of 51 different program lines based on an opcode in an accumulator. By 1948 there was a custom hardware unit that integrated the instruction register (including shifts to consume opcodes) and the decoder. But the stock ENIAC had nothing like this, which makes the 1947 design using the master programmer unit particularly ingenious.
 
 The master programmer is junk. Originally designed for nested loops with complex bounds, it was imagined that this unit would drive most of the sequencing for  ENIAC. This was plausible when it was thought that the primary use would calculating trajectory tables -- the "I" in ENIAC stands for "integrator," after all. You can think of the master programmer as ten units, each of which can be abstracted like this:
+```
+          In    Reset   Step  
+           |      |      |
+     +-------------------------+
+     |     Count register      |
+     |     Decade switches     |
+     +-------------------------+
+        |   |   |   |   |   |
+        1   2   3   4   5   6
+        
+           Stepper outputs   
+```
+The original idea was that you set the number of iterations N on decade switches (ten position digit swtiches). Then each pulse to the input comes out of the first stepper output while an internal counter increments. After N pulses, the stepper advances, the counter resets, and the next N input pulses will be routed to output 2. The reset input sets the stepper to position 1 again, while the step input manually advances the stepper. This is almost, but not quite, a demultiplexer that switches according to number of pulses to the step input. All we have to do is disable the counter so that it never steps automatically. As it turns out, this was anticipated, and the documentation says you just pull vaccuum tube 63 from the master programmer. Our updated eniacsim supports this directive:
+```
+# "To disassociate a decade from its stepper pull out gate tube 63 in the stepper plug-in unit.
+# See block diagram PX-8-304." - ENIAC Operating Manual, PX-8-301
+s p.gate63 unplug
+```
+With this configuration, it's easy to decode one-of-36 by routing the tens digit to stepper A, and the ones digit to steppers B-G, then connecting the six outputs of stepper A to the inputs of the six steppers B-G.
+```
+# Simple 36 opcode decoder. Valid opcodes are 00-05, 10-15, ... 50..55. Trigger with {p-decode}
+
+# start by resetting all MP steppers
+p {p-decode} p.Acdi
+p {p-decode} p.Bcdi
+p {p-decode} p.Ccdi
+p {p-decode} p.Dcdi
+p {p-decode} p.Ecdi
+p {p-decode} p.Fcdi
+p {p-decode} p.Gcdi
+
+# Wait for clear then send opcode from high two digits of EX
+$dummy {p-decode} {p-decode-2}
+$send {p-decode-2} {a-ex} {t-decode-2} A {p-decode-3}
+p {a-ex}.A {d-main}
+
+# Wire tens digit to A step inputs and ones digit to B-G
+p {d-main} ad.dp.{ad-opcode-10}.10   # opcode 10's digit (0x-5x)
+p ad.dp.{ad-opcode-10}.10 p.Adi
+p {d-main} ad.dp.{ad-opcode-9}.9     # opcode 1's digit (0x-5x)
+p ad.dp.{ad-opcode-9}.9 p.Bdi
+p ad.dp.{ad-opcode-9}.9 p.Cdi
+p ad.dp.{ad-opcode-9}.9 p.Ddi
+p ad.dp.{ad-opcode-9}.9 p.Edi
+p ad.dp.{ad-opcode-9}.9 p.Fdi
+p ad.dp.{ad-opcode-9}.9 p.Gdi
+
+# Route the outputs of A to the inputs of B-G
+p p.A1o p.Bi
+p p.A2o p.Ci
+p p.A3o p.Di
+p p.A4o p.Ei
+p p.A5o p.Fi
+p p.A6o p.Gi
+
+# Finally, send a decode pulse to A
+p {p-decode} p.Ai
+
+# Opcode program lines are now p.[BCDEFG][123456]o
+p p.B1o {p-opcode-00}
+p p.B2o {p-opcode-01}
+...
+p p.G5o {p-opcode-54}
+p p.G6o {p-opcode-55}
+```
+This 36 opcode decoder can be extended to 51 by decoding using 33 outputs as above, then using the last three outputs of stepper G to route a pulse between steppers H,I, and J. That's 33 + 18 = 51 outputs. This requires a little more complexity in the control loop to decide whether to route the tens or the ones digit to stepper G, requiring a conditional branch to discriminate between opcodes <= 55 and >= 55. This entire scheme was in the 1947 design and we adopted it for chessvm, though our version is different in the details.
 
 
 # Addressable memory
