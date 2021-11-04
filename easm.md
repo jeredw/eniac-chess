@@ -47,14 +47,14 @@ We also recommend the excellent book [ENIAC In Action](https://eniacinaction.com
 ## The Accumulator
 ENIAC is a series of refrigerator-sized units with different functions. The unit we'll use most for programming is the accumulator, a device that holds ten digits plus a sign. It's basically a vaccuum tube version of a [mechanical adding machine accumulator](https://hackaday.com/2018/05/01/inside-mechanical-calculators/). The accumulator is both memory and arithmetic, and its basic function is to add a number recieved on one of its inputs alpha through epsilon (hence a, b, g, d, e). It can also send the stored number in its A (add) output, or its 10's complement on the S (subtract) output. The details are somewhat baroque, but you can think of it abstractly like this:
 ```
-               Outputs
+              Outputs
  
-               A    S
-               |    |
-    +--------------------------+
-    |      PM DDDDDDDDDD       |     One sign (PM) plus ten digits
-    +--------------------------+
-       |    |    |    |    |
+              A    S
+              │    │
+    ┌─────────┴────┴──────────┐
+    │      PM DDDDDDDDDD      │     One sign (PM) plus ten digits
+    └──┬────┬────┬────┬────┬──┘
+       │    │    │    │    │
        a    b    g    d    e
         
               Inputs
@@ -197,9 +197,9 @@ Much shorter: one line to send from `{a-src}` and one line to receive and add at
 ## Registers, arithmetic, and permutation
 The original [instruction sets](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) for the ENIAC were all based on moving 10 digit numbers around, because the ENIAC was primarily used for scientific computation. But there are only 20 accumulators, so after allocating a few to machine functions like the program counter and instruction register, this meant there was room for a dozen or so variables. Chessvm uses two digit words instead, making the ENIAC into a 100 word machine. The main [register file](isa.md) is one accumulator broken down into five two-digit registers A-E, plus the PM digit used as an overflow flag N.
 ```
-+------------------+
-| N AA BB CC DD EE |
-+------------------+
+┌────────────────────┐
+│  N AA BB CC DD EE  │
+└────────────────────┘
 ```
 
 This arrangement is carefully chosen so that the A register and overflows to the N bit, which is actually the accumulator PM digit. This makes it easy to implement INC A. To do this, we put P0100000000 on the main bus using the constant transmitter and receive (add) on the register file. 
@@ -357,7 +357,7 @@ The core machine uses five accumulators:
 | - | - | - | - |
 | PC | Program counter      | SS RRRR PPPP | PPPP=program counter, RRRR=return adddres, SS used in decode |
 | IR | Instruction register | I5 I4 I3 I2 I1 | I1 is the next opcode |
-| EX | Execution register   | I1 XX XX XX XX | Holds next opcode during decode, empty during execution |
+| EX | Execution register   | I1 XX XX XX XX | Holds next opcode during decode, zero when execution starts |
 | RF | Register File        | AA BB CC DD EE | Main registers |
 | LS | Aux register file    | FF GG HH II JJ | LS=load/store, holds last accessed accumulator contents |
 
@@ -442,15 +442,13 @@ By "decode" we mean trigger one of 51 different program lines based on an opcode
 The master programmer is anything but. Originally designed for nested loops with constant bounds, it was imagined that this unit would drive most of the sequencing for  ENIAC. This was plausible when it was thought that the primary use would calculating trajectory tables -- the "I" in ENIAC stands for "integrator," after all. Also, this was 1943 and no one yet knew anything about how best to sequence the operation of a digital computer. You can think of the master programmer as ten stepper units, each of which can be abstracted like this:
 ```
           In    Reset   Step  
-           |      |      |
-     +-------------------------+
-     |     Count register      |
-     |     Decade switches     |
-     +-------------------------+
-        |   |   |   |   |   |
+           │      │      │
+     ┌─────┴──────┴──────┴─────┐
+     │     Count register      │
+     │     Decade switches     │
+     └──┬───┬───┬───┬───┬───┬──┘
+        │   │   │   │   │   │
         1   2   3   4   5   6
-        
-           Stepper outputs   
 ```
 The original idea was that you set the number of iterations N on decade switches (ten position digit swtiches). Then each pulse to the input comes out of the first stepper output while an internal counter increments. After N pulses, the stepper advances, the counter resets, and the next N input pulses will be routed to output 2. The reset input sets the stepper to position 1 again, while the step input manually advances the stepper. This is almost, but not quite, a demultiplexer that switches according to number of pulses to the step input. All we have to do is disable the counter so that it never steps automatically. As it turns out, this was anticipated, and the documentation says you just pull vaccuum tube 63 from the master programmer. Our updated eniacsim supports this directive:
 ```
@@ -670,6 +668,77 @@ The five inputs and 12 programs of each accumulator are shown as a1-a19, where a
 We had to press many items of hardware into unusual service to create more dummy program steps. Why? They allowed us the ability to create and share complex sequences.
 
 ## Subprograms
+Consider the implementation of the `SWAP A,[BCDE]` instructions again:
+```
+1. MOVSWAP -> EX
+2. RF -movswap[BCDE]-> MOVSWAP
+3. MOVSWAP -> RF
+4. EX -> MOVSWAP
+```
+This could be written as four completely separate program sequences, but all operations are shared between these four opcodes except for a different permuted input on MOVSWAP. We can save quite a few programs (both transcievers and receivers) by sharing this sequence. Each of the the `p-opswapAX` program lines can trigger both the shared sequence and one specific receive program from the appropriately permuted input on MOVSWAP. We could draw this for two opcodes like so:
+```
+      p-opswapAB                          p-opswapAC
+          │                                   │
+          │                                   │
+          ├─────────────────┬─────────────────┤
+          │                 │                 │
+          │          ┌──────┴──────┐          │
+          │          │ MOVSWAP->EX │          │
+          │          └──────┬──────┘          │
+          │                 │                 │
+  ┌───────┴────────┐ ┌──────┴──────┐  ┌───────┴────────┐
+  │-swapAB->MOVSWAP│ │    RF->     │  │-swapAC->MOVSWAP│
+  └────────────────┘ └──────┬──────┘  └────────────────┘
+                            │
+                     ┌──────┴──────┐
+                     │ MOVSWAP->RF │
+                     └──────┬──────┘
+                            │
+                     ┌──────┴──────┐
+                     │ EX->MOVSWAP │
+                     └─────────────┘
+```
+In this diagram, time flows from top to bottom. To ensure that the receive on MOVSWAP is executed when RF is sending we need a dummy program to delay one cycle. The bigger wrinkle is that program lines are bidirectional. Whenever a pulse appears on `p-opswapAB` it is transmitted to `p-opswapAC` as well. We need a way to isolate the users of a subprogram. This problem was understood by the original ENIAC programmers and is discussed at Goldstine XI-10. The answer is a device called pulse amplifier, which is basically a diode (a [vaccuum tube diode](https://en.wikipedia.org/wiki/Diode#Vacuum_tube_diodes)!). These were built into units with 11 channels, originally to allow connections between data busses, but were very useful in isolating programs in this way.
+
+Chessvm uses pulse amplifiers to share many sequences and thereby save a large number of accumulator programs. For example, almost every instruction begins by saving some other accumulator to EX. We can't use one EX program for each instruction, so instead we share a single program that loads EX from `{d-main}`, calling it through a pulse amplifiers wherever needed. 
+
+The complete implementation of SWAP A,X with shared programs looks like this.
+```
+# SWAP A,X with shared programs. Trigger via {p-opswapA[BCDE]}
+include ../chessvm/macros.easm
+
+# Shared core, triggered from {p-opswapAX}
+# 1. MOVSWAP->EX
+$sendc {p-opswapAX} {a-movswap} {t-opswapAX} A {t-opswapAX-2}
+$pulseamp {p-opswapAX} {p-loadex}         # EX shared program to receive
+
+# 2. RF->
+$sendc {p-opswapAX-2} {a-rf} {t-opswapAX-2} A {t-opswapAX-3}
+
+# 3. MOVSWAP->RF
+$sendc {p-opswapAX-3} {a-movswap} {t-opswapAX-3} A {t-opswapAX-4}
+$recx {p-opswapAX-3} {a->rf} {r-opswapAX-3} {i-main}
+
+# 4. EX->MOVSWAP
+$pulseamp {p-opswapAX-4} {p-storeex}       # trigger EX shared program to send
+$rec {p-opswapAX-4} {a->movswap} {t-opswapAX-4} {i-main} {p-next}
+
+# Instruction-specific operations, triggered from {op-swapA[BCDE]}
+# Use a dummy for timing, and a pulseamp to isolate the shared sequence
+defmaco do-swapAX x
+  $pulseamp {p-opswapA$x} {p-opswapAX}
+  $dummy {p-opswapA$x} {p-opswapA$x-2}
+  $recx {p-opswapA$x-2} {a-movswap} {x-opswapA$x} {i-swapA$x}
+endmacro
+
+$do-swapAX B
+$do-swapAX C
+$do-swapAX D
+$do-swapAX E
+```
+This snippet also shows the use of an `x` program, which tells easm that it can use either a receiver or a transciever program when allocating `{x-opswapA$x}` for each of four opcodes. We'd like to use recievers since no output pulse is needed (and this saves transcievers) but there are only four receivers per accumulator and at least one of them is already allocated on most accumulators for the memory cycle.
+
+Subprograms are an important concept and widely used in in chessvm to reduce the number of accumulator programs needed to implement the instruction set. There are a number of widely used short subprograms to do things like send and receive from EX and RF or clear the A regisgter, and there are also number of longer, more specialized subprograms for operations like accumulator and word access, where a great deal of the address decoding logic is shared between opcodes.
 
 ## Dummy allocation
 
