@@ -388,9 +388,17 @@ There are two new easm features in this program. First we bind `{a-limit}` to `a
 It would be nice to use an accumulator just for discrimination as we do here, but we badly need the space. It's possible to store data in the accumulator when it's not currently being used for discrimination, with one important caveat: that accumulator must never send from the A output when the value is negative, or send from the S output when the value is positive. Otherwise, one or the other of the branch program lines would be triggered.
 
 ## Fetching from the function tables
-The function tables are the ENIAC's ROM. They were originally built in anticipation of storing lookup tables such as sine and cosine, and are even indexed from -2 to 101 to support quadaratic interpolation with boundary conditions. But they became the key to running ENIAC as a modern CPU. All of the original "order codes" use two digit opcodes, and so does chessvm. With three tables, each with 104 rows of 12 digits, that's 3,744 digits or at most 1,872 instructions. A machine that was never designed to be programmed with opcodes was suddenly discovered to have expansive ROM space. More than any other feature of the ENIAC, this is what makes chess possible.
-
-You can think of each function table as a map from a two digit argument to a 12 digit row.
+The function tables are the ENIAC's ROM. They were originally built in anticipation of storing lookup tables such as sine and cosine, and are even indexed from -2 to 101 to support quadaratic interpolation with boundary conditions. You can think of each function table as a map from a two digit argument to a 12 digit row (rows -2, -1, 100, and 101 are only accessible through per-program offset switch settings.)
+```
+               ┌────────────┐
+               │            │
+               │  104 rows  ├── A  6 digits + sign
+2 digits  In ──┤     of     │
+               │  12 digits ├── B  6 digits + sign
+               │            │
+               └────────────┘
+```
+The function tables unintentially became the key to running ENIAC as a modern CPU starting in 1948. All of the original "order codes" use two digit opcodes, and so does chessvm. With three tables, each with 100 indexable rows of 12 digits, that's 3,600 digits or at most 1,800 instructions. A machine that was never designed to be programmed with opcodes was suddenly discovered to have expansive ROM space. More than any other feature of the ENIAC, this is what makes chess possible.
 
 We can modify our simple incrementing accumulator program to read and print succesive lines from the function table. 
 ```
