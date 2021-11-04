@@ -1,9 +1,30 @@
-# Programming an ENIAC VM with EASM
+# Programming an ENIAC virtual machine with EASM
 ENIAC Chess began with Briain Stuart's pulse-level [simulator](https://www.cs.drexel.edu/~bls96/eniac/eniac.html) which we forked and [further developed](https://github.com/jeredw/eniacsim). Although a faithful and full-featured simulation of the ENIAC, the input format is nothing more than a list of patch wires and switch settings. Easm is an assembler that provides named symbols, macros, and more to make relatively high-level ENIAC programming possible. 
 
-This document describes how easm works, and how it was used to build the [chessvm virtual machine](isa.md). The core idea of chessvm is similar to the [ENIAC implementation of "central control"](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) in 1948, but with a sophisticated instruction set that makes it act much more like a modern computer. 
+This document describes how easm works, and how it was used to build the [chessvm virtual machine](isa.md). The core ideas behind chessvm are similar to the [ENIAC implementation of "central control"](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) in 1948, but with a sophisticated instruction set that makes it act much more like a modern computer. 
 
-## What is the ENIAC?
+# Contents
+  - [What is the ENIAC?](#what-is-the-eniac)
+  - [Coding the Eniac](#coding-the-eniac)
+    - [The accumulator](#the-accumulator)
+    - [Programs and patches](#programs-and-patches)
+    - [Hello punch cards](#hello-punch-cards)
+    - [Moving data around](#moving-data-around)
+    - [Registers, arithmetic, and permutation](#registers-arithmetic-and-permutation)
+    - [Conditional branching](#conditional-branching)
+  - [Building A Control Cycle](#building-a-control-cycle)
+    - [Fetching from the function tables](#fetching-from-the-function-tables)
+    - [Bank switching](#bank-switching)
+    - [Instruction decoding](#instruction-decoding)
+  - [Addressable memory](#addressable-memory)
+    - [Addressing accumulators](#addressing-accumulators)
+    - [Addressing words](#addressing-words)
+  - [Making it all fit](#making-it-all-fit)
+    - [Dummy program allocation](#dummy-program-allocation)
+    - [Subprograms](#subprograms)
+    - [Exotic uses for things](#exotic-uses-for-things)
+  
+# What is the ENIAC?
 This document is a gentle introduction to parts of the ENIAC hardware and programming model, but to do any real programming you'll need greater familiarity with ENIAC's hardware and basic programming theory. For an introduction, see Stuart's series of articles:
  - [Simulating the ENIAC](https://ieeexplore.ieee.org/document/8540483)
  - [Programming the ENAIC](https://ieeexplore.ieee.org/document/8467000)
@@ -166,7 +187,7 @@ $recx {p-xfer} {a-dst} {r-xfer} {i-main}
 ```
 Much shorter: one line to send from `{a-src}` and one line to receive and add at `{a-dst}`. Note that it's still necessary to connect the data bus to outputs and input. The macros in chessvm are designed this way to separate datapath wiring from program step sequencing. Also, only one of these accumulators needs to trigger the next program step. This is why the send uses a transciever `{t-xfer}` while the recx needs only a recieiver `{r-xfer}`. Chessvm uses macros which end in x to denote that an output pulse is not transmitted, hence `recx` vs `rec`, and `sendx` also exists.
 
-## Registers, Arithmetic, and Permutation
+## Registers, arithmetic, and permutation
 The original [instruction sets](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) for the ENIAC were all based on moving 10 digit numbers around, because the ENIAC was primarily used for scientific computation. But there are only 20 accumulators, so after allocating a few to machine functions like the program counter and instruction register, this meant there was room for a dozen or so variables. Chessvm uses two digit words instead, making the ENIAC into a 100 word machine. The main [register file](isa.md) is one accumulator broken down into five two-digit registers A-E, plus the PM digit used as an overflow flag N.
 ```
 +------------------+
@@ -241,7 +262,7 @@ Finally, this example introduces the register transfer notation X -> Y which is 
 In most cases "clear X after sending" is implied.
 
 
-## Conditional Branching
+## Conditional branching
 There are several ways to conditionally route a pulse based on data in an accumulator, which is how conditional branching is accomplished in the ENIAC's chained program pulse scheme. This was understood at the time and there are several ways of doing it, including multi-way selection and constant size loops using the master programmer unit. We're going to use the sign of an accumulator to implement a simple branch, a technique documented in Goldstine IV-28.
 
 The idea is that we trigger an accumulator to send on both the uncomplemented A (add) output and the complemented S (subtract) output at the same time, and then use the sign wires of both outputs to trigger one of two programs. 
@@ -532,6 +553,47 @@ This 36 opcode decoder can be extended to 51 by decoding using 33 outputs as abo
 
 
 # Addressable memory
+ENIAC had no addressable memory. It had no instruction set either, but even after the crazy hacks to turn it into a stored program computer there were still no instructions that could access a data-dependent location in memory. The instruction sets of the time devoted a considerable number of their limited opcodes to load and store instructions, each hard wired for a specific accumulator. There was simply no way to implement something like an array or a pointer.
+
+This had to change. 
+
+## Addressing accumulators
+We'll start with whole accumulators since that's easier, and our VM has 15 accumulators addressable through the `loadacc A` and `storeacc A` instructions. The challenge is to decode the value stored in A and use it to trigger one of 15 load program lines or one of 15 store program lines, each on a different accumulator. The master programmer could do this but only if we move hardware over from instruction decoding, which means we'd lose at least 30 (!) of our 51 opcodes. Instead we do something a bit terrifyin, a trick that unlocked the whole project.
+
+Address decoding is based on two ideas: a 10 entry lookup table which is stored in the first rows of FT3, and using the S outputs of accumulators as program triggers. To decode a single digit, we can:
+
+  1. Send the low digit of A to FT3
+  2. Store the result in accumulator {a-decode}
+  3. Send the contents of {a-decode} on the S output
+  4. Wire the ten digits of the {a-decode} S output to ten different programs
+
+The lookup table has entries which are all 9s except for one digit, like this:
+```
+row 0: 9999999990
+row 1: 9999999909
+row 2: 9999999099
+row 3: 9999990999
+row 4: 9999909999
+row 5: 9999099999
+row 6: 9990999999
+row 7: 9909999999
+row 8: 9099999999
+row 9: 0999999999
+```
+When we send this value on the {a-decode} S output, the nine's complement means all digit lines will be zero, except for the selected one. These digit lines can then trigger ten different programs on ten different accumulators. Extending this scheme to 15 accumulators requires only a conditional to distinguish 0-9 from 10-14. The same low-digit lookup happens, but the result is stored to and sent from two different accumulators wired to two different sets of programs. In chessvm these are called {a-memcyc09} and {a-memcyc1014}.
+
+In principle, load and store could use two different programs on each addressable accumulator, one which sends and one which receives. But because storing a value requires clearing first, and connecting the S digit lines to program lines requires a dummy program, this would use up five scarce programs on each accumulator. Instead we combine load and store into a single program, the memory cycle.
+```
+# Accumulator memory cycle: sends, clears, and recieves
+defmacro memcycle x
+  $dummy {p-memcyc$x} {p-memcyc$x-2}
+  $sendc {p-memcyc$x-2} {a-mem$x} {t-memcyc-2} A {p-memcyc$x-3}
+  $recx  {p-memcyc$x-3} {a-mem$x} {x-memcyc-3} {i-main}
+endmacro
+```
+Combining load and store into a single cycle has another resource-reducing benefit: the `loadacc` and `storeacc` instructions are almost identical and can share most of their code. The only difference is that `loadacc` executes MEM->LS, LS->MEM during the memory cycle to restore the memory value, while `storeacc` executes only LS->MEM.
+
+## Addressing words
 
 # Making it all fit
 
