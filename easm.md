@@ -4,7 +4,7 @@ ENIAC Chess began with Briain Stuart's pulse-level [simulator](https://www.cs.dr
 This document describes how easm works, and how it was used to build the [chessvm virtual machine](isa.md). The core idea of chessvm is similar to the [ENIAC implementation of "central control"](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) in 1948, but with a sophisticated instruction set that makes it act much more like a modern computer. 
 
 ## What is the ENIAC?
-This document is a very gentle introduction to parts of the ENIAC hardware and programming model, but to do any real programming you'll need some familiarity with ENIAC's hardware and basic programming theory. For an introduction, see Stuart's series of articles:
+This document is a gentle introduction to parts of the ENIAC hardware and programming model, but to do any real programming you'll need greater familiarity with ENIAC's hardware and basic programming theory. For an introduction, see Stuart's series of articles:
  - [Simulating the ENIAC](https://ieeexplore.ieee.org/document/8540483)
  - [Programming the ENAIC](https://ieeexplore.ieee.org/document/8467000)
  - [Debugging the ENIAC](https://ieeexplore.ieee.org/document/8540483)
@@ -14,6 +14,7 @@ This document is a very gentle introduction to parts of the ENIAC hardware and p
 We also recommend the excellent book [ENIAC In Action](https://eniacinaction.com/) by Crispin Rope and Thomas Haigh, who have also published all kinds of fascinating original ENIAC [documents](https://eniacinaction.com/the-book/supporting-technical-materials/).
 
 # Coding the ENIAC
+
 ## The Accumulator
 ENIAC is a series of refrigerator-sized units with different functions. The unit we'll use most for programming is the accumulator, a device that holds ten digits plus a sign. It's basically a vaccuum tube version of a [mechanical adding machine accumulator](https://hackaday.com/2018/05/01/inside-mechanical-calculators/). The accumulator is both memory and arithmetic, and its basic function is to add a number recieved on one of its inputs alpha through epsilon (hence a, b, g, d, e). It can also send the stored number in its A (add) output, or its 10's complement on the S (subtract) output. The details are somewhat baroque, but you can think of it abstractly like this:
 ```
@@ -315,6 +316,8 @@ g
 ```
 There are two new easm features in this program. First we bind `{a-limit}` to `a1` in order to make the `set` statement work, and we bind `{a-count}` to `a13` so our count variable can be conveniently printed. Second, the real `discriminatec` macro uses allocated dummies, meaning that it looks for free transcivers rather than trying to put all dummies on accumulator {a-dummy} as we wrote above. The `insert-deferred` statement tells easm that all other accumulator programs have been allocated, so whatever is left can be used. We'll discuss dummy allocation much more, below.
 
+It would be nice to use an accumulator just for discrimination as we do here, but we badly need the space. It's possible to store data in the accumulator when it's not currently being used for discrimination, with one important caveat: that accumulator must never send from the A output when the value is negative, or send from the S output when the value is positive. Otherwise, one or the other of the branch program lines would be triggered.
+
 # Building a control cycle
 To turn ENIAC into a modern computer we need to use these methods to implement a fetch-decode-execute cycle. This was done in 1948 when ENIAC was converted to  ["central control"](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/). Chessvm was inspired by asking if we could create a more modern, microprocessor-like machine out of ENIAC. The first instruction set, implemented in April 1948, had 79 instructions and used a newly-built decoder unit that was designed to route a pulse to one of 100 outputs, based on a two digit opcode. We wanted to implement our machine on stock ENIAC hardware, which we defined as the units available when ENIAC was first [declared operational](https://www.techrxiv.org/articles/preprint/Reconstructing_the_Unveiling_Demonstration_of_the_ENIAC/14538117) in February 1946, and discussed in more detail in Adele Goldstine's Eniac Technical Manual.
 
@@ -326,7 +329,7 @@ The core machine uses five accumulators:
 | - | - | - | - |
 | PC | Program counter      | SS RRRR PPPP | PPPP=program counter, RRRR=return adddres, SS used in decode |
 | IR | Instruction register | I5 I4 I3 I2 I1 | I1 is the next opcode |
-| EX | Execution regisoter  | I1 XX XX XX XX | Holds next opcode during decode, empty during execution |
+| EX | Execution register   | I1 XX XX XX XX | Holds next opcode during decode, empty during execution |
 | RF | Register File        | AA BB CC DD EE | Main registers |
 | LS | Aux register file    | FF GG HH II JJ | Used for memory access, LS=load/store |
 
