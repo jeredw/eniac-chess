@@ -668,7 +668,7 @@ The five inputs and 12 programs of each accumulator are shown as a1-a19, where a
 We had to press many items of hardware into unusual service to create more dummy program steps. Why? They allowed us the ability to create and share complex sequences.
 
 ## Subprograms
-Consider the implementation of the `SWAP A,[BCDE]` instructions again:
+Subprograms are an important concept and widely used in chessvm to share repeated subsequences between instructions. There are a number of short subprograms for  common operations like clearing the A register, and a number of longer subprograms for complex repeated operations like address decoding. Consider the implementation of the `SWAP A,[BCDE]` instructions again:
 ```
 1. MOVSWAP -> EX
 2. RF -movswap[BCDE]-> MOVSWAP
@@ -698,14 +698,14 @@ This could be written as four completely separate program sequences, but all ope
                      │ EX->MOVSWAP │
                      └─────────────┘
 ```
-In this diagram, time flows from top to bottom. To ensure that the receive on MOVSWAP is executed when RF is sending we need a dummy program to delay one cycle. The bigger wrinkle is that program lines are bidirectional. Whenever a pulse appears on `p-opswapAB` it is transmitted to `p-opswapAC` as well. We need a way to isolate the users of a subprogram. This problem was understood by the original ENIAC programmers and is discussed at Goldstine XI-10. The answer is a device called pulse amplifier, which is basically a diode (a [vaccuum tube diode](https://en.wikipedia.org/wiki/Diode#Vacuum_tube_diodes)!). These were built into units with 11 channels, originally to allow connections between data busses, but were very useful in isolating programs in this way.
+In this diagram, time flows from top to bottom. To ensure that the receive on MOVSWAP is executed when RF is sending we need a dummy program to delay one cycle. The bigger wrinkle is that program lines are bidirectional. Whenever a pulse appears on `p-opswapAB` it is transmitted to `p-opswapAC` as well. We need a way to isolate the users of a subprogram. This problem was understood by the original ENIAC programmers and is discussed at Goldstine XI-10. The answer is a device called a pulse amplifier, which is basically a [vaccuum tube diode](https://en.wikipedia.org/wiki/Diode#Vacuum_tube_diodes). These were built into units with 11 channels, originally to allow connections between data busses, but were very useful in isolating programs in this way. Historical documents indicate that eight pulse amplifier units were eventually built, so the simulator supports 88 pulse amplifier channels.
 
-Chessvm uses pulse amplifiers to share many sequences and thereby save a large number of accumulator programs. For example, almost every instruction begins by saving some other accumulator to EX. We can't use one EX program for each instruction, so instead we share a single program that loads EX from `{d-main}`, calling it through a pulse amplifiers wherever needed. 
+Chessvm uses pulse amplifiers to share many sequences and thereby save a large number of accumulator programs. For example, almost every instruction begins by saving some other accumulator to EX. We can't use up one EX program for each instruction, so instead we share a single program called `{p-loadex}` that loads EX from `{d-main}`, calling it through a pulse amplifier wherever needed. 
 
 The complete implementation of SWAP A,X with shared programs looks like this.
 ```
 # SWAP A,X with shared programs. Trigger via {p-opswapA[BCDE]}
-include ../chessvm/macros.easm
+include macros.easm
 
 # Shared core, triggered from {p-opswapAX}
 # 1. MOVSWAP->EX
@@ -720,7 +720,7 @@ $sendc {p-opswapAX-3} {a-movswap} {t-opswapAX-3} A {t-opswapAX-4}
 $recx {p-opswapAX-3} {a->rf} {r-opswapAX-3} {i-main}
 
 # 4. EX->MOVSWAP
-$pulseamp {p-opswapAX-4} {p-storeex}       # trigger EX shared program to send
+$pulseamp {p-opswapAX-4} {p-storeex}       # EX shared program to sendc
 $rec {p-opswapAX-4} {a->movswap} {t-opswapAX-4} {i-main} {p-next}
 
 # Instruction-specific operations, triggered from {op-swapA[BCDE]}
@@ -728,7 +728,7 @@ $rec {p-opswapAX-4} {a->movswap} {t-opswapAX-4} {i-main} {p-next}
 defmaco do-swapAX x
   $pulseamp {p-opswapA$x} {p-opswapAX}
   $dummy {p-opswapA$x} {p-opswapA$x-2}
-  $recx {p-opswapA$x-2} {a-movswap} {x-opswapA$x} {i-swapA$x}
+  $recx {p-opswapA$x-2} {a-movswap} {x-opswapA$x} {i-swapA$x} # this input is where the actual swap happens
 endmacro
 
 $do-swapAX B
@@ -738,9 +738,36 @@ $do-swapAX E
 ```
 This snippet also shows the use of an `x` program, which tells easm that it can use either a receiver or a transciever program when allocating `{x-opswapA$x}` for each of four opcodes. We'd like to use recievers since no output pulse is needed (and this saves transcievers) but there are only four receivers per accumulator and at least one of them is already allocated on most accumulators for the memory cycle.
 
-Subprograms are an important concept and widely used in in chessvm to reduce the number of accumulator programs needed to implement the instruction set. There are a number of widely used short subprograms to do things like send and receive from EX and RF or clear the A regisgter, and there are also number of longer, more specialized subprograms for operations like accumulator and word access, where a great deal of the address decoding logic is shared between opcodes.
+## Dummies, pulse amplifiers, and exotic uses for units
+To some extent dummies and pulse amplifiers are interchangable. For example, SWAP A,X could trigger the core shared program with a dummy instead of a pulseamp at the cost of a one cycle delay. This delay may not be a problem in other circumstances, for example when triggering a sub-program to start on cycle 2 with a dummy that begins on cycle 1. Dummies with multi-cycle delays are particularly useful for sequencing arbitrary arrangements of subprograms. 
+
+As much as transcievers, dummies and pulseamps are the scarce resource, because they allow sequencing and re-use of program steps. They're such important resources that we've pressed a number of ENIAC units into service to get many more. First, the function tables have a variable repeat switch which can be used to produce a 5-13 cycle delay, as mentioned in Goldstine VII-24. These and other function table programs (e.g. fetch) are counted as `fts` in the easm output map. We use the six "selective clear" programs on the initiating unit as one-cycle dummies (`its`). These progams were intended to clear non-significant figures in accumulators, but we never set the selective clear switch on any accumulator. 
+
+Then things get weirder. We also repurposed 22 programs on the card reader and constant transmitter unit, turning programs 2-24 into one cycle dummies (`cts`). This works as long as we restrict ourselves to reading only the first 10 columns of each card. If we ever read a card with digits in columns 11-80, these "dummies" will put data on the main bus when the associated ct program is triggered!
+
+Most adventurously, we abuse the multiplier to get an additional 14 dummies with a 6-14 cycle delay ('mts`) and 10 pulse amplifier equivalents (`mpas`). To make this work we needed the ability to simulate disconnecting the multiplier unit from the adjacent accumulators, which in reality involved nothing more than unplugging a few front panel cables. We simulate this via the `s m.pp unplug` setting, which prevents the multiplier from sending over the (already modelled!) partial product connections. This is the most speculative repurposing of ENIAC hardware, but every other accumulator operated without anything connected to these ports, and the pulse level simulation gives us confidence that it would have worked fine.
+
 
 ## Dummy allocation
+Dummy programs can go on any accumulator, while programs that do work on a particular accumulator cannot. Initially we just put all dummies on a series of accumulators `{a-dummy}`,`{a-dummy2}`, and so on. It quickly became burdensome to manage allocation across multiple accumulators, and besides, those accumulators were also filling up with useful programs. And then we thought: this is what computers are for!
 
+Enter easm's allocated dummies. When you need one, you can say this:
+```
+allocate-dummy name
+```
+This finds a free transciever, searching from a20 towards a1, and allocates two symbols: `{a-name}` is the accumulator and `{t-name}` is the transciver. You can then implement the dummy by patching a program line in to `{a-name}.{t-name}i` and out of `{a-name}.{t-name}o` while setting `{a-name}.op{t-name}` to 0, i.e. NOP.
 
+Sometimes it's important to keep a dummy off of particular accumulators, for example the accumulator used for discrimination or any accumulators used in a subprogram that the dummy is timing. Otherwise, we could end up triggering two programs on the same accumulator at the same time. `allocate-dummy` has an exclude option to handle this case:
+```
+allocate-dummy name -a1,a8,a14
+```
 
+But dummies can still fight with other programs. Really we'd like all dummies to be allocated after all program steps. This is the purpose of the easm `defer` directive. When placed before a line, that line is not assembled until the `insert-deferred` directed is encounterd. This allows all dummy allocation to come after all program allocation, even if the dummy allocation is interspersed in the source file. Chessvm's `dummy` macro is implemented to seamlessly create and then defer allocation of a dummy program until all other programs are placed.
+```
+defmacro dummy inpr outpr
+  defer allocate-dummy %name
+  defer p {$inpr} {a-%name}.{t-%name}i
+  defer s {a-%name}.op{t-%name} 0
+  defer p {a-%name}.{t-%name}o {$outpr}
+```
+Automated dummy allocation was a key feature that allowed us to make the most efficient use of available ENIAC hardware.
