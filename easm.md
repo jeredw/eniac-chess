@@ -433,7 +433,7 @@ This layout also means that the program counter cannot point to any instruction 
 ## Instruction decoding
 By "decode" we mean trigger one of 51 different program lines based on an opcode in an accumulator. By 1948 there was a custom hardware unit that integrated the instruction register (including shifts to consume opcodes) and the decoder. But the stock ENIAC had nothing like this, which makes the 1947 design using the master programmer unit particularly ingenious.
 
-The master programmer is junk. Originally designed for nested loops with complex bounds, it was imagined that this unit would drive most of the sequencing for  ENIAC. This was plausible when it was thought that the primary use would calculating trajectory tables -- the "I" in ENIAC stands for "integrator," after all. You can think of the master programmer as ten units, each of which can be abstracted like this:
+The master programmer is anything but. Originally designed for nested loops with constant bounds, it was imagined that this unit would drive most of the sequencing for  ENIAC. This was plausible when it was thought that the primary use would calculating trajectory tables -- the "I" in ENIAC stands for "integrator," after all. Also, this was 1943 and no one yet knew anything about how best to sequence the operation of a digital computer. You can think of the master programmer as ten stepper units, each of which can be abstracted like this:
 ```
           In    Reset   Step  
            |      |      |
