@@ -1,5 +1,5 @@
 # Programming an ENIAC virtual machine
-This is how we wrote a chess program for the ENIAC, the first general purpose electronic digital computer. The ENIAC is an ancient, strange, and very limited machine, so it's surprising to many people that it could have played a decent game of chess. The core of the problem was to wire up the ENIAC so that it emulates a tiny modern CPU, by extending ideas originally developed in the 1940s. This required a new kind of programming language, something like an ENIAC patch assembler. This document describes how we used that tool to create a capable virtual machine on a 1940s computer.
+This is how we wrote a chess program for the ENIAC, the first general purpose electronic digital computer. The ENIAC is an ancient, strange, and very limited machine, so it's surprising to many people that it could have played a decent game of chess. The core of the problem was to wire up the ENIAC so that it emulates a tiny modern CPU, by extending ideas originally developed in the 1940s. This required a new kind of programming tool, something like an ENIAC patch assembler. This document describes how we used that tool to create a capable virtual machine on a 1940s computer.
 
 # Contents
   - [What is the problem?](#what-is-the-problem)
@@ -7,10 +7,11 @@ This is how we wrote a chess program for the ENIAC, the first general purpose el
   - [Coding the Eniac](#coding-the-eniac)
     - [The accumulator](#the-accumulator)
     - [Hello punch cards](#hello-punch-cards)
+    - [Enter EASM](#enter-easm)
     - [Moving data around](#moving-data-around)
     - [Registers, arithmetic, and permutation](#registers-arithmetic-and-permutation)
-    - [Conditional branching](#conditional-branching)
   - [Building A Control Cycle](#building-a-control-cycle)
+    - [Conditional branching](#conditional-branching)
     - [Fetching from the function tables](#fetching-from-the-function-tables)
     - [Instruction decoding](#instruction-decoding)
     - [Bank switching](#bank-switching)
@@ -20,18 +21,19 @@ This is how we wrote a chess program for the ENIAC, the first general purpose el
     - [Addressing words](#addressing-words)
   - [Making it all fit](#making-it-all-fit)
     - [Subprograms](#subprograms)
-    - [Dummy program allocation](#dummy-program-allocation)
+    - [Dummies, pulse amplifiers, and exotic uses for units](#dummies-pulse-amplifiers-and-exotic-uses-for-units)
+    - [Dummy allocation](#dummy-allocation)
 
   
 # What is the problem?
 ENIAC was less like a modern computer and more like a warehouse full of parts designed to be patched together with cables. It was roughly equivalent to a box of old-fashioned discrete logic chips: counters, registers, adders, and so on. The idea of having a computer execute instructions in sequence from an addessable memory was developed by the ENIAC designers and John von Nuemann during the course of building the machine, but that's not what they got when ENIAC become operational in February 1946. 
 
-To execute the [first monte-carlo simulation](https://eniacinaction.com/the-articles/3-los-alamos-bets-on-eniac-nuclear-monte-carlo-simulations-1947-8/) of a nuclear core, ENIAC was converted to ["central control"](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) in 1948, by using its voluminous numerical function table lookup space to store instruction codes instead. Essentially, they wired the box of parts into the very first CPU. ENIAC stayed wired this way until it was decommissioned in 1956.
+To execute the [first monte-carlo simulation](https://eniacinaction.com/the-articles/3-los-alamos-bets-on-eniac-nuclear-monte-carlo-simulations-1947-8/) of a nuclear core, ENIAC was converted to ["central control"](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) in 1948, by using its voluminous table lookup space to store instruction codes instead of precomputed numerical functions. Essentially, they wired the box of parts into the very first CPU. ENIAC stayed wired this way until it was decommissioned in 1956.
 
-But that CPU was not suitable for playing chess. It kept the hardware organization of 10 digit words, there were only 15 words available, and this memory was not indexable. We wanted to show that it was possible to wire up the ENIAC into a much more capable computer. The result is a patch-level setup for the ENIAC that gives the machine two digit words, five registers, and 75 words of linear memory, along with 1600 words of program storage. The full architecture is documented [here](isa.md). This is enough to implement 4-ply alpha-beta search and beat (some) humans at chess. In the sense that all the required hardware was actually built, this could have been implemented in 1946. 
+But that CPU was not suitable for playing chess. It kept the hardware organization of 10 digit words, there were only 15 words available, and this memory was not indexable. We wanted to show that it was possible to wire up the ENIAC into a much more capable computer. The result is a patch-level setup that runs on a bare ENIAC simulator and gives the machine a new [instruction set](isa.md). From the programmer's point of view, this is a machine with two digit words, five registers, and 75 words of linear memory, along with 1600 words of program storage. This is enough to implement 4-ply alpha-beta search and beat (some) humans at chess. In the sense that all the required hardware was actually built, this could have been implemented in 1946 with the set of patch cords and switch settings we have produced in `chess.e`, the final "executable" file.
 
 ## ENIAC References
-This document is a gentle introduction to parts of the ENIAC hardware and programming model, but to do any real programming you'll need greater familiarity with ENIAC's hardware and programming theory. 
+This document is a gentle introduction to parts of the ENIAC hardware and programming model using an assembler tool called easm. To do any real programming you'll need greater familiarity with ENIAC's hardware and programming theory. 
 
 ENIAC Chess began with Briain Stuart's pulse-level [simulator](https://www.cs.drexel.edu/~bls96/eniac/eniac.html) which we forked and [further developed](https://github.com/jeredw/eniacsim). He also wrote a great series of introductory ENIAC articles:
  - [Simulating the ENIAC](https://ieeexplore.ieee.org/document/8540483)
@@ -41,6 +43,8 @@ ENIAC Chess began with Briain Stuart's pulse-level [simulator](https://www.cs.dr
  - eniacsim [commands](https://www.cs.drexel.edu/~bls96/eniac/cmd.pdf) and [patch file](https://www.cs.drexel.edu/~bls96/eniac/ref.pdf) reference.
 
 We also recommend the excellent book [ENIAC In Action](https://eniacinaction.com/) by Crispin Rope and Thomas Haigh, who have also published all kinds of fascinating original ENIAC [documents](https://eniacinaction.com/the-book/supporting-technical-materials/).
+
+And finally, the master historical reference is The [ENIAC Technical Manual](https://archive.org/details/reportoneniacele05moor) by Adele K. Goldstine, June 1946. It's so important that we cite this document as "Goldstine" throughout. Goldstine also wrote up the very first [notes](https://eniacinaction.com/docs/CentralControlforENIAC1947.pdf) for how to turn the ENIAC into a stored program computer, in July 1947. The techniques she documented there made chessvm possible.
 
 # Coding the ENIAC
 
@@ -117,7 +121,8 @@ If you have eniacsim installed, you can run this like so and watch it use up car
 
 Scintilating stuff. This patch works as follows: The initiating pulse goes to program line 1-1, which is wired to the printer program input. The printer switches are set to punch only the lower half of accumulator 13, punching the second five digits of an 80 digit punch card. The printer program output goes to program line 1-2, which is connected to program input 5 of accumulator 13. That program is set by switches to increment, and the output pulse is wired back to program line 1-1. 
 
-This sort of thing gets very tedious very quickly with larger ENIAC programs. It would help to be able to label things and have the computer keep track of the underlying resource assignments. This is [`vm-dev/print-naturals-2.easm`](vm-dev/print-naturals.easm)
+## Enter EASM
+This sort of thing gets very tedious very quickly with larger ENIAC programs. It would help to be able to label things and have the computer keep track of the underlying resource assignments. This was the initial purpose of easm, the ENIAC Assembler. We can rewrite the above in easm syntax as [`vm-dev/print-naturals-2.easm`](vm-dev/print-naturals.easm)
 ```
 # print integers, let easm take care of things
 
@@ -139,7 +144,7 @@ g
 
 Easm variables are always of the form `{[type]-[name]}`, and on first use they try to allocate a free resource of that type. This program uses named program lines `{p-print}` and `{p-inc}` and a named transciever program on accumulator 13 called `{t-inc}`. A transciever program is an accumulator program that has an output jack, so it can trigger something else when it's done.
 
-This file can be assembled into a runnable patch by `python easm/easm.py vm-dev/print-naturals-2.easm print-naturals-2.e`.
+Running easm assembles an `.easm` file into a `.e` file suitable for `eniacsim.` This file can be assembled into a runnable patch by `python easm/easm.py vm-dev/print-naturals-2.easm print-naturals-2.e`.
 
 ## Moving data around
 Suppose we want to start counting at a different number. There are many ways to do this, including the way you use when you're debugging and you just want to set the machine state:
@@ -169,8 +174,9 @@ This is the first use of what they called a data trunk and we'd call a data bus,
 
 The output of the constant transmitter is connected to this main bus and thence to the `{i-main}` input on the accumulator, of which five are available, and the operation is set to add from that input. Both units are triggered on the same initial cycle, and the accumulator enters the {p-print} loop as before once initialized. The full program is [here](vm-dev/transfer.easm).
 
-This is a lot of code to move a number from one place to another, so chessvm is mostly written using a set of macros. The fundamental operations are send and receive. 
+This is a lot of code to move a number from one place to another, so chessvm is mostly written using a set of easm macros. The fundamental operations are send and receive. 
 ```
+# receive on given input and emit an output program pulse
 defmacro send inpr acc program AorS outpr
   p $inpr $acc.$programi
   s $acc.op$program $AorS
@@ -269,6 +275,37 @@ Finally, this example introduces the register transfer notation X -> Y which is 
 In most cases "clear X after sending" is implied.
 
 
+# Building a control cycle
+To turn ENIAC into a modern computer we need to use these methods to implement a fetch-decode-execute cycle. This was done in 1948 when ENIAC was converted to  ["central control"](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/). Chessvm was inspired by asking if we could create a more modern, microprocessor-like machine out of ENIAC. The first instruction set, implemented in April 1948, had 79 instructions and used a newly-built decoder unit that was designed to route a pulse to one of 100 outputs, based on a two digit opcode. We wanted to implement our machine on stock ENIAC hardware, which we defined as the units available when ENIAC was first [declared operational](https://www.techrxiv.org/articles/preprint/Reconstructing_the_Unveiling_Demonstration_of_the_ENIAC/14538117) in February 1946, and discussed in more detail in Adele Goldstine's Eniac Technical Manual.
+
+As it turns out, Goldstine had documented a design for a 51 opcode instruction set (then called "a 51 order code") in [1947 notes](https://eniacinaction.com/docs/CentralControlforENIAC1947.pdf), recently exhumed and transcribed by Mark Priestley and Thomas Haigh. This document provided the basic ideas behind chessvm's central architecture. Many of the hardest problems in chessvm were solved 70 years ago.
+
+The core machine uses five accumulators:
+
+| Name | Purpose | Layout | Notes |
+| - | - | - | - |
+| PC | Program counter      | SS RRRR PPPP | PPPP=program counter, RRRR=return adddres, SS used in decode |
+| IR | Instruction register | I5 I4 I3 I2 I1 | I1 is the next opcode |
+| EX | Execution register   | I1 XX XX XX XX | Holds next opcode during decode, zero when execution starts |
+| RF | Register File        | AA BB CC DD EE | Main registers |
+| LS | Aux register file    | FF GG HH II JJ | LS=load/store, holds last accessed accumulator contents |
+
+At a high level, the control cycle operates as follows:
+
+| Step | Action |
+| - | - | 
+| 1. | If IR is negative (PM=M) fetch function table row PPPP into the IR and add 1 to PPPP |
+| 2. | Copy I1 into EX |
+| 3. | Shift IR to the right by two digits, and set the upper two digits (now empty) to 99 |
+| 4. | Decode I1, meaning trigger one of 51 program lines based on the contents of EX |
+| 5. | (instruction executes here) |
+| 6. | Add 1 to IR. If there are no more instructions, IR will be P9999999999 and will overflow to M0 |
+| 7. | Goto 1 |
+
+This is roughly, but not really, a description of the actual machine cycles involved in fetching and decoding instructions. For the real thing, see the [ISA reference](isa.md).
+
+Making this work requires several steps: conditional branching, fetching from the function tables, decoding an instruction, and managing the program counter.
+
 ## Conditional branching
 There are several ways to conditionally route a pulse based on data in an accumulator, which is how conditional branching is accomplished in the ENIAC's chained program pulse scheme. This was understood at the time and there are several ways of doing it, including multi-way selection and constant size loops using the master programmer unit. We're going to use the sign of an accumulator to implement a simple branch, a technique documented in Goldstine IV-28.
 
@@ -345,37 +382,6 @@ g
 There are two new easm features in this program. First we bind `{a-limit}` to `a1` in order to make the `set` statement work, and we bind `{a-count}` to `a13` so our count variable can be conveniently printed. Second, the real `discriminatec` macro uses allocated dummies, meaning that it looks for free transcivers rather than trying to put all dummies on accumulator {a-dummy} as we wrote above. The `insert-deferred` statement tells easm that all other accumulator programs have been allocated, so whatever is left can be used. We'll discuss dummy allocation much more, below.
 
 It would be nice to use an accumulator just for discrimination as we do here, but we badly need the space. It's possible to store data in the accumulator when it's not currently being used for discrimination, with one important caveat: that accumulator must never send from the A output when the value is negative, or send from the S output when the value is positive. Otherwise, one or the other of the branch program lines would be triggered.
-
-# Building a control cycle
-To turn ENIAC into a modern computer we need to use these methods to implement a fetch-decode-execute cycle. This was done in 1948 when ENIAC was converted to  ["central control"](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/). Chessvm was inspired by asking if we could create a more modern, microprocessor-like machine out of ENIAC. The first instruction set, implemented in April 1948, had 79 instructions and used a newly-built decoder unit that was designed to route a pulse to one of 100 outputs, based on a two digit opcode. We wanted to implement our machine on stock ENIAC hardware, which we defined as the units available when ENIAC was first [declared operational](https://www.techrxiv.org/articles/preprint/Reconstructing_the_Unveiling_Demonstration_of_the_ENIAC/14538117) in February 1946, and discussed in more detail in Adele Goldstine's Eniac Technical Manual.
-
-As it turns out, Goldstine had documented a design for a 51 opcode instruction set (then called "a 51 order code") in [1947 notes](https://eniacinaction.com/docs/CentralControlforENIAC1947.pdf), recently exhumed and transcribed by Mark Priestley and Thomas Haigh. This document provided the basic ideas behind chessvm's central architecture. Many of the hardest problems in chessvm were solved 70 years ago.
-
-The core machine uses five accumulators:
-
-| Name | Purpose | Layout | Notes |
-| - | - | - | - |
-| PC | Program counter      | SS RRRR PPPP | PPPP=program counter, RRRR=return adddres, SS used in decode |
-| IR | Instruction register | I5 I4 I3 I2 I1 | I1 is the next opcode |
-| EX | Execution register   | I1 XX XX XX XX | Holds next opcode during decode, zero when execution starts |
-| RF | Register File        | AA BB CC DD EE | Main registers |
-| LS | Aux register file    | FF GG HH II JJ | LS=load/store, holds last accessed accumulator contents |
-
-At a high level, the control cycle operates as follows:
-
-| Step | Action |
-| - | - | 
-| 1. | If IR is negative (PM=M) fetch function table row PPPP into the IR and add 1 to PPPP |
-| 2. | Copy I1 into EX |
-| 3. | Shift IR to the right by two digits, and set the upper two digits (now empty) to 99 |
-| 4. | Decode I1, meaning trigger one of 51 program lines based on the contents of EX |
-| 5. | (instruction executes here) |
-| 6. | Add 1 to IR. If there are no more instructions, IR will be P9999999999 and will overflow to M0 |
-| 7. | Goto 1 |
-
-This is roughly, but not really, a description of the actual machine cycles involved in fetching and decoding instructions. For the real thing, see the [ISA reference](isa.md).
-
-Making this work requires several steps: fetching from the function tables, decoding an instruction, and managing the program counter.
 
 ## Fetching from the function tables
 The function tables are the ENIAC's ROM. They were originally built in anticipation of storing lookup tables such as sine and cosine, and are even indexed from -2 to 101 to support quadaratic interpolation with boundary conditions. But they became the key to running ENIAC as a modern CPU. All of the original "order codes" use two digit opcodes, and so does chessvm. With three tables, each with 104 rows of 12 digits, that's 3,744 digits or at most 1,872 instructions. A machine that was never designed to be programmed with opcodes was suddenly discovered to have expansive ROM space. More than any other feature of the ENIAC, this is what makes chess possible.
@@ -636,7 +642,7 @@ Storing words is somewhat harder. `MOV A,[B]` is implemented through `loadacc`, 
 This a much more expensive instruction to implement, especially because the five `MOV A,X` sequences are not already implemented for other instructions. It is the slowest opcode, taking 38 cycles to complete. But it's marvelously faster and smaller than implementing this capability as a subroutine, and besides, we only have one level of call stack.
 
 # Making it all fit
-Memory is by far the scarcest resource for programs running on the VM. But for the VM implementation itself, the scarce resource is ENIAC hardware. Programming the VM is akin to writing microcode, and the number of program units in the system is a hard limit on the number of microcode steps. It is possible to share program subsequences, but multiple callers must be isolated, requiring further resources in the form of pulse amplifiers and dummy programs . There are also only a limited number of inputs and outputs on each accumulator, which means that hardware functions involving special wiring -- permuters, conditionals, indexed lookups -- must be distributed across many accumulators. This section describes the techniques we developed to use less hardware and trade between available resources.
+Programming the VM is akin to writing microcode, and the number of program units in the system is a hard limit on the number of microcode steps. It is possible to share program subsequences, but multiple callers must be isolated, requiring further resources in the form of pulse amplifiers and dummy programs. There are also only a limited number of inputs and outputs on each accumulator, which means that hardware functions involving special wiring -- permuters, conditionals, indexed lookups -- must be distributed across many accumulators. This section describes the techniques we developed to use less hardware and trade between available resources.
 
 When you run easm, it gives you a map of the resources used. The current version of chessvm assembles like this:
 ```
@@ -698,7 +704,7 @@ This could be written as four completely separate program sequences, but all ope
                      │ EX->MOVSWAP │
                      └─────────────┘
 ```
-In this diagram, time flows from top to bottom. To ensure that the receive on MOVSWAP is executed when RF is sending we need a dummy program to delay one cycle. The bigger wrinkle is that program lines are bidirectional. Whenever a pulse appears on `p-opswapAB` it is transmitted to `p-opswapAC` as well. We need a way to isolate the users of a subprogram. This problem was understood by the original ENIAC programmers and is discussed at Goldstine XI-10. The answer is a device called a pulse amplifier, which is basically a [vaccuum tube diode](https://en.wikipedia.org/wiki/Diode#Vacuum_tube_diodes). These were built into units with 11 channels, originally to allow connections between data busses, but were very useful in isolating programs in this way. Historical documents indicate that eight pulse amplifier units were eventually built, so the simulator supports 88 pulse amplifier channels.
+In this diagram, time flows from top to bottom. To ensure that the receive on MOVSWAP is executed when RF is sending we need a dummy program to delay one cycle. The bigger wrinkle is that program lines are just wires, so they're bidirectional. Whenever a pulse appears on `p-opswapAB` it is transmitted to `p-opswapAC` as well, so we need a way to isolate the users of a subprogram. This problem was understood by the original ENIAC programmers and is discussed at Goldstine XI-10. The answer is a device called a pulse amplifier, which is basically a [vaccuum tube diode](https://en.wikipedia.org/wiki/Diode#Vacuum_tube_diodes). These were built into units with 11 channels, originally to allow connections between data busses, but were very useful in isolating programs in this way. Historical documents indicate that eight pulse amplifier units were eventually built, so the simulator supports 88 pulse amplifier channels.
 
 Chessvm uses pulse amplifiers to share many sequences and thereby save a large number of accumulator programs. For example, almost every instruction begins by saving some other accumulator to EX. We can't use up one EX program for each instruction, so instead we share a single program called `{p-loadex}` that loads EX from `{d-main}`, calling it through a pulse amplifier wherever needed. 
 
@@ -745,7 +751,7 @@ As much as transcievers, dummies and pulseamps are the scarce resource, because 
 
 Then things get weirder. We also repurposed 22 programs on the card reader and constant transmitter unit, turning programs 2-24 into one cycle dummies (`cts`). This works as long as we restrict ourselves to reading only the first 10 columns of each card. If we ever read a card with digits in columns 11-80, these "dummies" will put data on the main bus when the associated ct program is triggered!
 
-Most adventurously, we abuse the multiplier to get an additional 14 dummies with a 6-14 cycle delay ('mts`) and 10 pulse amplifier equivalents (`mpas`). To make this work we needed the ability to simulate disconnecting the multiplier unit from the adjacent accumulators, which in reality involved nothing more than unplugging a few front panel cables. We simulate this via the `s m.pp unplug` setting, which prevents the multiplier from sending over the (already modelled!) partial product connections. This is the most speculative repurposing of ENIAC hardware, but every other accumulator operated without anything connected to these ports, and the pulse level simulation gives us confidence that it would have worked fine.
+Most adventurously, we abuse the multiplier to get an additional 14 dummies with a 6-14 cycle delay (`mts`) and 10 pulse amplifier equivalents (`mpas`). To make this work we needed the ability to simulate disconnecting the multiplier unit from the adjacent accumulators, which in reality involved nothing more than unplugging a few front panel cables. We simulate this via the `s m.pp unplug` setting, which prevents the multiplier from sending over the (already modelled!) partial product connections. This is the most speculative repurposing of ENIAC hardware, but every other accumulator operated without anything connected to these ports, and the pulse level simulation gives us confidence that it would have worked fine.
 
 
 ## Dummy allocation
