@@ -14,14 +14,14 @@ This is how we wrote a chess program for the ENIAC, the first general purpose el
     - [Fetching from the function tables](#fetching-from-the-function-tables)
     - [Instruction decoding](#instruction-decoding)
     - [Bank switching](#bank-switching)
+    - [One free accumulator](#one-free-accumulator)
   - [Addressable memory](#addressable-memory)
     - [Addressing accumulators](#addressing-accumulators)
     - [Addressing words](#addressing-words)
   - [Making it all fit](#making-it-all-fit)
-    - [One free accumulator](#one-free-accumulator)
-    - [Dummy program allocation](#dummy-program-allocation)
     - [Subprograms](#subprograms)
-    - [Exotic uses for things](#exotic-uses-for-things)
+    - [Dummy program allocation](#dummy-program-allocation)
+
   
 # What is the problem?
 ENIAC was less like a modern computer and more like a warehouse full of parts designed to be patched together with cables. It was roughly equivalent to a box of old-fashioned discrete logic chips: counters, registers, adders, and so on. The idea of having a computer execute instructions in sequence from an addessable memory was developed by the ENIAC designers and John von Nuemann during the course of building the machine, but that's not what they got when ENIAC become operational in February 1946. 
@@ -496,7 +496,7 @@ p p.A5o p.Fi
 p p.A6o p.Gi
 
 # Finally, send a decode pulse to A
-p {p-decode} p.Ai
+p {p-decode-3} p.Ai
 
 # Opcode program lines are now p.[BCDEFG][123456]o
 p p.B1o {p-opcode-00}
@@ -558,6 +558,19 @@ p {d-ftsg2} {a-discft3}.{i-ftsg2}
 $recx {p-selft-2} {a-discft3} {r-selft} {i-ftsg2}
 ```
 We borrowed the 09/90/99 encoding from the 1947 design, but this method of multiplexing function tables is a little cleaner and faster than the original, which triggered multiple FTs on different cycles and then selectively activated receive programs.
+
+
+## One free accumulator
+There are a variety of different accumulator resources needed to implement all of chessvm's [instructions](isa.md). Move and swap operations require inputs which permute the data bus in specific patterns. Each conditional branch at the microcode level (including the control cycle) uses the PM digit outputs of one accumulator. Memory access requires the S outputs of multiple accumulators. 
+
+The EX accumulator is used during the control cycle, but is clear when each instruction starts executing. This leads to a pattern of using EX to store the contents of an accumulator that is needed to perform some function, and restoring from EX before the instruction finishes. For example, `SWAP` needs the permuters on the inputs of MOVSWAP, so its contents are saved and restored through EX.
+```
+1. MOVSWAP -> EX
+2. RF -movswap[BCDE]-> MOVSWAP
+3. MOVSWAP -> RF
+4. EX -> MOVSWAP
+```
+For complex instructions like memory access, EX will temporarily hold the contents of several different accumulators over the course of execution.
 
 
 # Addressable memory
@@ -627,20 +640,38 @@ This a much more expensive instruction to implement, especially because the five
 # Making it all fit
 Memory is by far the scarcest resource for programs running on the VM. But for the VM implementation itself, the scarce resource is ENIAC hardware. Programming the VM is akin to writing microcode, and the number of program units in the system is a hard limit on the number of microcode steps. It is possible to share program subsequences, but multiple callers must be isolated, requiring further resources in the form of pulse amplifiers and dummy programs . There are also only a limited number of inputs and outputs on each accumulator, which means that hardware functions involving special wiring -- permuters, conditionals, indexed lookups -- must be distributed across many accumulators. This section describes the techniques we developed to use less hardware and trade between available resources.
 
-## One free accumulator
-There are a variety of different accumulator resources needed to implement all of chessvm's [instructions](isa.md). Move and swap operations require inputs which permute the data bus in specific patterns. Each conditional branch at the microcode level (including the control cycle) uses the PM digit outputs of one accumulator. Memory access requires the S outputs of multiple accumulators. 
-
-The EX accumulator is used during the control cycle, but is clear when each instruction starts executing. This leads to a pattern of using EX to store the contents of an accumulator that is needed to perform some function, and restoring from EX before the instruction finishes. For example, `SWAP` needs the permuters on the inputs of MOVSWAP, so its contents are saved and restored through EX.
+When you run easm, it gives you a map of the resources used. The current version of chessvm assembles like this:
 ```
-1. MOVSWAP -> EX
-2. RF -movswap[BCDE]-> MOVSWAP
-3. MOVSWAP -> RF
-4. EX -> MOVSWAP
+% python easm/easm.py chessvm/chessvm.easm chessvm.e
+pas 87/88 ts 159/160 its 6/6 fts 31/33 cts 23/23 mts 14/14 mpas 10/10
+a1  ***** ************   a2  ****. ************
+a3  ***** ************   a4  ****. ************
+a5  ****. ************   a6  **... **..*******.
+a7  ***.. ***.********   a8  ****. ************
+a9  **... *...********   a10 *.... *...********
+a11 ***** ************   a12 ***.. ************
+a13 ***** ************   a14 ***** ************
+a15 ****. ************   a16 **... **..********
+a17 ***** ************   a18 ****. ************
+a19 ***.. **..********   a20 ***.. ************
 ```
-For complex instructions like memory access, EX will temporarily hold the contents of several different accumulators over the course of execution.
+The five inputs and 12 programs of each accumulator are shown as a1-a19, where an asterisk means in use. The top row shows a variety of other resources.
 
-## Dummy program allocation
+| code | meaning |
+| - | - |
+| pas | pulse amplifiers |
+| ts | accumulator transciever programs |
+| its | initial clear programs used as dummies |
+| fts | function table programs |
+| cts | constant transmiter programs used as dummies |
+| mts | multiplier programs used as dummies |
+| mpas | multiplier programs used as pulse amplifiers |
+
+We had to press many items of hardware into unusual service to create more dummy program steps. Why? They allowed us the ability to create and share complex sequences.
 
 ## Subprograms
 
-## Exotic uses for things
+## Dummy allocation
+
+
+
