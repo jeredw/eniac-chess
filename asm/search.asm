@@ -3,7 +3,12 @@
 ; Finds the best move to play next and then jumps to search_done
 
 ; assume it is ENIAC's turn to move, and that ENIAC is playing white
+; also assume the starting position is legal (both sides have a king,
+; and black's king can't be immediately captured)
+
 ; set up the initial search stack frame
+; the initial best move 0000 means to resign.  any legal move should
+; score better, but if there is none (i.e. checkmate) eniac will resign
   mov depth,A<->B
   mov 1,A
   mov A,[B]         ; depth=1 i.e. one entry on stack
@@ -30,16 +35,9 @@ search
 
 ; movegen jumps here when there is a move to try
 output_move
-  ; init best move to the current move if there is none
-  ; this is needed in case there are no child moves
-  mov bestfrom,A<->B
-  mov [B],A
-  jz .set_best
-  jmp .prune
-.set_best
-  jsr set_best_move
+  ; DEBUG <depth><bestscore> <from><target>
+  ; jsr print_move
 
-.prune
   ; before iterating to next move, apply alpha/beta pruning
   ; can stop searching moves at this depth if alpha >= beta
   mov alpha,A<->B   ;
@@ -50,14 +48,24 @@ output_move
   jn no_more_moves  ; if beta<=alpha, stop iteration
   jz no_more_moves  ; if beta==alpha, stop iteration
 
+  ; check for illegal moves
+  ; if we are about to capture a king, don't. instead, stop iteration at
+  ; this level and skip over the parent move.
+  ; note the illegal parent move can't have been set as the best move at
+  ; its depth because we are stopping before no_more_moves
+  mov targetp,A<->B
+  mov [B],A
+  lodig A           ; get captured piece
+  addn KING,A       ; is it a king?
+  jz search_pop     ; if capturing king, fixup stack
+
   ; apply the move (updating mscore)
   jsr move
+
   mov depth,A<->B
   mov [B],A         ; A=stack depth
   addn MAXD,A       ; is depth at maximum?
   jz leaf           ; if yes, this is a leaf node
-  ; TODO if a king is missing, the previous move wasn't legal
-  ; deal with this in some intelligent way
 
   ; the score for this node is the min or max of its children
   ; push a child search node
@@ -85,7 +93,6 @@ output_move
   jmp search
 
   ; update best score for leaf nodes using material score
-  ; TODO should probably have a special case for no king/checkmate
 leaf
   mov mscore,A<->B
   mov [B],A<->D     ; D=mscore
@@ -124,7 +131,9 @@ no_more_moves
   dec A
   jz search_done    ; if depth==1, done
 
-  ; done iterating over child moves, so bestscore is the final score
+  ; done iterating over child moves
+  ; now we know the parent move was legal (otherwise check_legal would
+  ; have stopped iteration) and bestscore is the final score of this subtree
   ; update parent's bestscore if this move is better than its current best
   mov bestscore,A<->B
   mov [B],A<->D     ; D=best score for this node
@@ -146,7 +155,7 @@ no_more_moves
   sub D,A           ; A=pbestscore - bestscore
   flipn
   jn .newbest       ; if bestscore < pbestscore, new best move
-  jmp .pop
+  jmp search_pop
 .pmax
   ; parent is max, update its best move if bestscore >= pbestscore
   ; (if this is a new high, first update alpha)
@@ -162,7 +171,7 @@ no_more_moves
   mov [B],A         ; A=pbestscore
   sub D,A           ; A=pbestscore - bestscore
   flipn
-  jn .pop           ; if bestscore < pbestscore, not a best move
+  jn search_pop     ; if bestscore < pbestscore, not a best move
 .newbest
   swap D,A
   mov A,[B]         ; [pbestscore] = current score
@@ -177,12 +186,12 @@ no_more_moves
   swap D,A
   mov A,[B]         ; [pbestto]=D
 
-.pop
+search_pop
   ; no more moves at current depth.  parent stack frame has already
   ; been updated with best move and score, so just pop
   jsr pop
 
-  ; DEBUG <depth><bestscore> <bestfrom><bestto>
+  ; DEBUG 99xx <depth><bestscore> <bestfrom><bestto>
   ;jsr print_best_move
 
   jsr undo_move

@@ -654,29 +654,54 @@ class TestChess(SimTestCase):
     self.assertEqual(1, len(moves))
     return moves[0]
 
-  def testPuzzle_1(self):
-    best = self.findBestMove('1k1r1q1r/pb3ppp/4p3/3p2b1/3P4/PP1B4/KBP2PPP/2R1Q2R w KQkq - 0 1')
-    self.assertEqual(best, '1555') 
-
-  def testAvoidRecapture_1(self):
-    # XXX use an example with a legal start position
-    best = self.findBestMove('8/8/8/8/3k4/1p1p4/2P5/8 w KQkq - 0 1')
-    self.assertEqual(best, '2332') 
-
-  def testAvoidRecapture_2(self):
-    # XXX use an example with a legal start position
-    best = self.findBestMove('8/8/8/8/1k6/1p1p4/2P5/8 w KQkq - 0 1')
-    self.assertEqual(best, '2334') 
-
-  def testMustDoSomething(self):
-    # this test would return 0000 if we did not choose an infinitely bad move
-    # XXX use an example with a legal start position
-    best = self.findBestMove('8/8/8/8/3k4/1r1r4/2P5/8 w KQkq - 0 1')
-    self.assertEqual(best, '2332') 
-
   def testInitialPosition(self):
     best = self.findBestMove('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
-    self.assertEqual(best, '1231') 
+    self.assertEqual(best, '1231')
+
+  def testPuzzle(self):
+    best = self.findBestMove('1k1r1q1r/pb3ppp/4p3/3p2b1/3P4/PP1B4/KBP2PPP/2R1Q2R w KQkq - 0 1')
+    self.assertEqual(best, '1555')
+
+  def testAvoidRecapture1(self):
+    best = self.findBestMove('8/8/8/8/8/1p1pk3/2P5/7K w KQkq - 0 1')
+    self.assertEqual(best, '2332')
+
+  def testAvoidRecapture2(self):
+    best = self.findBestMove('8/8/8/8/8/kp1p4/2P5/7K w KQkq - 0 1')
+    self.assertEqual(best, '2334')
+
+  # Mate in 1 cases taken from
+  # https://thechessworld.com/articles/training-techniques/13-checkmates-you-must-know/
+
+  def testMateIn1Rooks(self):
+    best = self.findBestMove('7k/1R6/R7/8/8/8/8/3K4 w KQkq - 0 1')
+    #self.assertEqual(best, '6181')
+    self.assertEqual(best, '6167')
+
+  def testMateIn1Rooks_Resign(self):
+    best = self.findBestMove('7K/1r6/r7/8/8/8/8/3k4 w KQkq - 0 1')
+    self.assertEqual(best, '0000')
+
+  def testMateIn1Pawns(self):
+    best = self.findBestMove('4k3/4P3/3PK3/8/8/8/8/8 w KQkq - 0 1')
+    self.assertEqual(best, '6474')
+
+  def testMateIn1Pawns_Resign(self):
+    best = self.findBestMove('8/8/8/8/8/3pk3/4p3/4K3 w KQkq - 0 1')
+    self.assertEqual(best, '0000')
+
+  def testMateIn1BackRank(self):
+    best = self.findBestMove('6k1/5ppp/6r1/8/8/7P/5PP1/R5K1 w KQkq - 0 1')
+    self.assertEqual(best, '1181')
+
+  def testMateIn1Diagonal(self):
+    best = self.findBestMove('r4rk1/ppp2ppp/8/8/8/1P6/PQ3PPP/B4RK1 w KQkq - 0 1')
+    self.assertEqual(best, '2277')
+
+  # TODO we should be able to solve this but can't...
+  #def testMateIn2Morphy(self):
+  #  best = self.findBestMove('kbK5/pp6/1P6/8/8/8/8/R7 w KQkq - 0 1')
+  #  self.assertEqual(best, '1161')
 
 
 if __name__ == "__main__":

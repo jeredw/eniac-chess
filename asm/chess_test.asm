@@ -14,6 +14,7 @@
   .org 200
   .include move.asm       ; 65 lines
   .include score.asm      ; 11 lines
+  ;.include debug.asm
 
   .org 306
 test
