@@ -166,7 +166,7 @@ $recx {p-xfer} {a-dst} {r-xfer} {i-main}
 Much shorter: one line to send from `{a-src}` and one line to receive and add at `{a-dst}`. Note that it's still necessary to connect the data bus to outputs and input. The macros in chessvm are designed this way to separate datapath wiring from program step sequencing. Also, only one of these accumulators needs to trigger the next program step. This is why the send uses a transciever `{t-xfer}` while the recx needs only a recieiver `{r-xfer}`. Chessvm uses macros which end in x to denote that an output pulse is not transmitted, hence `recx` vs `rec`, and `sendx` also exists.
 
 ## Registers, Arithmetic, and Permutation
-The original [instruction sets](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) for the ENIAC were all based on moving 10 digit numbers around, because the ENIAC was primarily used for scientific computation. But there are only 20 accumulators, so after allocating a few to machine functions like the program counter and instruction register, this meant there were very few memory locations left. Chessvm uses two digit words instead, making the ENIAC into a 100 word machine. The main [register file](isa.md) is one accumulator broken down into five two-digit registers A-E, plus the PM digit used as an overflow flag N.
+The original [instruction sets](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) for the ENIAC were all based on moving 10 digit numbers around, because the ENIAC was primarily used for scientific computation. But there are only 20 accumulators, so after allocating a few to machine functions like the program counter and instruction register, this meant there was room for a dozen or so variables. Chessvm uses two digit words instead, making the ENIAC into a 100 word machine. The main [register file](isa.md) is one accumulator broken down into five two-digit registers A-E, plus the PM digit used as an overflow flag N.
 ```
 +------------------+
 | N AA BB CC DD EE |
@@ -230,7 +230,7 @@ Note the use of `%` to create a named temporary variable that is visible only in
 
 Finally, this example introduces the register transfer notation X -> Y which is used extensively in chessvm comments, and as the microcode notation in the [instruction set reference](isa.md). Here's how it works:
 
-| Notation  | Meaning |
+| Notation | Meaning |
 | - | - |
 | X -> Y | send from X, rec on Y |
 | X -input-> Y | send X, rec Y on given input |
@@ -268,12 +268,15 @@ p {a-dummy}.{t-neg}o {p-negative-branch}
 ```
 All of this is nicely packaged up into a `$discriminate` macro. There's also `discriminatec` to additionally clear the accumulator, which we use to write a loop with a number of iterations set by another accumulator. This is [`looptest.easm`](vm-dev/looptest.easm)
 ```
+# Illustrate conditional branching using discrimination, to count to 10
 include ../chessvm/macros.easm
 
-set a1 10       # set loop limit 
+set a1 10       # loop limit 
 
-{a-limit} = a1  # tell easm to bind symbols to physical accumulators
-{a-count} = a13 # put counter here so we can print
+# Tell easm to bind symbols to physical accumulators
+# We don't need {a-test} here because it can go anywhere
+{a-limit} = a1  
+{a-count} = a13 # counter on a13 so we can print
 
 # LIMIT and COUNT write to main bus, TEST reads from it.
 p {a-limit}.A {d-main}
@@ -309,11 +312,157 @@ insert-deferred
 # go
 b i
 g
+```
+There are two new easm features in this program. First we bind `{a-limit}` to `a1` in order to make the `set` statement work, and we bind `{a-count}` to `a13` so our count variable can be conveniently printed. Second, the real `discriminatec` macro uses allocated dummies, meaning that it looks for free transcivers rather than trying to put all dummies on accumulator {a-dummy} as we wrote above. The `insert-deferred` statement tells easm that all other accumulator programs have been allocated, so whatever is left can be used. We'll discuss dummy allocation much more, below.
+
+# Building a control cycle
+To turn ENIAC into a modern computer we need to use these methods to implement a fetch-decode-execute cycle. This was done in 1948 when ENIAC was converted to  ["central control"](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/). Chessvm was inspired by asking if we could create a more modern, microprocessor-like machine out of ENIAC. The first instruction set, implemented in April 1948, had 79 instructions and used a newly-built decoder unit that was designed to route a pulse to one of 100 outputs, based on a two digit opcode. We wanted to implement our machine on stock ENIAC hardware, which we defined as the units available when ENIAC was first [declared operational](https://www.techrxiv.org/articles/preprint/Reconstructing_the_Unveiling_Demonstration_of_the_ENIAC/14538117) in February 1946, and discussed in more detail in Adele Goldstine's Eniac Technical Manual.
+
+As it turns out, Goldstine had documented a design for a 51 opcode instruction set (then called "a 51 order code") in [1947 notes](https://eniacinaction.com/docs/CentralControlforENIAC1947.pdf), recently exhumed and transcribed by Mark Priestley and Thomas Haigh. This document provided the basic ideas behind chessvm's central architecture. Many of the hardest problems in chessvm were solved 70 years ago.
+
+The core machine uses five accumulators:
+
+| Name | Purpose | Layout | Notes |
+| - | - | - | - |
+| PC | Program counter      | SS RRRR PPPP | PPPP=program counter, RRRR=return adddres, SS used in decode |
+| IR | Instruction register | I5 I4 I3 I2 I1 | I1 is the next opcode |
+| EX | Execution regisoter  | I1 XX XX XX XX | Holds next opcode during decode, empty during execution |
+| RF | Register File        | AA BB CC DD EE | Main registers |
+| LS | Aux register file    | FF GG HH II JJ | Used for memory access, LS=load/store |
+
+At a high level, the control cycle operates as follows:
+
+| Step | Action |
+| - | - | 
+| 1. | If IR is negative (PM=M) fetch function table row PPPP into the IR and add 1 to PPPP |
+| 2. | Copy I1 into EX |
+| 3. | Shift IR to the right by two digits, and set the upper two digits (now empty) to 99 |
+| 4. | Decode I1, meaning trigger one of 51 program lines based on the contents of EX |
+| 5. | (instruction executes here) |
+| 6. | Add 1 to IR. If there are no more instructions, IR will be P9999999999 and will overflow to M0 |
+| 7. | Goto 1 |
+
+This is roughly, but not really, a description of the actual machine cycles involved in fetching and decoding instructions. For the real thing, see the [ISA reference](isa.md).
+
+Making this work requires several steps: fetching from the function tables, decoding an instruction, and managing the program counter.
+
+## Fetching from the function tables
+The function tables are the ENIAC's ROM. They were originally built in anticipation of storing lookup tables such as sine and cosine, and are even indexed from -2 to 101 to support quadaratic interpolation with boundary conditions. But they became the key to running ENIAC as a modern CPU. All of the original "order codes" use two digit opcodes, and so does chessvm. With three tables, each with 104 rows of 12 digits, that's 3,744 digits or at most 1,872 instructions. A machine that was never designed to be programmed with opcodes was suddenly discovered to have expansive ROM space. More than any other feature of the ENIAC, this is what makes chess possible.
+
+You can think of each function table as a map from a two digit argument to a 12 digit row.
+
+We can modify our simple incrementing accumulator program to read and print succesive lines from the function table. 
+```
+# Fetch and print successive rows from function table 1
+include ../chessvm/macros.easm
+
+p i.io {p-fetch}
+
+# put our "instruction register" somewhere easily printable
+{a-ir} = a13
+
+# Connections to main bus
+p {a-count}.A {d-main}
+p {d-main} {a-ir}.{i-main}
+p {d-main} f1.arg
+
+# Each of two f1 outputs is six digits. Combine the bottom 10 of 12 digits into one bus.
+$permute f1.A 0,4,3,2,1,0,0,0,0,0,0 {d-main}
+p f1.B {d-main}
+
+# 1. Tell the FT we are going to look up a value
+p {p-fetch} f1.{t-fetch}i
+s f1.cl{t-fetch} C    		# send pulse on C when ready for argument
+p f1.C {p-arg}
+s f1.op{t-fetch} A0   		# don't offset argument 
+
+# 2. When the FT is ready for its argument, send from {a-count}
+$send {p-arg} {a-count} {t-arg} A {p-wait}
+
+# 3. While we are waiting for result, clear {a-ir} and increment {a-count}
+$clear {p-wait} {a-ir} {t-clear} {p-readrow}
+$recincx {p-wait} {a-count} {r-inc} {i-no-connection} 
+
+# 3-4. We need to wait two cycles, so repeat the clear twice total. This delays {p-readrow}.
+s {a-ir}.rp{t-clear} 2
+
+# 5. Read FT output
+$rec {p-readrow} {a-ir} {t-readrow} {i-main} {p-print}
+
+# 6. print all ten digits of a13 and loop
+p {p-print} i.pi
+s pr.2 P
+s pr.3 P
+p i.po {p-fetch}
+
+# Set switches for a few rows of test data to read
+[omitted]
+```
+The function table is a little weird in terms of timing. It must be triggered on the first cycle with a program pulse, given its argument on the second cycle, and then the result is available on the fifth cycle. We use the `f1.C` output to send the argument, and harmlessly clear the IR twice to delay for two cycles after sending the argument, but there are a variety of ways to accomplish this (typically using dummies). 
+
+This example also shows the weird data format of the function table: each row is two six digit halves called A and B, each of which has its own output. Here, we combine A and B into one ten digit accumulator by dropping the leftmost two digits using a permuter. That's fine for this case, but in the real control cycle we store instructions I6...I2 in IR, and put the top two digits I1 -- the first instruction on the row to be exected -- into EX. There's logic in the control cycle to handle consuming an opcode from EX or from IR depending on whether or not we just fetched. This pattern was borrowed from the 1947 design.
+
+This layout also means that the program counter cannot point to any instruction that's not at the beginning of a row. All jump locations have to be row-aligned. Also, two and three word instructions (those with immediate data or addresses) cannot cross a row. Unused words in each row could be filled with NOP instructions, but if they are filled with 99 instead, which we call SLED, then the control cycle immediately fetches a new row without trying to decode the empty words.
+
+# Bank switching
+The above example showed how to fetch from one function table, but we want to use all three. That's why the program counter PPPP and return address RRRR are four digits each. The low two digits are just the row in the current function table, while the high two digits are known as the "functional table selection group" or FTSG, a 1947 name we kept.
+
+| FTSG | Function Table |
+| - | - |
+| 09 | 1 |
+| 90 | 2 |
+| 99 | 3 |
+
+Near addresses are two digits and reference the current function table only. All conditional jumps are near addresses, which saves code space. Far jumps and subroutine call and return use four digit far addresses.
+
+To actually do this ROM bank switching, chessvm routes the fetch initiation pulse (`{p-fetch}` above) to only the currently selected table. This is done by wiring the PM digits of the S outout of three accumulators to program inputs on three different function tables, something like
 
 ```
-One new wrinkle: the real `discriminatec` macro uses allocated dummies, meaning that it looks for free transcivers rather than trying to put all dummies on accumulator {a-dummy} as we wrote above. The `insert-deferred` statement tells easm that all other accumulator programs have been allocated, so whatever is left can be used. We'll discuss dummy allocation much more, below.
+defmacro trigger-ft n 
+  $sendx {p-fetch} {a-discft$n} {r-fetch} S
+  p {a-discft$n}.S ad.dp.{ad-discft$n}.11
+  p ad.dp.{ad-discft$n}.11 f$n.{t-fetch}i
+endmacro
 
-# Building a control Cycle
+$trigger-ft 1
+$trigger-ft 2
+$trigger-ft 3
+```
+If only one of these accumulators has a positive sign (P in the PM digit) then only one function table will be triggered. This is similar to how discrimination works, and we can't otherwise use the sign or the S output if we store other data in these accumulators (which we do; this represents 15 words of our VM memory). The FTSG is designed so these program counter digits can be sent to the sign digits of the three accumulators once to select only one bank, then again to clear it.
+```
+# Set/unset current bank using FTSG of PC, that is, digits 4 and 3. Trigger with {p-selft}
+# Starting from all accs PM=P, call once to select bank. Calling twice reverts to all P.
+
+$permute {a-pc}.A 4,0,0,0,0,0,0,0,0,0,0 {d-ftsg1}
+$permute {a-pc}.A 3,0,0,0,0,0,0,0,0,0,0 {d-ftsg2}
+
+# Send FTSG digits from PC twice
+$sendx {p-selft} {a-pc} {t-selft} A
+s {a-pc}.rp{t-selft} 2
+
+# Deselect FT1 if FTSG1 set
+p {d-ftsg1} {a-discft1}.{i-ftsg1}
+$recx {p-selft} {a-discft1} {t-selft} {i-ftsg1} 
+
+# Deselect FT2 if FTSG2 set
+p {d-ftsg2} {a-discft2}.{i-ftsg2}
+$recx {p-selft} {a-discft2} {t-selft} {i-ftsg2}
+
+# Deselect FT3 if exactly one of FTSG1, FTSG2 set
+p {d-ftsg1} {a-discft3}.{i-ftsg1}
+$rec {p-selft} {a-discft3} {t-selft} {i-ftsg1} {p-selft-2}
+p {d-ftsg2} {a-discft3}.{i-ftsg2}
+$recx {p-selft-2} {a-discft3} {r-selft} {i-ftsg2}
+```
+We borrowed the 09/90/99 encoding from the 1947 design, but this method of multiplexing function tables is a little cleaner and faster than the original, which triggered multiple FTs on different cycles and then selectively activated receive programs.
+
+## Insrtruction decoding
+By "decode" we mean trigger one of 51 different program lines based on an opcode in an accumulator. By 1948 there was a custom hardware unit that integrated the instruction register (including shifts to consume opcodes) and the decoder. But the stock ENIAC had nothing like this, which makes the 1947 design using the master programmer unit particularly ingenious.
+
+The master programmer is junk. Originally designed for nested loops with complex bounds, it was imagined that this unit would drive most of the sequencing for  ENIAC. This was plausible when it was thought that the primary use would calculating trajectory tables -- the "I" in ENIAC stands for "integrator," after all. You can think of the master programmer as ten units, each of which can be abstracted like this:
+
+
+# Addressable memory
 
 # Making it all fit
 
