@@ -93,7 +93,7 @@ p i.io 1-1
 
 # 1-1: print accumulator 13
 p 1-1 i.pi        # trigger printer by connecting program line 1-1 to printer program input
-s pr.3 P          # prints low half of acc 13 
+s pr.3 P          # print low half of acc 13 
 p i.po 1-2        # go to 1-2
 
 # 1-2: increment accumulator 13
@@ -128,8 +128,8 @@ This sort of thing gets very tedious very quickly with larger ENIAC programs. It
 
 p i.io {p-print}
 
-p {p-print} i.pi         # trigger printer by connecting program line 1-1 to printer program input
-s pr.3 P                 # prints low half of acc 13 
+p {p-print} i.pi         # trigger printer from {p-print}
+s pr.3 P                 # print low half of acc 13 
 p i.po {p-inc}           # go to increment
 
 p {p-inc} a13.{t-inc}i   # connect program line to program input, use any available transciever
@@ -144,7 +144,11 @@ g
 
 Easm variables are always of the form `{[type]-[name]}`, and on first use they try to allocate a free resource of that type. This program uses named program lines `{p-print}` and `{p-inc}` and a named transciever program on accumulator 13 called `{t-inc}`. A transciever program is an accumulator program that has an output jack, so it can trigger something else when it's done.
 
-Running easm assembles an `.easm` file into a `.e` file suitable for `eniacsim.` This file can be assembled into a runnable patch by `python easm/easm.py vm-dev/print-naturals-2.easm print-naturals-2.e`.
+Running easm assembles an `.easm` file into a `.e` file suitable for `eniacsim.` The above file can be assembled and executed by
+```
+% python easm/easm.py vm-dev/print-naturals-2.easm print-naturals-2.e
+% eniacsim vm-dev/print-naturals-2.e
+```
 
 ## Moving data around
 Suppose we want to start counting at a different number. There are many ways to do this, including the way you use when you're debugging and you just want to set the machine state:
@@ -379,7 +383,7 @@ insert-deferred
 b i
 g
 ```
-There are two new easm features in this program. First we bind `{a-limit}` to `a1` in order to make the `set` statement work, and we bind `{a-count}` to `a13` so our count variable can be conveniently printed. Second, the real `discriminatec` macro uses allocated dummies, meaning that it looks for free transcivers rather than trying to put all dummies on accumulator {a-dummy} as we wrote above. The `insert-deferred` statement tells easm that all other accumulator programs have been allocated, so whatever is left can be used. We'll discuss dummy allocation much more, below.
+There are two new easm features in this program. First we bind `{a-limit}` to `a1` in order to make the `set` statement work, and we bind `{a-count}` to `a13` so our count variable can be conveniently printed. Second, the real `discriminatec` macro uses allocated dummies, meaning that it looks for free transcivers rather than trying to put all dummies on accumulator `{a-dummy}` as we wrote above. The `insert-deferred` statement tells easm that all other accumulator programs have been allocated, so whatever is left can be used. We discuss [dummy allocation](#dummy-allocation) much more, below.
 
 It would be nice to use an accumulator just for discrimination as we do here, but we badly need the space. It's possible to store data in the accumulator when it's not currently being used for discrimination, with one important caveat: that accumulator must never send from the A output when the value is negative, or send from the S output when the value is positive. Otherwise, one or the other of the branch program lines would be triggered.
 
@@ -713,7 +717,7 @@ The complete implementation of SWAP A,X with shared programs looks like this.
 # SWAP A,X with shared programs. Trigger via {p-opswapA[BCDE]}
 include macros.easm
 
-# Shared core, triggered from {p-opswapAX}
+# Shared subprogram, triggered from {p-opswapAX}
 # 1. MOVSWAP->EX
 $sendc {p-opswapAX} {a-movswap} {t-opswapAX} A {t-opswapAX-2}
 $pulseamp {p-opswapAX} {p-loadex}         # EX shared program to receive
@@ -747,7 +751,7 @@ This snippet also shows the use of an `x` program, which tells easm that it can 
 ## Dummies, pulse amplifiers, and exotic uses for units
 To some extent dummies and pulse amplifiers are interchangable. For example, SWAP A,X could trigger the core shared program with a dummy instead of a pulseamp at the cost of a one cycle delay. This delay may not be a problem in other circumstances, for example when triggering a sub-program to start on cycle 2 with a dummy that begins on cycle 1. Dummies with multi-cycle delays are particularly useful for sequencing arbitrary arrangements of subprograms. 
 
-As much as transcievers, dummies and pulseamps are the scarce resource, because they allow sequencing and re-use of program steps. They're such important resources that we've pressed a number of ENIAC units into service to get many more. First, the function tables have a variable repeat switch which can be used to produce a 5-13 cycle delay, as mentioned in Goldstine VII-24. These and other function table programs (e.g. fetch) are counted as `fts` in the easm output map. We use the six "selective clear" programs on the initiating unit as one-cycle dummies (`its`). These progams were intended to clear non-significant figures in accumulators, but we never set the selective clear switch on any accumulator. 
+As much as transcievers, dummies and pulseamps are a scarce resource because they allow sequencing and re-use of program steps. They're such important resources that we've pressed a number of ENIAC units into service to get many more. First, the function tables have a variable repeat switch which can be used to produce a 5-13 cycle delay, as mentioned in Goldstine VII-24. These and other function table programs (e.g. fetch) are counted as `fts` in the easm output map. We use the six "selective clear" programs on the initiating unit as one-cycle dummies (`its`). These progams were intended to clear non-significant figures in accumulators, but we never set the selective clear switch on any accumulator. 
 
 Then things get weirder. We also repurposed 22 programs on the card reader and constant transmitter unit, turning programs 2-24 into one cycle dummies (`cts`). This works as long as we restrict ourselves to reading only the first 10 columns of each card. If we ever read a card with digits in columns 11-80, these "dummies" will put data on the main bus when the associated ct program is triggered!
 
@@ -775,5 +779,6 @@ defmacro dummy inpr outpr
   defer p {$inpr} {a-%name}.{t-%name}i
   defer s {a-%name}.op{t-%name} 0
   defer p {a-%name}.{t-%name}o {$outpr}
+endmacro
 ```
 Automated dummy allocation was a key feature that allowed us to make the most efficient use of available ENIAC hardware.
