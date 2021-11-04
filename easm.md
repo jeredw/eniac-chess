@@ -18,7 +18,7 @@ This is how we wrote a chess program for the ENIAC, the first general purpose el
     - [Addressing accumulators](#addressing-accumulators)
     - [Addressing words](#addressing-words)
   - [Making it all fit](#making-it-all-fit)
-    - [Bouncing around](#bouncing-around)
+    - [One free accumulator](#one-free-accumulator)
     - [Dummy program allocation](#dummy-program-allocation)
     - [Subprograms](#subprograms)
     - [Exotic uses for things](#exotic-uses-for-things)
@@ -561,7 +561,7 @@ We borrowed the 09/90/99 encoding from the 1947 design, but this method of multi
 
 
 # Addressable memory
-ENIAC had no addressable memory. It had no instruction set either, but even after the crazy hacks to turn it into a stored program computer there were still no instructions that could access a data-dependent location in memory. The instruction sets of the time devoted a considerable number of their limited opcodes to load and store instructions, each hard wired for a specific accumulator. There was simply no way to implement something like an array or a pointer.
+ENIAC had no addressable memory. It had no instruction set either, but even after the crazy hacks to turn it into a stored program computer there were still no instructions that could access a data-dependent location in memory. The instruction sets of the time devoted a considerable number of their limited opcodes to load and store instructions, each hard wired for a specific accumulator. There was simply no way to implement something like a pointer or an array -- you know, like a chessboard.
 
 This had to change. 
 
@@ -615,18 +615,29 @@ A `mov [B],A` instruction is executed in two parts. First accumulator B div 5 lo
 Much of the `loadacc` sequence is re-used, which makes this relatively compact in terms of ENIAC resources. The full sequence is documented [here](isa.md#mov-ba-aka-loadword). Essentially we paid for most of loadword already, including all of the pre-existing memory cycle programs on each accumulator.
 
 Storing words is somewhat harder. `MOV A,[B]` is implemented through `loadacc`, storing A into LS, and then `storeacc`.
- 1. Add B to itself and shift the result right giving B*2 div 10 or B div 5
+ 1. Add B to itself and shift the result right giving B div 5
  2. Load the accumulator at this index into LS
  3. Lookup the low digit of B in the FT3 decoding table, defined above
  4. Store the result in `{a-movAX}` use the `S` output digits to trigger one of five custom `MOV A,[FGHIJ]` sequences.
- 5. Add B to itself and shift the result right giving B*2 div 10 or B div 5
+ 5. Add B to itself and shift the result right giving B div 5
  6. Store LS into the accumulator at this index
 
 This a much more expensive instruction to implement, especially because the five `MOV A,X` sequences are not already implemented for other instructions. It is the slowest opcode, taking 38 cycles to complete. But it's marvelously faster and smaller than implementing this capability as a subroutine, and besides, we only have one level of call stack.
 
 # Making it all fit
+Memory is by far the scarcest resource for programs running on the VM. But for the VM implementation itself, the scarce resource is ENIAC hardware. Programming the VM is akin to writing microcode, and the number of program units in the system is a hard limit on the number of microcode steps. It is possible to share program subsequences, but multiple callers must be isolated, requiring further resources in the form of pulse amplifiers and dummy programs . There are also only a limited number of inputs and outputs on each accumulator, which means that hardware functions involving special wiring -- permuters, conditionals, indexed lookups -- must be distributed across many accumulators. This section describes the techniques we developed to use less hardware and trade between available resources.
 
-## Bouncing around
+## One free accumulator
+There are a variety of different accumulator resources needed to implement all of chessvm's [instructions](isa.md). Move and swap operations require inputs which permute the data bus in specific patterns. Each conditional branch at the microcode level (including the control cycle) uses the PM digit outputs of one accumulator. Memory access requires the S outputs of multiple accumulators. 
+
+The EX accumulator is used during the control cycle, but is clear when each instruction starts executing. This leads to a pattern of using EX to store the contents of an accumulator that is needed to perform some function, and restoring from EX before the instruction finishes. For example, `SWAP` needs the permuters on the inputs of MOVSWAP, so its contents are saved and restored through EX.
+```
+1. MOVSWAP -> EX
+2. RF -movswap[BCDE]-> MOVSWAP
+3. MOVSWAP -> RF
+4. EX -> MOVSWAP
+```
+For complex instructions like memory access, EX will temporarily hold the contents of several different accumulators over the course of execution.
 
 ## Dummy program allocation
 
