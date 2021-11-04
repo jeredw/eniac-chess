@@ -1,13 +1,11 @@
-# Programming an ENIAC virtual machine with EASM
-ENIAC Chess began with Briain Stuart's pulse-level [simulator](https://www.cs.drexel.edu/~bls96/eniac/eniac.html) which we forked and [further developed](https://github.com/jeredw/eniacsim). Although a faithful and full-featured simulation of the ENIAC, the input format is nothing more than a list of patch wires and switch settings. Easm is an assembler that provides named symbols, macros, and more to make relatively high-level ENIAC programming possible. 
-
-This document describes how easm works, and how it was used to build the [chessvm virtual machine](isa.md). The core ideas behind chessvm are similar to the [ENIAC implementation of "central control"](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) in 1948, but with a sophisticated instruction set that makes it act much more like a modern computer. 
+# Programming an ENIAC virtual machine
+This is how we wrote a chess program for the ENIAC, the first general purpose electronic digital computer. The ENIAC is an ancient, strange, and very limited machine, so it's surprising to many people that it could have played a decent game of chess. The core of the problem was to wire up the ENIAC so that it emulates a tiny modern CPU, by extending ideas originally developed in the 1940s. This required a new kind of programming language, something like an ENIAC patch assembler. This document describes how we used that tool to create a capable virtual machine on a 1940s computer.
 
 # Contents
-  - [What is the ENIAC?](#what-is-the-eniac)
+  - [What is the problem?](#what-is-the-problem)
+    - [ENIAC References](#eniac-references)
   - [Coding the Eniac](#coding-the-eniac)
     - [The accumulator](#the-accumulator)
-    - [Programs and patches](#programs-and-patches)
     - [Hello punch cards](#hello-punch-cards)
     - [Moving data around](#moving-data-around)
     - [Registers, arithmetic, and permutation](#registers-arithmetic-and-permutation)
@@ -25,8 +23,17 @@ This document describes how easm works, and how it was used to build the [chessv
     - [Subprograms](#subprograms)
     - [Exotic uses for things](#exotic-uses-for-things)
   
-# What is the ENIAC?
-This document is a gentle introduction to parts of the ENIAC hardware and programming model, but to do any real programming you'll need greater familiarity with ENIAC's hardware and basic programming theory. For an introduction, see Stuart's series of articles:
+# What is the problem?
+ENIAC was less like a modern computer and more like a warehouse full of parts designed to be patched together with cables. It was roughly equivalent to a box of old-fashioned discrete logic chips: counters, registers, adders, and so on. The idea of having a computer execute instructions in sequence from an addessable memory was developed by the ENIAC designers and John von Nuemann during the course of building the machine, but that's not what they got when ENIAC become operational in February 1946. 
+
+To execute the [first monte-carlo simulation](https://eniacinaction.com/the-articles/3-los-alamos-bets-on-eniac-nuclear-monte-carlo-simulations-1947-8/) of a nuclear core, ENIAC was converted to ["central control"](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) in 1948, by using its voluminous numerical function table lookup space to store instruction codes instead. Essentially, they wired the box of parts into the very first CPU. ENIAC stayed wired this way until it was decommissioned in 1956.
+
+But that CPU was not suitable for playing chess. It kept the hardware organization of 10 digit words, there were only 15 words available, and this memory was not indexable. We wanted to show that it was possible to wire up the ENIAC into a much more capable computer. The result is a patch-level setup for the ENIAC that gives the machine two digit words, five registers, and 75 words of linear memory, along with 1600 words of program storage. The full architecture is documented [here](isa.md). This is enough to implement 4-ply alpha-beta search and beat (some) humans at chess. In the sense that all the required hardware was actually built, this could have been implemented in 1946. 
+
+## ENIAC References
+This document is a gentle introduction to parts of the ENIAC hardware and programming model, but to do any real programming you'll need greater familiarity with ENIAC's hardware and programming theory. 
+
+ENIAC Chess began with Briain Stuart's pulse-level [simulator](https://www.cs.drexel.edu/~bls96/eniac/eniac.html) which we forked and [further developed](https://github.com/jeredw/eniacsim). He also wrote a great series of introductory ENIAC articles:
  - [Simulating the ENIAC](https://ieeexplore.ieee.org/document/8540483)
  - [Programming the ENAIC](https://ieeexplore.ieee.org/document/8467000)
  - [Debugging the ENIAC](https://ieeexplore.ieee.org/document/8540483)
@@ -53,7 +60,7 @@ ENIAC is a series of refrigerator-sized units with different functions. The unit
               Inputs
 
 ```
-PM is short for "plus minus" and is essentially a sign bit. The accumulator is triggered by a pulse into one of 12 "program controls". Each of these has switches that control the operation executed when that "program" is executed. If X is the value in the accumulator, the available operations are
+PM is short for "plus minus" and is essentially a sign bit. The accumulator is triggered by a pulse on a cable jacked into one of 12 "program controls". Each of these has switches that control the operation executed when that "program" is executed. If X is the value in the accumulator, the available operations are
 | Operation  | Description |
 | - | - |
 | X += a,b,g,d,e      | Add |
@@ -66,11 +73,10 @@ PM is short for "plus minus" and is essentially a sign bit. The accumulator is t
 | -X->S, X=0          | Output complement and clear |
 | X->A, -X->S, X=0     | Output both and clear |
 
-The accumulator is the backbone of the machine, and is simultaneously memory and arithmetic. There are 20 accumulators in the ENIAC, for a total writable memory of 200 digits. This is more or less the only writable memory in the machine (excluding a few internal registers in other units). Note that the resources available on each accumulator are limited in several ways: there are only five different inputs, only one uncomplemented and one complemented output, and most of all only 12 program inputs, meaning that without more advanced sequencing techniques each accumulator can be involved in at most 12 program steps.
+The accumulator is the backbone of the machine, and is simultaneously memory and arithmetic. There are 20 accumulators in the ENIAC, for a total writable memory of 200 digits. This is the only writable memory in the machine. The resources available on each accumulator are limited in several ways: there are only five different inputs, only one uncomplemented and one complemented output, and most of all only 12 program inputs, meaning that without more advanced sequencing techniques each accumulator can be used for at most 12 differet program steps.
 
 To describe the contents of an accumulator (or its value on a data bus) we follow the original sign notation of P or M followed by ten digits, in 10's complement form. Hence P0000000005 is 5 and M9999999995 is -5. To negate a value in 10's complement, take the 9's complement of each digit (subtract from 9) and then add 1. When sending the PM digit, a P is transmitted as a 0 while an M is transmitted as a 9.
 
-## Programs and patches
 The world of ENIAC programming, and the surviving technical documentation, is full of words that meant somewhat different things at the dawn of computing. An ENIAC "program" is a single action on one of the functional units (accumulators, function tables, etc.) that can be triggered by a pulse. A "program line" was a physical wire that triggered a particular program on a particular unit.
 
 What we might consider a "program" today, that is, the sequence of operations to accomplish something, was wired with patch cables (program lines and data trunks) that set the sequence of functional unit program activations, the parameters of each, and the dataflow. We'll use "patch" to refer to the complete set of wires and switch settings, which at the time they called a "setup."  A "patch" is what is in the `.e` file that the simulator loads.
@@ -353,7 +359,7 @@ The core machine uses five accumulators:
 | IR | Instruction register | I5 I4 I3 I2 I1 | I1 is the next opcode |
 | EX | Execution register   | I1 XX XX XX XX | Holds next opcode during decode, empty during execution |
 | RF | Register File        | AA BB CC DD EE | Main registers |
-| LS | Aux register file    | FF GG HH II JJ | Used for memory access, LS=load/store |
+| LS | Aux register file    | FF GG HH II JJ | LS=load/store, holds last accessed accumulator contents |
 
 At a high level, the control cycle operates as follows:
 
@@ -560,7 +566,7 @@ ENIAC had no addressable memory. It had no instruction set either, but even afte
 This had to change. 
 
 ## Addressing accumulators
-We'll start with whole accumulators since that's easier, and our VM has 15 accumulators addressable through the `loadacc A` and `storeacc A` instructions. The challenge is to decode the value stored in A and use it to trigger one of 15 load program lines or one of 15 store program lines, each on a different accumulator. The master programmer could do this but only if we move hardware over from instruction decoding, which means we'd lose at least 30 (!) of our 51 opcodes. Instead we do something vaugley terrifying, a trick that unlocked the whole project.
+We'll start with whole accumulators since that's easier, and our VM has 15 accumulators addressable through the `loadacc A` and `storeacc A` instructions. The challenge is to decode the value stored in A and use it to trigger one of 15 load program lines or one of 15 store program lines, each on a different accumulator. The master programmer could do this but only if we move hardware over from instruction decoding, which means we'd lose at least 30 (!) of our 51 opcodes. Instead we invented a technique that unlocked the whole project, an extension of the use of PM digit pulses to do conditional branches.
 
 Address decoding is based on two ideas: a 10 entry lookup table which is stored in the first rows of FT3, and using the S outputs of accumulators as program triggers. To decode a single digit, we can:
 
@@ -597,7 +603,26 @@ endmacro
 Combining load and store into a single cycle has another important benefit: the `loadacc` and `storeacc` instructions are almost identical and can share most of their sequence. The only difference is that `loadacc` executes MEM->LS, LS->MEM during the memory cycle to restore the memory value, while `storeacc` executes only LS->MEM.
 
 ## Addressing words
+When an accumulator value is loaded into the LS register the individual words are accessible as registers F-J. The machine is already quite capable without word-level memory access, but a test implementation of tic-tac-toe showed that continually packing and unpacking accumulators would probably make chess too large to fit in the available code space. Instead, chessvm supports 75 words of memory addressed as 0-74. This was originally conceived as load and store subroutines, but hardwired instructions are much faster and use no code space.
 
+A `mov [B],A` instruction is executed in two parts. First accumulator B div 5 loaded, then B mod 5 controls the selection of one of the FGHIJ registers to be copied to A. The trickiest part of all of this is address generation, which works like this:
+
+ 1. Add B to itself and shift the result right giving B*2 div 10 or B div 5
+ 2. Load the accumulator at this index into LS
+ 3. Lookup the low digit of B in the FT3 decoding table, defined above
+ 4. Store the result in `{a-movXA}` use the `S` output digits to trigger one of five `MOV [FGHIJ],A` opcodes
+
+Much of the `loadacc` sequence is re-used, which makes this relatively compact in terms of ENIAC resources. The full sequence is documented [here](isa.md#mov-ba-aka-loadword). Essentially we paid for most of loadword already, including all of the pre-existing memory cycle programs on each accumulator.
+
+Storing words is somewhat harder. `MOV A,[B]` is implemented through `loadacc`, storing A into LS, and then `storeacc`.
+ 1. Add B to itself and shift the result right giving B*2 div 10 or B div 5
+ 2. Load the accumulator at this index into LS
+ 3. Lookup the low digit of B in the FT3 decoding table, defined above
+ 4. Store the result in `{a-movAX}` use the `S` output digits to trigger one of five custom `MOV A,[FGHIJ]` sequences.
+ 5. Add B to itself and shift the result right giving B*2 div 10 or B div 5
+ 6. Store LS into the accumulator at this index
+
+This a much more expensive instruction to implement, especially because the five `MOV A,X` sequences are not already implemented for other instructions. It is the slowest opcode, taking 38 cycles to complete. But it's marvelously faster and smaller than implementing this capability as a subroutine, and besides, we only have one level of call stack.
 
 # Making it all fit
 
