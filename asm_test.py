@@ -73,7 +73,7 @@ class SimTestCase(unittest.TestCase):
     deck.append(f'99000{" "*75}')
     return '\n'.join(deck)
 
-  def readBoard (self, state):
+  def readBoard(self, state):
     board = Board.unpack('8/8/8/8/8/8/8/8')
     decode_piece = lambda k: '.PNBQRK????pnbqrk'[int(k)]
     score = 0
