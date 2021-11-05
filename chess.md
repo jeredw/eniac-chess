@@ -57,12 +57,12 @@ We search using a standard depth-first [alpha-beta search](https://en.wikipedia.
 | 38 | target | to square index |
 | 39 | movestate | state to generate next move |
 | 40 | bestfrom | best move from square |
-| 41 | bestto | best move from square |
+| 41 | bestto | best move to square |
 | 42 | bestscore | best move score |
 | 43 | alpha | lower pruning threshold |
 | 44 | beta | upper pruning threshold |
 
-Instead of indirecting through a stack pointer, the top of stack is kept at a fixed address to save code space. This requires copying on push and pop. To make that copying more efficient using loadacc/storeacc, stack entries are stored with a stride of 10 words at offsets 36, 46, 56, and 66.
+The VM does not support indexed addressing modes. So instead of indirecting through a stack pointer, the top of stack is kept at a fixed address to save code space. This requires copying on push and pop. To make that copying more efficient using loadacc/storeacc, stack entries are stored with a stride of 10 words at offsets 36, 46, 56, and 66.
 
 
 ## Memory map
