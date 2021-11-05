@@ -119,7 +119,7 @@ If you have eniacsim installed, you can run this like so and watch it use up car
           00005                                                                                       
 ```
 
-Scintilating stuff. This patch works as follows: The initiating pulse goes to program line 1-1, which is wired to the printer program input. The printer switches are set to punch only the lower half of accumulator 13, punching the second five digits of an 80 digit punch card. The printer program output goes to program line 1-2, which is connected to program input 5 of accumulator 13. That program is set by switches to increment, and the output pulse is wired back to program line 1-1. 
+Scintillating stuff. This patch works as follows: The initiating pulse goes to program line 1-1, which is wired to the printer program input. The printer switches are set to punch only the lower half of accumulator 13, punching the second five digits of an 80 digit punch card. The printer program output goes to program line 1-2, which is connected to program input 5 of accumulator 13. That program is set by switches to increment, and the output pulse is wired back to program line 1-1. 
 
 ## Enter EASM
 This sort of thing gets very tedious very quickly with larger ENIAC programs. It would help to be able to label things and have the computer keep track of the underlying resource assignments. This was the initial purpose of easm, the ENIAC Assembler. We can rewrite the above in easm syntax as [`vm-dev/print-naturals-2.easm`](vm-dev/print-naturals.easm)
@@ -212,7 +212,7 @@ The original [instruction sets](https://eniacinaction.com/the-articles/2-enginee
 └────────────────────┘
 ```
 
-This arrangement is carefully chosen so that the A register and overflows to the N bit, which is actually the accumulator PM digit. This makes it easy to implement INC A. To do this, we put P0100000000 on the main bus using the constant transmitter and receive (add) on the register file. 
+This arrangement is carefully chosen so that the A register overflows into the N bit, which is actually the accumulator PM digit. This makes it easy to implement INC A. To do this, we put P0100000000 on the main bus using the constant transmitter and receive (add) on the register file. 
 ```
 # Implementation of INC A. Triggered by {p-op-inc}.
 
@@ -398,9 +398,9 @@ The function tables are the ENIAC's ROM. They were originally built in anticipat
                │            │
                └────────────┘
 ```
-The function tables unintentially became the key to running ENIAC as a modern CPU starting in 1948. All of the original "order codes" use two digit opcodes, and so does chessvm. With three tables, each with 100 indexable rows of 12 digits, that's 3,600 digits or at most 1,800 instructions. A machine that was never designed to be programmed with opcodes was suddenly discovered to have expansive ROM space. More than any other feature of the ENIAC, this is what makes chess possible.
+The function tables unintentionally became the key to running ENIAC as a modern CPU starting in 1948. All of the original "order codes" use two digit opcodes, and so does chessvm. With three tables, each with 100 indexable rows of 12 digits, that's 3,600 digits or at most 1,800 instructions. A machine that was never designed to be programmed with opcodes was suddenly discovered to have expansive ROM space. More than any other feature of the ENIAC, this is what makes chess possible.
 
-We can modify our simple incrementing accumulator program to read and print succesive lines from the function table. 
+We can modify our simple incrementing accumulator program to read and print succesive rows from the function table. 
 ```
 # Fetch and print successive rows from function table 1
 include ../chessvm/macros.easm
@@ -451,7 +451,7 @@ The function table is a little weird in terms of timing. It must be triggered on
 
 This example also shows the weird data format of the function table: each row is two six digit halves called A and B, each of which has its own output. Here, we combine A and B into one ten digit accumulator by dropping the leftmost two digits using a permuter. That's fine for this case, but in the real control cycle we store instructions I6...I2 in IR, and put the top two digits I1 -- the first instruction on the row to be exected -- into EX. There's logic in the control cycle to handle consuming an opcode from EX or from IR depending on whether or not we just fetched. This pattern was borrowed from the 1947 design.
 
-This layout also means that the program counter cannot point to any instruction that's not at the beginning of a row. All jump locations have to be row-aligned. Also, two and three word instructions (those with immediate data or addresses) cannot cross a row. Unused words in each row could be filled with NOP instructions, but if they are filled with 99 instead, which we call SLED, then the control cycle immediately fetches a new row without trying to decode the empty words.
+This layout also means that the program counter can only point to instructions at the beginning of a row. All jump locations have to be row-aligned. Also, two and three word instructions (those with immediate data or addresses) cannot cross a row. Unused words in each row could be filled with NOP instructions, but if they are filled with 99 instead, which we call SLED, then the control cycle immediately fetches a new row without trying to decode the empty words.
 
 
 ## Instruction decoding
