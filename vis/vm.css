@@ -1,5 +1,21 @@
 body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   font-family: monospace;
+}
+
+.chess-board {
+  grid-column: 1;
+  grid-row: 1;
+}
+.memory {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  justify-self: start;
+}
+.memory > * {
+  margin-bottom: 10px;
 }
 
 .table-dump {
@@ -9,6 +25,7 @@ body {
 .table-dump th {
   background: #ccc;
   font-weight: normal;
+  text-align: left;
 }
 .memory-dump tr td:first-child {
   background: #ccc;
@@ -91,4 +108,9 @@ body {
 }
 .chess-square-white {
   background: rgb(236, 218, 185);
+}
+
+.inactive {
+  background: #eee;
+  font-style: italic;
 }

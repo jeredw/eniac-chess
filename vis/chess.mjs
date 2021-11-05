@@ -106,13 +106,14 @@ function decodePiece(square, squareY, squareX, others) {
 
 export class ChessStack extends Component {
   render({ memory }) {
+    const depth = parseInt(memory[65], 10);
     return html`
-      <table class="table-dump">
+      <table class="chess-stack table-dump">
         <${ChessStackHeader} />
-        <${ChessStackEntry} isTop=1 data=${memory.slice(36, 45)} />
-        <${ChessStackEntry} isTop=0 data=${memory.slice(46, 55)} />
-        <${ChessStackEntry} isTop=0 data=${memory.slice(56, 65)} />
-        <${ChessStackEntry} isTop=0 data=${memory.slice(66, 75)} />
+        <${ChessStackEntry} isTop=1 active=${depth >= 1} data=${memory.slice(36, 45)} />
+        <${ChessStackEntry} isTop=0 active=${depth >= 2} data=${memory.slice(46, 55)} />
+        <${ChessStackEntry} isTop=0 active=${depth >= 3} data=${memory.slice(56, 65)} />
+        <${ChessStackEntry} isTop=0 active=${depth >= 4} data=${memory.slice(66, 75)} />
       </table>
     `;
   }
@@ -135,9 +136,9 @@ function ChessStackHeader() {
   `;
 }
 
-function ChessStackEntry({ isTop, data }) {
+function ChessStackEntry({ isTop, active, data }) {
   return html`
-    <tr>
+    <tr class=${active ? "active" : "inactive"}>
       <td>${+isTop ? ">" : " "}</td>
       ${data.map(item => html`<td>${item}</td>`)}
     </tr>

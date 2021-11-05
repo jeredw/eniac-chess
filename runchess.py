@@ -37,8 +37,9 @@ def init_memory(position):
 def convert_memory_to_deck(memory):
   deck = []
   for address, data in enumerate(memory):
-    if data != 0:
-      deck.append(f'{address:02}{data:02}0{" "*75}')
+    # note we must explicitly reset unoccupied squares to zero, or pieces will
+    # get incorrectly duplicated from before the player's move
+    deck.append(f'{address:02}{data:02}0{" "*75}')
   deck.append(f'99000{" "*75}')
   return '\n'.join(deck)
 
@@ -82,9 +83,8 @@ while True:
   print_board(position)
 
   # wait for eniac's move
-  print('eniac is thinking')
+  print('eniac is thinking...')
   raw_move = sim.stdout.readline().decode().strip()
-  print(raw_move)
   if len(raw_move) != 4:
     print(f'invalid sim output "{raw_move}"')
     error = 1

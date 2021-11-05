@@ -31,10 +31,12 @@ class App extends Component {
 
   render() {
     return html`
-      <${MemoryDump} memory=${this.state.memory} />
-      <${Registers} regs=${this.state.regs} />
       <${ChessBoard} chessBoard=${this.state.chessBoard} />
-      <${ChessStack} memory=${this.state.memory} />
+      <div class="memory">
+        <${Registers} regs=${this.state.regs} />
+        <${ChessStack} memory=${this.state.memory} />
+        <${MemoryDump} memory=${this.state.memory} />
+      </div>
     `;
     //<${Connect4Board} memory=${this.state.memory} />
     //<${Connect4Stack} memory=${this.state.memory} />
