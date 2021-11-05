@@ -1,5 +1,5 @@
 # Putting the Chess in ENIAC Chess
-This document describes how we wrote a tiny chess program on top of [chessvm](easm.md), our virtual machine for the ENIAC. The main limitation is memory: we have only 75 words. Speed is also a concern, as the VM executes only about 500 instructions per second. The real constraint here is historical: the time to compute a move has to be less than the time between ENIAC hardware failures, which was apprently 24-48 hours on a good week.
+This document describes how we wrote a tiny chess program on top of [chessvm](easm.md), our virtual machine for the ENIAC. The main limitation is memory: we have only 75 words. Speed is also a concern, as the VM executes only about 500 instructions per second. The real constraint here is historical: the time to compute a move has to be less than the time between ENIAC hardware failures, 24-48 hours on a good week.
 
 ## Software bringup prework
 We developed the chess program concurrently with the VM and tools such as assemblers and simulators. While we had theories about how it might come together, it wasn't clear what instructions we'd need, or what would actually fit into the 1946 ENIAC hardware. So we began with some simpler test programs.
