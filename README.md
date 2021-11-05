@@ -1,6 +1,6 @@
 # ENIAC Chess
 
-This repository contains a chess playing program for the historic ENIAC computer, and the tooling used to create it. It implements 4 ply [alpha-beta](https://www.chessprogramming.org/Alpha-Beta) search with a simple materiel evaluation function, and would generate one move in about 20 hours of ENIAC machine time (much faster in simulation, of course). 
+This repository contains a chess playing program for the historic ENIAC computer, and the tooling used to create it. It implements 4 ply [alpha-beta](https://www.chessprogramming.org/Alpha-Beta) search with a simple materiel evaluation function, and would generate one move in about 5 hours of ENIAC machine time (much faster in simulation, of course). 
 
 The goal is to demonstrate that a reasonably powerful chess playing program was already possible when ENIAC became the first operational general purpose digital computer in early 1946, perhaps a few months after Alan Turing set down (what we believe to be) the [first reference](https://www.google.com/books/edition/Alan_Turing_s_Electronic_Brain/wfMDW-IP8yMC?hl=en&gbpv=1&bsq=chess) to the possibility of a digital computer playing chess. Or perhaps the goal is to demonstrate that, even though chess has been a measure of human intelligence for centuries and then a measure of machine intelligence, it's not actually that difficult if the very first computer could play it at an amateur level.
 
@@ -19,7 +19,6 @@ Creating this program involves multiple layers of tools and cross-validation.
 | File                     | Description                                     |
 | ------------------------ | ----------------------------------------------- |
 | `Makefile`               | `make` to build everything, `make test` to test |
-| `isa.md`                 | A description of VM opcodes and accumulator layout |
 | `easm/easm.py`           | An ENIAC "patch assembler" which converts `.easm` code into `.e` patches the simulator runs |
 | `chessvm/chessvm.easm`   | VM source code, written in the custom patch assembly language |
 | `chessvm.e`              | Assembled VM (output of `easm` on `chessvm.easm`). Effectively a [netlist](https://en.wikipedia.org/wiki/Netlist) for the VM which the simulator can run. |
@@ -31,6 +30,12 @@ Creating this program involves multiple layers of tools and cross-validation.
 | `fen2deck.py`            | Converts [FEN notation](https://www.chess-poster.com/english/fen/fen_epd_viewer.htm) board setups into `.deck` files for the simulator |
 | `vis/`                   | HTML/JS visualizations of the ENIAC state, for the VM registers, chess, life, and connect 4 |
 | `model/`                 | High level models for the chess engine, written in Python to test tiny chess algorithms |
+
+
+## Documentation
+ - [Programming an ENIAC virtual machine](easm.md) - how we built chessvm on top of ENIAC's ill-suited hardware. 
+ - [ChessVM Reference](isa.md) - chessvm instruction set, architecture, and microcode reference
+ - [Putting the Chess in ENIAC Chess](chess.md) - How our tiny chess program runs on our tiny VM
 
 
 ## Playing Chess
@@ -65,6 +70,3 @@ To test the VM implementation, do `make vmtest` to assemble `chessvm.easm` into 
 
 To test the chess engine, do `python asm_test.py`. This will assemble `asm/movegen_test.asm`,`asm/move_test.asm` and `asm/chess.asm` to test move generation, move execution, and move search respectively.
 
-
-## Documentation
-In many ways the core of this project is the modern virtual machine we built on top of ENIAC's ill-suited hardware. For an introduction to the EASM patch assembler and the programming techniques used -- some modern, some borrowed from 1946 -- see [Programming the ENIAC with EASM](https://github.com/jeredw/eniac-chess/blob/master/easm.md)
