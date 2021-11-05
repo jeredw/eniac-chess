@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ENIAC simulator</title>
+  <link rel="stylesheet" href="webgui.css">
+  <script src="webgui.js"></script>
+</head>
+<body>
+<div class="vis">
+  <object class="eniac" id="eniac" type="image/svg+xml" data="eniac.svg"></object>
+  <div style="visibility: hidden" class="scrim"></div>
+</div>
+<object class="pcs" id="pcs" type="image/svg+xml" data="controller.svg"></object>
+<object style="visibility: hidden" class="pft" id="pft-1-1" type="image/svg+xml" data="table1.svg"></object>
+<object style="visibility: hidden" class="pft" id="pft-1-2" type="image/svg+xml" data="table2.svg"></object>
+<object style="visibility: hidden" class="pft" id="pft-2-1" type="image/svg+xml" data="table1.svg"></object>
+<object style="visibility: hidden" class="pft" id="pft-2-2" type="image/svg+xml" data="table2.svg"></object>
+<object style="visibility: hidden" class="pft" id="pft-3-1" type="image/svg+xml" data="table1.svg"></object>
+<object style="visibility: hidden" class="pft" id="pft-3-2" type="image/svg+xml" data="table2.svg"></object>
+<input type="range" min="-360" max="360" value="0" class="angle">
+<div class="angle-value">0</div>
+</body>
+</html>

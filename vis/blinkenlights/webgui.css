@@ -1,0 +1,83 @@
+* {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: #000;
+  overscroll-behavior: none;
+}
+
+.vis {
+  display: flex;
+  align-items: center;
+/* justify-content: center; */
+  position: relative;
+}
+
+.eniac {
+  height: 100vh;
+  cursor: default;
+}
+
+.pcs {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  height: 40vh;
+}
+
+.pft {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  height: 100vh;
+}
+
+.scrim {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  top: 0;
+  right: 0;
+  background: #000;
+  opacity: 0.8;
+}
+
+.trays {
+  height: 100vh;
+  cursor: default;
+  position: absolute;
+  pointer-events: none;
+  top: 0;
+  left: 0;
+}
+
+.angle-value {
+  display: none;
+  position: fixed;
+  bottom: 50px;
+  color: #fff;
+  right: 20px;
+  font-size: 20px;
+}
+
+.angle {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 50px;
+  background: #ccc;
+}
+
+.angle::-webkit-slider-thumb {
+  -webkit-appearance: none; /* Override default look */
+  appearance: none;
+  width: 25px; /* Set a specific slider handle width */
+  height: 25px; /* Slider handle height */
+  background: #4CAF50; /* Green background */
+  cursor: pointer; /* Cursor on hover */
+}
