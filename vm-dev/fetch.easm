@@ -1,0 +1,88 @@
+# Fetch and print successive rows from function table 1
+include ../chessvm/macros.easm
+
+p i.io {p-fetch}
+
+# put our "instruction register" somewhere easily printable
+{a-ir} = a13
+
+# Connections to main bus
+p {a-count}.A {d-main}
+p {d-main} {a-ir}.{i-main}
+p {d-main} f1.arg
+
+# Each of two f1 outputs is six digits. Combine the bottom 10 of 12 digits into one bus.
+$permute f1.A 0,4,3,2,1,0,0,0,0,0,0 {d-main}
+p f1.B {d-main}
+
+# 1. Tell the FT we are going to look up a value
+p {p-fetch} f1.{t-fetch}i
+s f1.cl{t-fetch} C    		# send pulse on C when ready for argument
+p f1.C {p-arg}
+s f1.op{t-fetch} A0   		# don't offset argument 
+
+# 2. When the FT is ready for its argument, send from {a-count}
+$send {p-arg} {a-count} {t-arg} A {p-wait}
+
+# 3. While we are waiting for result, clear {a-ir} and increment {a-count}
+$clear {p-wait} {a-ir} {t-clear} {p-readrow}
+$recincx {p-wait} {a-count} {r-inc} {i-no-connection} 
+
+# 3-4. We need to wait two cycles, so repeat the clear twice total. This delays {p-readrow}.
+s {a-ir}.rp{t-clear} 2
+
+# 5. Read FT output
+$rec {p-readrow} {a-ir} {t-readrow} {i-main} {p-print}
+
+# 6. print all ten digits of a13 and loop
+p {p-print} i.pi
+s pr.2 P
+s pr.3 P
+p i.po {p-fetch}
+
+
+# Set switches for a few rows of test data to read
+s f1.RA0L6 1
+s f1.RA0L5 1
+s f1.RA0L4 1
+s f1.RA0L3 2
+s f1.RA0L2 1
+s f1.RA0L1 3
+s f1.RB0L6 1
+s f1.RB0L5 4
+s f1.RB0L4 1
+s f1.RB0L3 5
+s f1.RB0L2 1
+s f1.RB0L1 6
+
+s f1.RA1L6 2
+s f1.RA1L5 1
+s f1.RA1L4 2
+s f1.RA1L3 2
+s f1.RA1L2 2
+s f1.RA1L1 3
+s f1.RB1L6 2
+s f1.RB1L5 4
+s f1.RB1L4 2
+s f1.RB1L3 5
+s f1.RB1L2 2
+s f1.RB1L1 6
+
+s f1.RA2L6 3
+s f1.RA2L5 1
+s f1.RA2L4 3
+s f1.RA2L3 2
+s f1.RA2L2 3
+s f1.RA2L1 3
+s f1.RB2L6 3
+s f1.RB2L5 4
+s f1.RB2L4 3
+s f1.RB2L3 5
+s f1.RB2L2 3
+s f1.RB2L1 6
+
+# go
+b i 
+g
+
+

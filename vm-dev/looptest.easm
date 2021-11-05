@@ -1,9 +1,12 @@
+# Illustrate conditional branching using discrimination, to count to 10
 include ../chessvm/macros.easm
 
-set a1 10       # set loop limit 
+set a1 10       # loop limit 
 
-{a-limit} = a1  # tell easm to bind symbols to physical accumulators
-{a-count} = a13 # put counter here so we can print
+# Tell easm to bind symbols to physical accumulators
+# We don't need {a-test} here because it can go anywhere
+{a-limit} = a1  
+{a-count} = a13 # counter on a13 so we can print
 
 # LIMIT and COUNT write to main bus, TEST reads from it.
 p {a-limit}.A {d-main}
