@@ -14,6 +14,12 @@ Interaction with the final program is via virtual punched cards. The human sets 
 
 Creating this program involves multiple layers of tools and cross-validation. 
 
+## How this all works
+ - [Programming an ENIAC virtual machine](easm.md) - how we built chessvm on top of ENIAC's ill-suited hardware. 
+ - [ChessVM Reference](isa.md) - chessvm instruction set, architecture, and microcode reference
+ - [Putting the Chess in ENIAC Chess](chess.md) - How our tiny chess program runs on our tiny VM
+ 
+ 
 ## Main Files
 
 | File                     | Description                                     |
@@ -30,12 +36,6 @@ Creating this program involves multiple layers of tools and cross-validation.
 | `fen2deck.py`            | Converts [FEN notation](https://www.chess-poster.com/english/fen/fen_epd_viewer.htm) board setups into `.deck` files for the simulator |
 | `vis/`                   | HTML/JS visualizations of the ENIAC state, for the VM registers, chess, life, and connect 4 |
 | `model/`                 | High level models for the chess engine, written in Python to test tiny chess algorithms |
-
-
-## Documentation
- - [Programming an ENIAC virtual machine](easm.md) - how we built chessvm on top of ENIAC's ill-suited hardware. 
- - [ChessVM Reference](isa.md) - chessvm instruction set, architecture, and microcode reference
- - [Putting the Chess in ENIAC Chess](chess.md) - How our tiny chess program runs on our tiny VM
 
 
 ## Playing Chess
