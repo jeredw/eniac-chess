@@ -15,7 +15,7 @@ export function extractChessBoardState(memory) {
     'whiteKing': decodePosition(memory[32]),
     'blackKing': decodePosition(memory[33]),
     'whiteRook1': decodePosition(memory[34]),
-    'whiteRook2': decodePosition(memory[35]),
+    'whiteRook2': decodePosition(memory[45]),
   };
   const board = [];
   for (let y = 0; y < 8; y++) {
@@ -102,4 +102,44 @@ function decodePiece(square, squareY, squareX, others) {
       return '♛';
   }
   return '?';
+}
+
+export class ChessStack extends Component {
+  render({ memory }) {
+    return html`
+      <table class="table-dump">
+        <${ChessStackHeader} />
+        <${ChessStackEntry} isTop=1 data=${memory.slice(36, 45)} />
+        <${ChessStackEntry} isTop=0 data=${memory.slice(46, 55)} />
+        <${ChessStackEntry} isTop=0 data=${memory.slice(56, 65)} />
+        <${ChessStackEntry} isTop=0 data=${memory.slice(66, 75)} />
+      </table>
+    `;
+  }
+}
+
+function ChessStackHeader() {
+  return html`
+    <tr>
+      <th></th>
+      <th>target</th>
+      <th>from</th>
+      <th>to</th>
+      <th>movestate</th>
+      <th>bestfrom</th>
+      <th>bestto</th>
+      <th>bestscore</th>
+      <th>α</th>
+      <th>β</th>
+    </tr>
+  `;
+}
+
+function ChessStackEntry({ isTop, data }) {
+  return html`
+    <tr>
+      <td>${+isTop ? ">" : " "}</td>
+      ${data.map(item => html`<td>${item}</td>`)}
+    </tr>
+  `;
 }

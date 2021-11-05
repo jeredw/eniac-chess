@@ -3,7 +3,7 @@ import { Registers, extractRegs } from './regs.mjs'
 import { MemoryDump, extractLinearMemory } from './memory.mjs'
 import { Connect4Board, Connect4Stack } from './c4.mjs'
 import { LifeGrid } from './life.mjs'
-import { ChessBoard, extractChessBoardState } from './chess.mjs'
+import { ChessBoard, ChessStack, extractChessBoardState } from './chess.mjs'
 
 class App extends Component {
   constructor() {
@@ -34,6 +34,7 @@ class App extends Component {
       <${MemoryDump} memory=${this.state.memory} />
       <${Registers} regs=${this.state.regs} />
       <${ChessBoard} chessBoard=${this.state.chessBoard} />
+      <${ChessStack} memory=${this.state.memory} />
     `;
     //<${Connect4Board} memory=${this.state.memory} />
     //<${Connect4Stack} memory=${this.state.memory} />

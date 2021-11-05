@@ -14,7 +14,7 @@ export class MemoryDump extends Component {
 function MemoryDumpHeader() {
   const columns = [''];
   for (let i = 0; i < 10; i++) {
-    columns.push(`${i}x`);
+    columns.push(`x${i}`);
   }
   return html`<tr>${columns.map(label => html`<th>${label}</th>`)}</tr>`;
 }
