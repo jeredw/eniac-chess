@@ -26,15 +26,38 @@ ROM space for `c4` was more crunched than for `tic` but still cozy. A deeper sub
 ### life
 A small `life` program simulating [Conway's game of life](https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life) made a good quick testbed for digit packing, which proved vital. Surprisingly, we also found in `life` that copy loops using `loadacc`/`storeacc` netted out faster than simulating indexed arithmetic. In most `life` programs, you can double buffer and flip between two arrays for the current and next generation, but it was better to always operate in place. This informed the stack layout for chess.
 
-## Chess program design
+## Fitting chess
+The chess program is algorithmically pretty simple, but cramming it into the available space was still interesting. So we'll omit a code walk here and focus instead on interesting memory layout and program organization decisions. Here is a quick summary of the program's memory map, which will be explained more in the following sections.
+
+```
+00   B  B  B  B  B
+05   B  B  B  B  B
+10   B  B  B  B  B
+15   B  B  B  B  B
+20   B  B  B  B  B
+25   B  B  B  B  B
+30   B  B  O  O  O
+35   G  S0 S0 S0 S0
+40   S0 S0 S0 S0 S0
+45   O  S1 S1 S1 S1
+50   S1 S1 S1 S1 S1
+55   G  S2 S2 S2 S2
+60   S2 S2 S2 S2 S2
+65   G  S3 S3 S3 S3
+70   S3 S3 S3 S3 S3
+
+B=board square, O=other piece square, Sx=stack frame x, G=global
+```
 
 ### Square numbering
-Chessvm has hardware support for chess in the form of the `jil A` instruction, branch if A contains an illegal square index. We number squares as rank|file from 11 to 88. Moving right adds 1, moving up adds 10. We can continue adding or subracting and use `jil` to determine when we've run off the board. 
+From our earliest prototyping with 2-digit words, we decided to number squares as rank|file from 11 to 88 with an extra guard band of "illegal" sentinel squares numbered 0x, x0, 9x, and x9. Chessvm has hardware support for this numbering in the form of `jil`, which branches if A contains an illegal square index. This way moving right adds 1, moving up adds 10, and we can continue adding or subracting and use `jil` to determine when we've run off the board. Conveniently, this also works to bound knight moves at the edges of the board.
 
 ### Board representation
-If we use one word per square, that leaves us only 11 words for all computation, which will never hold multiple search stack levels. The shortest board representation is a piece list, the location of all 32 starting pieces, but that has two serious drawbacks. First, it is very slow to find the contents of a particular board square, which is a frequent operation. Second, extra memory is required to keep track of pawn promotions. 
+A square can be empty or have one of 6 types of pieces for one of 2 players, 13 states. If we used one entire word per square it'd leave only 11 words for all other computation, and we'd never fit a search stack. So initially we discounted array representations.
 
-Instead we use a hybrid solution based on 64 digits stored in 32 words. One digit isn't enough to represent all combinations of players and pieces, so we code kings and rooks as OTHER.
+The shortest board representation is a piece list, the location of all 32 starting pieces, but that has two serious drawbacks. First, it is very slow to find the contents of a particular board square, which is a frequent operation. Second, extra memory is required to keep track of pawn promotions. We thought we were stuck with piece lists so explored adding special accelerated piece scanning microprograms to the VM, but there just wasn't room.
+
+Instead we use a hybrid solution based on 64 digits stored in 32 words. One digit isn't enough to represent all combinations of players and pieces, so we code kings and rooks as OTHER falling back to a small piece list.
 
 ```
 ; Board digit coding
@@ -50,7 +73,7 @@ BBISHOP .equ 8
 BQUEEN  .equ 9
 ```
 
-This allows fast checks for whether the square is occupied, and quick retrieval of most player/piece combinations. The position of the kings and rooks are stored in four other locations. 
+This allows fast checks for whether the square is occupied, and quick retrieval of most player/piece combinations. The position of the kings and rooks are stored in four other locations.
 ```
 ; We'll always have only one king and two rooks per side (no reason to promote to rook)
 ; This allows us to represent any number of promoted queens
@@ -59,7 +82,7 @@ bking  .equ 33
 wrook1 .equ 34
 wrook2 .equ 45  ; not adjacent to wrook1 so movegen state fits in a7
 ```
-When a square is coded OTHER, we look in these four locations. If none of them reference the square, then the piece must be a black rook. 
+When a square is coded `OTHER`, we look in these four locations. If none of them reference the square, then the piece must be a black rook. 
 
 In practice the `get_square` routine abstracts all of this away, and just returns player|piece in two digits.
 ```
@@ -73,6 +96,13 @@ QUEEN   .equ  4
 ROOK    .equ  5
 KING    .equ  6
 ```
+
+Updating this board representation is somewhat more elaborate than querying it; the routines to do and undo moves consume most of a function table even after cramming. Fitting them required tricks like tail calling shared nested subs, and simulating an additional level of subroutine stack using a small jump table. But this is still ok, on balance, since most squares are empty and there are many more square lookups than moves tried.
+
+### Square lookup
+A key inner loop operation in `get_square` needs to translate a logical square number from 11-88 to a word and digit address. This could have been microprogrammed if there'd been room in the VM, but it was convenient and fast enough to use a table lookup with `ftl`. A 64 entry sparse table maps from 11-88 back to word addresses 0-31, using the sign to pick the high or low digit.
+
+Hogging so much table space for address translation does make some other things awkward. We need pretty much all the table space, so have to use table entries corresponding to guard band squares (which don't need to be translated) to store other tables. For example the table of deltas for knight jumps (8, 12, 19, 21, 79, 81, 88, 92) is squeezed into locations 16, 26, 36, 46, ... instead of a more natural contiguous order.
 
 ### Stack frames
 We search using a standard depth-first [alpha-beta search](https://en.wikipedia.org/wiki/Alpha%E2%80%93beta_pruning) algorithm with a 4 ply stack. Each stack frame is 9 entires.
@@ -89,27 +119,23 @@ We search using a standard depth-first [alpha-beta search](https://en.wikipedia.
 | 43 | alpha | lower pruning threshold |
 | 44 | beta | upper pruning threshold |
 
-The VM does not support indexed addressing modes. So instead of indirecting through a stack pointer, the top of stack is kept at a fixed address to save code space. This requires copying on push and pop. To make that copying more efficient using loadacc/storeacc, stack entries are stored with a stride of 10 words at offsets 36, 46, 56, and 66.
+The VM does not support indexed addressing modes. So instead of indirecting through a stack pointer, the top of stack is kept at a fixed address to save code space. This requires copying on push and pop.
 
+If stack entries were packed densely into a range of linear addresses, we'd need to copy one word at a time, messily deconstructing and reconstructing hardware accumulators. Instead, we store stack entries aligned to accumulators, with a stride of 10 words at offsets 36, 46, 56, and 66. This means that the copy has to be careful to preserve locations 35, 45, 55, and 65 in registers, but can otherwise use `loadacc` and `storeacc` to do more natural accumulator-width copies.
 
-### Memory map
-Four stack frames, three globals, and one board. That's all you need, baby.
-```
-00   B  B  B  B  B
-05   B  B  B  B  B
-10   B  B  B  B  B
-15   B  B  B  B  B
-20   B  B  B  B  B
-25   B  B  B  B  B
-30   B  B  O  O  O
-35   O  S0 S0 S0 S0
-40   S0 S0 S0 S0 S0
-45   G  S1 S1 S1 S1
-50   S1 S1 S1 S1 S1
-55   G  S2 S2 S2 S2
-60   S2 S2 S2 S2 S2
-65   G  S3 S3 S3 S3
-70   S3 S3 S3 S3 S3
+### Legal move detection
+The core of the chess program iterates over available moves for the current board position. It is simple enough to enumerate the basic moves for each piece, and try one at a time. However, chess has several more complicated rules -- draws by repetition, en passant captures, castling. Like lots of small chess programs we chose to handwave those away, and rely on the player to override some state should they want somesuch fancy thing. Castling is the most unfortunate casualty and would be a nice addition.
 
-B=board square, O=other piece square, Sx=stack frame x, G=global
-```
+However, responding correctly to check and respecting king pins is quite important for nonjanky normal chess. We first explored adding additional move enumeration logic to detect check and avoid playing into it, but the code wouldn't fit. So instead we took the approach of some other tiny chess programs and integrated legal move detection into search, unwinding the stack to skip illegal moves when we search a king capture.
+
+### Scoring
+Right now the program just uses simple material scoring with the usual piece values 1=PAWN, 3=BISHOP/KNIGHT, 5=ROOK, 9=QUEEN. The score is updated incrementally as moves are done and undone since scanning the entire board would be too slow.
+
+Because the VM isn't very good at signed arithmetic, a balanced position has score 50. This gives a low dynamic range for scores, just +/-50 points -- normally modern chess programs use larger values and think in "centipawns", but we lack facilities for extended precision arithmetic and stack space to store larger scores. This is somewhat mitigated because the program operates one move at a time, so we reset the position score to 50 at the start of each search since only differential value matters.
+
+## Future work
+As of this writing the chess program itself is pretty early in development. It sorta works but there is lots of room for improvement and extension. The program is probably not bug free as it stands, so more validation and eventually tournament play would be interesting.
+
+Simple position scoring heuristics would be a nice enhancement and should take little code space. Some other simple chess programs with more table space use small lookup tables for this, but we'd likely have to fall back on code. For example, we could add points for pieces in the center, or score the number of ranks with a pawn or connected pawn.
+
+While the machinery for pawn promotion is available, we don't actually do it right now. This would probably make endgames much more interesting.
