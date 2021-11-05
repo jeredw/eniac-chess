@@ -26,7 +26,7 @@ This is how we wrote a chess program for the ENIAC, the first general purpose el
 
   
 # What is the problem?
-ENIAC was less like a modern computer and more like a warehouse full of parts designed to be patched together with cables. It was roughly equivalent to a box of old-fashioned discrete logic chips: counters, registers, adders, and so on. The idea of having a computer execute instructions in sequence from an addessable memory was developed by the ENIAC designers and John von Nuemann during the course of building the machine, but that's not what they got when ENIAC become operational in February 1946. 
+ENIAC was less like a modern computer and more like a warehouse full of parts designed to be patched together with cables. It was roughly equivalent to a box of old-fashioned discrete logic chips: counters, registers, adders, and so on. The idea of having a computer execute instructions in sequence from an addessable memory was developed by the ENIAC designers and John von Neumann during the course of building the machine, but that's not what they got when ENIAC become operational in February 1946. 
 
 To execute the [first monte-carlo simulation](https://eniacinaction.com/the-articles/3-los-alamos-bets-on-eniac-nuclear-monte-carlo-simulations-1947-8/) of a nuclear core, ENIAC was converted to ["central control"](https://eniacinaction.com/the-articles/2-engineering-the-miracle-of-the-eniac-implementing-the-modern-code-paradigm/) in 1948, by using its voluminous table lookup space to store instruction codes instead of precomputed numerical functions. Essentially, they wired the box of parts into the very first CPU. ENIAC stayed wired this way until it was decommissioned in 1956.
 
