@@ -108,6 +108,7 @@ export class ChessStack extends Component {
   render({ memory }) {
     const depth = parseInt(memory[65], 10);
     return html`
+      <h3>Move stack (in memory)</h3>
       <table class="chess-stack table-dump">
         <${ChessStackHeader} />
         <${ChessStackEntry} isTop=1 active=${depth >= 1} data=${memory.slice(36, 45)} />
@@ -123,7 +124,7 @@ function ChessStackHeader() {
   return html`
     <tr>
       <th></th>
-      <th>target</th>
+      <th>capture</th>
       <th>from</th>
       <th>to</th>
       <th>movestate</th>

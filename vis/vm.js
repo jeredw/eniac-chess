@@ -35,6 +35,7 @@ class App extends Component {
       <div class="memory">
         <${Registers} regs=${this.state.regs} />
         <${ChessStack} memory=${this.state.memory} />
+        <h3>Memory (all 75 words of it)</h3>
         <${MemoryDump} memory=${this.state.memory} />
       </div>
     `;

@@ -5,6 +5,7 @@ const registerNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'PC', '
 export class Registers extends Component {
   render({ regs }) {
     return html`
+      <h3>Registers</h3>
       <table class="regs table-dump">
         <${RegistersHeader} />
         <${RegistersData} regs=${regs} />
