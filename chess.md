@@ -29,6 +29,8 @@ A small `life` program simulating [Conway's game of life](https://en.wikipedia.o
 ## Fitting chess
 The chess program is algorithmically pretty simple, but cramming it into the available space was still interesting. So we'll omit a code walk here and focus instead on interesting memory layout and program organization decisions. Here is a quick summary of the program's memory map, which will be explained more in the following sections.
 
+In short, we have four move stack frames, three global variables, and one board. That's it.
+
 ```
 00   B  B  B  B  B
 05   B  B  B  B  B
