@@ -698,7 +698,7 @@ class TestChess(SimTestCase):
     best = self.findBestMove('r4rk1/ppp2ppp/8/8/8/1P6/PQ3PPP/B4RK1 w KQkq - 0 1')
     self.assertEqual(best, '2277')
 
-  # TODO we should be able to solve this but can't...
+  # Can't solve this because we can't detect checkmate in the 4th move
   #def testMateIn2Morphy(self):
   #  best = self.findBestMove('kbK5/pp6/1P6/8/8/8/8/R7 w KQkq - 0 1')
   #  self.assertEqual(best, '1161')
