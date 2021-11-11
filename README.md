@@ -54,12 +54,18 @@ chsim/chsim -f asm/chess.deck chess.e
 ```
 
 ### Running with ENIAC blinkenlights and chess GUI
+You can simply use the script `runchess.py` to play a game against ENIAC.  Just run
+```
+python runchess.py
+```
+
+The script will build the chess program and invoke `eniacsim` in a mode that loads `chsim` as a dynamic library to get faster simulation. It also starts an eniacsim debug GUI for inspecting machine state at [http://localhost:8000/vm.html](http://localhost:8000/vm.html) and another for visualizing ENIAC hardware state at [http://localhost:8000/blinkenlights](http://localhost:8000/blinkenlights)
 
 ### Playing Connnect 4, TicTacToe, and Life
 We implemented these simpler games during VM development. Python wrappers provide nice interfaces so you don't have to punch cards manually (create .deck files) to enter your move. Try any of
 ```
-make tic; python runtic.py
-make c4; python runc4.py
+python runtic.py
+python runc4.py
 make life; eniacsim chess.e
 ```
 
