@@ -121,7 +121,7 @@ We search using a standard depth-first [alpha-beta search](https://en.wikipedia.
 | 43 | alpha | lower pruning threshold |
 | 44 | beta | upper pruning threshold |
 
-While the VM supports addressable memory it does not support indexed addressing modes, meaning that we would have to load the stack stack pointer from memory and add the field offset on every access. Instead, the top of stack is kept at a fixed address to save code space. Stack push and pop then require copying the remaining stack entries up or down.
+While the VM supports addressable memory it does not support indexed addressing modes, meaning that we would have to load the stack pointer from memory and add the field offset on every access. Instead, the top of stack is kept at a fixed address to save code space. Stack push and pop then require copying the remaining stack entries up or down.
 
 If stack entries were packed densely into a range of linear addresses, we'd need to copy one word at a time, messily unpacking and repacking hardware accumulators. Instead, we store stack entries aligned to accumulators, with a stride of 10 words at offsets 36, 46, 56, and 66. This means that the copy has to be careful to preserve locations 35, 45, 55, and 65 in registers during the copy, but can otherwise use `loadacc` and `storeacc` to do more natural and efficient accumulator-width copies.
 
