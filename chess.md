@@ -107,7 +107,7 @@ A key inner loop operation in `get_square` needs to translate a logical square n
 Hogging so much table space for address translation does make some other things awkward. We need pretty much all the table space, so have to use table entries corresponding to guard band squares (which don't need to be translated) to store other tables. For example the table of deltas for knight jumps (8, 12, 19, 21, 79, 81, 88, 92) is squeezed into locations 16, 26, 36, 46, ... instead of a more natural contiguous order.
 
 ### Stack frames
-We search using a standard depth-first [alpha-beta search](https://en.wikipedia.org/wiki/Alpha%E2%80%93beta_pruning) algorithm with a 4 ply stack. Each stack frame is 9 entires.
+We search using a standard depth-first [alpha-beta search](https://en.wikipedia.org/wiki/Alpha%E2%80%93beta_pruning) algorithm with a 4 ply stack. Each stack frame is 9 entries.
 
 | address | name | description |
 | - | - | - |
