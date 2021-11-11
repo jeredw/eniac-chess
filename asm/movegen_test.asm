@@ -42,8 +42,7 @@ no_more_moves
 
   .org 200
   .include checkcheck.asm
-  .include score.asm
+  .include get_square.asm
  
   .org 306
   .include move.asm  
-  .include get_square.asm

@@ -11,9 +11,8 @@ start
   jsr move
   jmp far print_board
 
-  .include move.asm
   .include get_square.asm
+  .include print_board.asm
 
   .org 200
-  .include score.asm
-  .include print_board.asm
+  .include move.asm

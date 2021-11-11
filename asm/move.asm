@@ -9,9 +9,29 @@ move
   mov [B],A         ; A=[targetp]
   jz clear_from     ; no, target square already clear
 
-  ; TODO can this just be inline here?
-  jmp far score     ; fix material score
-score_ret
+  ; update material score when capturing a piece
+  mov A,C           ; C=save [targetp]
+  lodig A
+  dec A             ; map PAWN=1 to 0
+  swapdig A         ; 10*(piece type-1)
+  add pval,A        ; index piece values
+  ftl A             ; lookup value
+  swap A,D          ; D=value
+  mov mscore,A<->B
+  mov C,A
+  swapdig A
+  lodig A           ; get player
+  jz .white
+;.black
+  mov [B],A
+  add D,A           ; mscore += piece value
+  jmp .score
+.white
+  mov [B],A
+  sub D,A           ; mscore -= piece value
+.score
+  mov A,[B]         ; update mscore
+  swap C,A          ; restore A=[targetp]
 
   lodig A
   addn ROOK,A       ; test if piece >= ROOK
@@ -141,9 +161,28 @@ reset_target
   mov [B],A         ; A=[targetp]
   jz reset_out      ; if no capture, done
 
-  ; TODO can this just be inline here?
-  jmp far unscore   ; fix material score
-unscore_ret
+  ; update material score when undoing a capture
+  mov A,C           ; C=save [targetp]
+  lodig A
+  dec A             ; map PAWN=1 to 0
+  swapdig A         ; 10*(piece type-1)
+  add pval,A        ; index piece values
+  ftl A             ; lookup value
+  swap A,D          ; D=value
+  mov mscore,A<->B
+  mov C,A
+  swapdig A
+  lodig A           ; get player
+  jz .white
+;.black
+  mov [B],A
+  sub D,A           ; mscore -= piece value
+  jmp .score
+.white
+  mov [B],A
+  add D,A           ; mscore += piece value
+.score
+  mov A,[B]         ; update mscore
   ; C=[targetp] here
 
   ; move targetp back to target square
