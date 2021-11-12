@@ -139,5 +139,3 @@ Because the VM isn't very good at signed arithmetic, a balanced position has sco
 As of this writing the chess program itself is pretty early in development. It sorta works but there is lots of room for improvement and extension. The program is probably not bug free as it stands, so more validation and eventually tournament play would be interesting.
 
 Simple position scoring heuristics would be a nice enhancement and should take little code space. Some other simple chess programs with more table space use small lookup tables for this, but we'd likely have to fall back on code. For example, we could add points for pieces in the center, or score the number of ranks with a pawn or connected pawn.
-
-While the machinery for pawn promotion is available, we don't actually do it right now. This would probably make endgames much more interesting.
