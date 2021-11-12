@@ -180,6 +180,14 @@ class TestOutput(AssemblerTestCase):
     self.out.emit(42)
     self.assertEqual(self.out.errors, ["file:1: beyond end of function table 3"])
 
+  def testEmit_ErrorOutOfSpace(self):
+    self.context.assembler_pass = 1
+    self.out.output_row = 199
+    self.out.word_of_output_row = 5
+    self.out.emit(42)
+    self.out.emit(42)
+    self.assertEqual(self.out.errors, ["file:1: out of space on function table 1"])
+
   def testEmitTableValue(self):
     self.context.assembler_pass = 1
     self.out.emit_table_value(6, 42)
@@ -201,7 +209,14 @@ class TestOutput(AssemblerTestCase):
 
   def testGet(self):
     self.context.assembler_pass = 1
-    for i in range(6 * 200 + 5 * 94):
+    self.out.org(100)
+    for i in range(6 * 100):
+      self.out.emit(i % 100)
+    self.out.org(200)
+    for i in range(6 * 100):
+      self.out.emit(i % 100)
+    self.out.org(306)
+    for i in range(5 * 94):
       self.out.emit(i % 100)
     self.assertFalse(self.out.errors)
     self.assertEqual(self.out.output_row, 400)
