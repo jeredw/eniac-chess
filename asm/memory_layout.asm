@@ -38,6 +38,12 @@ QUEEN   .equ  4
 ROOK    .equ  5
 KING    .equ  6
 
+; Flag added to movestate indicating that the current move is a pawn promotion
+PROMO   .equ  90
+
+; Incremental score for pawn to queen promotion
+PBONUS  .equ  8
+
 
 ; - Globals -
 
@@ -98,6 +104,7 @@ TOP1      .equ 8  ; floor(40/5)
 targetp   .equ 36
 from      .equ 37
 target    .equ 38
+; NOTE values >= PROMO are reserved to flag pawn promotion
 movestate .equ 39
 
 ; Best move so far

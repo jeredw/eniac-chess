@@ -2,11 +2,11 @@
 ; Main move generator
 
 ; Communicates through top of stack: 
-;  [from]       - from square
-;  [fromp]      - current player player | piece on from
-;  [target]     - to square
-;  [targetp]    - 0 if empty, or opposing player | piece on to
-;  [move_state] - opaque iteration state
+;  [from]      - from square
+;  [fromp]     - current player player | piece on from
+;  [target]    - to square
+;  [targetp]   - 0 if empty, or opposing player | piece on to
+;  [movestate] - opaque iteration state
 ;
 ; To call: jump to next_move
 ; Initializes move generation if [from]=0
@@ -34,10 +34,6 @@ next_move
 ; Generate next move for current piece 
 ; Here: C=movestate, D=from square, E=from player_piece
 next_move_inner
-  mov C,A           ; movestate == 99?
-  inc A
-  jz next_square    ; yes, no more moves from this piece
-
   mov E,A
   lodig A           ; A=piece type
   dec A
@@ -97,11 +93,12 @@ next_square         ; D=square
   jil done_squares  ; finished scanning all squares for moves?
   jmp try_square
 
-; For pawns, move_state is coded as follows
+; For pawns, movestate is coded as follows
 ;  0 - capture left
 ;  1 - capture right
 ;  2 - push 1
 ;  3 - push 2
+;  4+ - next piece (done)
 ; Here: C=movestate, D=from, E=fromp
 next_pawn_move      
   mov C,A           ; movestate += 1
@@ -114,15 +111,15 @@ next_pawn_move
   jz .capture_right ; try capturing +1 file
   dec A
   jz .push1         ; try advancing 1 square
-  ; fallthrough
+  dec A
+  jz .push2         ; try advancing 2 squares
+  jmp next_square   ; next piece
 
 ; try advancing 2 squares
 ; this is only ever reached if push1 is allowed, so the square directly ahead
 ; of the pawn is empty, and we only need to check that the pawn is in the
 ; starting rank and the square +2 away is empty
-;.push2
-  mov 99,A          ; no more pawn moves after push2
-  swap A,C
+.push2
   mov E,A           ; E=player_piece
   swapdig A
   lodig A           ; A=player
@@ -206,7 +203,7 @@ next_pawn_move
   swap D,A
   mov A,[B]         ; [targetp]=player_piece on target
   jz move_ok
-  mov 99,A          ; skip push2 if push1 fails
+  mov 4,A           ; skip push2 if push1 fails
   swap A,C
   jmp move_bad      ; restore D=[from square]
 

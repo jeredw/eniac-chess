@@ -72,10 +72,54 @@ clear_from
   ; set target square to fromp
 .set_target
   mov fromp,A<->B
-  mov [B],A<->C     ; C=player_piece=[fromp]
+  mov [B],A         ; A=player_piece=[fromp]
+  mov A,C           ; C=save [fromp]
+  lodig A           ; get piece type
+  dec A             ; compare to PAWN=1
+  jz .check_promo   ; if pawn, check for promotion
+.do_set_square
   mov from,A<->B
   mov [B],A<->D     ; D=old pos=[from]
   jmp set_square    ; tail call set_square
+
+  ; check if this move is a pawn promotion
+.check_promo
+  mov target,A<->B  ;
+  mov [B],A         ; A=target square
+  swapdig A
+  lodig A           ; isolate rank
+  dec A             ; compare to rank 1
+  jz .promo         ; if rank 1, promote
+  addn 7,A          ; compare to rank 8
+  jz .promo         ; if rank 8, promote
+  jmp .do_set_square ; normal pawn move
+
+  ; promote pawn to queen
+  ; movestate is 1-3 and never 99 here
+.promo
+  mov movestate,A<->B
+  mov [B],A         ; A=[movestate]
+  add PROMO,A       ; flag promotion for undo_move later
+  mov A,[B]         ; save movestate
+  mov mscore,A<->B  ; B=mscore for later
+  swap C,A          ; A=from player_piece
+  add QUEEN-PAWN,A  ; upgrade piece to pawn
+  mov A,C           ; C=new player_piece
+  swapdig A
+  lodig A           ; isolate player
+  jz .white_promo
+
+;.black_promo
+  mov [B],A         ; get mscore
+  addn PBONUS,A     ; mscore -= bonus
+  mov A,[B]         ; update mscore
+  jmp .do_set_square
+
+.white_promo
+  mov [B],A         ; get mscore
+  add PBONUS,A      ; mscore += bonus
+  mov A,[B]         ; update mscore
+  jmp .do_set_square
 
 
 ; - undo_move -
@@ -119,6 +163,11 @@ undo_move
 
   ; put D=encoded fromp back at [from]
 .reset_from
+  mov movestate,A<->B ;
+  mov [B],A         ; A=movestate
+  addn PROMO,A
+  jn .unpromo       ; if pawn promotion, undo it
+.do_reset_from
   mov from,A<->B    ;
   mov [B],A         ; get from square index
   add offset-11,A   ;
@@ -135,6 +184,30 @@ undo_move
   swapdig A
   mov A,[B]         ; update board
   jmp .check_other
+
+  ; update player_piece to be a pawn instead of queen
+  ; and adjust mscore accordingly
+.unpromo
+  mov A,[B]         ; clear PROMO flag from movestate
+  mov mscore,A<->B  ; B=mscore
+  swap D,A
+  addn QUEEN-PAWN,A ; turn queen back into pawn
+  mov A,D           ; D=player_piece
+  addn BPAWN,A      ; is piece == black pawn?
+  jz .black_unpromo ; if so, black piece
+  ; fallthrough
+
+;.white_unpromo
+  mov [B],A         ; get mscore
+  addn PBONUS,A     ; mscore -= bonus
+  mov A,[B]         ; update mscore
+  jmp .do_reset_from
+
+.black_unpromo
+  mov [B],A         ; get mscore
+  add PBONUS,A      ; mscore += bonus
+  mov A,[B]         ; update mscore
+  jmp .do_reset_from
 
 ; write low digit of from square word
 .reset_low
@@ -259,7 +332,7 @@ update_pos
 ; is a rook or king, it also updates the corresponding auxiliary position to
 ; [target].
 ;
-; note seq_square is tail called by both move and undo_move.
+; note set_square is tail called by both move and undo_move.
 ;
 ; C: player_piece
 ; D: old position (0 if none, when undoing a capture)

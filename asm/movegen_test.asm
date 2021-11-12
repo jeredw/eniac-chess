@@ -39,10 +39,10 @@ no_more_moves
   halt
 
   .include movegen.asm
+  .include get_square.asm
 
   .org 200
-  .include checkcheck.asm
-  .include get_square.asm
+  .include move.asm  
  
   .org 306
-  .include move.asm  
+  .include checkcheck.asm

@@ -64,6 +64,8 @@ class SimTestCase(unittest.TestCase):
     self.memory[36] = encode_piece(position.board[move.to])
     self.memory[37] = move.fro.y * 10 + move.fro.x
     self.memory[38] = move.to.y * 10 + move.to.x
+    if move.promo:
+      self.memory[39] = 90
 
   def convertMemoryToDeck(self):
     deck = []
@@ -386,6 +388,18 @@ class TestMove(SimTestCase):
     self.assertEqual(str(board), '8/8/8/8/4P3/8/8/8')
     self.assertEqual(board.score, +1)
 
+  def testPromoteWhitePawn(self):
+    board = self.makeMove('8/3P4/8/8/8/8/8/8 w - - 0 1',
+                          Move(fro=Square.d7, to=Square.d8, promo='Q'))
+    self.assertEqual(str(board), '3Q4/8/8/8/8/8/8/8')
+    self.assertEqual(board.score, +9)
+
+  def testPromoteBlackPawn(self):
+    board = self.makeMove('8/8/8/8/8/8/3p4/8 b - - 0 1',
+                          Move(fro=Square.d2, to=Square.d1, promo='q'))
+    self.assertEqual(str(board), '8/8/8/8/8/8/8/3q4')
+    self.assertEqual(board.score, -9)
+
   def testMoveKnightB2ToC3(self):
     board = self.makeMove('8/8/8/8/8/8/8/1N6 w - - 0 1',
                           Move(fro=Square.b1, to=Square.c3))
@@ -515,6 +529,20 @@ class TestUndoMove(SimTestCase):
                           Move(fro=Square.e2, to=Square.e4))
     self.assertEqual(str(board), '8/8/8/8/8/8/4P3/8')
     self.assertEqual(board.score, +1)
+
+  def testUndoPromoteWhitePawn(self):
+    board = self.undoMove('8/3P4/8/8/8/8/8/8 w - - 0 1',
+                          '3Q4/8/8/8/8/8/8/8 b - - 0 1',
+                          Move(fro=Square.d7, to=Square.d8, promo='Q'))
+    self.assertEqual(str(board), '8/3P4/8/8/8/8/8/8')
+    self.assertEqual(board.score, +1)
+
+  def testUndoPromoteBlackPawn(self):
+    board = self.undoMove('8/8/8/8/8/8/3p4/8 b - - 0 1',
+                          '8/8/8/8/8/8/8/3q4 w - - 0 1',
+                          Move(fro=Square.d2, to=Square.d1, promo='q'))
+    self.assertEqual(str(board), '8/8/8/8/8/8/3p4/8')
+    self.assertEqual(board.score, -1)
 
   def testUndoMoveKnightB2ToC3(self):
     board = self.undoMove('8/8/8/8/8/8/8/1N6 w - - 0 1',
@@ -663,11 +691,11 @@ class TestChess(SimTestCase):
     self.assertEqual(best, '1555')
 
   def testAvoidRecapture1(self):
-    best = self.findBestMove('8/8/8/8/8/1p1pk3/2P5/7K w KQkq - 0 1')
+    best = self.findBestMove('8/8/8/8/8/1b1bk3/2P5/7K w KQkq - 0 1')
     self.assertEqual(best, '2332')
 
   def testAvoidRecapture2(self):
-    best = self.findBestMove('8/8/8/8/8/kp1p4/2P5/7K w KQkq - 0 1')
+    best = self.findBestMove('8/8/8/8/8/kb1b4/2P5/7K w KQkq - 0 1')
     self.assertEqual(best, '2334')
 
   # Mate in 1 cases taken from
@@ -702,6 +730,10 @@ class TestChess(SimTestCase):
   #def testMateIn2Morphy(self):
   #  best = self.findBestMove('kbK5/pp6/1P6/8/8/8/8/R7 w KQkq - 0 1')
   #  self.assertEqual(best, '1161')
+
+  def testMateByPromotion(self):
+    best = self.findBestMove('3k4/1P6/3K4/8/8/8/8/8 w KQkq - 0 1')
+    self.assertEqual(best, '7282')
 
 
 if __name__ == "__main__":
