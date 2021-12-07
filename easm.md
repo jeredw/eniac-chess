@@ -455,9 +455,9 @@ This layout also means that the program counter can only point to instructions a
 
 
 ## Instruction decoding
-By "decode" we mean trigger one of 51 different program lines based on an opcode in an accumulator. By 1948 there was a custom hardware unit that integrated the instruction register (including shifts to consume opcodes) and the decoder. But the stock ENIAC had nothing like this, which makes the 1947 design using the master programmer unit particularly ingenious.
+By "decode" we mean trigger one of 51 different program lines based on an opcode in an accumulator. By 1948 there was a custom hardware unit that integrated the instruction register (including shifts to consume opcodes) and the decoder. But the stock ENIAC had nothing like this, which makes Goldstine's 1947 design using the master programmer unit particularly ingenious. As far we can tell this was never implemented, but this technique runs fine on the simulator.
 
-The master programmer is anything but. Originally designed for nested loops with constant bounds, it was imagined that this unit would drive most of the sequencing for  ENIAC. This was plausible when it was thought that the primary use would calculating trajectory tables -- the "I" in ENIAC stands for "integrator," after all. Also, this was 1943 and no one yet knew anything about how best to sequence the operation of a digital computer. You can think of the master programmer as ten stepper units, each of which can be abstracted like this:
+The master programmer is anything but. Originally designed for nested loops with constant bounds, it was imagined that this unit would drive most of the sequencing for  ENIAC. This was plausible when it was thought that the primary use would calculating trajectory tables -- the "I" in ENIAC stands for "integrator." Also, this was 1943 and no one yet knew anything about how best to sequence the operation of a digital computer. You can think of the master programmer as ten stepper units, each of which can be abstracted like this:
 ```
           In    Reset   Step  
            │      │      │
@@ -532,7 +532,7 @@ The above example showed how to fetch from one function table, but we want to us
 | 90 | 2 |
 | 99 | 3 |
 
-Near addresses are two digits and reference the current function table only. All conditional jumps are near addresses, which saves code space. Far jumps and subroutine call and return use four digit far addresses.
+Near addresses are two digits and reference the current function table only. All conditional jumps are near addresses, which saves code space. Far jumps and subroutine call and return use four digit far addresses, so we only need to swotch banks on these three instructions.
 
 To actually do this ROM bank switching, chessvm routes the fetch initiation pulse (`{p-fetch}` above) to only the currently selected table. This is done by wiring the PM digits of the S outout of three accumulators to program inputs on three different function tables, something like
 
@@ -547,7 +547,7 @@ $trigger-ft 1
 $trigger-ft 2
 $trigger-ft 3
 ```
-If only one of these accumulators has a positive sign (P in the PM digit) then only one function table will be triggered. This is similar to how discrimination works, and we can't otherwise use the sign or the S output if we store other data in these accumulators (which we do; this represents 15 words of our VM memory). The FTSG is designed so these program counter digits can be sent to the sign digits of the three accumulators once to select only one bank, then again to clear it.
+If only one of these accumulators has a positive sign (P in the PM digit) then only one function table will be triggered. This is similar to how discrimination works, and we can't otherwise use the sign or the S output if we store other data in these accumulators (which we do; this represents 15 words of our VM memory). The FTSG is designed so these program counter digits can be sent to the sign digits of the three accumulators once to select a bank, then again to clear it. Far jumps run this sequence once to clear the current bank, then they change the PC and run it again to select the new bank.
 ```
 # Set/unset current bank using FTSG of PC, that is, digits 4 and 3. Trigger with {p-selft}
 # Starting from all accs PM=P, call once to select bank. Calling twice reverts to all P.
