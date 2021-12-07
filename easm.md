@@ -592,8 +592,6 @@ For complex instructions like memory access, EX will temporarily hold the conten
 # Addressable memory
 ENIAC had no addressable memory. It had no instruction set either, but even after the crazy hacks to turn it into a stored program computer there were still no instructions that could access a data-dependent location in memory. The instruction sets of the time devoted a considerable number of their limited opcodes to load and store instructions, each hard wired for a specific accumulator. There was simply no way to implement something like a pointer or an array -- you know, like a chessboard.
 
-This had to change. 
-
 ## Addressing accumulators
 We'll start with whole accumulators since that's easier, and our VM has 15 accumulators addressable through the `loadacc A` and `storeacc A` instructions. The challenge is to decode the value stored in A and use it to trigger one of 15 load program lines or one of 15 store program lines, each on a different accumulator. The master programmer could do this but only if we move hardware over from instruction decoding, which means we'd lose at least 30 (!) of our 51 opcodes. Instead we invented a technique that unlocked the whole project, an extension of the use of PM digit pulses to do conditional branches.
 
