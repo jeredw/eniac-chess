@@ -84,7 +84,7 @@ bking  .equ 33
 wrook1 .equ 34
 wrook2 .equ 45  ; not adjacent to wrook1 so movegen state fits in a7
 ```
-When a square is coded `OTHER`, we look in these four locations. If none of them reference the square, then the piece must be a black rook. 
+When a square is coded OTHER, we look in these four locations. If none of them reference the square, then the piece must be a black rook. Why rooks? We don't want queens coded OTHER so that we can support any number of them after pawn promotions.
 
 In practice the `get_square` routine abstracts all of this away, and just returns player|piece in two digits.
 ```
@@ -136,6 +136,6 @@ Right now the program just uses simple material scoring with the usual piece val
 Because the VM isn't very good at signed arithmetic, a balanced position has score 50. This gives a low dynamic range for scores, just +/-50 points -- normally modern chess programs use larger values and think in "centipawns", but we lack facilities for extended precision arithmetic and stack space to store larger scores. This is somewhat mitigated because the program operates one move at a time, so we reset the position score to 50 at the start of each search since only differential value matters.
 
 ## Future work
-As of this writing the chess program itself is pretty early in development. It sorta works but there is lots of room for improvement and extension. The program is probably not bug free as it stands, so more validation and eventually tournament play would be interesting.
+As of this writing the chess program itself is pretty early in development. It works but plays a very timid, defensive game that mostly just tries to avoid losing exchanges while waiting for the human to make a mistake. Even so people seem to enjoy playing through full games with it, which takes an hour or more when run with blinkenlights on the pulse-level simulator.
 
-Simple position scoring heuristics would be a nice enhancement and should take little code space. Some other simple chess programs with more table space use small lookup tables for this, but we'd likely have to fall back on code. For example, we could add points for pieces in the center, or score the number of ranks with a pawn or connected pawn.
+Simple position scoring heuristics would be a nice enhancement and should take little code space. Some other simple chess programs with more table space use small lookup tables for this, but we'd likely have to fall back on code. For example, we could add points for pieces in the center, or score the number of ranks with a pawn or connected pawn. Tournament play would be very helpful in choosing between these sorts of tiny heuristics.
