@@ -5,35 +5,26 @@ This is a virtual machine implemented on top of the ENIAC for the purpose of pla
 
 There are 200 digits of writable memory in the machine, so a two digit word size conviently addresses all possible words in its 0..99 range, which is also a useful range for arithmetic. We are limited to at most 51 opcodes by the decoding scheme built out of the master programmer, and code space is at a premium so we don't want to add an address word to every instruction. These considerations drive the architecture to a simple accumulator machine, where every operation goes throug a single register A. We add nine more general purpose registers to implement complex routines compactly, but we can only load them into A or swap with A.
 
-The VM implementation takes up five accumulators to store the register file, instruction register, program counter, return address, and a temp register. This leaves 15 accumulators / 75 words for our RAM. Memory can be accessed through loads and stores of accumulators or words. There is only one addressing mode: address in A. Additionally, there are 94 words of function table memory set aside as a single program-defined lookup table.
+The VM implementation takes up five accumulators to store the register file and machine state. This leaves 15 accumulators / 75 words for our RAM. Memory can be accessed through loads and stores of accumulators or words. There is only one addressing mode: address in A. Additionally, there are 94 words of function table memory set aside as a single program-defined lookup table.
 
 |                     |     |
 | ------------------- | --- |
 | `PC`                | Program counter, ft(1-3) and row (0-99) |
 | `RR`                | Return address, ft(1-3) and row (0-99) |
 | `A`,`B`,`C`,`D`,`E` | RF, 5 words  |
-| `F`,`G`,`H`,`I`,`J` | Aux RF, 5 words  |
+| `F`,`G`,`H`,`I`,`J` | LS, 5 words  |
 | `N`                 | RF sign (0/1 i.e. +/-) |
-| `M`                 | Aux sign (0/1 i.e. +/-) |
+| `M`                 | LS sign (0/1 i.e. +/-) |
 | `acc[0-14]`         | Memory, 75 words (0-74) |
 | `ft3[]`             | Constant data, 94 words (6-99) |
 | `ft1-3[]`           | Instructions, 1660 words |
 
-Arithmetic treats `A` as a 2-digit 10's complement number -100 ≤ A < 100 with
-sign bit `N`.  `N` is visible to control flow instructions, but is cleared by
-most register moves and cannot be loaded or stored to memory.  So practically,
-most arithmetic is unsigned.
+Arithmetic treats `A` as a 2-digit 10's complement number -100 ≤ A < 100 with sign bit `N`.  `N` is visible to control flow instructions, but is cleared by
+most register moves and cannot be loaded or stored to memory.  So practically, most arithmetic is unsigned.
 
-The aux RF has limited communication with the main RF and is overwritten by
-memory accesses.  The `swapall` instruction permits operating on aux register
-state via RF instructions, so `M` saves `N` in this special case.
+The load/store register `LS` is overwritten by all memory accesses. Registers `FGHIJ` are stored in `LS`, and can only be read into `A` whereas `BCDE` can also be swapped with `A`. The `swapall` instruction switches `RF` and `LS` to permit operating on the contents of `LS` more directly, so `M` saves `N` in this special case. Cards are also read into LS, meaning we can only read the first ten digits of each card.
 
-Function table rows are 12 digits wide, and `PC` and `RR` address only the
-first instruction of a row.  This means that branch targets must be aligned to
-row boundaries, so programs are subject to packing inefficiencies.
-Additionally, some rows of ft3 are reserved for VM implementation, and the
-first two digits of ft3 rows are reserved for constant data instead of
-instructions.
+Function table rows are 12 digits wide, and `PC` and `RR` address only the first instruction of a row.  This means that branch targets must be aligned to row boundaries, so programs are subject to packing inefficiencies. Additionally, some rows of ft3 are reserved for VM implementation, and the first two digits of ft3 rows are reserved for constant data instead of instructions accessed through the `FTL` (function table lookup) operation.
 
 
 ## Instruction Set
@@ -96,6 +87,7 @@ instructions.
 | 95  | halt         | -       | stop machine      | -   |
 
 ### Instruction notes
+"Reserved" means the master programmer is wired such that this opcode can never be used, while a dash means that opcode is available for future use.
 
 <a name="cycles">¹</a> Timings are 5kHz ENIAC add cycles, excluding instruction
 fetch cycles.  Fetch costs are +6 cycles within a ft row; +12 cycles for a new
@@ -137,7 +129,7 @@ unsupported cases of `mov`.
 | 1 | Program counter      | `SS` `RRRR` `PPPP` |
 | 2 | Instruction register | `I5` `I4` `I3` `I2` `I1` | 
 | 3 | Execution register   | `I1` `XX` `XX` `XX` `XX` | 
-| 4 | Aux register file | `FF` `GG` `HH` `II` `JJ` |
+| 4 | Load/store registers | `FF` `GG` `HH` `II` `JJ` |
 | 5 | memory 0 | `00` `01` `02` `03` `04` |
 | 6 | memory 1 | `05` `06` `07` `08` `09` |
 | 7 | memory 2 | `10` `11` `12` `13` `14` |
@@ -718,7 +710,7 @@ nearjump:                    # maybe an opcode, used as subprogram for condition
 ```
 
 
-### JZ XX   (NB treats M00 as P00)
+#### JZ XX   (NB treats M00 as P00)
 
 ```
 1. DISCJX -> EX, clear
@@ -731,7 +723,7 @@ nearjump:                    # maybe an opcode, used as subprogram for condition
 ```
 
 
-### JIL XX
+#### JIL XX
 
 ```
 1. DISCJX -> EX, clear
@@ -744,7 +736,7 @@ nearjump:                    # maybe an opcode, used as subprogram for condition
 ```
 
 
-### JSR XXXX
+#### JSR XXXX
 
 ```
 1. NEWPC -> EX
@@ -758,7 +750,7 @@ goto fetchline
 ```
 
 
-### RET
+#### RET
 
 ```
 1. NEWPC -> EX
