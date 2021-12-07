@@ -1,6 +1,42 @@
-# Chess VM ISA
+# ChessVM Instruction Set and Microarchitecture Reference
+This is a virtual machine implemented on top of the ENIAC for the purpose of playing chess, but it's actually a pretty general tiny CPU.
 
-## Quick reference
+## VM Architecture
+
+There are 200 digits of writable memory in the machine, so a two digit word size conviently addresses all possible words in its 0..99 range, which is also a useful range for arithmetic. We are limited to at most 51 opcodes by the decoding scheme built out of the master programmer, and code space is at a premium so we don't want to add an address word to every instruction. These considerations drive the architecture to a simple accumulator machine, where every operation goes throug a single register A. We add nine more general purpose registers to implement complex routines compactly, but we can only load them into A or swap with A.
+
+The VM implementation takes up five accumulators to store the register file, instruction register, program counter, return address, and a temp register. This leaves 15 accumulators / 75 words for our RAM. Memory can be accessed through loads and stores of accumulators or words. There is only one addressing mode: address in A. Additionally, there are 94 words of function table memory set aside as a single program-defined lookup table.
+
+|                     |     |
+| ------------------- | --- |
+| `PC`                | Program counter, ft(1-3) and row (0-99) |
+| `RR`                | Return address, ft(1-3) and row (0-99) |
+| `A`,`B`,`C`,`D`,`E` | RF, 5 words  |
+| `F`,`G`,`H`,`I`,`J` | Aux RF, 5 words  |
+| `N`                 | RF sign (0/1 i.e. +/-) |
+| `M`                 | Aux sign (0/1 i.e. +/-) |
+| `acc[0-14]`         | Memory, 75 words (0-74) |
+| `ft3[]`             | Constant data, 94 words (6-99) |
+| `ft1-3[]`           | Instructions, 1660 words |
+
+Arithmetic treats `A` as a 2-digit 10's complement number -100 ≤ A < 100 with
+sign bit `N`.  `N` is visible to control flow instructions, but is cleared by
+most register moves and cannot be loaded or stored to memory.  So practically,
+most arithmetic is unsigned.
+
+The aux RF has limited communication with the main RF and is overwritten by
+memory accesses.  The `swapall` instruction permits operating on aux register
+state via RF instructions, so `M` saves `N` in this special case.
+
+Function table rows are 12 digits wide, and `PC` and `RR` address only the
+first instruction of a row.  This means that branch targets must be aligned to
+row boundaries, so programs are subject to packing inefficiencies.
+Additionally, some rows of ft3 are reserved for VM implementation, and the
+first two digits of ft3 rows are reserved for constant data instead of
+instructions.
+
+
+## Instruction Set
 
 | op  | mnemonic     | cycles[¹](#cycles) | effect | flags |
 | --- | ------------ | ------- | ----------------- | ----- |
@@ -93,41 +129,7 @@ unsupported cases of `mov`.
 | `mov A,X`     | `swap A,X`<br>`mov X,A` | move A to register X
 | `mov X,A<->Y` | `mov X,A`<br>`swap A,Y` | move RF/immediate X to Y (BCDE) via A
 
-## VM Overview
 
-The chess VM operates on 2-digit decimal words in ENIAC accumulators using
-instructions and constant data stored in function tables.  Five of twenty
-accumulators are reserved for instruction fetch and execution, a register file
-(RF), and an auxiliary RF; the remaining fifteen accumulators form a
-word-addressable linear memory.
-
-|                     |     |
-| ------------------- | --- |
-| `PC`                | Program counter, ft(1-3) and row (0-99) |
-| `RR`                | Return address, ft(1-3) and row (0-99) |
-| `A`,`B`,`C`,`D`,`E` | RF, 5 words  |
-| `F`,`G`,`H`,`I`,`J` | Aux RF, 5 words  |
-| `N`                 | RF sign (0/1 i.e. +/-) |
-| `M`                 | Aux sign (0/1 i.e. +/-) |
-| `acc[0-14]`         | Memory, 75 words (0-74) |
-| `ft3[]`             | Constant data, 94 words (6-99) |
-| `ft1-3[]`           | Instructions, 1660 words |
-
-Arithmetic treats `A` as a 2-digit 10's complement number -100 ≤ A < 100 with
-sign bit `N`.  `N` is visible to control flow instructions, but is cleared by
-most register moves and cannot be loaded or stored to memory.  So practically,
-most arithmetic is unsigned.
-
-The aux RF has limited communication with the main RF and is overwritten by
-memory accesses.  The `swapall` instruction permits operating on aux register
-state via RF instructions, so `M` saves `N` in this special case.
-
-Function table rows are 12 digits wide, and `PC` and `RR` address only the
-first instruction of a row.  This means that branch targets must be aligned to
-row boundaries, so programs are subject to packing inefficiencies.
-Additionally, some rows of ft3 are reserved for VM implementation, and the
-first two digits of ft3 rows are reserved for constant data instead of
-instructions.
 
 ## Memory map
 | accumulator | name | contents |
