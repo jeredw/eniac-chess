@@ -44,6 +44,7 @@ class Assembler(object):
                       minus1_operands=minus1_operands,
                       print_errors=print_errors)
     self.builtins = Builtins(self.context, self.out)
+    self.assembled_ops = 0
 
   def assemble(self, path):
     """Assemble file at path."""
@@ -93,6 +94,7 @@ class Assembler(object):
           self.builtins.dispatch(label, op, arg)
       elif self.context.isa:  # delegate to table for ISA
         self.context.isa.dispatch(label, op, arg)
+        self.assembled_ops += (self.context.assembler_pass == 1) # count emitted ops once
       else:
         self.out.error("no isa selected, missing .isa directive? (stopping)")
         self.context.had_fatal_error = True
@@ -205,6 +207,8 @@ class Output(object):
     Places values on the same function table row, if necessary padding out the
     current row with 99s and moving to a new row to guarantee this.
     """
+
+    # filling an FT to 99 is fine, but if there is another op before .org, error
     if self.wrapped_row:
       self.error(f"out of space on function table {self.output_row//100 - 1}")
       self.context.had_fatal_error = True
@@ -738,6 +742,26 @@ def main():
     sys.exit(2)
   with open(outfile, 'w') as f:
     print_easm(out, f)
+
+  print(f"Assembled {asm.assembled_ops} operations")
+  table_values = sum((300 + i, 0) in out.output for i in range(6,100))
+  print (f"Used {table_values} table rows")
+  print("FT    rows used   words per row")
+  for ft in [1,2,3]:
+    rows_used = 0
+    words_used = 0.0
+    for row in range(100):
+      words = [out.get(ft, row, i).word for i in range(6)]
+      if ft==3:
+        if row<6:     # skip decode table spalce
+          continue 
+        words.pop(0)  # don't count table data
+      if any(words):
+        rows_used += 1
+        words_used += sum(w!=99 for w in words)
+
+    if rows_used:
+      print(f"ft{ft}   {rows_used}          {words_used/rows_used:.2f}")
 
 if __name__ == "__main__":
   main()
