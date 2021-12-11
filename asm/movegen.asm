@@ -25,10 +25,10 @@
 next_move           
   mov TOP0,A
   loadacc A         ; (F=fromp, G=targetp, H=from, I=target, J=movestate)
-  mov J,A<->C       ; C=movestate
   mov H,A           ;
   jz init_move      ; [from]==0 means start of iteration
   swap A,D          ; D=from
+  mov J,A<->C       ; C=movestate
   mov F,A<->E       ; E=fromp
 
 ; Generate next move for current piece 
@@ -54,11 +54,11 @@ try_square          ; A=square
   jz next_square    ; empty?
 
   ; check if the piece here is ours
-  swap A,E          ; E=player_piece on square
+  swap A,E          ; E=player|piece on target square
   swap D,A          ;
   swap A,C          ; C=square
   mov fromp,A<->B
-  mov [B],A         ; A=current player_piece
+  mov [B],A         ; A=current player|piece
   swapdig A
   lodig A           ; A=current player
   swap A,D          ; D=current player
@@ -71,9 +71,10 @@ try_square          ; A=square
   swap A,D          ; D=square
   jmp next_square   ; not our piece
 
+; Found one of our pieces, set globla fromp and from and start generating moves
 .ours
   mov E,A
-  mov A,[B]         ; [fromp]=player_piece on square
+  mov A,[B]         ; [fromp]=player|piece on square
   mov from,A<->B
   swap C,A
   mov A,[B]         ; [from]=square
@@ -320,13 +321,11 @@ next_bqrk_move
   lodig A           ; isolate piece
   addn BISHOP,A     ; test if piece==BISHOP
   jz .start_at_5    ; bishop starts from diagonal moves
-  swap C,A
-  inc A             ; start from d=1 (orthogonal moves)
+  mov 1,A           ; start from d=1 (orthogonal moves)
   swap A,C
   jmp next_bqrk_move
 .start_at_5
-  swap C,A
-  add 5,A           ; start from d=5 (diagonal moves)
+  mov 5,A           ; start from d=5 (diagonal moves)
   swap A,C
   jmp next_bqrk_move
 
