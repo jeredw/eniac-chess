@@ -83,7 +83,7 @@ while True:
   print_board(position)
 
   # wait for eniac's move
-  print('eniac is thinking...')
+  print('ENIAC is thinking...')
   raw_move = sim.stdout.readline().decode().strip()
   if len(raw_move) != 4:
     print(f'invalid sim output "{raw_move}"')

@@ -36,12 +36,12 @@ start
 
 search_done
   ; print the best move found during the search
-  mov bestfrom,A<->B  ; 
-  mov [B],A<->D       ; D=[bestfrom]
-  mov bestto,A<->B
-  mov [B],A<->B       ; B=[bestto]
-  swap D,A            ; A=[bestfrom]
-  print               ;
+  mov TOP1,A
+  loadacc A           ; F=bestfrom, G=bestto
+  mov G,A
+  swap A,B
+  mov F,A
+  print
 
   ; Update board so GUI shows it
   .include make_eniac_move.asm

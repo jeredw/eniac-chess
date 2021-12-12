@@ -3,22 +3,24 @@
 ; technically not needed, but easiest way to demo. Include after move print op.
 
 ; Make ENIAC's move on board. Requires setting fromp, from, target in top of stack
-; We've just printed a move so A = bestfrom, B=bestto
+; Input: A=bestfrom, B=bestto
 
-  swap A,D 				; D=bestfrom
-  swap A,B
-  swap A,E 				; E=bestto
-  jsr get_square
-  swap A,C 				; C=player|piece on bestfrom
-  mov fromp, A<->B
-  swap A,C
-  mov A,[B]  			; fromp = player|piece
-  mov from,A<->B
   swap A,D
-  mov A,[B] 			; from = bestfrom
-  mov target,A<->B
+  swap A,B
   swap A,E
-  mov A,[B] 			; target = bestto
+  jsr get_square
+  swap A,C        ; C=player|piece on bestfrom
+  mov TOP0,A
+  loadacc A
+  swapall         ; A=fromp, C=from, D=target, F=TOP0, H=player|piece, I=bestfrom, J=bestto
+  mov I,A
+  swap A,C        ; from=bestfrom
+  mov J,A 
+  swap A,D        ; target=bestto  
+  mov H,A         ; from=player|piece
+  swapall
+  storeacc A
   jsr move
+
 
 
