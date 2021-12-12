@@ -26,6 +26,7 @@ typedef struct vm_t {
   // Fetch state
   int pc;
   int old_pc;
+  bool pc_wrapped;
   int ir[6];
   int ir_index;
   // Register file

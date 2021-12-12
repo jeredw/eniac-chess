@@ -317,6 +317,16 @@ TEST_CASE(step_jmp) {
   assert(vm.pc == 242);
 }
 
+// ensure we can jump from last row of ft, even though the PC will wrap
+TEST_CASE(step_jmp_lastrow) {
+  VM vm;
+  init(&vm);
+  vm.pc = 399;
+  FT(399, 00, 73, 05, 95, 0, 0);    // jmp 306, halt
+  step_one_instruction(&vm);
+  assert(vm.pc == 306);
+}
+
 TEST_CASE(step_jmp_far) {
   VM vm;
   init(&vm);
