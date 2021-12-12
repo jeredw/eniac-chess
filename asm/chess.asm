@@ -42,4 +42,8 @@ search_done
   mov [B],A<->B       ; B=[bestto]
   swap D,A            ; A=[bestfrom]
   print               ;
+
+  ; Update board so GUI shows it
+  .include make_eniac_move.asm
+
   jmp game

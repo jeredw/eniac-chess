@@ -20,8 +20,8 @@
 ;
 ; Locations 35,45,55,65 are not part of the stack and are handled as follows:
 ;   35 - fromp  - don't need to preserve as we're not in movegen
-;   45 - wrook2 - must preserve
-;   55 - mscore
+;   45 - wrook2 - preserved
+;   55 - mscore - preserved
 ;   65 - depth  - incremented/decremented
 
 ; Pop a move off the search stack, i.e. copy accumulators down

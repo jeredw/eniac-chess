@@ -45,7 +45,7 @@ output_move
   mov beta,A<->B    ;
   mov [B],A         ; A=beta
   sub D,A
-  jn no_more_moves  ; if beta<=alpha, stop iteration
+  jn no_more_moves  ; if beta<alpha, stop iteration
   jz no_more_moves  ; if beta==alpha, stop iteration
 
   ; check for illegal moves
