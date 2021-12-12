@@ -11,7 +11,6 @@ static void init(VM* vm) {
   vm->error = 0;
   vm->pc = 100;
   vm->old_pc = 0;
-  vm->pc_wrapped = false;
   for (int i = 0; i < 6; i++)
     vm->ir[i] = 0;
   vm->ir_index = 6;
@@ -221,20 +220,14 @@ static void swap_dropping_sign(int& a, int& x) {
 
 static int consume_ir(VM* vm) {
   if (vm->ir_index == 6) {
-    // if we wrap the PC and then do a fetch, error
-    if (vm->pc_wrapped) {
+    vm->ir_index = vm->pc >= 300 ? 1 : 0;
+    std::copy(vm->function_table[vm->pc], vm->function_table[vm->pc] + 6, vm->ir);
+    vm->pc++;
+    if (vm->pc == 200 || vm->pc == 300) {
       vm->error |= ERROR_PC_WRAPPED;
       vm->status |= HALT;
       return 95; // halt
     }
-  
-    vm->ir_index = vm->pc >= 300 ? 1 : 0;
-    std::copy(vm->function_table[vm->pc], vm->function_table[vm->pc] + 6, vm->ir);
-    vm->pc++;
-
-    // if we have fetched last row, set wrapped flag to detect failure next fetch 
-    // (i.e. don't error if this last row jumps elsewhere, which is common)
-    vm->pc_wrapped = (vm->pc == 200 || vm->pc == 300 || vm->pc == 400);
   }
   return vm->ir[vm->ir_index++];
 }
@@ -264,11 +257,6 @@ static int consume_operand(VM* vm) {
 
 static int consume_near_address(VM* vm) {
   int target = consume_operand(vm);
-  
-  // edge case for jmp from last row: vm->pc wraps to next ft, but real vm does not
-  if (vm->pc_wrapped)
-    vm->pc -= 100; 
-
   return 100 * (vm->pc / 100) + target;
 }
 
@@ -528,14 +516,12 @@ static void step_one_instruction(VM* vm) {
       break;
     case 73: { // jmp
       vm->pc = consume_near_address(vm);
-      vm->pc_wrapped = 0;
       vm->ir_index = 6;
       vm->cycles += 2;
       break;
     }
     case 74: { // jmp far
       vm->pc = consume_far_address(vm);
-      vm->pc_wrapped = 0;
       update_bank(vm);
       vm->ir_index = 6;
       vm->cycles += 6;
@@ -582,7 +568,6 @@ static void step_one_instruction(VM* vm) {
     }
     case 85: // ret
       vm->pc = vm->old_pc;
-      vm->pc_wrapped = 0;
       update_bank(vm);
       vm->old_pc = 0;
       vm->ir_index = 6;
