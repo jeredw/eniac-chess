@@ -60,7 +60,8 @@ output_move
   jz search_pop     ; if capturing king, fixup stack
 
   ; apply the move (updating mscore)
-  jsr move
+  jmp far move
+move_ret
 
   mov depth,A<->B
   mov [B],A         ; A=stack depth
@@ -120,8 +121,7 @@ leaf
   mov A,[B]         ; [bestscore] = current score
   jsr set_best_move
 .movedone
-  jsr undo_move
-  jmp search
+  jmp undo_and_search ; needlessly updates fromp, but whatevs
 
 ; movegen jumps here when there are no more moves possible
 no_more_moves
@@ -194,7 +194,9 @@ search_pop
   ; DEBUG 99xx <depth><bestscore> <bestfrom><bestto>
   ;jsr print_best_move
 
-  jsr undo_move
+undo_and_search
+  jmp far undo_move
+undo_move_ret
   ; reset [fromp] from board state for movegen
   mov from,A<->B
   mov [B],A<->D     ; D=[from] square

@@ -44,6 +44,6 @@ search_done
   print
 
   ; Update board so GUI shows it
-  .include make_eniac_move.asm
+  ;.include make_eniac_move.asm
 
   jmp game

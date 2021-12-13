@@ -80,7 +80,8 @@ clear_from
 .do_set_square
   mov from,A<->B
   mov [B],A<->D     ; D=old pos=[from]
-  jmp set_square    ; tail call set_square
+  jsr set_square    
+  jmp far move_ret
 
   ; check if this move is a pawn promotion
 .check_promo
@@ -261,9 +262,9 @@ reset_target
   ; move targetp back to target square
   clr A
   swap A,D          ; D=old pos=0
-  jmp set_square    ; tail call set_square
+  jsr set_square
 reset_out
-  ret
+  jmp far undo_move_ret
 
   ; set auxiliary position [target] back to [from]. for example if [wrook1]
   ; moved from A7 to A8, set [wrook1] back to A7.

@@ -8,7 +8,8 @@
   .include memory_layout.asm
   .include load_board.asm
 start
-  jsr move
+  jmp far move
+move_ret  
   jmp far print_board
 
   .include get_square.asm
@@ -16,3 +17,5 @@ start
 
   .org 200
   .include move.asm
+
+undo_move_ret
