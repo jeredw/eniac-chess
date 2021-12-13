@@ -140,7 +140,7 @@ tab4    .table 13, M13,  14, M14,  15, M15,  21,   9,  16, M16
 tab5    .table 17, M17,  18, M18,  19, M19,  79,   5,  20, M20
 tab6    .table 21, M21,  22, M22,  23, M23,  81,  30,  24, M24
 tab7    .table 25, M25,  26, M26,  27, M27,  88,   0,  28, M28
-tab8    .table 29, M29,  30, M30,  31, M31,  92,   0,   0,   0
+tab8    .table 29, M29,  30, M30,  31, M31,  92,   1,   5,   0
 tab9    .table 10, -10,   1,   0
 
 ; ft3-relative base address for table data. 
@@ -165,6 +165,9 @@ ndir    .equ tables + 16
 ; (note king has score 30)
 ; entries run vertically at pval + 10*i
 pval    .equ tables + 17
+
+; pbase is WPAWN-1,BPAWN-1, used to encode color in set_square
+pbase   .equ tables + 87
 
 ; pawndir has deltas for pawn moves per player
 pawndir .equ tables + 90

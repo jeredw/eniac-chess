@@ -346,15 +346,9 @@ set_square
   mov C,A
   swapdig A
   lodig A           ; isolate piece color (0=white, 1=black)
-  ;add pbase,A       ; lookup base piece for color
-  ;ftl A
-  ;swap A,D
-  mov A,D           ; map to WPAWN=2 or BPAWN=6
-  add D,A           ; A=2*piece color
-  add D,A           ; A=3*piece color
-  add D,A           ; A=4*piece color
-  inc A             ; A+=WPAWN-1 (i.e. 1 for w, 5 for b) 
-  swap A,D          ; D=base piece for player-1
+  add pbase,A       ; lookup base piece for color-1
+  ftl A
+  swap A,D
   mov C,A
   lodig A           ; isolate piece kind
   add D,A           ; encode piece (e.g. for BPAWN, A=5+1)
