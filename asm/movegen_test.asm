@@ -11,18 +11,6 @@ start
   jmp next_move
 
 output_move
-  ; make the move, then check for check
-  jsr move
-  jmp far checkcheck
-
-checkcheckret
-  jz no_check
-  jsr undo_move
-
-  jmp next_move
-
-no_check
-  jsr undo_move
 
   ; read out target and from squares to print
   mov 7,A
@@ -41,8 +29,3 @@ no_more_moves
   .include movegen.asm
   .include get_square.asm
 
-  .org 200
-  .include move.asm  
- 
-  .org 306
-  .include checkcheck.asm
