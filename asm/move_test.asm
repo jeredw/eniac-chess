@@ -7,7 +7,12 @@
 
   .include memory_layout.asm
   .include load_board.asm
+
 start
+  mov depth,A<->B   ; set depth=1 so move goes to move_ret, not game
+  mov 1,A
+  mov A,[B]
+
   jmp far move
 move_ret  
   jmp far print_board
@@ -19,3 +24,4 @@ move_ret
   .include move.asm
 
 undo_move_ret
+game

@@ -49,7 +49,9 @@ pop
   mov 55,A<->B
   swap D,A
   mov A,[B]       ; restore [55] = mscore
+
   ; dec stack depth
+dec_depth         ; called from make_eniac_move as a game over sentinel
   mov depth,A<->B
   mov [B],A
   dec A

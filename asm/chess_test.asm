@@ -8,11 +8,11 @@
   .org 100
   jmp far test
 
-  .include movegen.asm    ; 71 lines
-  .include get_square.asm ; 15 lines
+  .include movegen.asm
+  .include get_square.asm
 
   .org 200
-  .include move.asm       ; 65 lines
+  .include move.asm
   ;.include debug.asm
 
   .org 306
@@ -29,3 +29,5 @@ search_done
   swap D,A            ; A=[bestfrom]
   print               ;
   halt
+
+game

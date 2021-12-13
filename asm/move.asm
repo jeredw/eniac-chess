@@ -80,8 +80,16 @@ clear_from
 .do_set_square
   mov from,A<->B
   mov [B],A<->D     ; D=old pos=[from]
-  jsr set_square    
+  jsr set_square
+
+  ; return to depth>0 ? move_ret : game
+  mov depth,A<->B
+  mov [B],A
+  jz .game_ret     
   jmp far move_ret
+
+.game_ret
+  jmp far game
 
   ; check if this move is a pawn promotion
 .check_promo

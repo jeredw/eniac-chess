@@ -17,3 +17,4 @@ undo_move_ret
   .include move.asm
 
 move_ret
+game

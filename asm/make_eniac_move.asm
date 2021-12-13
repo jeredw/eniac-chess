@@ -20,7 +20,10 @@
   mov H,A         ; from=player|piece
   swapall
   storeacc A
-  jsr move
+
+  ; set stack depth=0 to signal move to jump to game
+  jsr dec_depth
+  jmp far move
 
 
 

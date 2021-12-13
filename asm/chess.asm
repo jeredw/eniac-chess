@@ -16,11 +16,11 @@
   .org 100
   jmp far game       ; the game outer loop is in ft3
 
-  .include movegen.asm    ; 71 lines
-  .include get_square.asm ; 15 lines
+  .include movegen.asm
+  .include get_square.asm
 
   .org 200
-  .include move.asm       ; 65 lines
+  .include move.asm
   ;.include debug.asm
 
 ; Main program - we jump here on reset
@@ -43,7 +43,5 @@ search_done
   mov F,A
   print
 
-  ; Update board so GUI shows it
-  ;.include make_eniac_move.asm
-
-  jmp game
+  ; Update board so GUI shows it, then jumps to game
+  .include make_eniac_move.asm
