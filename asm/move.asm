@@ -17,20 +17,7 @@ move
   add pval,A        ; index piece values
   ftl A             ; lookup value
   swap A,D          ; D=value
-  mov mscore,A<->B
-  mov C,A
-  swapdig A
-  lodig A           ; get player
-  jz .white
-;.black
-  mov [B],A
-  add D,A           ; mscore += piece value
-  jmp .score
-.white
-  mov [B],A
-  sub D,A           ; mscore -= piece value
-.score
-  mov A,[B]         ; update mscore
+  jsr add_score
   swap C,A          ; restore A=[targetp]
 
   lodig A
@@ -73,7 +60,7 @@ clear_from
 .set_target
   mov fromp,A<->B
   mov [B],A         ; A=player_piece=[fromp]
-  mov A,C           ; C=save [fromp]
+  mov A,C           ; C= [fromp]
   lodig A           ; get piece type
   dec A             ; compare to PAWN=1
   jz .check_promo   ; if pawn, check for promotion
@@ -87,7 +74,6 @@ clear_from
   mov [B],A
   jz .game_ret     
   jmp far move_ret
-
 .game_ret
   jmp far game
 
@@ -110,24 +96,15 @@ clear_from
   mov [B],A         ; A=[movestate]
   add PROMO,A       ; flag promotion for undo_move later
   mov A,[B]         ; save movestate
-  mov mscore,A<->B  ; B=mscore for later
-  swap C,A          ; A=from player_piece
-  add QUEEN-PAWN,A  ; upgrade piece to pawn
-  mov A,C           ; C=new player_piece
-  swapdig A
-  lodig A           ; isolate player
-  jz .white_promo
 
-;.black_promo
-  mov [B],A         ; get mscore
-  addn PBONUS,A     ; mscore -= bonus
-  mov A,[B]         ; update mscore
-  jmp .do_set_square
+  mov C,A           ; A=from player_piece
+  add QUEEN-PAWN,A  ; upgrade piece to queen
+  swap A,C
 
-.white_promo
-  mov [B],A         ; get mscore
-  add PBONUS,A      ; mscore += bonus
-  mov A,[B]         ; update mscore
+  mov -PBONUS,A      ; add_score is + for black
+  swap A,D 
+  jsr add_score
+
   jmp .do_set_square
 
 
@@ -198,24 +175,20 @@ undo_move
   ; and adjust mscore accordingly
 .unpromo
   mov A,[B]         ; clear PROMO flag from movestate
-  mov mscore,A<->B  ; B=mscore
   swap D,A
   addn QUEEN-PAWN,A ; turn queen back into pawn
-  mov A,D           ; D=player_piece
-  addn BPAWN,A      ; is piece == black pawn?
-  jz .black_unpromo ; if so, black piece
-  ; fallthrough
+  swap A,E          ; E=piece 
+  
+  mov fromp,A<->B
+  mov [B],A
+  swap A,C          ; C = player|piece for add_score
 
-;.white_unpromo
-  mov [B],A         ; get mscore
-  addn PBONUS,A     ; mscore -= bonus
-  mov A,[B]         ; update mscore
-  jmp .do_reset_from
+  mov PBONUS,A
+  swap A,D
+  jsr add_score
 
-.black_unpromo
-  mov [B],A         ; get mscore
-  add PBONUS,A      ; mscore += bonus
-  mov A,[B]         ; update mscore
+  swap A,E          ; .do_reset_from expects D = piece
+  swap A,D
   jmp .do_reset_from
 
 ; write low digit of from square word
@@ -251,23 +224,12 @@ reset_target
   add pval,A        ; index piece values
   ftl A             ; lookup value
   swap A,D          ; D=value
-  mov mscore,A<->B
-  mov C,A
-  swapdig A
-  lodig A           ; get player
-  jz .white
-;.black
-  mov [B],A
-  sub D,A           ; mscore -= piece value
-  jmp .score
-.white
-  mov [B],A
-  add D,A           ; mscore += piece value
-.score
-  mov A,[B]         ; update mscore
-  ; C=[targetp] here
+  clr A
+  sub D,A           ; D=-D, we are undoing
+  swap A,D          
+  jsr add_score
 
-  ; move targetp back to target square
+  ; move C=targetp back to target square
   clr A
   swap A,D          ; D=old pos=0
   jsr set_square
@@ -440,3 +402,26 @@ set_update
   swap D,A          ; A=target
   mov A,[B]         ; [pos]=target
   jmp set_other
+
+
+; add_score - updates mscore, adding or subtracting depending on which player
+; NB: sign convention for captures, that is, add score for black
+; C = player|piece
+; D = score to add
+add_score
+  mov mscore,A<->B
+  mov C,A
+  swapdig A
+  lodig A           ; get player
+  jz .white
+;.black
+  mov [B],A
+  add D,A           ; mscore += piece value
+  jmp .score
+.white
+  mov [B],A
+  sub D,A           ; mscore -= piece value
+.score
+  mov A,[B]         ; update mscore
+  ret
+
