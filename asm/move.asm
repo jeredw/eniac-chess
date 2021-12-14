@@ -24,6 +24,7 @@ move
   addn ROOK,A       ; test if piece >= ROOK
   flipn
   jn clear_from     ; if not, no need to update_pos
+
   ; if we're capturing a king or rook, need to clear its auxiliary position.
   ; other captures just need to update the board array which happens for free.
   clr A
@@ -37,27 +38,12 @@ move
   ; clear from square in board array
 clear_from
   mov from,A<->B
-  mov [B],A         ; A=[from]
-  add offset-11,A
-  ftl A             ; lookup square offset
-  jn .clear_low     ; square mod 2 == 1?
-
-  swap A,B          ;
-  mov [B],A         ; get board at offset
-  lodig A           ; isolate low digit (clearing high digit)
-  mov A,[B]         ; update board
-  jmp .set_target
-
-.clear_low
-  swap A,B          ;
-  mov [B],A         ; get board at offset
-  swapdig A
-  lodig A           ; isolate high digit (clearing low digit)
-  swapdig A
-  mov A,[B]         ; update board
+  mov [B],A         ; A=from
+  swap A,D          ; D=from
+  clr A             ; A=piece (board form)
+  jsr set_board_array
 
   ; set target square to fromp
-.set_target
   mov fromp,A<->B
   mov [B],A         ; A=player_piece=[fromp]
   mov A,C           ; C= [fromp]
@@ -323,34 +309,15 @@ set_square
   mov C,A
   lodig A           ; isolate piece kind
   add D,A           ; encode piece (e.g. for BPAWN, A=5+1)
-  ; update board array
+
+  ; update board array target square
   ; A=piece kind
 set_target
-  swap A,D          ; D=encoded piece kind
-  mov target,A<->B  ;
-  mov [B],A         ; A=target square
-  add offset-11,A
-  ftl A             ; lookup square offset
-  jn .low           ; square mod 2 == 1?
-
-  swap A,B          ;
-  mov [B],A         ; get board at offset
-  lodig A           ; isolate low digit (replacing high digit)
-  swapdig A
-  add D,A           ; add in piece kind 
-  swapdig A
-  mov A,[B]         ; update board
-  ret
-
-.low
-  swap A,B          ;
-  mov [B],A         ; get board at offset
-  swapdig A
-  lodig A           ; isolate high digit (replacing low digit)
-  swapdig A
-  add D,A           ; add in piece kind 
-  mov A,[B]         ; update board
-  ret
+  swap A,D
+  mov target,A<->B 
+  mov [B],A            
+  swap A,D             ; A=piece (from above), D=square (target)
+  jmp set_board_array  ; returns
 
   ; update auxiliary positions for rook or king
 set_aux
@@ -404,8 +371,38 @@ set_update
   jmp set_other
 
 
+
+; sets square A digit to piece D
+; A = piece (board form) 
+; D = square
+set_board_array
+  swap A,D          ; A=square
+  add offset-11,A
+  ftl A             ; lookup square offset
+  jn .low           ; square mod 2 == 1?
+
+  swap A,B          ;
+  mov [B],A         ; get board at offset
+  lodig A           ; isolate low digit (replacing high digit)
+  swapdig A
+  add D,A           ; add in piece kind 
+  swapdig A
+  mov A,[B]         ; update board
+  ret
+
+.low
+  swap A,B          ;
+  mov [B],A         ; get board at offset
+  swapdig A
+  lodig A           ; isolate high digit (replacing low digit)
+  swapdig A
+  add D,A           ; add in piece kind 
+  mov A,[B]         ; update board
+  ret
+
+
 ; add_score - updates mscore, adding or subtracting depending on which player
-; NB: sign convention for captures, that is, add score for black
+; NB: sign convention for for C=target, that is, add score for targetp=black
 ; C = player|piece
 ; D = score to add
 add_score
