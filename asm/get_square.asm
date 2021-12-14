@@ -90,3 +90,34 @@ get_square
 
 .empty          ; A=0 here
   ret
+
+
+
+; sets square A digit to piece D
+; A = piece (board form) 
+; D = square
+set_board_array
+  swap A,D          ; A=square
+  add offset-11,A
+  ftl A             ; lookup square offset
+  jn .low           ; square mod 2 == 1?
+
+  swap A,B          ;
+  mov [B],A         ; get board at offset
+  lodig A           ; isolate low digit (replacing high digit)
+  swapdig A
+  add D,A           ; add in piece kind 
+  swapdig A
+  mov A,[B]         ; update board
+  ret
+
+.low
+  swap A,B          ;
+  mov [B],A         ; get board at offset
+  swapdig A
+  lodig A           ; isolate high digit (replacing low digit)
+  swapdig A
+  add D,A           ; add in piece kind 
+  mov A,[B]         ; update board
+  ret
+

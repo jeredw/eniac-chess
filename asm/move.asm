@@ -7,36 +7,28 @@ move
   ; does this move capture a piece?
   mov targetp,A<->B
   mov [B],A         ; A=[targetp]
-  jz clear_from     ; no, target square already clear
+  jz .no_capture    ; no, target square already clear
 
   ; update material score when capturing a piece
-  mov A,C           ; C=save [targetp]
+  mov A,C           ; C=[targetp], save for sub_score
+  mov A,E           ; for update_piecelist
   lodig A
   dec A             ; map PAWN=1 to 0
   swapdig A         ; 10*(piece type-1)
   add pval,A        ; index piece values
   ftl A             ; lookup value
   swap A,D          ; D=value
-  jsr add_score
-  swap C,A          ; restore A=[targetp]
+  jsr sub_score     ; sub not add because targetp is opposite player
 
-  lodig A
-  addn ROOK,A       ; test if piece >= ROOK
-  flipn
-  jn clear_from     ; if not, no need to update_pos
-
-  ; if we're capturing a king or rook, need to clear its auxiliary position.
-  ; other captures just need to update the board array which happens for free.
-  clr A
-  swap A,C          ; C=new position=0
+  ; remove targetp from piecelist, if necessary
   mov target,A<->B  ;
   mov [B],A<->D     ; D=old position=[target]
   clr A
-  swap A,E          ; E=0 (return to clear_from)
-  jmp update_pos    ; call update_pos
+  swap A,C          ; C=new position=0
+  jsr update_piecelist
 
   ; clear from square in board array
-clear_from
+.no_capture
   mov from,A<->B
   mov [B],A         ; A=from
   swap A,D          ; D=from
@@ -87,7 +79,7 @@ clear_from
   add QUEEN-PAWN,A  ; upgrade piece to queen
   swap A,C
 
-  mov -PBONUS,A      ; add_score is + for black
+  mov PBONUS,A      ; add_score is + for white
   swap A,D 
   jsr add_score
 
@@ -169,7 +161,7 @@ undo_move
   mov [B],A
   swap A,C          ; C = player|piece for add_score
 
-  mov PBONUS,A
+  mov -PBONUS,A
   swap A,D
   jsr add_score
 
@@ -210,10 +202,7 @@ reset_target
   add pval,A        ; index piece values
   ftl A             ; lookup value
   swap A,D          ; D=value
-  clr A
-  sub D,A           ; D=-D, we are undoing
-  swap A,D          
-  jsr add_score
+  jsr add_score     ; subtract as we are undoing, but targetp is other player
 
   ; move C=targetp back to target square
   clr A
@@ -279,7 +268,7 @@ update_pos
   ; fallthrough
 .out
   swap E,A
-  jz clear_from     ; E=0 return to clear_from
+;  jz clear_from     ; E=0 return to clear_from
   dec A
   jz set_other      ; E=1 return to set_target_other
   jmp reset_target  ; E=2+ return to reset_target
@@ -317,7 +306,7 @@ set_target
   mov target,A<->B 
   mov [B],A            
   swap A,D             ; A=piece (from above), D=square (target)
-  jmp set_board_array  ; returns
+  jmp far set_board_array  ; returns
 
   ; update auxiliary positions for rook or king
 set_aux
@@ -371,40 +360,76 @@ set_update
   jmp set_other
 
 
+; sets board[dst]=board[src]
+; sets piecelist if needed
+; Does not change board[src]
+;  E=pp = src player|piece 
+;  C=dst
+;  D=src
+copy_square
+;
+; pp = get_board_array(src)
+; set_board_array(dst,pp)
+; update_piecelist(pp,src,dst)
 
-; sets square A digit to piece D
-; A = piece (board form) 
-; D = square
-set_board_array
-  swap A,D          ; A=square
-  add offset-11,A
-  ftl A             ; lookup square offset
-  jn .low           ; square mod 2 == 1?
 
-  swap A,B          ;
-  mov [B],A         ; get board at offset
-  lodig A           ; isolate low digit (replacing high digit)
-  swapdig A
-  add D,A           ; add in piece kind 
-  swapdig A
-  mov A,[B]         ; update board
+; C: new position
+; D: old position
+; E: player|piece
+update_piecelist
+  ; is piece E in the piece list?
+  mov E,A
+  lodig A
+  addn ROOK,A       ; test if piece >= ROOK
+  flipn
+  jn return_label   ; nope, nothing to update
+
+  ; find piece on square D
+  mov 6,A           ; wking div 5 
+  loadacc A
+  mov H,A           ; wking
+  sub D,A
+  jz .wking
+  mov I,A           ; bking
+  sub D,A
+  jz .bking
+  mov J,A           ; wrook1
+  sub D,A
+  jz .wrook1
+  mov wrook2,A
+  swap A,B
+  mov [B],A         ; wrook2
+  sub D,A
+  jz .wrook2
+  jmp return_label  ; must be implicit brook
+.wking
+  mov wking,A<->B
+  jmp .update
+.bking
+  mov bking,A<->B
+  jmp .update
+.wrook1
+  mov wrook1,A<->B
+  jmp .update
+.wrook2
+  mov wrook2,A<->B
+.update
+  mov C,A
+  mov A,[B]         ; [pos]=new position
+  ; fallthrough
+return_label
   ret
 
-.low
-  swap A,B          ;
-  mov [B],A         ; get board at offset
-  swapdig A
-  lodig A           ; isolate high digit (replacing low digit)
-  swapdig A
-  add D,A           ; add in piece kind 
-  mov A,[B]         ; update board
-  ret
 
-
-; add_score - updates mscore, adding or subtracting depending on which player
-; NB: sign convention for for C=target, that is, add score for targetp=black
+; add_score, sub_score - updates mscore, adding or subtracting depending on which player
+; add_score adds for white, subtracts for black
 ; C = player|piece
 ; D = score to add
+; Uses: A,B
+sub_score
+  clr A             ; negate score
+  sub D,A
+  swap D,A
 add_score
   mov mscore,A<->B
   mov C,A
@@ -413,11 +438,11 @@ add_score
   jz .white
 ;.black
   mov [B],A
-  add D,A           ; mscore += piece value
+  sub D,A           ; mscore += piece value
   jmp .score
 .white
   mov [B],A
-  sub D,A           ; mscore -= piece value
+  add D,A           ; mscore -= piece value
 .score
   mov A,[B]         ; update mscore
   ret
