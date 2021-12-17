@@ -5,6 +5,13 @@ import unittest
 from subprocess import run, PIPE, Popen
 from game import Board, Position, Square, Move
 
+# must match data in memory_layout.asm
+PAWN_SCORE=1
+BISHOP_SCORE=3
+KNIGHT_SCORE=3
+ROOK_SCORE=5
+QUEEN_SCORE=9
+KING_SCORE=30
 
 class SimTestCase(unittest.TestCase):
   def setUp(self):
@@ -45,18 +52,9 @@ class SimTestCase(unittest.TestCase):
     self.initScore(position)
 
   def initScore(self, position):
-    # since the program only updates material score incrementally we have to
-    # help it a bit by computing the initial material score for a position
-    # NB: not really needed, at each move we start at 50 and compute change for 4 ply
-    # So could just mscore=50 here, but would break scoring tests below
-    value = {'p': -1, 'n': -3, 'b': -3, 'r': -5, 'q': -9,
-             'P': +1, 'N': +3, 'B': +3, 'R': +5, 'Q': +9}
-    delta_score = 0
-    for square, piece in position.board:
-      delta_score += value.get(piece, 0)
-    mscore = 50 + delta_score
-    assert 10 < mscore < 90
-    self.memory[55] = mscore
+    # We score each move incrementally instead of evaluating board positions
+    # always start at 50, giving us headroom for two captures on either side
+    self.memory[55] = 50
 
   def initMove(self, position, move):
     encode_piece = lambda k: '.PNBQRK????pnbqrk'.find(k)
@@ -308,6 +306,8 @@ class TestMoveGen(SimTestCase):
   def testRookAtD4_Capture4(self):
     moves = self.computeMoves('8/8/8/3p4/2pRp3/3p4/8/8 w - - 0 1')
     self.assertEqual(moves, ['4445', '4443', '4454', '4434'])
+ 
+  # removed because we do not currently do check detection in movegen
 
   # def testKingAtD4_PawnCheck(self):
   #   moves = self.computeMoves('8/8/4p3/8/3K4/8/8/8 w - - 0 1')
@@ -386,37 +386,37 @@ class TestMove(SimTestCase):
     board = self.makeMove('8/8/8/8/8/8/4P3/8 w - - 0 1',
                           Move(fro=Square.e2, to=Square.e4))
     self.assertEqual(str(board), '8/8/8/8/4P3/8/8/8')
-    self.assertEqual(board.score, +1)
+    self.assertEqual(board.score, 0)
 
   def testPromoteWhitePawn(self):
     board = self.makeMove('8/3P4/8/8/8/8/8/8 w - - 0 1',
                           Move(fro=Square.d7, to=Square.d8, promo='Q'))
     self.assertEqual(str(board), '3Q4/8/8/8/8/8/8/8')
-    self.assertEqual(board.score, +9)
+    self.assertEqual(board.score, QUEEN_SCORE-PAWN_SCORE)
 
   def testPromoteBlackPawn(self):
     board = self.makeMove('8/8/8/8/8/8/3p4/8 b - - 0 1',
                           Move(fro=Square.d2, to=Square.d1, promo='q'))
     self.assertEqual(str(board), '8/8/8/8/8/8/8/3q4')
-    self.assertEqual(board.score, -9)
+    self.assertEqual(board.score, -QUEEN_SCORE+PAWN_SCORE)
 
   def testMoveKnightB2ToC3(self):
     board = self.makeMove('8/8/8/8/8/8/8/1N6 w - - 0 1',
                           Move(fro=Square.b1, to=Square.c3))
     self.assertEqual(str(board), '8/8/8/8/8/2N5/8/8')
-    self.assertEqual(board.score, +3)
+    self.assertEqual(board.score, 0)
 
   def testMoveBishopC1ToA3(self):
     board = self.makeMove('8/8/8/8/8/8/8/2B5 w - - 0 1',
                           Move(fro=Square.c1, to=Square.a3))
     self.assertEqual(str(board), '8/8/8/8/8/B7/8/8')
-    self.assertEqual(board.score, +3)
+    self.assertEqual(board.score, 0)
 
   def testMoveQueenD1ToD8(self):
     board = self.makeMove('8/8/8/8/8/8/8/3Q4 w - - 0 1',
                           Move(fro=Square.d1, to=Square.d8))
     self.assertEqual(str(board), '3Q4/8/8/8/8/8/8/8')
-    self.assertEqual(board.score, +9)
+    self.assertEqual(board.score, 0)
 
   def testMoveKingE1ToF2(self):
     board = self.makeMove('8/8/8/8/8/8/8/4K3 w - - 0 1',
@@ -427,31 +427,31 @@ class TestMove(SimTestCase):
     board = self.makeMove('8/8/8/8/8/8/8/R7 w - - 0 1',
                           Move(fro=Square.a1, to=Square.a4))
     self.assertEqual(str(board), '8/8/8/8/R7/8/8/8')
-    self.assertEqual(board.score, +5)
+    self.assertEqual(board.score, 0)
 
   def testMovePawnD7(self):
     board = self.makeMove('8/3p4/8/8/8/8/8/8 b - - 0 1',
                           Move(fro=Square.d7, to=Square.d5))
     self.assertEqual(str(board), '8/8/8/3p4/8/8/8/8')
-    self.assertEqual(board.score, -1)
+    self.assertEqual(board.score, 0)
 
   def testMoveKnightG8ToH6(self):
     board = self.makeMove('6n1/8/8/8/8/8/8/8 b - - 0 1',
                           Move(fro=Square.g8, to=Square.h6))
     self.assertEqual(str(board), '8/8/7n/8/8/8/8/8')
-    self.assertEqual(board.score, -3)
+    self.assertEqual(board.score, 0)
 
   def testMoveBishopF8ToA3(self):
     board = self.makeMove('5b2/8/8/8/8/8/8/8 b - - 0 1',
                           Move(fro=Square.f8, to=Square.a3))
     self.assertEqual(str(board), '8/8/8/8/8/b7/8/8')
-    self.assertEqual(board.score, -3)
+    self.assertEqual(board.score, 0)
 
   def testMoveQueenD8ToD1(self):
     board = self.makeMove('3q4/8/8/8/8/8/8/8 b - - 0 1',
                           Move(fro=Square.d8, to=Square.d1))
     self.assertEqual(str(board), '8/8/8/8/8/8/8/3q4')
-    self.assertEqual(board.score, -9)
+    self.assertEqual(board.score, 0)
 
   def testMoveKingE8ToF7(self):
     board = self.makeMove('4k3/8/8/8/8/8/8/8 b - - 0 1',
@@ -462,49 +462,49 @@ class TestMove(SimTestCase):
     board = self.makeMove('7r/8/8/8/8/8/8/8 b - - 0 1',
                           Move(fro=Square.h8, to=Square.h5))
     self.assertEqual(str(board), '8/8/8/7r/8/8/8/8')
-    self.assertEqual(board.score, -5)
+    self.assertEqual(board.score, 0)
 
   def testMovePawnE2_CapturePawn(self):
     board = self.makeMove('8/8/8/8/8/5p2/4P3/8 w - - 0 1',
                           Move(fro=Square.e2, to=Square.f3))
     self.assertEqual(str(board), '8/8/8/8/8/5P2/8/8')
-    self.assertEqual(board.score, +1)
+    self.assertEqual(board.score, PAWN_SCORE)
 
   def testMovePawnE2_CaptureKing(self):
     board = self.makeMove('8/8/8/8/8/5k2/4P3/8 w - - 0 1',
                           Move(fro=Square.e2, to=Square.f3))
     self.assertEqual(str(board), '8/8/8/8/8/5P2/8/8')
-    self.assertEqual(board.score, +31)
+    self.assertEqual(board.score, KING_SCORE)
 
   def testMovePawnE2_CaptureRook(self):
     board = self.makeMove('8/8/8/8/8/5r2/4P3/8 w - - 0 1',
                           Move(fro=Square.e2, to=Square.f3))
     self.assertEqual(str(board), '8/8/8/8/8/5P2/8/8')
-    self.assertEqual(board.score, +1)
+    self.assertEqual(board.score, ROOK_SCORE)
 
   def testMovePawnD7_CapturePawn(self):
     board = self.makeMove('8/3p4/2P5/8/8/8/8/8 b - - 0 1',
                           Move(fro=Square.d7, to=Square.c6))
     self.assertEqual(str(board), '8/8/2p5/8/8/8/8/8')
-    self.assertEqual(board.score, -1)
+    self.assertEqual(board.score, -PAWN_SCORE)
 
   def testMovePawnD7_CaptureRook(self):
     board = self.makeMove('8/3p4/2R5/8/8/8/8/8 b - - 0 1',
                           Move(fro=Square.d7, to=Square.c6))
     self.assertEqual(str(board), '8/8/2p5/8/8/8/8/8')
-    self.assertEqual(board.score, -1)
+    self.assertEqual(board.score, -ROOK_SCORE)
 
   def testMovePawnD7_CaptureRook1(self):
     board = self.makeMove('8/3p4/2R1R3/8/8/8/8/8 b - - 0 1',
                           Move(fro=Square.d7, to=Square.c6))
     self.assertEqual(str(board), '8/8/2p1R3/8/8/8/8/8')
-    self.assertEqual(board.score, +4)
+    self.assertEqual(board.score, -ROOK_SCORE)
 
   def testMovePawnD7_CaptureKing(self):
     board = self.makeMove('8/3p4/2K5/8/8/8/8/8 b - - 0 1',
                           Move(fro=Square.d7, to=Square.c6))
     self.assertEqual(str(board), '8/8/2p5/8/8/8/8/8')
-    self.assertEqual(board.score, -31)
+    self.assertEqual(board.score, -KING_SCORE)
 
 
 class TestUndoMove(SimTestCase):
@@ -528,42 +528,42 @@ class TestUndoMove(SimTestCase):
                           '8/8/8/8/4P3/8/8/8 b - - 0 1',
                           Move(fro=Square.e2, to=Square.e4))
     self.assertEqual(str(board), '8/8/8/8/8/8/4P3/8')
-    self.assertEqual(board.score, +1)
+    self.assertEqual(board.score, 0)
 
   def testUndoPromoteWhitePawn(self):
     board = self.undoMove('8/3P4/8/8/8/8/8/8 w - - 0 1',
                           '3Q4/8/8/8/8/8/8/8 b - - 0 1',
                           Move(fro=Square.d7, to=Square.d8, promo='Q'))
     self.assertEqual(str(board), '8/3P4/8/8/8/8/8/8')
-    self.assertEqual(board.score, +1)
+    self.assertEqual(board.score, -QUEEN_SCORE+PAWN_SCORE)
 
   def testUndoPromoteBlackPawn(self):
     board = self.undoMove('8/8/8/8/8/8/3p4/8 b - - 0 1',
                           '8/8/8/8/8/8/8/3q4 w - - 0 1',
                           Move(fro=Square.d2, to=Square.d1, promo='q'))
     self.assertEqual(str(board), '8/8/8/8/8/8/3p4/8')
-    self.assertEqual(board.score, -1)
+    self.assertEqual(board.score, QUEEN_SCORE-PAWN_SCORE)
 
   def testUndoMoveKnightB2ToC3(self):
     board = self.undoMove('8/8/8/8/8/8/8/1N6 w - - 0 1',
                           '8/8/8/8/8/2N5/8/8 b - - 0 1',
                           Move(fro=Square.b1, to=Square.c3))
     self.assertEqual(str(board), '8/8/8/8/8/8/8/1N6')
-    self.assertEqual(board.score, +3)
+    self.assertEqual(board.score, 0)
 
   def testUndoMoveBishopC1ToA3(self):
     board = self.undoMove('8/8/8/8/8/8/8/2B5 w - - 0 1',
                           '8/8/8/8/8/B7/8/8 b - - 0 1',
                           Move(fro=Square.c1, to=Square.a3))
     self.assertEqual(str(board), '8/8/8/8/8/8/8/2B5')
-    self.assertEqual(board.score, +3)
+    self.assertEqual(board.score, 0)
 
   def testUndoMoveQueenD1ToD8(self):
     board = self.undoMove('8/8/8/8/8/8/8/3Q4 w - - 0 1',
                           '3Q4/8/8/8/8/8/8/8 b - - 0 1',
                           Move(fro=Square.d1, to=Square.d8))
     self.assertEqual(str(board), '8/8/8/8/8/8/8/3Q4')
-    self.assertEqual(board.score, +9)
+    self.assertEqual(board.score, 0)
 
   def testUndoMoveKingE1ToF2(self):
     board = self.undoMove('8/8/8/8/8/8/8/4K3 w - - 0 1',
@@ -576,35 +576,35 @@ class TestUndoMove(SimTestCase):
                           '8/8/8/8/R7/8/8/8 b - - 0 1',
                           Move(fro=Square.a1, to=Square.a4))
     self.assertEqual(str(board), '8/8/8/8/8/8/8/R7')
-    self.assertEqual(board.score, +5)
+    self.assertEqual(board.score, 0)
 
   def testUndoMovePawnD7(self):
     board = self.undoMove('8/3p4/8/8/8/8/8/8 b - - 0 1',
                           '8/8/8/3p4/8/8/8/8 w - - 0 2',
                           Move(fro=Square.d7, to=Square.d5))
     self.assertEqual(str(board), '8/3p4/8/8/8/8/8/8')
-    self.assertEqual(board.score, -1)
+    self.assertEqual(board.score, 0)
 
   def testUndoMoveKnightG8ToH6(self):
     board = self.undoMove('6n1/8/8/8/8/8/8/8 b - - 0 1',
                           '8/8/7n/8/8/8/8/8 w - - 0 2',
                           Move(fro=Square.g8, to=Square.h6))
     self.assertEqual(str(board), '6n1/8/8/8/8/8/8/8')
-    self.assertEqual(board.score, -3)
+    self.assertEqual(board.score, 0)
 
   def testUndoMoveBishopF8ToA3(self):
     board = self.undoMove('5b2/8/8/8/8/8/8/8 b - - 0 1',
                           '8/8/8/8/8/b7/8/8 w - - 0 2',
                           Move(fro=Square.f8, to=Square.a3))
     self.assertEqual(str(board), '5b2/8/8/8/8/8/8/8')
-    self.assertEqual(board.score, -3)
+    self.assertEqual(board.score, 0)
 
   def testUndoMoveQueenD8ToD1(self):
     board = self.undoMove('3q4/8/8/8/8/8/8/8 b - - 0 1',
                           '8/8/8/8/8/8/8/3q4 w - - 0 2',
                           Move(fro=Square.d8, to=Square.d1))
     self.assertEqual(str(board), '3q4/8/8/8/8/8/8/8')
-    self.assertEqual(board.score, -9)
+    self.assertEqual(board.score, 0)
 
   def testUndoMoveKingE8ToF7(self):
     board = self.undoMove('4k3/8/8/8/8/8/8/8 b - - 0 1',
@@ -617,56 +617,93 @@ class TestUndoMove(SimTestCase):
                           '8/8/8/7r/8/8/8/8 w - - 0 2',
                           Move(fro=Square.h8, to=Square.h5))
     self.assertEqual(str(board), '7r/8/8/8/8/8/8/8')
-    self.assertEqual(board.score, -5)
+    self.assertEqual(board.score, 0)
 
   def testUndoMovePawnE2_CapturePawn(self):
     board = self.undoMove('8/8/8/8/8/5p2/4P3/8 w - - 0 1',
                           '8/8/8/8/8/5P2/8/8 b - - 0 1',
                           Move(fro=Square.e2, to=Square.f3))
     self.assertEqual(str(board), '8/8/8/8/8/5p2/4P3/8')
-    self.assertEqual(board.score, 0)
+    self.assertEqual(board.score, -PAWN_SCORE)
 
   def testUndoMovePawnE2_CaptureKing(self):
     board = self.undoMove('8/8/8/8/8/5k2/4P3/8 w - - 0 1',
                           '8/8/8/8/8/5P2/8/8 b - - 0 1',
                           Move(fro=Square.e2, to=Square.f3))
     self.assertEqual(str(board), '8/8/8/8/8/5k2/4P3/8')
-    self.assertEqual(board.score, -29)
+    self.assertEqual(board.score, -KING_SCORE)
 
   def testUndoMovePawnE2_CaptureRook(self):
     board = self.undoMove('8/8/8/8/8/5r2/4P3/8 w - - 0 1',
                           '8/8/8/8/8/5P2/8/8 b - - 0 1',
                           Move(fro=Square.e2, to=Square.f3))
     self.assertEqual(str(board), '8/8/8/8/8/5r2/4P3/8')
-    self.assertEqual(board.score, -4)
+    self.assertEqual(board.score, -ROOK_SCORE)
 
   def testUndoMovePawnD7_CapturePawn(self):
     board = self.undoMove('8/3p4/2P5/8/8/8/8/8 b - - 0 1',
                           '8/8/2p5/8/8/8/8/8 w - - 0 2',
                           Move(fro=Square.d7, to=Square.c6))
     self.assertEqual(str(board), '8/3p4/2P5/8/8/8/8/8')
-    self.assertEqual(board.score, 0)
+    self.assertEqual(board.score, PAWN_SCORE)
 
   def testUndoMovePawnD7_CaptureRook(self):
     board = self.undoMove('8/3p4/2R5/8/8/8/8/8 b - - 0 1',
                           '8/8/2p5/8/8/8/8/8 w - - 0 2',
                           Move(fro=Square.d7, to=Square.c6))
     self.assertEqual(str(board), '8/3p4/2R5/8/8/8/8/8')
-    self.assertEqual(board.score, +4)
+    self.assertEqual(board.score, ROOK_SCORE)
 
   def testUndoMovePawnD7_CaptureRook1(self):
     board = self.undoMove('8/3p4/2R1R3/8/8/8/8/8 b - - 0 1',
                           '8/8/2p1R3/8/8/8/8/8 w - - 0 2',
                           Move(fro=Square.d7, to=Square.c6))
     self.assertEqual(str(board), '8/3p4/2R1R3/8/8/8/8/8')
-    self.assertEqual(board.score, +9)
+    self.assertEqual(board.score, ROOK_SCORE)
 
   def testUndoMovePawnD7_CaptureKing(self):
     board = self.undoMove('8/3p4/2K5/8/8/8/8/8 b - - 0 1',
                           '8/8/2p5/8/8/8/8/8 w - - 0 2',
                           Move(fro=Square.d7, to=Square.c6))
     self.assertEqual(str(board), '8/3p4/2K5/8/8/8/8/8')
-    self.assertEqual(board.score, 29)
+    self.assertEqual(board.score, KING_SCORE)
+
+  def testUndoMoveKingF3_CapturePawn(self):
+    board = self.undoMove('8/8/8/8/8/5k2/4P3/8 b - - 0 1',
+                          '8/8/8/8/8/8/4k3/8 w - - 0 2',
+                          Move(fro=Square.f3, to=Square.e2))
+    self.assertEqual(str(board), '8/8/8/8/8/5k2/4P3/8')
+    self.assertEqual(board.score, PAWN_SCORE)
+
+  # "puzzle" board from below
+  def testUndoMoveQueenE5_CaptureKing(self):
+    board = self.undoMove('1k1r1q1r/pb3ppp/4p3/3pQ1b1/3P4/PP1B4/KBP2PPP/2R4R w - - 0 1',
+                          '1Q1r1q1r/pb3ppp/4p3/3p2b1/3P4/PP1B4/KBP2PPP/2R4R b - - 0 2',
+                          Move(fro=Square.e5, to=Square.b8))
+    self.assertEqual(str(board), '1k1r1q1r/pb3ppp/4p3/3pQ1b1/3P4/PP1B4/KBP2PPP/2R4R')
+    self.assertEqual(board.score, -KING_SCORE)
+
+  # black rooks worth testing because they are a special case in the piece list
+  def testUndoMoveQueenG7_CaptureBRook(self):
+    board = self.undoMove('5r2/6Q1/8/8/8/8/8/8 w - - 0 1',
+                          '5Q2/8/8/8/8/8/8/8 b - - 0 2',
+                          Move(fro=Square.g7, to=Square.f8))
+    self.assertEqual(str(board), '5r2/6Q1/8/8/8/8/8/8')
+    self.assertEqual(board.score, -ROOK_SCORE)
+
+  def testUndoMoveQueenB8_CaptureBRook(self):
+    board = self.undoMove('1Q3r2/8/8/8/8/8/8/8 w - - 0 1',
+                          '5Q2/8/8/8/8/8/8/8 b - - 0 2',
+                          Move(fro=Square.b8, to=Square.f8))
+    self.assertEqual(str(board), '1Q3r2/8/8/8/8/8/8/8')
+    self.assertEqual(board.score, -ROOK_SCORE)
+
+  def testUndoMoveBRookF8_CaptureQueen(self):
+    board = self.undoMove('1Q3r2/8/8/8/8/8/8/8 b - - 0 1',
+                          '1r6/8/8/8/8/8/8/8 w - - 0 2',
+                          Move(fro=Square.f8, to=Square.b8))
+    self.assertEqual(str(board), '1Q3r2/8/8/8/8/8/8/8')
+    self.assertEqual(board.score, QUEEN_SCORE)
 
 
 class TestChess(SimTestCase):
@@ -722,8 +759,88 @@ class TestChess(SimTestCase):
     best = self.findBestMove('6k1/5ppp/6r1/8/8/7P/5PP1/R5K1 w KQkq - 0 1')
     self.assertEqual(best, '1181')
 
-  def testMateIn1Diagonal(self):
+  def testMateIn1Diagonal(self): # fail
     best = self.findBestMove('r4rk1/ppp2ppp/8/8/8/1P6/PQ3PPP/B4RK1 w KQkq - 0 1')
+    self.assertEqual(best, '2277')
+
+  def testMateIn1Diagonal_Simple21(self):  # fail - remove UL, LR, LL pawns, G7 pawn
+    best = self.findBestMove('5rk1/5p1p/8/8/8/8/1Q6/B7 w KQkq - 0 1')
+    self.assertEqual(best, '2277')
+
+  def testMateIn1Diagonal_Simple22(self):  # ok - remove UL, LR, A2 pawn, G7 pawn, replace brook->bknight
+    best = self.findBestMove('5nk1/5p1p/8/8/8/8/1Q6/B7 w KQkq - 0 1')
+    self.assertEqual(best, '2277')
+
+  def testMateIn1Diagonal_Simple23(self):  
+    # ok
+    # remove UL, LR except G2 pawn, A2 pawn, G7 pawn
+    # Keep g7 to prevent 2227 mate
+    # Keep a2 pawn to prevent consideration of Queen 2272
+    best = self.findBestMove('5rk1/5p1p/8/8/8/1P6/1Q4P1/B7 w KQkq - 0 1')
+    self.assertEqual(best, '2277')
+
+  def testMateIn1Diagonal_Simple24(self):  
+    # ok
+    # remove UL, LR except G2 pawn, A2 pawn
+    # Keep g7 to prevent 2227 mate
+    # Keep a2 pawn to prevent consideration of Queen 2272
+    best = self.findBestMove('5rk1/5ppp/8/8/8/1P6/1Q4P1/B7 w KQkq - 0 1')
+    self.assertEqual(best, '2277')
+
+  def testMateIn1Diagonal_Simple25(self):  
+    # ok
+    # remove UL, LR except G2 pawn+wking, A2 pawn
+    # Keep g7 to prevent 2227 mate
+    # Keep a2 pawn to prevent consideration of Queen 2272
+    best = self.findBestMove('5rk1/5ppp/8/8/8/1P6/1Q4P1/B5K1 w KQkq - 0 1')
+    self.assertEqual(best, '2277')
+
+  def testMateIn1Diagonal_Simple26(self):  
+    # fail 2231
+    # remove UL
+    best = self.findBestMove('5rk1/5ppp/8/8/8/1P6/PQ3PPP/B4RK1 w KQkq - 0 1')
+    self.assertEqual(best, '2277')
+
+  def testMateIn1Diagonal_Simple27(self):  
+    # ok
+    # remove UL, a2 wpawn, f1 wrook
+    best = self.findBestMove('5rk1/5ppp/8/8/8/1P6/1Q3PPP/B5K1 w KQkq - 0 1')
+    self.assertEqual(best, '2277')
+
+  def testMateIn1Diagonal_Simple28(self):  
+    # fail, 2231
+    # remove UL, a2 wpawn
+    best = self.findBestMove('5rk1/5ppp/8/8/8/1P6/1Q3PPP/B4RK1 w KQkq - 0 1')
+    self.assertEqual(best, '2277')
+
+  def testMateIn1Diagonal_Simple29(self):  
+    # ok
+    # remove UL, a2 wpawn, f7 bpawn
+    best = self.findBestMove('5rk1/6pp/8/8/8/1P6/PQ3PPP/B4RK1 w KQkq - 0 1')
+    self.assertEqual(best, '2277')
+
+  def testMateIn1Diagonal_Simple30(self):  
+    # ok
+    # remove UL, LR, a2 wpawn, f7 bpawn
+    best = self.findBestMove('5rk1/5ppp/8/8/8/1P6/1Q6/B7 w KQkq - 0 1')
+    self.assertEqual(best, '2277')
+
+  def testMateIn1Diagonal_Simple31(self):  
+    # ok
+    # remove UL, a2 wpawn, replace brook with bknight
+    best = self.findBestMove('5nk1/5ppp/8/8/8/1P6/1Q3PPP/B4RK1 w KQkq - 0 1')
+    self.assertEqual(best, '2277')
+
+  def testMateIn1Diagonal_Simple32(self):  
+    # ok
+    # remove UL, LR, a2 wpawn
+    best = self.findBestMove('5rk1/5ppp/8/8/8/1P6/1Q6/B7 w KQkq - 0 1')
+    self.assertEqual(best, '2277')
+
+  def testMateIn1Diagonal_Simple33(self):  
+    # fail, 1666
+    # remove UL, LR pawns, a2 wpawn
+    best = self.findBestMove('5rk1/5ppp/8/8/8/1P6/1Q6/B4RK1 w KQkq - 0 1')
     self.assertEqual(best, '2277')
 
   # Can't solve this because we can't detect checkmate in the 4th move
