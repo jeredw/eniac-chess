@@ -5,12 +5,10 @@
 ; [target], removing piece [targetp] if any.
 move
   mov TOP0, A
-  loadacc A
-  swapall           ; A=fromp, B=targetp, C=from, D=target, E=movestate
-  swap A,E          ; B=targetp, C=from, D=target, E=fromp
+  loadacc A         ; F=fromp, G=targetp, H=from, I=target, J=movestate
 
   ; does this move capture a piece?
-  mov B,A
+  mov G,A           ; A=targetp
   jz .no_capture    ; no, target square already clear
 
   ; update material score when capturing a piece
@@ -19,25 +17,35 @@ move
   add pval-10,A     ; index piece values, -10 to map PAWN=0
   ftl A             ; lookup value
   swap A,D          ; D=value
-  swap A,C          ; save C=target
-  jsr add_score
+  mov F,A           ; A=fromp
+  swap A,E 
+  jsr add_score     ; D=value, E=player=fromp
 
   ; remove targetp from piecelist, if necessary
-  mov C,A
-  swap A,D          ; D=target
+  mov TOP0, A
+  loadacc A         ; F=fromp, G=targetp, H=from, I=target, J=movestate
+  mov G,A
+  lodig A
+  addn ROOK,A       ; piece type >= rook?
+  flipn
+  jn .contd 
+  
   clr A
   swap A,C          ; C=0
-  jsr update_piecelist  ; C=new pos=0, D=old pos=target
+  mov I,A          
+  swap A,D          ; A=target
+  jsr do_update_piecelist  ; C=new pos=0, D=old pos=target
 
   ; reload stacktop
+.contd
   mov TOP0, A
   loadacc A
-  swapall           ; A=fromp, B=targetp, C=from, D=target, E=movestate
-  swap A,E          ; B=targetp, C=from, D=target, E=fromp
 
 .no_capture
+  swapall           ; A=fromp, B=targetp, C=from, D=target, E=movestate
+  mov A,E           ; save fromp for potential promo
+
   ; compute promotion delta (0 if no promotion)
-  mov E,A
   lodig A
   dec A             ; compare to PAWN=1
   jz .check_promo   ; if pawn, check for promotion
@@ -335,21 +343,10 @@ set_square
   jmp .set_other
 
 
-; update_piecelist
-; Given player|piece, checks to see if piece is in piecelist updates if so
-; enter at do_update_piecelist if you already know piece is king,rook
+; do_update_piecelist
+; Assumes (and is not able to check) that this piece is actually a king or rook!
 ; C: new position
 ; D: old position
-; E: player|piece
-update_piecelist
-  ; is piece E in the piece list?
-  mov E,A
-  lodig A
-  addn ROOK,A       ; test if piece >= ROOK
-  flipn
-  jn return_label   ; nope, nothing to update
-
-  ; find piece on square D
 do_update_piecelist:
   mov 6,A           ; wking div 5 
   loadacc A
