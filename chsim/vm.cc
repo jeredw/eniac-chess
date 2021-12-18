@@ -4,6 +4,12 @@
 
 #include "vm.h"
 
+int globalstep=0;
+int getmem(VM* vm, int addr) {
+  int x = vm->mem[addr/5][addr%5];
+  return x<0 ? x+100 : x;
+}
+
 // Reset state for a new VM instance
 static void init(VM* vm) {
   vm->cycles = 0;
@@ -585,6 +591,16 @@ static void step_one_instruction(VM* vm) {
       break;
     case 94: // brk
       vm->status |= BREAK;
+      // printf("step %d\n",globalstep++);
+      // printf("depth     %2d\n",getmem(vm,65));
+      // printf("bestscore %2d\n",getmem(vm,42));
+      // printf("bestfrom  %2d\n",getmem(vm,40));
+      // printf("bestto    %2d\n",getmem(vm,41));
+      // printf("piece     %2d\n",getmem(vm,35));      
+      // printf("from      %2d\n",getmem(vm,37));
+      // printf("to        %2d\n",getmem(vm,38));
+      // printf("capture   %2d\n",getmem(vm,36));
+      // printf("score     %2d\n",getmem(vm,55));
       break;
     case 95: // halt
       vm->status |= HALT;

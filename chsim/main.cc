@@ -341,6 +341,7 @@ int main(int argc, char *argv[]) {
       dump_profile(vm);
     } else if (strcmp(command, "g") == 0) {
       interrupted = false;
+      vm.status &= ~BREAK;
       while (!interrupted && !vm.status) {
         step_and_handle_status(&vm);
       }
