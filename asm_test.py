@@ -6,12 +6,12 @@ from subprocess import run, PIPE, Popen
 from game import Board, Position, Square, Move
 
 # must match data in memory_layout.asm
-PAWN_SCORE=1
-BISHOP_SCORE=3
-KNIGHT_SCORE=3
-ROOK_SCORE=5
-QUEEN_SCORE=9
-KING_SCORE=30
+PAWN_SCORE=3
+BISHOP_SCORE=9
+KNIGHT_SCORE=9
+ROOK_SCORE=15
+QUEEN_SCORE=24
+KING_SCORE=25
 
 class SimTestCase(unittest.TestCase):
   def setUp(self):

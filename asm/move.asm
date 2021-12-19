@@ -28,7 +28,7 @@ move
   lodig A
   addn ROOK,A       ; piece type >= rook?
   flipn
-  jn .contd 
+  jn .no_capture    ; N=this piece is not in the piece list
   
   clr A
   swap A,C          ; C=0

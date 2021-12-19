@@ -41,8 +41,8 @@ KING    .equ  6
 ; Flag added to movestate indicating that the current move is a pawn promotion
 PROMO   .equ  90
 
-; Incremental score for pawn to queen promotion
-PBONUS  .equ  8
+; Incremental score for pawn to queen promotion (must be equal to queen-pawn)
+PBONUS  .equ  21
 
 
 ; - Globals -
@@ -133,12 +133,12 @@ pbeta     .equ 54
 ; available space.
 ;               0    1    2    3    4    5    6    7    8    9
 tab0    .table  1,  99,  10,  90,   9,  11,  89,  91,   0,  M0
-tab1    .table  1,  M1,   2,  M2,   3,  M3,   8,   1,   4,  M4
-tab2    .table  5,  M5,   6,  M6,   7,  M7,  12,   3,   8,  M8
-tab3    .table  9,  M9,  10, M10,  11, M11,  19,   3,  12, M12
-tab4    .table 13, M13,  14, M14,  15, M15,  21,   9,  16, M16
-tab5    .table 17, M17,  18, M18,  19, M19,  79,   5,  20, M20
-tab6    .table 21, M21,  22, M22,  23, M23,  81,  30,  24, M24
+tab1    .table  1,  M1,   2,  M2,   3,  M3,   8,   3,   4,  M4
+tab2    .table  5,  M5,   6,  M6,   7,  M7,  12,   9,   8,  M8
+tab3    .table  9,  M9,  10, M10,  11, M11,  19,   9,  12, M12
+tab4    .table 13, M13,  14, M14,  15, M15,  21,  24,  16, M16
+tab5    .table 17, M17,  18, M18,  19, M19,  79,  15,  20, M20
+tab6    .table 21, M21,  22, M22,  23, M23,  81,  25,  24, M24
 tab7    .table 25, M25,  26, M26,  27, M27,  88,   0,  28, M28
 tab8    .table 29, M29,  30, M30,  31, M31,  92,   1,   5,   0
 tab9    .table 10, -10,   1,   0
