@@ -60,7 +60,6 @@ output_move
   jz search_pop     ; if capturing king, fixup stack
 
   ; apply the move (updating mscore)
-  mov 10,A
   jmp far move
 move_ret
 
