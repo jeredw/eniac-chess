@@ -30,8 +30,7 @@ move
   flipn
   jn .contd         ; no, this piece is not in the piece list
   
-  clr A
-  swap A,C          ; C=0
+  clrall            ; C=0
   mov I,A          
   swap A,D          ; A=target
   jsr do_update_piecelist  ; C=new pos=0, D=old pos=target

@@ -1,31 +1,11 @@
 ; MEMORY_LAYOUT.ASM
 ; We use all 75 words for board, globals, and search stack
 
-; - Board representation - 
-; We have room for only a single board, stored as 64 digits in 32 words in addresses 0-31.
-; Digit coding:
-EMPTY   .equ 0
-OTHER   .equ 1
-WPAWN   .equ 2
-WKNIGHT .equ 3
-WBISHOP .equ 4
-WQUEEN  .equ 5
-BPAWN   .equ 6
-BKNIGHT .equ 7
-BBISHOP .equ 8
-BQUEEN  .equ 9
-
-; OTHER means white/black rook/king. We store the squares of these pieces in another four words
-; We'll always have only one king and two rooks per side (no reason to promote to rook)
-; This allows us to represent any number of promoted queens
-wking  .equ 32
-bking  .equ 33
-wrook1 .equ 34
-wrook2 .equ 45  ; not adjacent to wrook1 so movegen state fits in a7
-; if square is occupied with OTHER and it's not king or wrook, it's brook
-
-
 ; - Piece and Player constants -
+; There are two kinds of piece representations used: "board piece" and "player|piece"
+; Player|piece is the obvious one, has player in high digit and piece in low digit.
+; This is the format returned from get_square and stored in fromp, targetp
+
 ; While the board is stored in a two-level encoding, get_square returns player|piece as below
 WHITE   .equ  0
 BLACK   .equ  1
@@ -38,11 +18,35 @@ QUEEN   .equ  4
 ROOK    .equ  5
 KING    .equ  6
 
-; Flag added to movestate indicating that the current move is a pawn promotion
-PROMO   .equ  90
-
 ; Incremental score for pawn to queen promotion (must be equal to queen-pawn)
 PBONUS  .equ  21
+
+
+; - Board representation - 
+; We have room for only a single board, stored as 64 digits in 32 words in addresses 0-31.
+; But six pieces times two players plus empty is 13 states, so we encode rooks/king as OTHER.
+; This is the "board piece" representation
+EMPTY   .equ 0
+OTHER   .equ 1
+WPAWN   .equ 2
+WKNIGHT .equ 3
+WBISHOP .equ 4
+WQUEEN  .equ 5
+BPAWN   .equ 6
+BKNIGHT .equ 7
+BBISHOP .equ 8
+BQUEEN  .equ 9
+
+; OTHER means white/black rook/king, so we store their locations in a separate piece list.
+; We'll always have only one king and two rooks per side (no reason to promote to rook)
+; This allows us to represent any number of promoted queens
+wking  .equ 32
+bking  .equ 33
+wrook1 .equ 34
+wrook2 .equ 45  ; not adjacent to wrook1 so movegen state fits in accumulator 7
+
+; If square is occupied with OTHER and it's not king or wrook, it's brook
+; Hence we only need four words to define the location of six pieces.
 
 
 ; - Globals -
@@ -53,14 +57,12 @@ PBONUS  .equ  21
 ; Once initialized that way, it's awfully useful to know whose turn it is.
 fromp  .equ 35
 
-; mscore - material score advantage for white in the current position
-; plus 50, so 50 means a tied material score.  It is updated incrementally
-; on calls to move and undo_move.
+; mscore - material score advantage for white
+; One word does not have enough resolution for a full board evaluation, but 
+; only the delta matters during a search. In 4 ply, we won't overflow.
+; Plus 50, so 50 means a tied material score (no captures, or an even trade)  
+; Updated incrementally during move and undo_move.
 ;
-; Pieces have value 1=PAWN, 3=KNIGHT/BISHOP, 5=ROOK, 9=QUEEN, 30=KING, given by pval.
-;
-; It is assumed that mscore will be set to 50 each time search begins because
-; only the relative cost/benefit matters during a search. In 4 ply, we won't overflow.
 mscore  .equ 55
 
 ; The zero value for score is set at 50 so values < 50 are negative.
@@ -104,14 +106,15 @@ TOP1      .equ 8  ; floor(40/5)
 targetp   .equ 36
 from      .equ 37
 target    .equ 38
-; NOTE values >= PROMO are reserved to flag pawn promotion
-movestate .equ 39
+movestate .equ 39 	; values >= PROMO indicate pawn promotion
+
+; Flag added to movestate indicating that the current move is a pawn promotion
+PROMO   .equ  90
 
 ; Best move so far
 bestfrom  .equ 40
 bestto    .equ 41
-; Score after best move
-bestscore .equ 42
+bestscore .equ 42 	; Score after best move
 
 ; Pruning thresholds for alpha/beta search
 alpha     .equ 43
