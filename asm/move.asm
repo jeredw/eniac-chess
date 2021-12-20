@@ -381,25 +381,27 @@ do_update_piecelist:
   mov [B],A         ; wrook2
   sub D,A
   jz .wrook2
-  jmp return_label  ; must be implicit brook
+  ret
 .wking
   mov wking,A<->B
-  jmp .update
-.bking
-  mov bking,A<->B
-  jmp .update
-.wrook1
-  mov wrook1,A<->B
-  jmp .update
-.wrook2
-  mov wrook2,A<->B
-.update
   mov C,A
   mov A,[B]         ; [pos]=new position
-  ; fallthrough
-return_label
   ret
-
+.bking
+  mov bking,A<->B
+  mov C,A
+  mov A,[B]         ; [pos]=new position
+  ret
+.wrook1
+  mov wrook1,A<->B
+  mov C,A
+  mov A,[B]         ; [pos]=new position
+  ret
+.wrook2
+  mov wrook2,A<->B
+  mov C,A
+  mov A,[B]         ; [pos]=new position
+  ret
 
 
 ; Update center score - adds +1/0/-1 to mscore for entering/leaving board center
