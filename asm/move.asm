@@ -28,7 +28,7 @@ move
   lodig A
   addn ROOK,A       ; piece type >= rook?
   flipn
-  jn .no_capture    ; N=this piece is not in the piece list
+  jn .contd         ; no, this piece is not in the piece list
   
   clr A
   swap A,C          ; C=0
@@ -43,7 +43,15 @@ move
 
 .no_capture
   swapall           ; A=fromp, B=targetp, C=from, D=target, E=movestate
-  mov A,E           ; save fromp for potential promo
+  mov A,E           ; E=fromp
+
+  ; Score entering/exiting center of board
+  jsr update_center_score ; C=from, D=target, E=fromp
+  
+  mov TOP0, A       ; restore D=target, A=E=fromp
+  loadacc A
+  swapall           ; A=fromp, B=targetp, C=from, D=target, E=movestate
+  mov A,E
 
   ; compute promotion delta (0 if no promotion)
   lodig A
@@ -57,7 +65,7 @@ move
   swap A,D
   swap A,E
   jsr move_and_promote
-
+  
   ; return to depth>0 ? move_ret : game
   mov depth,A<->B
   mov [B],A
@@ -88,7 +96,7 @@ move
   mov A,[B]         ; save movestate
 
   mov PBONUS,A      ; add_score is + for white
-  swap A,D 
+  swap A,D
   jsr add_score     ; D=score, E=fromp 
 
   mov target,A<->B  ; restore D=target
@@ -124,28 +132,37 @@ undo_move
   swap A,E
   jsr move_and_promote
 
+  ; Score entering/exiting center of board (set E=targetp for reverse score)
+  ; here C=target
+  mov TOP0, A
+  loadacc A
+  swapall           ; A=fromp, B=targetp, C=from, D=target, E=movestate
+  swap A,E
+  swap A,C
+  swap A,D
+  swap A,C
+  jsr update_center_score  ; C=target, D=from, E=fromp
+
   ; if there was a capture, adjust score and replace piece
-  mov targetp,A<->B  
+  mov targetp,A<->B
   mov [B],A
   jz .out   ; no capture to undo
 
-  ; uncapture
-  ; A=targetp, C=target
-
+  ; uncapture. here A=E=targetp
   ; update material score when undoing a capture
-  mov A,E           ; E=save targetp
+  mov A,E           ; save for add_score,set_square
   lodig A
   swapdig A         ; 10*(piece type)
   add pval-10,A     ; index piece values, -10 to map PAWN=0
   ftl A             ; lookup value
   swap A,D          ; D=value
-  jsr add_score     ; subtracts because targetp is other player
+  jsr add_score     ; A=value, E=targetp, subtracts because targetp is other player
 
-  ; must be a way to avoid this reload - use one less reg in add_score?
+  ; put captureed piece back on target square
   mov target,A<->B  
   mov [B],A
   mov A,C
-  jsr set_square  ; C=square, E=player|piece
+  jsr set_square  ; C=square, E=targetp
 
 .out
   jmp far undo_move_ret
@@ -384,6 +401,55 @@ return_label
   ret
 
 
+
+; Update center score - adds +1/0/-1 to mscore for entering/leaving board center
+; Uses a sign lookup table to identify digits 3,4,5,6
+; C=from
+; D=target
+; E=player|piece (fromp)
+; Uses: A,B,D
+update_center_score
+  clr A
+  swap A,B      ; init B=0
+
+  ; Add 1 if center(target)
+  mov D,A
+  lodig A
+  add center,A
+  ftl A
+  jn .check_from
+  mov D,A
+  swapdig A
+  lodig A
+  add center,A
+  ftl A
+  jn .check_from
+  mov 1,A
+  swap A,B      ; score += 1
+
+  ; Subtract 1 if center(from)
+.check_from  
+  mov C,A
+  lodig A
+  add center,A
+  ftl A
+  jn .total
+  mov C,A
+  swapdig A
+  lodig A
+  add center,A
+  ftl A
+  jn .total
+  swap A,B
+  dec A         ; score -= 1
+  swap A,B      
+
+.total
+  swap A,B      ; A = center(from)-center(to)
+  swap A,D
+  ; fall through to add_score. D=score, E=player|piece
+
+
 ; add_score - updates mscore, adding or subtracting depending on which player
 ; D = score to add
 ; E = player|piece, add for player=WHITE
@@ -404,5 +470,7 @@ add_score
   add D,A           ; mscore += piece value
   mov A,[B]
   ret
+
+
 
 

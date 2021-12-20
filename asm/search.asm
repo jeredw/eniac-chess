@@ -60,6 +60,7 @@ output_move
   jz search_pop     ; if capturing king, fixup stack
 
   ; apply the move (updating mscore)
+  mov 10,A
   jmp far move
 move_ret
 
@@ -121,7 +122,7 @@ leaf
   mov A,[B]         ; [bestscore] = current score
   jsr set_best_move
 .movedone
-  jmp undo_and_search ; needlessly updates fromp, but whatevs
+  jmp far undo_move ; continues at undo_move_ret
 
 ; movegen jumps here when there are no more moves possible
 no_more_moves
@@ -191,20 +192,22 @@ search_pop
   ; been updated with best move and score, so just pop
   jsr pop
 
-  ; DEBUG 99xx <depth><bestscore> <bestfrom><bestto>
-  ;jsr print_best_move
-
-undo_and_search
-  jmp far undo_move
-undo_move_ret
-  ; reset [fromp] from board state for movegen
-  mov from,A<->B
-  mov [B],A<->D     ; D=[from] square
+  ; fromp is not stored in stack frame, must be restored from board state after pop
+  ; but note we're about to undo the last move we made at this depth, so fromp is
+  ; actually stored in the target square
+  mov target,A<->B
+  mov [B],A<->D     ; D=target
   jsr get_square
   swap A,D
   mov fromp,A<->B
   swap D,A
-  mov A,[B]         ; [fromp]
+  mov A,[B]         ; fromp=player|piece
+
+  ; DEBUG 99xx <depth><bestscore> <bestfrom><bestto>
+  ;jsr print_best_move
+
+  jmp far undo_move
+undo_move_ret
   jmp search
 
 ; stack routines
