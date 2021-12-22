@@ -273,11 +273,11 @@ move_and_promote
 ; C: square
 ; E: player|piece
 set_square
-   ; if king/rook, also update piecelist 
   mov E,A           ; A=player_piece 
   lodig A
-  addn ROOK,A       ; test if piece >= ROOK
-  jn .uncapture_piecelist ; if so, update other piece pos
+  addn ROOK,A       ; test if piece is ROOK
+  jz .uncapture_rook; if so update piecelist
+  ; note kings are never captured so we omit code to undo that
 
   ; encode pawn/knight/bishop/queen for board array
   mov E,A
@@ -319,44 +319,30 @@ set_square
   mov A,[B]         ; update board
   ret
 
-; the rook or king was captured, so its auxiliary position will be 0
-; find the correct auxiliary entry by piece type and update it
+; a rook was captured, so its auxiliary position will be 0
+; find a free auxiliary entry and update it
 ; C=target, E=player|piece
-.uncapture_piecelist
-  mov E,A           ; A=player_piece
-  addn KING,A       ; white king?
-  jz .set_wking
+.uncapture_rook
   mov E,A
-  addn 10+KING,A    ; black king?
-  jz .set_bking
-  mov E,A
-  addn ROOK,A       ; white rook?
-  jz .set_wrook
+  swapdig A
+  lodig A           ; white rook?
+  jz .wrook
   ; black rook positions are not stored
-  ; fallthrough
-
-.set_other
-  ; piecelist update done, now go update the board array
   mov OTHER,A       ; A=piece kind (OTHER) 
   jmp .set_board_array
 
-.set_wking
-  mov wking,A<->B   ;
-  jmp .set_update
-.set_bking
-  mov bking,A<->B   ;
-  jmp .set_update
-.set_wrook
+.wrook
   mov wrook1,A<->B  ;
   mov [B],A
-  jz .set_update     ; if wrook1 is not on board, reuse it
+  jz .do_uncapture   ; if wrook1 is not on board, reuse it
   ; fallthrough
 ;.wrook2
   mov wrook2,A<->B  ; else reuse wrook2
-.set_update
+.do_uncapture
   mov C,A           ; A=target
   mov A,[B]         ; [pos]=target
-  jmp .set_other
+  mov OTHER,A       ; A=piece kind (OTHER) 
+  jmp .set_board_array
 
 
 ; do_update_piecelist

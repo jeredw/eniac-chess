@@ -629,13 +629,6 @@ class TestUndoMove(SimTestCase):
     self.assertEqual(str(board), '8/8/8/8/8/5p2/4P3/8')
     self.assertEqual(board.score, -PAWN_SCORE-CENTER_SCORE)
 
-  def testUndoMovePawnE2_CaptureKing(self):
-    board = self.undoMove('8/8/8/8/8/5k2/4P3/8 w - - 0 1',
-                          '8/8/8/8/8/5P2/8/8 b - - 0 1',
-                          Move(fro=Square.e2, to=Square.f3))
-    self.assertEqual(str(board), '8/8/8/8/8/5k2/4P3/8')
-    self.assertEqual(board.score, -KING_SCORE-CENTER_SCORE)
-
   def testUndoMovePawnE2_CaptureRook(self):
     board = self.undoMove('8/8/8/8/8/5r2/4P3/8 w - - 0 1',
                           '8/8/8/8/8/5P2/8/8 b - - 0 1',
@@ -664,27 +657,12 @@ class TestUndoMove(SimTestCase):
     self.assertEqual(str(board), '8/3p4/2R1R3/8/8/8/8/8')
     self.assertEqual(board.score, ROOK_SCORE+CENTER_SCORE)
 
-  def testUndoMovePawnD7_CaptureKing(self):
-    board = self.undoMove('8/3p4/2K5/8/8/8/8/8 b - - 0 1',
-                          '8/8/2p5/8/8/8/8/8 w - - 0 2',
-                          Move(fro=Square.d7, to=Square.c6))
-    self.assertEqual(str(board), '8/3p4/2K5/8/8/8/8/8')
-    self.assertEqual(board.score, KING_SCORE+CENTER_SCORE)
-
   def testUndoMoveKingF3_CapturePawn(self):
     board = self.undoMove('8/8/8/8/8/5k2/4P3/8 b - - 0 1',
                           '8/8/8/8/8/8/4k3/8 w - - 0 2',
                           Move(fro=Square.f3, to=Square.e2))
     self.assertEqual(str(board), '8/8/8/8/8/5k2/4P3/8')
     self.assertEqual(board.score, PAWN_SCORE-CENTER_SCORE)
-
-  # "puzzle" board from below
-  def testUndoMoveQueenE5_CaptureKing(self):
-    board = self.undoMove('1k1r1q1r/pb3ppp/4p3/3pQ1b1/3P4/PP1B4/KBP2PPP/2R4R w - - 0 1',
-                          '1Q1r1q1r/pb3ppp/4p3/3p2b1/3P4/PP1B4/KBP2PPP/2R4R b - - 0 2',
-                          Move(fro=Square.e5, to=Square.b8))
-    self.assertEqual(str(board), '1k1r1q1r/pb3ppp/4p3/3pQ1b1/3P4/PP1B4/KBP2PPP/2R4R')
-    self.assertEqual(board.score, -KING_SCORE+CENTER_SCORE)
 
   # black rooks worth testing because they are a special case in the piece list
   def testUndoMoveQueenG7_CaptureBRook(self):
