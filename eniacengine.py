@@ -11,7 +11,7 @@ class EniacEngine(UCIEngine):
   """Wraps eniac chess simulation for uci tournament play."""
 
   def __init__(self):
-    super().__init__(name="ENIAC Chess", author="Jonathan Stray and Jered Wierzbicki")
+    super().__init__(name="ENIAC Chess 1.0", author="Jonathan Stray and Jered Wierzbicki")
     self.sim = None
     self.sent_eniacsim_g = False
 
