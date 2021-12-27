@@ -359,7 +359,7 @@ def make_move(position, move):
     dx = move.to.x - move.fro.x
     dy = move.to.y - move.fro.y
     if abs(dy) == 2:
-      p2.ep_target = move.fro + (0, dy/2)
+      p2.ep_target = move.fro + (0, dy//2)
     if dx != 0 and p2.board[move.to] == empty:
       ep_capture_square = Square(x=move.to.x, y=move.fro.y)
       ep_capture_piece = p2.board[ep_capture_square]

@@ -7,8 +7,9 @@ import threading
 import time
 import logging
 
-from game import Position
-from cheetah import CheetahEngine
+from game import Position, Move, make_move
+from testengine import TestEngine
+from eniacengine import EniacEngine
 
 def _uci_driver(engine):
   logging.basicConfig(level=logging.DEBUG,
@@ -23,8 +24,8 @@ def _uci_driver(engine):
     command = input()
     logger.debug(command)
     if command == "uci":
-      print("id name {}".format(engine.name))
-      print("id author {}".format(engine.author))
+      print(f"id name {engine.name}")
+      print(f"id author {engine.author}")
       print("uciok")
     elif command == "ucinewgame":
       engine.stop.set()
@@ -43,7 +44,7 @@ def _uci_driver(engine):
       elif args.startswith("fen "):
         args = args[len("fen "):]
         next_position = Position.fen(args)
-      logger.debug("next position: {}".format(str(next_position)))
+      logger.debug(f"next position: {str(next_position)}")
     elif command == "go" or command.startswith("go "):
       engine.position = next_position
       engine.wait_for_stop = "infinite" in command
@@ -67,5 +68,6 @@ def _uci_driver(engine):
 
 
 if __name__ == "__main__":
-  engine = CheetahEngine()
+  #engine = TestEngine()
+  engine = EniacEngine()
   _uci_driver(engine)

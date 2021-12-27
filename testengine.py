@@ -3,7 +3,7 @@ import math
 from uciengine import UCIEngine
 from game import ReferenceMoveGen
 
-class CheetahEngine(UCIEngine):
+class TestEngine(UCIEngine):
   """A really dumb reference engine."""
 
   def __init__(self):
