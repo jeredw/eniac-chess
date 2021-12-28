@@ -2,33 +2,13 @@
 ; Minimax search loop with alpha/beta pruning
 ; Finds the best move to play next and then jumps to search_done
 
-; assume it is ENIAC's turn to move, and that ENIAC is playing white
-; also assume the starting position is legal (both sides have a king,
-; and black's king can't be immediately captured)
+; assume it is ENIAC's turn to move, and that the starting position is
+; legal (both sides have a king, and the opponent's king can't be
+; immediately captured)
 
-; set up the initial search stack frame
+; load_board.asm sets up the initial search stack frame
 ; the initial best move 0000 means to resign.  any legal move should
 ; score better, but if there is none (i.e. checkmate) eniac will resign
-  mov depth,A<->B
-  mov 1,A
-  mov A,[B]         ; depth=1 i.e. one entry on stack
-  ; NOTE if needed we could delegate this to load_board.asm
-  clrall            ; ABCDE=0
-  mov 99,A<->E      ; E=beta=99
-                    ; D=alpha=0
-                    ; C=best_score=0
-                    ; B=bestto=0
-  clr A             ; A=bestfrom=0
-  swapall
-  mov TOP1,A
-  storeacc A        ; store TOP1
-  ; init TOP0 to 0, setting all move-related state to zero
-  ; NOTE this also sets [35]=[fromp] to 0, white to move
-  clrall
-  swapall
-  mov TOP0,A
-  storeacc A
-
 search
   ; call movegen for top of stack
   jmp far next_move

@@ -3,7 +3,6 @@ from game import Board, Position, ReferenceMoveGen, Square, Move, make_move
 from subprocess import run, PIPE, Popen
 import signal
 import time
-import sys
 
 def init_memory(position):
   memory = [0] * 75
@@ -30,8 +29,12 @@ def init_memory(position):
         rook += 1
       else:
         assert piece == 'r'
-  memory[35] = 0 if position.to_move == 'w' else 10
-  memory[55] = 50  # score
+  memory[55] = 50  # initial score
+  memory[65] = 1   # initial stack depth
+  memory[44] = 99  # beta
+  # set up appropriately for black or white play
+  memory[35] = 0 if position.to_move == 'w' else 10  # fromp
+  memory[42] = 0 if position.to_move == 'w' else 99  # best_score
   return memory
 
 def convert_memory_to_deck(memory):
@@ -69,41 +72,23 @@ def print_board(position):
       s += p
     print(s)
 
-position = Position.initial()
-
-run('python chasm/chasm.py asm/chess.asm chess.e', shell=True, check=True)
-run('python easm/easm.py -ECHESS chessvm/chessvm.easm chessvm.e', shell=True, check=True)
-run('make -C chsim lib', shell=True, check=True)
-sim = Popen('./eniacsim -q -W vis -v chsim/vm.so chessvm.e', shell=True, stdin=PIPE, stdout=PIPE)
-
-send_position_to_sim(sim, position)
-error = 0
-
-while True:
-  print_board(position)
-
-  # wait for eniac's move
-  print('ENIAC is thinking...')
-  raw_move = sim.stdout.readline().decode().strip()
+def do_eniac_move(position, raw_move):
   if len(raw_move) != 4:
     print(f'invalid sim output "{raw_move}"')
-    error = 1
-    break
+    return
   if raw_move == '0000':
     print('eniac resigns; you win')
-    break
+    return
   move = Move(fro=Square(y=int(raw_move[0]), x=int(raw_move[1])),
               to=Square(y=int(raw_move[2]), x=int(raw_move[3])))
   if is_legal(position, move):
     print(f'eniac plays {move}')
   else:
     print(f'oops. eniac resigns by illegal move {move}. you win')
-    error = 1
-    break
+    return
+  return make_move(position, move)
 
-  # update board state with eniac's move
-  position = make_move(position, move)
-  print_board(position)
+def do_human_move(position):
   move = None
   while not move:
     raw_move = input('your move?')
@@ -112,8 +97,7 @@ while True:
       continue
     if raw_move == '0000':
       print('you resign, eniac wins')
-      sim.kill()
-      sys.exit(0)
+      return
     try:
       move = Move.lan(raw_move)
     except:
@@ -123,11 +107,43 @@ while True:
       print(f'oops. {move} is illegal, please try again')
       move = None
       continue
-    break
+    return make_move(position, move)
+
+position = Position.initial()
+
+run('python chasm/chasm.py asm/chess.asm chess.e', shell=True, check=True)
+run('python easm/easm.py -ECHESS chessvm/chessvm.easm chessvm.e', shell=True, check=True)
+run('make -C chsim lib', shell=True, check=True)
+sim = Popen('./eniacsim -q -W vis -v chsim/vm.so chessvm.e', shell=True, stdin=PIPE, stdout=PIPE)
+
+human_color = ''
+while not human_color:
+  human_color = input('do you want b or w pieces?')
+  if human_color not in 'bw':
+    print('please enter b or w')
+    continue
+  break
+
+if human_color == 'w':
+  print_board(position)
+  position = do_human_move(position)
+
+send_position_to_sim(sim, position)
+
+while True:
+  print_board(position)
+
+  # wait for eniac's move
+  print('ENIAC is thinking...')
+  raw_move = sim.stdout.readline().decode().strip()
+  position = do_eniac_move(position, raw_move)
+  if not position: break
+
+  print_board(position)
+  position = do_human_move(position)
+
   # tell the simulator about the new board state
-  position = make_move(position, move)
   sim.send_signal(signal.SIGINT)
   send_position_to_sim(sim, position)
 
 sim.kill()
-sys.exit(error)

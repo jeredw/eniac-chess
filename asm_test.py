@@ -51,7 +51,10 @@ class SimTestCase(unittest.TestCase):
           rook += 1
         else:
           assert piece == 'r'
+    self.memory[65] = 1   # initial stack depth
+    self.memory[44] = 99  # beta
     self.memory[35] = 0 if position.to_move == 'w' else 10
+    self.memory[42] = 0 if position.to_move == 'w' else 99  # best_score
     self.initScore(position)
 
   def initScore(self, position):

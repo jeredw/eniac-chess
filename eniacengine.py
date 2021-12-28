@@ -74,8 +74,12 @@ def init_memory(position):
         rook += 1
       else:
         assert piece == 'r'
-  memory[35] = 0 if position.to_move == 'w' else 10
-  memory[55] = 50  # score
+  memory[55] = 50  # initial score
+  memory[65] = 1   # initial stack depth
+  memory[44] = 99  # beta
+  # set up appropriately for black or white play
+  memory[35] = 0 if position.to_move == 'w' else 10  # fromp
+  memory[42] = 0 if position.to_move == 'w' else 99  # best_score
   return memory
 
 def convert_memory_to_deck(memory):
