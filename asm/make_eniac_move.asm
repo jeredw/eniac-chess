@@ -5,6 +5,7 @@
 ; Make ENIAC's move on board. Requires setting fromp, from, target in top of stack
 ; Input: A=bestfrom, B=bestto
 
+  jz resign
   swap A,D
   swap A,B
   swap A,E
@@ -25,5 +26,5 @@
   jsr dec_depth
   jmp far move
 
-
-
+resign
+  halt
