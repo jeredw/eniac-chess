@@ -5,7 +5,7 @@
 ; Make ENIAC's move on board. Requires setting fromp, from, target in top of stack
 ; Input: A=bestfrom, B=bestto
 
-  jz resign
+  jz resign       ; if no move, resign
   swap A,D
   swap A,B
   swap A,E
@@ -27,4 +27,6 @@
   jmp far move
 
 resign
-  halt
+  ; we could halt here, but for engine play it's nicer to just jump
+  ; back to the game loop to accept a new game position
+  jmp far game
