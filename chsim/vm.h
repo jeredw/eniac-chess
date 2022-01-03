@@ -20,6 +20,7 @@ typedef struct eniac_t {
 
 typedef struct vm_t {
   unsigned long long cycles;
+  unsigned long long instructions;
   int status;
   int error;
 

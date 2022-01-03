@@ -43,7 +43,9 @@ class EniacEngine(UCIEngine):
     raw_move = self.sim.stdout.readline().decode().strip()
     self.log.debug(f'eniac raw move: {raw_move}')
     if raw_move == '0000':
-      # XXX UCI doesn't seem to have an actual way to resign...
+      # UCI doesn't seem to have an actual way to resign, so return None
+      # This will make the move the literal string "None", which a board
+      # program ought to adjudicate as resignation by invalid move.
       return
     return Move(fro=Square(y=int(raw_move[0]), x=int(raw_move[1])),
                 to=Square(y=int(raw_move[2]), x=int(raw_move[3])))

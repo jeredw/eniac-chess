@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <utility>
 #include <algorithm>
+#include <time.h>
 
 #include "vm.h"
 
@@ -13,6 +14,7 @@ int getmem(VM* vm, int addr) {
 // Reset state for a new VM instance
 static void init(VM* vm) {
   vm->cycles = 0;
+  vm->instructions = 0;
   vm->status = 0;
   vm->error = 0;
   vm->pc = 100;
@@ -306,12 +308,72 @@ static void update_bank(VM* vm) {
   vm->mem[14][0] = copy_sign(bank == 3 ? +1 : -1, vm->mem[14][0]);
 }
 
+struct Timestamp {
+  unsigned long long n;
+  unsigned long long seconds;
+  unsigned long long cycles;
+  unsigned long long instructions;
+  unsigned long long sum_seconds;
+  unsigned long long sum_cycles;
+  unsigned long long sum_instructions;
+};
+
+static void collect_timestamp(VM* vm, Timestamp* ts) {
+  ts->n++;
+  clock_t seconds = clock() / CLOCKS_PER_SEC;
+  if (ts->seconds) {
+    ts->sum_seconds += seconds - ts->seconds;
+  }
+  ts->seconds = seconds;
+  if (ts->cycles) {
+    ts->sum_cycles += vm->cycles - ts->cycles;
+  }
+  ts->cycles = vm->cycles;
+  if (ts->instructions) {
+    ts->sum_instructions += vm->instructions - ts->instructions;
+  }
+  ts->instructions = vm->instructions;
+}
+
+static struct {
+  FILE* fp;
+  Timestamp move;
+  Timestamp turn;
+} chess;
+
 static void step_one_instruction(VM* vm) {
   if (vm->status & HALT) return;
+  if (!chess.fp) {
+    chess.fp = fopen("/tmp/debug-chess.log", "w");
+  }
+  if (chess.fp && vm->pc == 310 && vm->ir_index == 6) {
+    collect_timestamp(vm, &chess.move);
+  }
+  if (chess.fp && vm->pc == 386 && vm->ir_index == 6) {
+    clock_t seconds = clock() / CLOCKS_PER_SEC;
+    fprintf(chess.fp, "turn %lld: searched %lld moves in %lld cycles/%lld instructions/%lld seconds\n",
+            chess.turn.n, chess.move.n,
+            vm->cycles - chess.turn.cycles,
+            vm->instructions - chess.turn.instructions,
+            seconds - chess.turn.seconds);
+    fflush(chess.fp);
+    chess.move.n = 0;
+    chess.move.seconds = 0;
+    chess.move.cycles = 0;
+    chess.move.instructions = 0;
+    chess.move.sum_seconds = 0;
+    chess.move.sum_cycles = 0;
+    chess.move.sum_instructions = 0;
+    collect_timestamp(vm, &chess.turn);
+  }
   vm->profile[vm->pc][vm->ir_index]++;
   int fetch_cost = vm->ir_index < 6 ? 6 : vm->pc < 300 ? 12 : 13;
   int opcode = consume_ir(vm);
-  if (opcode == 99) fetch_cost = 0;
+  if (opcode == 99) {
+    fetch_cost = 0;
+  } else {
+    vm->instructions++;
+  }
   vm->cycles += fetch_cost;
   switch (opcode) {
     case 0: // clrall
