@@ -16,6 +16,12 @@ print_best_move
   mov [B],A<->B       ; B=[bestto]
   swap D,A            ; A=[bestfrom]
   print               ;
+  mov alpha,A<->B     ;
+  mov [B],A<->D       ; D=[alpha]
+  mov beta,A<->B
+  mov [B],A<->B       ; B=[beta]
+  swap D,A            ; A=[alpha]
+  print               ;
   ret
 
 print_move
@@ -30,5 +36,11 @@ print_move
   mov target,A<->B
   mov [B],A<->B       ; B=[bestto]
   swap D,A            ; A=[bestfrom]
+  print               ;
+  mov alpha,A<->B     ;
+  mov [B],A<->D       ; D=[alpha]
+  mov beta,A<->B
+  mov [B],A<->B       ; B=[beta]
+  swap D,A            ; A=[alpha]
   print               ;
   ret

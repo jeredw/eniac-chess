@@ -96,6 +96,7 @@ def read_fen(fen):
 
 	if fields[1] == 'b':
 		memory[FROMP] = BLACK*10
+		memory[42] = 99  # best_score
 
 
 # write one card for each nonzero word in memory, just the way load_board.asm likes it
@@ -112,6 +113,9 @@ def print_deck():
 read_fen(sys.stdin.read().rstrip())
 # initialize starting material score to balanced
 memory[MSCORE] = 50
+memory[65] = 1   # initial stack depth
+memory[44] = 99  # beta
+# set up appropriately for black or white play
 print(print_deck())
 
 
