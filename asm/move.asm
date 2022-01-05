@@ -394,8 +394,7 @@ do_update_piecelist:
 ; Uses a sign lookup table to identify digits 3,4,5,6
 ; C=from
 ; D=target
-; Uses: A,B,D,E
-; Sets and returns with E=player|piece (fromp)
+; Uses: A,B,D
 update_center_score
   clr A
   swap A,B      ; init B=0
