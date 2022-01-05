@@ -8,8 +8,6 @@ import sys
 WHITE = 0
 BLACK = 1
 
-FROMP = 35  # fromp in memory_layout.asm, used to indicate current player
-
 # piece encoding for add_piece
 PAWN = 1
 KNIGHT = 2
@@ -33,10 +31,13 @@ BQUEEN = 9
 WKING = 32
 BKING = 33
 WROOK = 34
-WROOK2 = 45
+WROOK2 = 35
+
+# fromp in memory_layout.asm, used to indicate current player
+FROMP = 36
 
 # material score difference between white and black (50 is no difference)
-MSCORE = 55
+MSCORE = 37
 
 # we print the memory when we are done
 memory = [0]*75
@@ -96,7 +97,7 @@ def read_fen(fen):
 
 	if fields[1] == 'b':
 		memory[FROMP] = BLACK*10
-		memory[42] = 99  # best_score
+		memory[45] = 99  # best_score
 
 
 # write one card for each nonzero word in memory, just the way load_board.asm likes it
@@ -113,8 +114,8 @@ def print_deck():
 read_fen(sys.stdin.read().rstrip())
 # initialize starting material score to balanced
 memory[MSCORE] = 50
-memory[65] = 1   # initial stack depth
-memory[44] = 99  # beta
+memory[38] = 1   # initial stack depth
+memory[69] = 99  # beta
 # set up appropriately for black or white play
 print(print_deck())
 

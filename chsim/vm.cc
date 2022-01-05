@@ -349,7 +349,7 @@ static void step_one_instruction(VM* vm) {
   if (chess.fp && vm->pc == 310 && vm->ir_index == 6) {
     collect_timestamp(vm, &chess.move);
   }
-  if (chess.fp && vm->pc == 386 && vm->ir_index == 6) {
+  if (chess.fp && vm->pc == 380 && vm->ir_index == 6) {
     clock_t seconds = clock() / CLOCKS_PER_SEC;
     fprintf(chess.fp, "turn %lld: searched %lld moves in %lld cycles/%lld instructions/%lld seconds\n",
             chess.turn.n, chess.move.n,

@@ -25,16 +25,16 @@ def init_memory(position):
         memory[34] = yx
         rook += 1
       elif piece == 'R' and rook == 1:
-        memory[45] = yx
+        memory[35] = yx
         rook += 1
       else:
         assert piece == 'r'
-  memory[55] = 50  # initial score
-  memory[65] = 1   # initial stack depth
-  memory[44] = 99  # beta
+  memory[37] = 50  # initial score
+  memory[38] = 1   # initial stack depth
+  memory[69] = 99  # beta
   # set up appropriately for black or white play
-  memory[35] = 0 if position.to_move == 'w' else 10  # fromp
-  memory[42] = 0 if position.to_move == 'w' else 99  # best_score
+  memory[36] = 0 if position.to_move == 'w' else 10  # fromp
+  memory[45] = 0 if position.to_move == 'w' else 99  # best_score
   return memory
 
 def convert_memory_to_deck(memory):

@@ -10,7 +10,7 @@ PAWN_SCORE=3
 BISHOP_SCORE=9
 KNIGHT_SCORE=9
 ROOK_SCORE=15
-QUEEN_SCORE=24
+QUEEN_SCORE=27
 KING_SCORE=25
 
 # defined in update_center_score
@@ -47,29 +47,29 @@ class SimTestCase(unittest.TestCase):
           self.memory[34] = yx
           rook += 1
         elif piece == 'R' and rook == 1:
-          self.memory[45] = yx
+          self.memory[35] = yx
           rook += 1
         else:
           assert piece == 'r'
-    self.memory[65] = 1   # initial stack depth
-    self.memory[44] = 99  # beta
-    self.memory[35] = 0 if position.to_move == 'w' else 10
-    self.memory[42] = 0 if position.to_move == 'w' else 99  # best_score
+    self.memory[38] = 1   # initial stack depth
+    self.memory[69] = 99  # beta
+    self.memory[36] = 0 if position.to_move == 'w' else 10
+    self.memory[45] = 0 if position.to_move == 'w' else 99  # best_score
     self.initScore(position)
 
   def initScore(self, position):
     # We score each move incrementally instead of evaluating board positions
     # always start at 50, giving us headroom for two captures on either side
-    self.memory[55] = 50
+    self.memory[37] = 50
 
   def initMove(self, position, move):
     encode_piece = lambda k: '.PNBQRK????pnbqrk'.find(k)
-    self.memory[35] = encode_piece(position.board[move.fro])
-    self.memory[36] = encode_piece(position.board[move.to])
-    self.memory[37] = move.fro.y * 10 + move.fro.x
-    self.memory[38] = move.to.y * 10 + move.to.x
+    self.memory[36] = encode_piece(position.board[move.fro])
+    self.memory[46] = encode_piece(position.board[move.to])
+    self.memory[47] = move.fro.y * 10 + move.fro.x
+    self.memory[48] = move.to.y * 10 + move.to.x
     if move.promo:
-      self.memory[39] = 90
+      self.memory[49] = 90
 
   def convertMemoryToDeck(self):
     deck = []

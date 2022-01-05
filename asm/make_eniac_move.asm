@@ -11,16 +11,18 @@
   swap A,E
   jsr get_square
   swap A,C        ; C=player|piece on bestfrom
-  mov TOP0,A
+  mov TOP,A
   loadacc A
-  swapall         ; A=fromp, C=from, D=target, F=TOP0, H=player|piece, I=bestfrom, J=bestto
+  swapall         ; A=xx, C=from, D=target, F=TOP, H=player|piece, I=bestfrom, J=bestto
   mov I,A
   swap A,C        ; from=bestfrom
   mov J,A 
   swap A,D        ; target=bestto  
-  mov H,A         ; from=player|piece
   swapall
   storeacc A
+  mov fromp,A<->B
+  swap C,A
+  mov A,[B]       ; fromp=player|piece
 
   ; set stack depth=0 to signal move to jump to game
   jsr dec_depth

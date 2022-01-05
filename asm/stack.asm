@@ -1,54 +1,24 @@
 ; STACK.ASM 
 ; Push and pop the search stack
 ; 
-; 36 words of memory form a 4-level software stack for alpha/beta search.
-; Instead of indirecting through a stack pointer, the top of stack is kept at
-; a fixed address to save code space. This requires copying on push and pop.
-;
-; To make that copying more efficient using loadacc/storeacc, stack entries are
-; stored with a stride of 10 words at offsets 36, 46, 56, and 66. Thus we can
-; copy quickly using loadacc/storeacc. 
-; 
-; a7  |xx 36 37 38 39
-; a8   40 41 42 43 44|
-; a9  |xx 46 47 48 49
-; a10  50 51 52 53 54|
-; a11 |xx 56 57 58 59
-; a12  60 61 62 63 64|
-; a13 |xx 66 67 68 69
-; a14  70 71 72 73 74|
-;
-; Locations 35,45,55,65 are not part of the stack and are handled as follows:
-;   35 - fromp  - don't need to preserve as we're not in movegen
-;   45 - wrook2 - preserved
-;   55 - mscore - preserved
-;   65 - depth  - incremented/decremented
+; Instead of indirecting through a stack pointer, the top of the move stack
+; is kept at a fixed address to save code space. This requires copying on
+; push and pop.
 
-; Pop a move off the search stack, i.e. copy accumulators down
+; Pop the move stack, i.e. copy accumulators down
 pop
-  mov 45,A<->B
-  mov [B],A<->C   ; C=save [45] = wrook2
-  mov 55,A<->B
-  mov [B],A<->D   ; D=save [55] = mscore
-  mov 9,A
-.loop
-  loadacc A       ; load acc A
+  mov TOP+1,A
+  loadacc A
   dec A
+  storeacc A      ; copy a10->a9
+  add 2,A
+  loadacc A
   dec A
-  storeacc A      ; copy to A-2
-  addn 12,A       ;
-  jz .out         ; if A==12, done copying
-  add 12+3,A
-  flipn
-  jmp .loop
-.out
-  ; fix [45] and [55] which got clobbered
-  mov 45,A<->B
-  swap C,A
-  mov A,[B]       ; restore [45] = wrook2
-  mov 55,A<->B
-  swap D,A
-  mov A,[B]       ; restore [55] = mscore
+  storeacc A      ; copy a11->a10
+  add 2,A
+  loadacc A
+  dec A
+  storeacc A      ; copy a12->a11
 
   ; dec stack depth
 dec_depth         ; called from make_eniac_move as a game over sentinel
@@ -58,36 +28,46 @@ dec_depth         ; called from make_eniac_move as a game over sentinel
   mov A,[B]
   ret
 
-; Push the search stack, i.e. copy accumulators up
+; Push the move stack, i.e. copy accumulators up
 push
-  mov 45,A<->B
-  mov [B],A<->C   ; C=save [45] = wrook2
-  mov 55,A<->B
-  mov [B],A<->D   ; D=save [55] = mscore
-  mov 65,A<->B
-  mov [B],A<->E   ; E=save [65] = depth
-  mov 12,A
-.loop
-  loadacc A       ; load acc A
+  mov TOP+2,A
+  loadacc A
   inc A
+  storeacc A      ; copy a11->a12
+  dec A
+  dec A
+  loadacc A
   inc A
-  storeacc A      ; copy to A+2
-  addn 9,A        ;
-  jz .out         ; if A==9, done copying
-  add 9-3,A
-  flipn
-  jmp .loop
-.out
-  ; fix [45], [55], and [65] which got clobbered
-  mov 45,A<->B
-  swap C,A
-  mov A,[B]       ; restore [45] =
-  mov 55,A<->B
-  swap D,A
-  mov A,[B]       ; restore [55]
-  ; inc stack depth, currently in E
+  storeacc A      ; copy a10->a11
+  dec A
+  dec A
+  loadacc A
+  inc A
+  storeacc A      ; copy a9->a10
+
+  ; must also copy alpha/beta from parent to child
   mov depth,A<->B
-  mov E,A
+  mov [B],A         ; A=depth
+  add alpha0,A      ; index alpha for depth
+  jsr copy_up
+  add beta0-alpha0-1,A ; index beta for depth
+  jsr copy_up
+
+  ; inc stack depth
+  mov depth,A<->B
+  mov [B],A
   inc A
   mov A,[B]
+  jmp push_ret
+
+; copy word at A to A+1
+copy_up
+  swap A,B
+  mov [B],A<->D     ; D=mem[A]
+  swap B,A
+  inc A             ; inc address
+  swap A,B
+  swap D,A
+  mov A,[B]         ; mem[A+1] = D
+  swap B,A
   ret

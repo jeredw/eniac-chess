@@ -21,7 +21,6 @@
 
   .org 200
   .include move.asm
-  ;.include debug.asm
 
 ; Main program - we jump here on reset
   .org 306
@@ -36,11 +35,11 @@ start
 
 search_done
   ; print the best move found during the search
-  mov TOP1,A
-  loadacc A           ; F=bestfrom, G=bestto
-  mov G,A
+  mov BEST,A
+  loadacc A           ; I=bestfrom, J=bestto
+  mov J,A
   swap A,B
-  mov F,A
+  mov I,A
   print
 
   ; Update board so GUI shows it, then jumps to game

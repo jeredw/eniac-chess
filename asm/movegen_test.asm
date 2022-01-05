@@ -13,11 +13,11 @@ start
 output_move
 
   ; read out target and from squares to print
-  mov 7,A
+  mov TOP,A
   loadacc A
-  mov I,A           ; B = target = [38]
+  mov I,A           ; B = target
   swap A,B
-  mov H,A           ; A = from = [37]
+  mov H,A           ; A = from
 
   print
   

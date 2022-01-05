@@ -3,10 +3,11 @@
 
 ; Communicates through top of stack: 
 ;  [from]      - from square
-;  [fromp]     - current player player | piece on from
 ;  [target]    - to square
 ;  [targetp]   - 0 if empty, or opposing player | piece on to
 ;  [movestate] - opaque iteration state
+; And through globals:
+;  [fromp]     - current player player | piece on from
 ;
 ; To call: jump to next_move
 ; Initializes move generation if [from]=0
@@ -23,13 +24,14 @@
 ; - next_move - 
 ; Main entrypoint
 next_move           
-  mov TOP0,A
-  loadacc A         ; (F=fromp, G=targetp, H=from, I=target, J=movestate)
+  mov TOP,A
+  loadacc A         ; G=targetp, H=from, I=target, J=movestate
   mov H,A           ;
   jz init_move      ; [from]==0 means start of iteration
   swap A,D          ; D=from
   mov J,A<->C       ; C=movestate
-  mov F,A<->E       ; E=fromp
+  mov fromp,A<->B   ;
+  mov [B],A<->E     ; E=fromp
 
 ; Generate next move for current piece 
 ; Here: C=movestate, D=from square, E=from player_piece
@@ -71,7 +73,7 @@ try_square          ; A=square
   swap A,D          ; D=square
   jmp next_square   ; not our piece
 
-; Found one of our pieces, set globla fromp and from and start generating moves
+; Found one of our pieces, set global fromp and from and start generating moves
 .ours
   mov E,A
   mov A,[B]         ; [fromp]=player|piece on square

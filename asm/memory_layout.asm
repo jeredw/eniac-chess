@@ -19,7 +19,7 @@ ROOK    .equ  5
 KING    .equ  6
 
 ; Incremental score for pawn to queen promotion (must be equal to queen-pawn)
-PBONUS  .equ  21
+PBONUS  .equ  24
 
 
 ; - Board representation - 
@@ -43,7 +43,7 @@ BQUEEN  .equ 9
 wking  .equ 32
 bking  .equ 33
 wrook1 .equ 34
-wrook2 .equ 45  ; not adjacent to wrook1 so movegen state fits in accumulator 7
+wrook2 .equ 35
 
 ; If square is occupied with OTHER and it's not king or wrook, it's brook
 ; Hence we only need four words to define the location of six pieces.
@@ -55,7 +55,7 @@ wrook2 .equ 45  ; not adjacent to wrook1 so movegen state fits in accumulator 7
 ; Player in high digit, piece in low digit, which we write as player|piece.
 ; It's not in the stack because we can find it by calling get_square with [from] 
 ; Once initialized that way, it's awfully useful to know whose turn it is.
-fromp  .equ 35
+fromp  .equ 36
 
 ; mscore - material score advantage for white
 ; One word does not have enough resolution for a full board evaluation, but 
@@ -63,71 +63,77 @@ fromp  .equ 35
 ; Plus 50, so 50 means a tied material score (no captures, or an even trade)  
 ; Updated incrementally during move and undo_move.
 ;
-mscore  .equ 55
+mscore  .equ 37
 
 ; The zero value for score is set at 50 so values < 50 are negative.
 SZERO   .equ 50
 
 ; Current search stack depth
-depth   .equ 65
+depth   .equ 38
 
 ; The stack can have at most 4 entries, reduce for debugging
 MAXD    .equ 4
 
+; XXX bounteous free memory!
+unused0   .equ 39
+unused1   .equ 40
+unused2   .equ 41
+unused3   .equ 42
+unused4   .equ 43
+unused5   .equ 44
+
+; Best top level move found
+BEST      .equ 14  ; "best" accumulator
+bestfrom  .equ 73
+bestto    .equ 74
+
 
 ; - Stack - 
-; 36 words of memory form a 4-level software stack for alpha/beta search.
-; Instead of indirecting through a stack pointer, the top of stack is kept at
-; a fixed address to save code space. This requires copying on push and pop.
-; To make that copying more efficient using loadacc/storeacc, stack entries are
-; stored with a stride of 10 words at offsets 36, 46, 56, and 66.
+; 28 words of memory form a 4-level software stack for alpha/beta search.
+; Each stack entry is split into two parts, with 5 words for move state and
+; 2 words for alphas and betas per level.
 ;
-; a7  |xx 36 37 38 39
-; a8   40 41 42 43 44|
-; a9  |xx 46 47 48 49
-; a10  50 51 52 53 54|
-; a11 |xx 56 57 58 59
-; a12  60 61 62 63 64|
-; a13 |xx 66 67 68 69
-; a14  70 71 72 73 74|
-
+; Instead of indirecting through a stack pointer, the top of the move stack
+; is kept at a fixed address to save code space. This requires copying on
+; push and pop.
+;         bestscore targetp from target movestate
+; D=1 a9  45        46      47   48     49
+; D=2 a10 50        51      52   53     54
+; D=3 a11 55        56      57   58     59
+; D=4 a12 60        61      62   63     64
+;
+; Alphas and betas are only accessed in a few places so are stored as
+; packed arrarys indexed by depth.
+;            D=1 D=2 D=3 D=4
+; α   a13    65  66  67  68
+; β   a13/14 69  70  71  72
 
 ; Top of stack - lastest move in search
-
-; Accumulator indices
-TOP0      .equ 7  ; floor(36/5)
-TOP1      .equ 8  ; floor(40/5)
+TOP       .equ 9  ; accumulator index
 
 ; Current move
+; bestscore - best score at this depth
 ; targetp - player_piece captured, or zero if square is empty
 ; from - from square index
 ; target - to square index
 ; movestate - iterator for move generation
-targetp   .equ 36
-from      .equ 37
-target    .equ 38
-movestate .equ 39 	; values >= PROMO indicate pawn promotion
+bestscore .equ 45
+targetp   .equ 46
+from      .equ 47
+target    .equ 48
+movestate .equ 49 	; values >= PROMO indicate pawn promotion
 
 ; Flag added to movestate indicating that the current move is a pawn promotion
 PROMO   .equ  90
 
-; Best move so far
-bestfrom  .equ 40
-bestto    .equ 41
-bestscore .equ 42 	; Score after best move
+; Equivalent parent stack entries - top of stack minus 1
+pbestscore .equ 50
+pfrom      .equ 52
+ptarget    .equ 53
 
 ; Pruning thresholds for alpha/beta search
-alpha     .equ 43
-beta      .equ 44
-
-; Equivalent parent stack entries - top of stack minus 1
-pfrom     .equ 47
-ptarget   .equ 48
-pbestfrom .equ 50
-pbestto   .equ 51
-pbestscore .equ 52
-palpha    .equ 53
-pbeta     .equ 54
+alpha0  .equ 64  ; alphas in 65, 66, 67, 68
+beta0   .equ 68  ; betas in 69, 70, 71, 72
 
 
 ; - Data tables -

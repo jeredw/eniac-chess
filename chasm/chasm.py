@@ -610,10 +610,10 @@ class V4(PrimitiveParsing):
       self.out.error(f"invalid mov argument '{arg}'")
 
   def _add(self, label, op, arg):
-    if re.match(r"D,\s*A", arg):
+    if re.match(r"D,\s*A$", arg):
       self.out.emit(70, comment=f"{op} {arg}")
     else:
-      m = re.match(r"\s*(.+),\s*A", arg)
+      m = re.match(r"\s*(.+),\s*A$", arg)
       if m:
         source = m.group(1)
         word = self._immediate(source)
@@ -624,7 +624,7 @@ class V4(PrimitiveParsing):
         self.out.error(f"invalid argument '{arg}'")
 
   def _addn(self, label, op, arg):
-    m = re.match(r"\s*(.+),\s*A", arg)
+    m = re.match(r"\s*(.+),\s*A$", arg)
     if m:
       source = m.group(1)
       word = self._immediate(source)

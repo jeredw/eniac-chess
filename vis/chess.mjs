@@ -15,7 +15,7 @@ export function extractChessBoardState(memory) {
     'whiteKing': decodePosition(memory[32]),
     'blackKing': decodePosition(memory[33]),
     'whiteRook1': decodePosition(memory[34]),
-    'whiteRook2': decodePosition(memory[45]),
+    'whiteRook2': decodePosition(memory[35]),
   };
   const board = [];
   for (let y = 0; y < 8; y++) {
@@ -106,15 +106,15 @@ function decodePiece(square, squareY, squareX, others) {
 
 export class ChessStack extends Component {
   render({ memory }) {
-    const depth = parseInt(memory[65], 10);
+    const depth = parseInt(memory[38], 10);
     return html`
       <h3>Move stack (in memory)</h3>
       <table class="chess-stack table-dump">
         <${ChessStackHeader} />
-        <${ChessStackEntry} isTop=1 active=${depth >= 1} data=${memory.slice(36, 45)} />
-        <${ChessStackEntry} isTop=0 active=${depth >= 2} data=${memory.slice(46, 55)} />
-        <${ChessStackEntry} isTop=0 active=${depth >= 3} data=${memory.slice(56, 65)} />
-        <${ChessStackEntry} isTop=0 active=${depth >= 4} data=${memory.slice(66, 75)} />
+        <${ChessStackEntry} isTop=1 active=${depth >= 1} data=${memory.slice(45, 50)} alpha=${memory[65]} beta=${memory[69]} />
+        <${ChessStackEntry} isTop=0 active=${depth >= 2} data=${memory.slice(50, 55)} alpha=${memory[66]} beta=${memory[70]} />
+        <${ChessStackEntry} isTop=0 active=${depth >= 3} data=${memory.slice(55, 60)} alpha=${memory[67]} beta=${memory[71]} />
+        <${ChessStackEntry} isTop=0 active=${depth >= 4} data=${memory.slice(60, 65)} alpha=${memory[68]} beta=${memory[72]} />
       </table>
     `;
   }
@@ -124,24 +124,24 @@ function ChessStackHeader() {
   return html`
     <tr>
       <th></th>
+      <th>bestscore</th>
       <th>capture</th>
       <th>from</th>
       <th>to</th>
       <th>movestate</th>
-      <th>bestfrom</th>
-      <th>bestto</th>
-      <th>bestscore</th>
       <th>α</th>
       <th>β</th>
     </tr>
   `;
 }
 
-function ChessStackEntry({ isTop, active, data }) {
+function ChessStackEntry({ isTop, active, data, alpha, beta }) {
   return html`
     <tr class=${active ? "active" : "inactive"}>
       <td>${+isTop ? ">" : " "}</td>
       ${data.map(item => html`<td>${item}</td>`)}
+      <td>${alpha}</td>
+      <td>${beta}</td>
     </tr>
   `;
 }

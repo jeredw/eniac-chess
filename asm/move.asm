@@ -4,11 +4,9 @@
 ; Modifies the board in place to move piece [fromp] from square [from] to square
 ; [target], removing piece [targetp] if any.
 move
-  mov TOP0, A
-  loadacc A         ; F=fromp, G=targetp, H=from, I=target, J=movestate
-
   ; does this move capture a piece?
-  mov G,A           ; A=targetp
+  mov targetp,A<->B
+  mov [B],A         ; A=targetp
   jz .no_capture    ; no, target square already clear
 
   ; update material score when capturing a piece
@@ -17,40 +15,40 @@ move
   add pval-10,A     ; index piece values, -10 to map PAWN=0
   ftl A             ; lookup value
   swap A,D          ; D=value
-  mov F,A           ; A=fromp
-  swap A,E 
+  mov fromp,A<->B
+  mov [B],A<->E     ; E=fromp
   jsr add_score     ; D=value, E=player=fromp
 
   ; remove targetp from piecelist, if necessary
-  mov TOP0, A
-  loadacc A         ; F=fromp, G=targetp, H=from, I=target, J=movestate
+  mov TOP,A
+  loadacc A         ; G=targetp, H=from, I=target, J=movestate
   mov G,A
   lodig A
   addn ROOK,A       ; piece type >= rook?
   flipn
-  jn .contd         ; no, this piece is not in the piece list
-  
+  jn .no_capture    ; no, this piece is not in the piece list
+
   clrall            ; C=0
   mov I,A          
-  swap A,D          ; A=target
+  swap A,D          ; D=target
   jsr do_update_piecelist  ; C=new pos=0, D=old pos=target
 
-  ; reload stacktop
-.contd
-  mov TOP0, A
-  loadacc A
-
 .no_capture
-  swapall           ; A=fromp, B=targetp, C=from, D=target, E=movestate
-  mov A,E           ; E=fromp
+  mov TOP,A
+  loadacc A
+  swapall           ; B=targetp, C=from, D=target, E=movestate
+  mov fromp,A<->B
+  mov [B],A<->E     ; E=fromp
 
   ; Score entering/exiting center of board
   jsr update_center_score ; C=from, D=target, E=fromp
   
-  mov TOP0, A       ; restore D=target, A=E=fromp
+  mov TOP,A         ; restore D=target, A=E=fromp
   loadacc A
-  swapall           ; A=fromp, B=targetp, C=from, D=target, E=movestate
-  mov A,E
+  swapall           ; B=targetp, C=from, D=target, E=movestate
+  mov fromp,A<->B
+  mov [B],A         ;
+  mov A,E           ; A=E=fromp
 
   ; compute promotion delta (0 if no promotion)
   lodig A
@@ -112,10 +110,12 @@ move
 ; [target].
 ;
 undo_move
-  mov TOP0, A
+  mov TOP,A
   loadacc A
-  swapall           ; A=fromp, B=targetp, C=from, D=target, E=movestate
-  swap A,E          ; A=movestate, B=targetp, C=from, D=target, E=fromp
+  swapall           ; B=targetp, C=from, D=target, E=movestate
+  mov fromp,A<->B
+  mov [B],A
+  swap A,E          ; A=movestate, B=xx, C=from, D=target, E=fromp
 
   ; was this a promotion? promo flag is hi digit of movestate
   addn PROMO,A
@@ -133,13 +133,14 @@ undo_move
 
   ; Score entering/exiting center of board (set E=targetp for reverse score)
   ; here C=target
-  mov TOP0, A
+  mov TOP,A
   loadacc A
-  swapall           ; A=fromp, B=targetp, C=from, D=target, E=movestate
-  swap A,E
+  swapall           ; B=targetp, C=from, D=target, E=movestate
   swap A,C
   swap A,D
   swap A,C
+  mov fromp,A<->B
+  mov [B],A<->E
   jsr update_center_score  ; C=target, D=from, E=fromp
 
   ; if there was a capture, adjust score and replace piece
@@ -393,8 +394,8 @@ do_update_piecelist:
 ; Uses a sign lookup table to identify digits 3,4,5,6
 ; C=from
 ; D=target
-; E=player|piece (fromp)
-; Uses: A,B,D
+; Uses: A,B,D,E
+; Sets and returns with E=player|piece (fromp)
 update_center_score
   clr A
   swap A,B      ; init B=0
