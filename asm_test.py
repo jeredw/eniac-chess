@@ -242,19 +242,18 @@ class TestMoveGen(SimTestCase):
 
   def testBishopAtD4_Capture1(self):
     moves = self.computeMoves('8/8/1p6/4P3/3B4/2P1P3/8/8 w - - 0 1')
-    self.assertEqual(moves, ['3343', '3545',
-                             '4453', '4462',
-                             '5565'])
+    self.assertEqual(moves, ['4462',
+                             '3343', '3545', '4453', '5565'])
 
   def testBishopAtD4_Capture2(self):
     moves = self.computeMoves('8/8/1p6/4p3/3B4/2P1P3/8/8 w - - 0 1')
-    self.assertEqual(moves, ['3343', '3545',
-                             '4453', '4462', '4455'])
+    self.assertEqual(moves, ['4462', '4455',
+                             '3343', '3545', '4453'])
 
   def testBishopAtD4_Capture3(self):
     moves = self.computeMoves('8/8/1p6/4p3/3B4/2P1p3/8/8 w - - 0 1')
-    self.assertEqual(moves, ['3343',
-                             '4453', '4462', '4455', '4435'])
+    self.assertEqual(moves, ['4462', '4455', '4435',
+                             '3343', '4453'])
 
   def testBishopAtD4_Capture4(self):
     moves = self.computeMoves('8/8/8/2p1p3/3B4/2p1p3/8/8 w - - 0 1')
@@ -345,7 +344,8 @@ class TestMoveGen(SimTestCase):
 
   def testRookTakesPawn_Black(self):
     moves = self.computeMoves('8/8/8/8/3k4/1P1r4/8/8 b - - 0 1')
-    self.assertEqual(moves, ['3435', '3436', '3437', '3438', '3433', '3432', '3424',
+    self.assertEqual(moves, ['3432',
+                             '3435', '3436', '3437', '3438', '3433', '3424',
                              '3414', '4445', '4443', '4454', '4453', '4455', '4433', '4435'])
 
   def testInitialPosition_White(self):

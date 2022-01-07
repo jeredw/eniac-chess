@@ -29,7 +29,12 @@ next_move
   mov H,A           ;
   jz init_move      ; [from]==0 means start of iteration
   swap A,D          ; D=from
-  mov J,A<->C       ; C=movestate
+  mov J,A           ; C=saved movestate
+  addn PASS2,A      ;
+  jn .set_movestate ; subtract PASS2 flag if on PASS2
+  mov J,A           ;
+.set_movestate
+  swap A,C
   mov fromp,A<->B   ;
   mov [B],A<->E     ; E=fromp
 
@@ -215,11 +220,12 @@ next_pawn_move
 ; C=movestate, D=from square, E=player_piece
 next_knight_move
   mov C,A           ; movestate is ndir table offset
-  addn 80,A
-  jn next_square    ; if offset >= 80, done
+  addn 8,A
+  jn next_square    ; if offset >= 8, done
   mov C,A
-  add 10,A          ; next offset is +10
+  inc A             ; next offset is +1
   swap A,C          ; A=movestate before increment
+  swapdig A         ; index*10
   add ndir,A        ; A+=table base address
   ftl A             ; lookup move delta
   add D,A           ; compute the target square
@@ -259,12 +265,27 @@ move_if_capture
   jz move_bad       ; can't capture own piece
 
 move_ok
-  ; We have a move to output and need to save movegen state.
-  ; [from], [target] and [targetp] are already up to date, just need to save
-  ; [movestate].
+  mov targetp,A<->B
+  mov [B],A<->D     ;
   mov movestate,A<->B
-  swap A,C
-  mov A,[B]         ; save [movestate]
+  mov [B],A         ; NB C doesn't have PASS2 flag
+  addn PASS2,A      ; check if in movegen pass 2
+  flipn             ; (A will be >= PASS2, so now -)
+  jn .caps          ;
+;.noncaps
+  swap D,A
+  jz .output        ; only output non-captures in pass 2
+  jmp move_bad      ; already did capture
+.output
+  swap C,A
+  add PASS2,A
+  mov A,[B]         ; save movestate (+PASS2 flag)
+  jmp far output_move
+.caps
+  swap D,A
+  jz move_bad       ; only output captures in pass 1
+  swap C,A
+  mov A,[B]         ; save movestate (without PASS2 flag)
   jmp far output_move
 
 move_bad
@@ -356,5 +377,13 @@ next_bqrk_move
   jz next_square    ; if so, done with rook moves
   jmp next_bqrk_move
 
-done_squares         
+done_squares
+  mov movestate,A<->B
+  mov [B],A
+  addn PASS2,A
+  jn .done          ; if pass 2 done, all done
+  add PASS2+PASS2,A ; start pass 2
+  mov A,[B]
+  jmp init_move
+.done
   jmp far no_more_moves

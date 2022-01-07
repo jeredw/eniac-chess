@@ -71,6 +71,9 @@ push_ret
   ; fallthrough
 .reset_movegen
   ; tell movegen to start over for this new recursive stack frame
+  mov movestate,A<->B
+  clr A
+  mov A,[B]         ; clear movegen pass2 flag
   mov from,A<->B
   clr A
   mov A,[B]         ; set from=0 so movegen starts over

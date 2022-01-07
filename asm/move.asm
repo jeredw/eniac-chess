@@ -170,7 +170,7 @@ undo_move
 .unpromo
   mov movestate,A<->B
   mov [B],A
-  lodig A           ; clear PROMO flag from movestate (assumes PROMO % 10 == 0)
+  addn PROMO,A      ; clear PROMO flag from movestate
   mov A,[B]         
 
   mov -PBONUS,A     ; add_score is + for white

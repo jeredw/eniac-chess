@@ -124,7 +124,10 @@ target    .equ 48
 movestate .equ 49 	; values >= PROMO indicate pawn promotion
 
 ; Flag added to movestate indicating that the current move is a pawn promotion
-PROMO   .equ  90
+PROMO   .equ  40
+; For better pruning, movegen first generates captures then noncaptures
+; This flag in movestate means it's emitting noncaptures
+PASS2   .equ  20
 
 ; Equivalent parent stack entries - top of stack minus 1
 pbestscore .equ 50

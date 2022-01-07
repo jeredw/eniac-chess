@@ -27,5 +27,7 @@ no_more_moves
   halt
 
   .include movegen.asm
+
+  .org 200
   .include get_square.asm
 
