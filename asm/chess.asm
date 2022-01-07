@@ -14,12 +14,16 @@
   .include memory_layout.asm
 
   .org 100
+  .section i
   jmp far game       ; the game outer loop is in ft3
 
+  .section g
   .include movegen.asm
+  .section b
   .include get_square.asm
 
   .org 200
+  .section m
   .include move.asm
 
 ; Main program - we jump here on reset
@@ -28,11 +32,14 @@
 game
   ; set memory state from cards
   ; assume this includes the human player's move
+  .section i
   .include load_board.asm
 
 start
+  .section s
   .include search.asm
 
+  .section i
 search_done
   ; print the best move found during the search
   mov BEST,A

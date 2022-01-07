@@ -156,6 +156,8 @@ class Value:
   """An output value for the assembler"""
   word: int
   comment: str
+  is_padding: bool
+  section: str
 
 
 class Output(object):
@@ -178,6 +180,7 @@ class Output(object):
     self.operand_correction = 0
     self.context = context
     self.wrapped_row = False
+    self.section = '*'
 
   def error(self, what):
     """Log an error message with context about where it happened."""
@@ -252,7 +255,7 @@ class Output(object):
             self.context.had_fatal_error = True
             break
           word = (v + self.operand_correction) % 100
-          self.output[index] = Value(word, comment)
+          self.output[index] = Value(word, comment, v == 99, self.section)
           comment = ""  # comment applies to first word output
           # Carry operand correction through 99s
           # For example, for [41 00] [35], emit [41 99] [34] so that after
@@ -277,7 +280,7 @@ class Output(object):
     assert 1 <= ft <= 3
     assert 0 <= row <= 99
     assert 0 <= word <= 5
-    return self.output.get((100 * ft + row, word), Value(0, ""))
+    return self.output.get((100 * ft + row, word), Value(0, "", False, '.'))
 
   def function_table(self):
     """Return the current function table."""
@@ -305,7 +308,7 @@ class Output(object):
     if self.context.assembler_pass == 0:
       self.table_output_row += 1
     else:
-      self.output[(300 + row, 0)] = Value(word, comment)
+      self.output[(300 + row, 0)] = Value(word, comment, False, 'T')
 
 
 class PrimitiveParsing(object):
@@ -433,6 +436,7 @@ class Builtins(PrimitiveParsing):
       ".equ": self._equ,
       ".isa": self._isa,
       ".org": self._org,
+      ".section": self._section,
       ".table": self._table,
     }
 
@@ -487,6 +491,11 @@ class Builtins(PrimitiveParsing):
     for i, value in enumerate(values):
       word = self._immediate(value)
       self.out.emit_table_value(base + i, word, comment=f"{op} {300 + base}[{i}]={word}")
+
+  def _section(self, label, op, arg):
+    """Labels a section of the output for diagnostics."""
+    if self.context.assembler_pass == 1:
+      self.out.section = arg[0]
 
   def _equ(self, label, op, arg):
     """Assigns a value to a label directly."""
@@ -730,6 +739,29 @@ def print_easm(out, f):
       print(file=f)
 
 
+def print_output_chart(out, assembled_ops):
+  table_values = sum((300 + i, 0) in out.output for i in range(6, 100))
+  print(f'{assembled_ops} instructions, {table_values} table values')
+  for d in range(10):
+    print(10 * str(d), end='')
+  print()
+  for d in range(100):
+    print(str(d%10), end='')
+  print()
+  for ft in [1,2,3]:
+    for i in range(6):
+      row_bitmap = []
+      for row in range(100):
+        value = out.get(ft, row, i)
+        if ft == 3 and row < 6:
+          row_bitmap.append('|')
+        elif value.is_padding:
+          row_bitmap.append(':')
+        else:
+          row_bitmap.append(value.section)
+      print(''.join(row_bitmap))
+
+
 def main():
   if len(sys.argv) != 3:
     usage()
@@ -743,25 +775,7 @@ def main():
   with open(outfile, 'w') as f:
     print_easm(out, f)
 
-  print(f"Assembled {asm.assembled_ops} operations")
-  table_values = sum((300 + i, 0) in out.output for i in range(6,100))
-  print (f"Used {table_values} table rows")
-  print("FT    rows used   words per row")
-  for ft in [1,2,3]:
-    rows_used = 0
-    words_used = 0.0
-    for row in range(100):
-      words = [out.get(ft, row, i).word for i in range(6)]
-      if ft==3:
-        if row<6:     # skip decode table spalce
-          continue 
-        words.pop(0)  # don't count table data
-      if any(words):
-        rows_used += 1
-        words_used += sum(w!=99 for w in words)
-
-    if rows_used:
-      print(f"ft{ft}   {rows_used}          {words_used/rows_used:.2f}")
+  print_output_chart(out, asm.assembled_ops)
 
 if __name__ == "__main__":
   main()
