@@ -15,6 +15,7 @@ available assembler directives.
 # are classes like V4 which implement a dispatch() method to assemble a given
 # mnemonic.
 
+import math
 import sys
 import re
 import os
@@ -740,14 +741,11 @@ def print_easm(out, f):
 
 
 def print_output_chart(out, assembled_ops):
-  table_values = sum((300 + i, 0) in out.output for i in range(6, 100))
-  print(f'{assembled_ops} instructions, {table_values} table values')
-  for d in range(10):
-    print(10 * str(d), end='')
-  print()
-  for d in range(100):
-    print(str(d%10), end='')
-  print()
+  bitmap = []
+  used = 0
+  padding = 0
+  free = 0
+  reserved = 0
   for ft in [1,2,3]:
     for i in range(6):
       row_bitmap = []
@@ -755,11 +753,36 @@ def print_output_chart(out, assembled_ops):
         value = out.get(ft, row, i)
         if ft == 3 and row < 6:
           row_bitmap.append('|')
+          reserved += 1
         elif value.is_padding:
           row_bitmap.append(':')
+          padding += 1
         else:
           row_bitmap.append(value.section)
-      print(''.join(row_bitmap))
+          if value.section == '.':
+            free += 1
+          else:
+            used += 1
+      bitmap.append(''.join(row_bitmap))
+
+  total = reserved + free + used + padding
+  table_values = sum((300 + i, 0) in out.output for i in range(6, 100))
+  histo = ''.join(['|' * math.floor(20*(reserved / total)),
+                   '*' * math.floor(20*(used / total)),
+                   '.' * math.floor(20*(free / total)),
+                   ':' * math.floor(20*(padding / total))])
+  efficiency = 1 - (padding / (padding + used))
+  print(f'instructions {assembled_ops} table {table_values}')
+  print(f'used {used} free {free} padding {padding} reserved {reserved}')
+  print(f'pack {efficiency:.2f} {histo}')
+  for d in range(10):
+    print(10 * str(d), end='')
+  print()
+  for d in range(100):
+    print(str(d%10), end='')
+  print()
+  for row in bitmap:
+    print(row)
 
 
 def main():

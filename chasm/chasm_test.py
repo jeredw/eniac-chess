@@ -221,9 +221,9 @@ class TestOutput(AssemblerTestCase):
     self.assertFalse(self.out.errors)
     self.assertEqual(self.out.output_row, 400)
     self.assertEqual(self.out.word_of_output_row, 0)
-    self.assertEqual(self.out.get(1, 42, 0), Value(word=52, comment=""))
-    self.assertEqual(self.out.get(2, 42, 5), Value(word=57, comment=""))
-    self.assertEqual(self.out.get(3, 42, 1), Value(word=80, comment=""))
+    self.assertEqual(self.out.get(1, 42, 0), Value(word=52, comment="", is_padding=False, section='*'))
+    self.assertEqual(self.out.get(2, 42, 5), Value(word=57, comment="", is_padding=False, section='*'))
+    self.assertEqual(self.out.get(3, 42, 1), Value(word=80, comment="", is_padding=False, section='*'))
 
   def testFunctionTable(self):
     self.out.output_row = 236
@@ -395,6 +395,12 @@ class TestBuiltins(AssemblerTestCase):
   def testTable_ErrorMissingLabel(self):
     self.builtins.dispatch("", ".table", "8")
     self.assertEqual(self.out.errors, ["file:1: expecting label for .table"])
+
+  def testSection(self):
+    self.context.assembler_pass = 1
+    self.builtins.dispatch("", ".section", "f")
+    self.assertFalse(self.out.errors)
+    self.assertEqual(self.out.section, "f")
 
 
 def pad(values):
