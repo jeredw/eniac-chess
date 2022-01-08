@@ -38,12 +38,28 @@ output_move
   mov targetp,A<->B
   mov [B],A
   lodig A           ; get captured piece
+  jz .no_capture    ; if no piece captured, consider pruning
   addn KING,A       ; is it a king?
-  jz search_pop     ; if capturing king, fixup stack
+  jz search_pop     ; if would capture king, fixup stack
+  jmp .apply_move
+
+  ; optimization: at leaf nodes, only evaluate capture moves
+  ; we must still record that there _was_ a move possible, otherwise
+  ; moves with no answering captures look like checkmate
+.no_capture
+  swap A,E          ; set E=0 to flag not to undo move
+  mov depth,A<->B
+  mov [B],A
+  addn MAXD,A
+  jz leaf           ; assume parent mscore
+  ; not a leaf, so fallthrough to evaluate move
 
   ; apply the move (updating mscore)
+.apply_move
   jmp far move
 move_ret
+  mov 1,A
+  swap A,E          ; flag that we must undo move later
 
   mov depth,A<->B
   mov [B],A         ; A=stack depth
@@ -77,6 +93,7 @@ push_ret
   jmp search
 
   ; update best score for leaf nodes using material score
+  ; undoes move only if E is nonzero
 leaf
   mov mscore,A<->B
   mov [B],A<->D     ; D=mscore
@@ -103,6 +120,8 @@ leaf
   swap D,A
   mov A,[B]         ; [bestscore] = current score
 .movedone
+  swap E,A
+  jz search         ; if E=0, move was skipped, so don't undo_move
   jmp far undo_move ; continues at undo_move_ret
 
 ; movegen jumps here when there are no more moves possible

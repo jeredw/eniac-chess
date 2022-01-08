@@ -1,7 +1,7 @@
 import math
 
 from uciengine import UCIEngine
-from game import ReferenceMoveGen
+from game import ReferenceMoveGen, empty
 
 class TestEngine(UCIEngine):
   """A really dumb reference engine."""
@@ -10,7 +10,10 @@ class TestEngine(UCIEngine):
     super().__init__(name="Cheetah", author="et al")
     self.node_count = 0
     self.fail_hard = 0
-    self.move_gen = ReferenceMoveGen()
+    self.leaf_non_captures = 0
+    self.move_gen = ReferenceMoveGen(allow_castling=False,
+                                     allow_en_passant_captures=False,
+                                     allowed_promotions='q')
 
   def evaluate(self, position, depth=4):
     """Depth-first negamax search.
@@ -20,6 +23,7 @@ class TestEngine(UCIEngine):
     """
     self.node_count = 0
     self.fail_hard = 0
+    self.leaf_non_captures = 0
     best_move = None
     best_score = -math.inf
     for move, p2 in self.move_gen.legal_moves(position):
@@ -29,6 +33,8 @@ class TestEngine(UCIEngine):
         best_score = score
       if self.stop.is_set():
         break
+    self.log.debug(f'{self.node_count} nodes searched, {self.fail_hard} ab pruned')
+    self.log.debug(f'{self.leaf_non_captures} leaf non capture moves')
     return best_move
 
   def _dfs(self, position, alpha, beta, depth):
@@ -36,6 +42,8 @@ class TestEngine(UCIEngine):
       self.node_count += 1
       return _coarse_material(position)
     for move, p2 in self.move_gen.legal_moves(position):
+      if depth == 1 and position.board[move.to] == empty:
+        self.leaf_non_captures += 1
       score = -self._dfs(p2, -beta, -alpha, depth - 1)
       if score >= beta:
         self.fail_hard += 1
