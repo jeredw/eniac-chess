@@ -104,6 +104,13 @@ leaf
   lodig A           ; A=player
   jz .max           ; if white, score max
 ;.min               ; else, score min
+  mov beta0+4,A<->B ; first update beta
+  mov [B],A
+  sub D,A           ; beta - score
+  jn .minbest       ; if beta < score, no update
+  mov D,A
+  mov A,[B]         ; set new beta
+.minbest
   mov bestscore,A<->B
   mov [B],A         ; A=bestscore
   sub D,A           ; A=bestscore - mscore
@@ -111,6 +118,14 @@ leaf
   jn .newbest       ; if mscore < bestscore, new best move
   jmp .movedone
 .max
+  mov alpha0+4,A<->B; first update alpha
+  mov [B],A         ; alpha
+  sub D,A           ; alpha - score
+  flipn
+  jn .maxbest       ; if score < alpha, no update
+  mov D,A
+  mov A,[B]         ; set new alpha
+.maxbest
   mov bestscore,A<->B
   mov [B],A         ; A=bestscore
   sub D,A           ; A=bestscore - mscore

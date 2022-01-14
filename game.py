@@ -14,11 +14,13 @@ def _piece_for_color(piece, color):
 
 
 empty = "."
-rook_deltas = [(0, -1), (0, 1), (-1, 0), (1, 0)]
-bishop_deltas = [(-1, -1), (-1, 1), (1, -1), (1, 1)]
+rook_deltas = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+bishop_deltas = [(-1, 1), (1, 1), (-1, -1), (1, -1)]
 queen_deltas = rook_deltas + bishop_deltas
 king_deltas = queen_deltas
-knight_deltas = [(-1, -2), (-2, -1), (-1, 2), (-2, 1), (1, -2), (2, -1), (1, 2), (2, 1)]
+#knight_deltas = [(-1, -2), (-2, -1), (-1, 2), (-2, 1), (1, -2), (2, -1), (1, 2), (2, 1)]
+knight_deltas = [(-2, 1), (2, 1), (-1, 2), (1, 2), (-1, -2), (1, -2), (-2, -1), (2, -1)]
+
 file_names = " abcdefgh"
 rank_names = " 12345678"
 
@@ -101,10 +103,10 @@ class Board(object):
       print("".join(rank))
 
   def __iter__(self):
-    for y, rank in enumerate(self.ranks):
+    for y, rank in enumerate(reversed(self.ranks)):
       for x, piece in enumerate(rank):
         if piece != empty:
-          yield (Square(x=x+1, y=8-y), piece)
+          yield (Square(x=x+1, y=y+1), piece)
 
   def __getitem__(self, pos):
     assert pos.in_bounds
