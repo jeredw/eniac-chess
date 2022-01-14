@@ -653,16 +653,15 @@ static void step_one_instruction(VM* vm) {
       break;
     case 94: // brk
       vm->status |= BREAK;
-      // printf("step %d\n",globalstep++);
-      // printf("depth     %2d\n",getmem(vm,65));
-      // printf("bestscore %2d\n",getmem(vm,42));
-      // printf("bestfrom  %2d\n",getmem(vm,40));
-      // printf("bestto    %2d\n",getmem(vm,41));
-      // printf("piece     %2d\n",getmem(vm,35));      
-      // printf("from      %2d\n",getmem(vm,37));
-      // printf("to        %2d\n",getmem(vm,38));
-      // printf("capture   %2d\n",getmem(vm,36));
-      // printf("score     %2d\n",getmem(vm,55));
+      printf("step=%d ",globalstep++);
+      printf("depth=%2d ",getmem(vm,38));
+      printf("move=%2d%2d ",getmem(vm,47),getmem(vm,48));
+      printf("capture=%2d ",getmem(vm,46));
+      printf("piece=%2d ",getmem(vm,36));
+      printf("score=%2d ",getmem(vm,37));
+      printf("bestscore=%2d ",getmem(vm,45));
+      printf("bestfrom=%2d ",getmem(vm,73));
+      printf("bestto=%2d\n",getmem(vm,74));
       break;
     case 95: // halt
       vm->status |= HALT;
