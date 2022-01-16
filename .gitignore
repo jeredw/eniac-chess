@@ -2,6 +2,8 @@ chsim/chsim
 chsim/chsim_test
 chsim/chsim.dSYM
 chsim/vm.so
+client
+client.dSYM
 eniacsim
 *.pyc
 *.e

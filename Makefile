@@ -1,3 +1,5 @@
+CCFLAGS=--std=c++17 -Wall -Werror
+
 .PHONY: test
 test:
 	python easm/test_easm.py
@@ -6,6 +8,10 @@ test:
 	cmp /tmp/chasm_test.easm chasm/chasm_test.easm
 	make -C chsim test
 	python asm_test.py
+
+client: client.cc chasm/chasm.py asm/chess.asm
+	python chasm/chasm.py asm/chess.asm chess_data.cc
+	c++ -g $(CCFLAGS) -DMAIN -O2 -o client client.cc
 
 vmtest: chasm/chasm.py asm/vmtest.asm easm/easm.py chessvm/chessvm.easm
 	python chasm/chasm.py asm/vmtest.asm vmtest.e
