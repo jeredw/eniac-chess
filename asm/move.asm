@@ -401,35 +401,23 @@ update_center_score
 
   ; Add 1 if center(target)
   mov D,A
-  lodig A
-  add center,A
-  ftl A
-  jn .check_from
-  mov D,A
-  swapdig A
-  lodig A
-  add center,A
-  ftl A
-  jn .check_from
+  add 22,A      ; if +22 is illegal, not center
+  jil .check_from
+  addn 44,A     ; if -22 is illegal, not center
+  jil .check_from
   mov 1,A
   swap A,B      ; score += 1
 
   ; Subtract 1 if center(from)
 .check_from  
   mov C,A
-  lodig A
-  add center,A
-  ftl A
-  jn .total
-  mov C,A
-  swapdig A
-  lodig A
-  add center,A
-  ftl A
-  jn .total
+  add 22,A      ; if +22 is illegal, not center
+  jil .total
+  addn 44,A     ; if -22 is illegal, not center
+  jil .total
   swap A,B
   dec A         ; score -= 1
-  swap A,B      
+  swap A,B
 
 .total
   swap A,B      ; A = center(from)-center(to)

@@ -141,7 +141,7 @@ beta0   .equ 68  ; betas in 69, 70, 71, 72
 ; Tables are manually placed because they overlap and use all
 ; available space.
 ;               0    1    2    3    4    5    6    7    8    9
-tab0    .table M1, M99,  10,  90,   9,  11, M89, M91,   0,  M0
+tab0    .table  1,  99,  10,  90,   9,  11,  89,  91,   0,  M0
 tab1    .table  1,  M1,   2,  M2,   3,  M3,   8,   3,   4,  M4
 tab2    .table  5,  M5,   6,  M6,   7,  M7,  12,   9,   8,  M8
 tab3    .table  9,  M9,  10, M10,  11, M11,  19,   9,  12, M12
@@ -160,9 +160,6 @@ tables  .equ 6
 ; bqrkdir has ±1,±1 square deltas for sliding piece moves
 ; note terminated by the 0 which begins the offset table
 bqrkdir .equ tables + 0
-
-; overlay a sign lookup table on bqrkdir to identify center rank/file, e.g. digits 3,4,5,6
-center .equ tables - 1
 
 ; offset maps positions 11..88 to address
 ; value = square div 2, sign = square mod 2, indicates low or high digit
