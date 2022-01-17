@@ -548,8 +548,36 @@ void step_one_instruction(VM* vm) {
 
 typedef std::pair<int, int> Card;
 typedef std::vector<Card> Deck;
+struct Position {
+  char board[10][10];
+  char to_play;
+};
 
-bool convert_fen_to_deck(const std::string& fen, Deck& deck) {
+bool parse_fen(const std::string& fen, Position& position) {
+  int i = 0, rook = 0;
+  for (int y = 8; y >= 1; y--) {
+    for (int x = 1; x <= 8; i++) {
+      if (fen[i] >= '1' && fen[i] <= '8') {
+        for (int n = fen[i] - '0'; n > 0; n--)
+          position.board[y][x++] = '.';
+      } else if (fen[i] == 'R' && rook++ == 2) {
+        return false;
+      } else if (!strchr("RKPNBQrkpnbq", fen[i])) {
+        return false;
+      } else {
+        position.board[y][x++] = fen[i];
+      }
+    }
+    char delim = fen[i++];
+    if (y > 1 && delim != '/') return false;
+    if (y == 1 && delim != ' ') return false;
+  }
+  if (fen[i] != 'w' && fen[i] != 'b') return false;
+  position.to_play = fen[i];
+  return true;
+}
+
+Deck convert_position_to_deck(const Position& position) {
   int memory[150] = {0};
 # define SET_MEMORY(base, hi, low) \
   memory[base] = hi;\
@@ -562,20 +590,12 @@ bool convert_fen_to_deck(const std::string& fen, Deck& deck) {
   const int depth = 2 * 38;
   const int best_score = 2 * 45;
   const int beta = 2 * 69;
-  int i = 0, rook = 0;
-  for (int y = 8; y >= 1; y--) {
+  int rook = 0;
+  for (int y = 1; y <= 8; y++) {
     int j = 8 * (y - 1);
-    for (int x = 1; x <= 8; x++, i++) {
-      switch (fen[i]) {
-        case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9': {
-          int n = fen[i] - '0';
-          x += n - 1;
-          for (; n > 0; n--)
-            memory[j++] = 0;
-          break;
-        }
+    for (int x = 1; x <= 8; x++) {
+      switch (position.board[y][x]) {
         case 'R':
-          if (rook == 2) return false;
           memory[j++] = 1;
           SET_MEMORY(wrook + 2*rook, y, x);
           rook++;
@@ -588,9 +608,7 @@ bool convert_fen_to_deck(const std::string& fen, Deck& deck) {
         case 'N': memory[j++] = 3; break;
         case 'B': memory[j++] = 4; break;
         case 'Q': memory[j++] = 5; break;
-        case 'r':
-          memory[j++] = 1;
-          break;
+        case 'r': memory[j++] = 1; break;
         case 'k':
           memory[j++] = 1;
           SET_MEMORY(bking, y, x);
@@ -599,39 +617,31 @@ bool convert_fen_to_deck(const std::string& fen, Deck& deck) {
         case 'n': memory[j++] = 7; break;
         case 'b': memory[j++] = 8; break;
         case 'q': memory[j++] = 9; break;
-        default:
-          return false;
+        default: memory[j++] = 0; break;
       }
     }
-    char delim = fen[i++];
-    if (y > 1 && delim != '/') return false;
-    if (y == 1 && delim != ' ') return false;
   }
-  switch (fen[i]) {
-    case 'w':
-      SET_MEMORY(fromp, 0, 0);
-      SET_MEMORY(best_score, 0, 0);
-      break;
-    case 'b':
-      SET_MEMORY(fromp, 1, 0);
-      SET_MEMORY(best_score, 9, 9);
-      break;
-    default:
-      return false;
+  if (position.to_play == 'w') {
+    SET_MEMORY(fromp, 0, 0);
+    SET_MEMORY(best_score, 0, 0);
+  } else {
+    SET_MEMORY(fromp, 1, 0);
+    SET_MEMORY(best_score, 9, 9);
   }
   SET_MEMORY(mscore, 5, 0);
   SET_MEMORY(beta, 9, 9);
   SET_MEMORY(depth, 0, 1);
-#undef SET_MEMORY
+# undef SET_MEMORY
 
+  Deck deck;
   for (int i = 0; i < 75; i++) {
     deck.push_back({i, 10 * memory[2*i] + memory[2*i + 1]});
   }
   deck.push_back({99, 0});
-  return true;
+  return deck;
 }
 
-std::string convert_move_to_lan(int from, int to) {
+std::string convert_move_to_lan(const Position& position, int from, int to) {
   int from_y = from / 10;
   int from_x = from % 10;
   int to_y = to / 10;
@@ -639,7 +649,15 @@ std::string convert_move_to_lan(int from, int to) {
   if (from_y >= 1 && from_y <= 8 && to_y >= 1 && to_y <= 8) {
     const char* files = "?abcdefgh";
     const char* ranks = "?12345678";
-    char move[4] = {files[from_x], ranks[from_y], files[to_x], ranks[to_y]};
+    char move[5] = {files[from_x], ranks[from_y], files[to_x], ranks[to_y], 0};
+    char piece = position.board[from_y][from_x];
+    bool is_pawn = piece == 'p' || piece == 'P';
+    bool to_last_rank = to_y == 1 || to_y == 8;
+    if (is_pawn && to_last_rank) {
+      // UCI requires explicitly tacking on a "q" for pawn promotion.
+      move[4] = 'q';
+      return std::string(move, 5);
+    }
     return std::string(move, 4);
   }
   return "";
@@ -647,11 +665,12 @@ std::string convert_move_to_lan(int from, int to) {
 }
 
 std::string eniac_chess_move(const std::string& fen) {
-  Deck deck;
-  int cur_card = 0;
-  if (!convert_fen_to_deck(fen, deck)) {
+  Position position;
+  if (!parse_fen(fen, position)) {
     return "";
   }
+  Deck deck(convert_position_to_deck(position));
+  int cur_card = 0;
 
   VM vm;
   init(&vm);
@@ -671,7 +690,7 @@ std::string eniac_chess_move(const std::string& fen) {
       vm.status &= ~IO_READ;
     }
   }
-  return convert_move_to_lan(drop_sign(vm.a), vm.b);
+  return convert_move_to_lan(position, drop_sign(vm.a), vm.b);
 }
 
 #ifdef MAIN
