@@ -9,7 +9,7 @@ test:
 	make -C chsim test
 	python asm_test.py
 
-client: client.cc chasm/chasm.py asm/chess.asm
+client: client.cc chasm/chasm.py asm/search.asm asm/move.asm asm/movegen.asm asm/chess.asm
 	python chasm/chasm.py asm/chess.asm chess_data.cc
 	c++ -g $(CCFLAGS) -DMAIN -O2 -o client client.cc
 

@@ -104,7 +104,7 @@ leaf
   lodig A           ; A=player
   jz .max           ; if white, score max
 ;.min               ; else, score min
-  mov beta0+4,A<->B ; first update beta
+  mov beta0+MAXD,A<->B ; first update beta
   mov [B],A
   sub D,A           ; beta - score
   jn .minbest       ; if beta < score, no update
@@ -118,7 +118,7 @@ leaf
   jn .newbest       ; if mscore < bestscore, new best move
   jmp .movedone
 .max
-  mov alpha0+4,A<->B; first update alpha
+  mov alpha0+MAXD,A<->B; first update alpha
   mov [B],A         ; alpha
   sub D,A           ; alpha - score
   flipn
@@ -142,6 +142,7 @@ leaf
 ; movegen jumps here when there are no more moves possible
 no_more_moves
   ; check if we have found the best move
+  ;brk
   mov depth,A<->B
   mov [B],A
   dec A
@@ -175,6 +176,7 @@ no_more_moves
   mov [B],A         ; A=pbestscore
   sub D,A           ; A=pbestscore - bestscore
   flipn
+  jz search_pop     ; if bestscore == pbestscore, continue
   jn .newbest       ; if bestscore < pbestscore, new best move
   jmp search_pop
 .pmax

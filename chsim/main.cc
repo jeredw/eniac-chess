@@ -156,7 +156,7 @@ static void dump_regs(VM* vm) {
          vm->pc, vm->old_pc,
          vm->a < 0 ? 'M' : 'P',
          drop_sign(vm->a), vm->b, vm->c, vm->d, vm->e,
-         vm->f, vm->g, vm->h, vm->i, vm->j,
+         drop_sign(vm->f), vm->g, vm->h, vm->i, vm->j,
          vm->ir[0], vm->ir[1], vm->ir[2], vm->ir[3], vm->ir[4], vm->ir[5]);
 }
 
@@ -172,10 +172,10 @@ static void dump_memory(VM* vm) {
   size_t mem_size = sizeof(vm->mem) / sizeof(vm->mem[0]);
   for (int i = 0; i < mem_size; i += 2) {
     printf("%dx %02d %02d %02d %02d %02d",
-           i/2, vm->mem[i][0], vm->mem[i][1], vm->mem[i][2], vm->mem[i][3], vm->mem[i][4]);
+           i/2, drop_sign(vm->mem[i][0]), vm->mem[i][1], vm->mem[i][2], vm->mem[i][3], vm->mem[i][4]);
     if (i+1 < mem_size) {
       printf(" %02d %02d %02d %02d %02d\n",
-             vm->mem[i+1][0], vm->mem[i+1][1], vm->mem[i+1][2], vm->mem[i+1][3], vm->mem[i+1][4]);
+             drop_sign(vm->mem[i+1][0]), vm->mem[i+1][1], vm->mem[i+1][2], vm->mem[i+1][3], vm->mem[i+1][4]);
     } else {
       printf("\n");
     }
@@ -186,7 +186,7 @@ static void dump_memory_accs(VM* vm) {
   printf("   A B C D E\n");
   for (int i = 0; i < sizeof(vm->mem) / sizeof(vm->mem[0]); i++) {
     printf("%02d %02d%02d%02d%02d%02d\n",
-           i, vm->mem[i][0], vm->mem[i][1], vm->mem[i][2], vm->mem[i][3], vm->mem[i][4]);
+           i, drop_sign(vm->mem[i][0]), vm->mem[i][1], vm->mem[i][2], vm->mem[i][3], vm->mem[i][4]);
   }
 }
 

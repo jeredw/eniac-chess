@@ -131,22 +131,21 @@ undo_move
   swap A,E
   jsr move_and_promote
 
-  ; Score entering/exiting center of board (set E=targetp for reverse score)
-  ; here C=target
+  ; Score entering/exiting center of board
   mov TOP,A
   loadacc A
   swapall           ; B=targetp, C=from, D=target, E=movestate
-  swap A,C
-  swap A,D
-  swap A,C
+  swap A,C          ; swap from and target so score is negated
+  swap A,D          ;
+  swap A,C          ;
   mov fromp,A<->B
-  mov [B],A<->E
+  mov [B],A<->E     ; scoring own piece here
   jsr update_center_score  ; C=target, D=from, E=fromp
 
   ; if there was a capture, adjust score and replace piece
   mov targetp,A<->B
   mov [B],A
-  jz .out   ; no capture to undo
+  jz .out           ; no capture to undo
 
   ; uncapture. here A=E=targetp
   ; update material score when undoing a capture
@@ -437,7 +436,7 @@ add_score
   jz .white
 ;.black
   mov [B],A
-  sub D,A           ; mscore += piece value
+  sub D,A           ; mscore -= piece value
   mov A,[B]
   ret
 .white

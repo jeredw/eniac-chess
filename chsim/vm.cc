@@ -651,18 +651,27 @@ static void step_one_instruction(VM* vm) {
     case 92: // print
       vm->status |= IO_PRINT;
       break;
-    case 94: // brk
+    case 94: { // brk
       vm->status |= BREAK;
       printf("step=%d ",globalstep++);
-      printf("depth=%2d ",getmem(vm,38));
-      printf("move=%2d%2d ",getmem(vm,47),getmem(vm,48));
-      printf("capture=%2d ",getmem(vm,46));
-      printf("piece=%2d ",getmem(vm,36));
-      printf("score=%2d ",getmem(vm,37));
-      printf("bestscore=%2d ",getmem(vm,45));
+      int depth = getmem(vm, 38);
+      printf("depth=%2d ",depth);
+      printf("pmove=%2d%2d ", getmem(vm, 52), getmem(vm, 53));
+      printf("bestscore=%2d ",getmem(vm, 45));
+      //printf("move=%2d%2d ",getmem(vm,47),getmem(vm,48));
+      //printf("capture=%2d ",getmem(vm,46));
+      //printf("piece=%2d ",getmem(vm,36));
+      //printf("score=%2d ",getmem(vm,37));
       printf("bestfrom=%2d ",getmem(vm,73));
-      printf("bestto=%2d\n",getmem(vm,74));
+      printf("bestto=%2d ",getmem(vm,74));
+      printf("alpha=%2d ",getmem(vm, 64 + depth));
+      printf("beta=%2d ",getmem(vm, 68 + depth));
+      printf("pbestscore=%2d ",getmem(vm, 50));
+      printf("palpha=%2d ",getmem(vm, 64 + depth - 1));
+      printf("pbeta=%2d ",getmem(vm, 68 + depth - 1));
+      printf("\n");
       break;
+    }
     case 95: // halt
       vm->status |= HALT;
       break;
