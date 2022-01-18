@@ -95,11 +95,12 @@ push_ret
   ; update best score for leaf nodes using material score
   ; undoes move only if E is nonzero
 leaf
-  mov mscore,A<->B
-  mov [B],A<->D     ; D=mscore
+  mov STATE,A
+  loadacc A         ; F=xx G=fromp H=mscore I=xx J=xx
+  mov H,A
+  swap A,D          ; D=mscore
   ; determine if the current stack frame is for min or max
-  mov fromp,A<->B
-  mov [B],A         ; get current player (from player|piece)
+  mov G,A
   swapdig A
   lodig A           ; A=player
   jz .max           ; if white, score max

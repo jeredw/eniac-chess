@@ -28,6 +28,7 @@ get_square
 
   swap A,B      ; mod2 = 0 means left of two pieces in word, thus pieces high digit
   mov [B],A
+  jz .empty     ; optimization: skip if both empty
   swapdig A
   lodig A
   jmp .decode
@@ -35,6 +36,7 @@ get_square
 .low
   swap A,B      ; piece in low digit
   mov [B],A
+  jz .empty     ; optimization: skip if both empty
   lodig A
 
 .decode

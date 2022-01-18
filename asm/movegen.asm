@@ -51,7 +51,7 @@ next_move_inner
 ; [target] is the current square along dir
 next_bqr_move
   mov C,A
-  jz .init          ; d=0 means initialize
+  jz .init          ; direction 0 means initialize
   mov TOP,A
   loadacc A         ; F=xx G=targetp H=xx I=target J=xx
   mov G,A           ; test if last move was blocked/capture
@@ -74,16 +74,17 @@ next_bqr_move
   lodig A           ; isolate piece
   addn ROOK,A       ; test if piece==ROOK
   jz .rook          ; special case for rook
-  jmp next_bqr_move
+  jmp .do_move
 .rook
   mov C,A
   addn 5,A          ; test if dir is diagonal
   jz next_square    ; if so, done with rook moves
-  jmp next_bqr_move
+  jmp .do_move
 
 .move
   mov I,A           ; get cur square from [target]
   swap A,D          ; D=cur square
+.do_move
   mov C,A           ; A=movestate (d)
   add bqrkdir-1,A   ; index bqrkdir[d-1]
   ftl A             ; lookup move delta for dir
@@ -106,11 +107,11 @@ next_bqr_move
   jz .start_at_5    ; bishop starts from diagonal moves
   mov 1,A           ; start from d=1 (orthogonal moves)
   swap A,C
-  jmp next_bqr_move
+  jmp .do_move
 .start_at_5
   mov 5,A           ; start from d=5 (diagonal moves)
   swap A,C
-  jmp next_bqr_move
+  jmp .do_move
 
 ; from square=D
 next_king_move

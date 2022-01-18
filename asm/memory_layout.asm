@@ -51,6 +51,9 @@ wrook2 .equ 35
 
 ; - Globals -
 
+; accumulator with fromp and mscore
+STATE .equ 7
+
 ; fromp - player and piece currently to move. 
 ; Player in high digit, piece in low digit, which we write as player|piece.
 ; It's not in the stack because we can find it by calling get_square with [from] 
