@@ -42,7 +42,87 @@ next_move_inner
   jz next_pawn_move ; is this a pawn? yes, move it
   dec A
   jz next_knight_move; is this a knight? yes, move it
-  jmp next_bqrk_move ; sliding piece
+  addn KING-KNIGHT,A
+  jz next_king_move ; is this a king? yes, move it
+  ; else fall through to sliding pieces
+
+; Sliding pieces (bishop / queen / rook)
+; C=movestate is dir index
+; [target] is the current square along dir
+next_bqr_move
+  mov C,A
+  jz .init          ; d=0 means initialize
+  mov TOP,A
+  loadacc A         ; F=xx G=targetp H=xx I=target J=xx
+  mov G,A           ; test if last move was blocked/capture
+  jz .move          ; if not, continue sliding
+  ; else reset targetp+change dir
+  mov targetp,A<->B ;
+  clr A
+  mov A,[B]         ; clear [targetp]
+; select next dir index based on piece type
+.next_dir
+  mov from,A<->B
+  mov [B],A<->D     ; restore D=[from]
+  mov target,A<->B
+  mov D,A
+  mov A,[B]         ; [target]=D
+  swap C,A
+  inc A             ; next direction
+  swap A,C
+  mov E,A           ; E=player|piece
+  lodig A           ; isolate piece
+  addn ROOK,A       ; test if piece==ROOK
+  jz .rook          ; special case for rook
+  jmp next_bqr_move
+.rook
+  mov C,A
+  addn 5,A          ; test if dir is diagonal
+  jz next_square    ; if so, done with rook moves
+  jmp next_bqr_move
+
+.move
+  mov I,A           ; get cur square from [target]
+  swap A,D          ; D=cur square
+  mov C,A           ; A=movestate (d)
+  add bqrkdir-1,A   ; index bqrkdir[d-1]
+  ftl A             ; lookup move delta for dir
+  jz next_square    ; 0 means past last dir, done
+  add D,A           ; A=D(square) + A(delta)
+  jil .next_dir     ; if off board, next direction
+  jmp check_square  ; output move if valid
+
+; set starting dir index based on piece type
+.init
+  mov targetp,A<->B
+  clr A
+  mov A,[B]         ; clear [targetp]
+  mov target,A<->B
+  mov D,A           ; D is from square on entry
+  mov A,[B]         ; [target] = from square
+  mov E,A           ; E=player|piece
+  lodig A           ; isolate piece
+  addn BISHOP,A     ; test if piece==BISHOP
+  jz .start_at_5    ; bishop starts from diagonal moves
+  mov 1,A           ; start from d=1 (orthogonal moves)
+  swap A,C
+  jmp next_bqr_move
+.start_at_5
+  mov 5,A           ; start from d=5 (diagonal moves)
+  swap A,C
+  jmp next_bqr_move
+
+; from square=D
+next_king_move
+  mov C,A           ; get movestate (direction)
+  inc A             ; always inc direction for next move
+  swap A,C          ; get cur direction
+  add bqrkdir,A     ; index bqrkdir[d]
+  ftl A             ; lookup move delta for dir
+  jz next_square    ; 0 means past last dir, done
+  add D,A           ; A=D(square) + A(delta)
+  jil next_king_move
+  jmp check_square  ; output move if valid
 
 init_move
   mov 11,A
@@ -272,89 +352,6 @@ move_bad
   mov [B],A<->D     ; D=from square
   ; note we do not update [movestate] here
   jmp next_move_inner
-
-; Sliding pieces (bishop / queen / rook / king)
-; C=movestate is n|d where d=dir index, n=steps (for king)
-; [target] is the current square along dir
-next_bqrk_move
-  mov C,A
-  jz .init          ; d=0 means initialize
-  mov targetp,A<->B ;
-  mov [B],A         ; test if last move was blocked/capture
-  jz .not_blocked   ; if not, continue sliding
-  jmp .next_dir_b   ; else reset targetp+change dir
-.not_blocked
-  mov E,A
-  lodig A           ; isolate piece
-  addn KING,A       ; test if piece==KING
-  jz .king
-.move
-  mov target,A<->B  ;
-  mov [B],A<->D     ; D=cur square
-  mov C,A           ; A=movestate (d)
-  lodig A           ; isolate d (king uses high digit as n)
-  add bqrkdir-1,A   ; index bqrkdir[d-1]
-  ftl A             ; lookup move delta for dir
-  jz next_square    ; 0 means past last dir, done
-  add D,A           ; A=D(square) + A(delta)
-  jil .next_dir     ; if off board, next direction
-  jmp check_square  ; output move if valid
-
-; king can only move one step in each direction
-.king
-  mov C,A           ;
-  add 10,A          ; inc current step
-  swap A,C          ; A=movestate before update
-  swapdig A         ;
-  lodig A           ; get step number
-  jz .move          ; if first step, move
-  jmp .next_dir     ; else select new dir
-
-; set starting dir index based on piece type
-; (this could use ftl, but conserving table space)
-.init
-  mov targetp,A<->B
-  clr A
-  mov A,[B]         ; clear [targetp]
-  mov target,A<->B
-  mov D,A           ; D is from square on entry
-  mov A,[B]         ; [target] = from square
-  mov E,A           ; E=player|piece
-  lodig A           ; isolate piece
-  addn BISHOP,A     ; test if piece==BISHOP
-  jz .start_at_5    ; bishop starts from diagonal moves
-  mov 1,A           ; start from d=1 (orthogonal moves)
-  swap A,C
-  jmp next_bqrk_move
-.start_at_5
-  mov 5,A           ; start from d=5 (diagonal moves)
-  swap A,C
-  jmp next_bqrk_move
-
-.next_dir_b
-  clr A
-  mov A,[B]         ; clear [targetp]
-; select next dir index based on piece type
-.next_dir
-  mov from,A<->B
-  mov [B],A<->D     ; restore D=[from]
-  mov target,A<->B
-  mov D,A
-  mov A,[B]         ; [target]=D
-  mov E,A           ; E=player|piece
-  swap C,A
-  lodig A           ; clear step number (for king)
-  inc A             ; next direction
-  swap A,C
-  lodig A           ; isolate piece
-  addn ROOK,A       ; test if piece==ROOK
-  jz .rook          ; special case for rook
-  jmp next_bqrk_move
-.rook
-  mov C,A
-  addn 5,A          ; test if dir is diagonal
-  jz next_square    ; if so, done with rook moves
-  jmp next_bqrk_move
 
 done_squares         
   jmp far no_more_moves

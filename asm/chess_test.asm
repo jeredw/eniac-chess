@@ -22,12 +22,12 @@ start
   .include search.asm
 search_done
   ; print the best move found during the search
-  mov bestfrom,A<->B  ; 
-  mov [B],A<->D       ; D=[bestfrom]
-  mov bestto,A<->B
-  mov [B],A<->B       ; B=[bestto]
-  swap D,A            ; A=[bestfrom]
-  print               ;
+  mov BEST,A
+  loadacc A           ; I=bestfrom, J=bestto
+  mov J,A
+  swap A,B
+  mov I,A
+  print
   halt
 
 game

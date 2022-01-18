@@ -18,8 +18,6 @@ namespace {
 
 // Copied from chsim/vm.cc to make redistribution easier.
 struct VM {
-  unsigned long long cycles;
-  unsigned long long instructions;
   int status;
   int error;
 
@@ -45,6 +43,10 @@ struct VM {
   // ROM, essentially
   int function_table[400][6];
 };
+
+unsigned long long cycles;
+unsigned long long instructions;
+unsigned long long profile[400][7];
 
 enum {
   HALT = 0x01,
@@ -79,8 +81,6 @@ enum {
 
 // Reset state for a new VM instance
 void init(VM* vm) {
-  vm->cycles = 0;
-  vm->instructions = 0;
   vm->status = 0;
   vm->error = 0;
   vm->pc = 100;
@@ -246,14 +246,15 @@ void update_bank(VM* vm) {
 
 void step_one_instruction(VM* vm) {
   if (vm->status & HALT) return;
+  profile[vm->pc][vm->ir_index]++;
   int fetch_cost = vm->ir_index < 6 ? 6 : vm->pc < 300 ? 12 : 13;
   int opcode = consume_ir(vm);
   if (opcode == 99) {
     fetch_cost = 0;
   } else {
-    vm->instructions++;
+    instructions++;
   }
-  vm->cycles += fetch_cost;
+  cycles += fetch_cost;
   switch (opcode) {
     case 0: // clrall
       vm->a = 0;
@@ -261,23 +262,23 @@ void step_one_instruction(VM* vm) {
       vm->c = 0;
       vm->d = 0;
       vm->e = 0;
-      vm->cycles += 4;
+      cycles += 4;
       break;
     case 1: // swap A, B
       swap_dropping_sign(vm->a, vm->b);
-      vm->cycles += 4;
+      cycles += 4;
       break;
     case 2: // swap A, C
       swap_dropping_sign(vm->a, vm->c);
-      vm->cycles += 4;
+      cycles += 4;
       break;
     case 3: // swap A, D
       swap_dropping_sign(vm->a, vm->d);
-      vm->cycles += 4;
+      cycles += 4;
       break;
     case 4: // swap A, E
       swap_dropping_sign(vm->a, vm->e);
-      vm->cycles += 4;
+      cycles += 4;
       break;
     case 10: // loadacc A
       if (!(0 <= vm->a && vm->a < 15)) {
@@ -286,7 +287,7 @@ void step_one_instruction(VM* vm) {
         break;
       }
       copy_mem_to_ls(vm, vm->a);
-      vm->cycles += 11;
+      cycles += 11;
       break;
     case 11: // storeacc A
       if (!(0 <= vm->a && vm->a < 15)) {
@@ -296,7 +297,7 @@ void step_one_instruction(VM* vm) {
       }
       vm->f = copy_sign(vm->mem[vm->a][0], vm->f);
       copy_ls_to_mem(vm, vm->a);
-      vm->cycles += 13;
+      cycles += 13;
       break;
     case 12: // swapall
       std::swap(vm->a, vm->f);
@@ -304,7 +305,7 @@ void step_one_instruction(VM* vm) {
       std::swap(vm->c, vm->h);
       std::swap(vm->d, vm->i);
       std::swap(vm->e, vm->j);
-      vm->cycles += 5;
+      cycles += 5;
       break;
     case 14: { // ftl A
       int offset = drop_sign(vm->a);
@@ -314,48 +315,48 @@ void step_one_instruction(VM* vm) {
         break;
       }
       vm->a = vm->function_table[300 + offset][0];
-      vm->cycles += 7;
+      cycles += 7;
       break;
     }
     case 20: // mov B, A
       vm->a = vm->b;
-      vm->cycles += 9;
+      cycles += 9;
       break;
     case 21: // mov C, A
       vm->a = vm->c;
-      vm->cycles += 9;
+      cycles += 9;
       break;
     case 22: // mov D, A
       vm->a = vm->d;
-      vm->cycles += 9;
+      cycles += 9;
       break;
     case 23: // mov E, A
       vm->a = vm->e;
-      vm->cycles += 9;
+      cycles += 9;
       break;
     case 34: // mov F, A
       vm->a = drop_sign(vm->f);
-      vm->cycles += 9;
+      cycles += 9;
       break;
     case 30: // mov G, A
       vm->a = vm->g;
-      vm->cycles += 9;
+      cycles += 9;
       break;
     case 31: // mov H, A
       vm->a = vm->h;
-      vm->cycles += 9;
+      cycles += 9;
       break;
     case 32: // mov I, A
       vm->a = vm->i;
-      vm->cycles += 9;
+      cycles += 9;
       break;
     case 33: // mov J, A
       vm->a = vm->j;
-      vm->cycles += 9;
+      cycles += 9;
       break;
     case 40: // mov imm, A
       vm->a = consume_operand(vm);
-      vm->cycles += 4;
+      cycles += 4;
       break;
     case 41: { // mov [B], A
       if (vm->b < 0 || vm->b >= 75) {
@@ -373,7 +374,7 @@ void step_one_instruction(VM* vm) {
         case 3: vm->a = vm->i; break;
         case 4: vm->a = vm->j; break;
       }
-      vm->cycles += 28;
+      cycles += 28;
       break;
     }
     case 42: { // mov A, [B]
@@ -393,7 +394,7 @@ void step_one_instruction(VM* vm) {
         case 4: vm->j = drop_sign(vm->a); break;
       }
       copy_ls_to_mem(vm, acc);
-      vm->cycles += 37;
+      cycles += 37;
       break;
     }
     case 43: // lodig A
@@ -405,7 +406,7 @@ void step_one_instruction(VM* vm) {
         int tens_digit = digits % 10; // M99 (-1) -> 9
         vm->a = tens_digit - 100; // 9 -> M09 (-91)
       }
-      vm->cycles += 5;
+      cycles += 5;
       break;
     case 44: // swapdig A
       if (vm->a >= 0) {
@@ -420,38 +421,38 @@ void step_one_instruction(VM* vm) {
         int swapped_digits = 10 * ones_digit + tens_digit;
         vm->a = swapped_digits - 100; // 89 -> M89 (-11)
       }
-      vm->cycles += 5;
+      cycles += 5;
       break;
     case 52: // inc A
       vm->a++;
       if (vm->a == 100)
         vm->a = -100;
-      vm->cycles += 1;
+      cycles += 1;
       break;
     case 53: // dec A
       vm->a--;
       if (vm->a == -101)
         vm->a = 99;
-      vm->cycles += 1;
+      cycles += 1;
       break;
     case 54: // flipn
       if (vm->a < 0)
         vm->a += 100;
       else
         vm->a -= 100;
-      vm->cycles += 2;
+      cycles += 2;
       break;
     case 70: // add D,A
       vm->a += vm->d;
       if (vm->a >= 100)
         vm->a -= 200;
-      vm->cycles += 5;
+      cycles += 5;
       break;
     case 71: // add imm,A
       vm->a += consume_operand(vm);
       if (vm->a >= 100)
         vm->a -= 200;
-      vm->cycles += 2;
+      cycles += 2;
       break;
     case 72: // sub D,A
       vm->a -= vm->d;
@@ -459,19 +460,19 @@ void step_one_instruction(VM* vm) {
         vm->a -= 200;
       if (vm->a < -100)
         vm->a += 200;
-      vm->cycles += 5;
+      cycles += 5;
       break;
     case 73: { // jmp
       vm->pc = consume_near_address(vm);
       vm->ir_index = 6;
-      vm->cycles += 2;
+      cycles += 2;
       break;
     }
     case 74: { // jmp far
       vm->pc = consume_far_address(vm);
       update_bank(vm);
       vm->ir_index = 6;
-      vm->cycles += 6;
+      cycles += 6;
       break;
     }
     case 80: { // jn
@@ -480,7 +481,7 @@ void step_one_instruction(VM* vm) {
         vm->pc = taken_pc;
         vm->ir_index = 6;
       }
-      vm->cycles += 6;
+      cycles += 6;
       break;
     }
     case 81: { // jz
@@ -489,7 +490,7 @@ void step_one_instruction(VM* vm) {
         vm->pc = taken_pc;
         vm->ir_index = 6;
       }
-      vm->cycles += 10;
+      cycles += 10;
       break;
     }
     case 82: { // jil
@@ -501,7 +502,7 @@ void step_one_instruction(VM* vm) {
         vm->pc = taken_pc;
         vm->ir_index = 6;
       }
-      vm->cycles += 10;
+      cycles += 10;
       break;
     }
     case 84: { // jsr
@@ -510,7 +511,7 @@ void step_one_instruction(VM* vm) {
       vm->pc = consume_far_address(vm);
       update_bank(vm);
       vm->ir_index = 6;
-      vm->cycles += 6;
+      cycles += 6;
       break;
     }
     case 85: // ret
@@ -518,11 +519,11 @@ void step_one_instruction(VM* vm) {
       update_bank(vm);
       vm->old_pc = 0;
       vm->ir_index = 6;
-      vm->cycles += 6;
+      cycles += 6;
       break;
     case 90: // clr A
       vm->a = 0;
-      vm->cycles += 2;
+      cycles += 2;
       break;
     case 91: // read
       vm->status |= IO_READ;
@@ -544,6 +545,87 @@ void step_one_instruction(VM* vm) {
       break;
   }
   check_register_bounds(vm);
+}
+
+bool disassemble(char* buf, size_t size, VM vm) {
+  int opcode = consume_ir(&vm);
+  switch (opcode) {
+    case 0: snprintf(buf, size, "clrall"); break;
+    case 1: snprintf(buf, size, "swap A,B"); break;
+    case 2: snprintf(buf, size, "swap A,C"); break;
+    case 3: snprintf(buf, size, "swap A,D"); break;
+    case 4: snprintf(buf, size, "swap A,E"); break;
+    case 10: snprintf(buf, size, "loadacc A"); break;
+    case 11: snprintf(buf, size, "storeacc A"); break;
+    case 12: snprintf(buf, size, "swapall"); break;
+    case 14: snprintf(buf, size, "ftl A"); break;
+    case 20: snprintf(buf, size, "mov B,A"); break;
+    case 21: snprintf(buf, size, "mov C,A"); break;
+    case 22: snprintf(buf, size, "mov D,A"); break;
+    case 23: snprintf(buf, size, "mov E,A"); break;
+    case 34: snprintf(buf, size, "mov F,A"); break;
+    case 30: snprintf(buf, size, "mov G,A"); break;
+    case 31: snprintf(buf, size, "mov H,A"); break;
+    case 32: snprintf(buf, size, "mov I,A"); break;
+    case 33: snprintf(buf, size, "mov J,A"); break;
+    case 40: snprintf(buf, size, "mov %d,A", consume_operand(&vm)); break;
+    case 41: snprintf(buf, size, "mov [B],A"); break;
+    case 42: snprintf(buf, size, "mov A,[B]"); break;
+    case 43: snprintf(buf, size, "lodig A"); break;
+    case 44: snprintf(buf, size, "swapdig A"); break;
+    case 52: snprintf(buf, size, "inc A"); break;
+    case 53: snprintf(buf, size, "dec A"); break;
+    case 54: snprintf(buf, size, "flipn"); break;
+    case 70: snprintf(buf, size, "add D,A"); break;
+    case 71: snprintf(buf, size, "add %d,A", consume_operand(&vm)); break;
+    case 72: snprintf(buf, size, "sub D,A"); break;
+    case 73: snprintf(buf, size, "jmp %d", consume_near_address(&vm)); break;
+    case 74: snprintf(buf, size, "jmp %d", consume_far_address(&vm)); break;
+    case 80: snprintf(buf, size, "jn %d", consume_near_address(&vm)); break;
+    case 81: snprintf(buf, size, "jz %d", consume_near_address(&vm)); break;
+    case 82: snprintf(buf, size, "jil %d", consume_near_address(&vm)); break;
+    case 84: snprintf(buf, size, "jsr %d", consume_far_address(&vm)); break;
+    case 85: snprintf(buf, size, "ret"); break;
+    case 90: snprintf(buf, size, "clr A"); break;
+    case 91: snprintf(buf, size, "read"); break;
+    case 92: snprintf(buf, size, "print"); break;
+    case 94: snprintf(buf, size, "brk"); break;
+    case 95: snprintf(buf, size, "halt"); break;
+    case 99: snprintf(buf, size, "sled");
+             return true;
+    default:
+      snprintf(buf, size, "???  # invalid opcode %02d", opcode);
+      break;
+  }
+  return false;
+}
+
+void dump_profile(VM vm) {
+  const char* filename = "/tmp/client.prof";
+  FILE* fp = fopen(filename, "w");
+  fprintf(fp, "; %lld instructions %lld cycles\n", instructions, cycles);
+  for (int pc = 100; pc < 400; pc++) {
+    for (int i = 0; i < 7; i++) {
+      unsigned long long count = profile[pc][i];
+      if (count > 0) {
+        if (i != 6) {
+          vm.pc = pc - 1;
+          vm.ir_index = 6;
+          consume_ir(&vm);
+        }
+        vm.pc = pc;
+        vm.ir_index = i;
+        char dis[128];
+        bool skip = disassemble(dis, sizeof(dis)-1, vm);
+        if (!skip) {
+          int adjusted_pc = i == 6 ? pc : pc - 1;
+          int adjusted_index = i == 6 ? 0 : i - 1;
+          fprintf(fp, "%03d/%d  %-15s  ; %lld\n", adjusted_pc, adjusted_index, dis, count);
+        }
+      }
+    }
+  }
+  fclose(fp);
 }
 
 typedef std::pair<int, int> Card;
@@ -690,12 +772,19 @@ std::string eniac_chess_move(const std::string& fen) {
       vm.status &= ~IO_READ;
     }
   }
+  dump_profile(vm);
+
   return convert_move_to_lan(position, drop_sign(vm.a), vm.b);
 }
 
 #ifdef MAIN
 int main() {
   // Read lines with FENs from stdin and write moves to stdout
+  cycles = 0;
+  instructions = 0;
+  for (int i = 0; i < 400; i++)
+    for (int j = 0; j < 7; j++)
+      profile[i][j] = 0;
   char* line = nullptr;
   size_t cap = 0;
   while (getline(&line, &cap, stdin) > 0) {
