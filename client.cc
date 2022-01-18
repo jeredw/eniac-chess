@@ -47,6 +47,7 @@ struct VM {
 unsigned long long cycles;
 unsigned long long instructions;
 unsigned long long profile[400][7];
+unsigned long long turns;
 
 enum {
   HALT = 0x01,
@@ -547,6 +548,7 @@ void step_one_instruction(VM* vm) {
   check_register_bounds(vm);
 }
 
+#ifdef MAIN
 bool disassemble(char* buf, size_t size, VM vm) {
   int opcode = consume_ir(&vm);
   switch (opcode) {
@@ -603,7 +605,12 @@ bool disassemble(char* buf, size_t size, VM vm) {
 void dump_profile(VM vm) {
   const char* filename = "/tmp/client.prof";
   FILE* fp = fopen(filename, "w");
-  fprintf(fp, "; %lld instructions %lld cycles\n", instructions, cycles);
+  fprintf(fp, "; %lld instructions %lld cycles %lld turns\n", instructions, cycles, turns);
+  unsigned long long instructions_per_turn = instructions / turns;
+  unsigned long long cycles_per_turn = cycles / turns;
+  double eniac_hours_per_turn = (double)cycles / (60.0 * 60.0 * 5000.0 * turns);
+  fprintf(fp, "; per turn %lld instructions %lld cycles %.2f eniac hours\n",
+          instructions_per_turn, cycles_per_turn, eniac_hours_per_turn);
   for (int pc = 100; pc < 400; pc++) {
     for (int i = 0; i < 7; i++) {
       unsigned long long count = profile[pc][i];
@@ -627,6 +634,7 @@ void dump_profile(VM vm) {
   }
   fclose(fp);
 }
+#endif
 
 typedef std::pair<int, int> Card;
 typedef std::vector<Card> Deck;
@@ -772,7 +780,10 @@ std::string eniac_chess_move(const std::string& fen) {
       vm.status &= ~IO_READ;
     }
   }
+#ifdef MAIN
+  turns++;
   dump_profile(vm);
+#endif
 
   return convert_move_to_lan(position, drop_sign(vm.a), vm.b);
 }
@@ -782,6 +793,7 @@ int main() {
   // Read lines with FENs from stdin and write moves to stdout
   cycles = 0;
   instructions = 0;
+  turns = 0;
   for (int i = 0; i < 400; i++)
     for (int j = 0; j < 7; j++)
       profile[i][j] = 0;
