@@ -736,6 +736,8 @@ class TestChess(SimTestCase):
   def testMateIn1Rooks_Resign(self):
     best = self.findBestMove('7K/1r6/r7/8/8/8/8/3k4 w KQkq - 0 1')
     self.assertEqual(best, '0000')
+    # with DQ=3 we can't detect mate in 1
+    #self.assertEqual(best, '8887')
 
   def testMateIn1Pawns(self):
     best = self.findBestMove('4k3/4P3/3PK3/8/8/8/8/8 w KQkq - 0 1')

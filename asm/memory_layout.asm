@@ -76,6 +76,9 @@ depth   .equ 38
 
 ; The stack can have at most 4 entries, reduce for debugging
 MAXD    .equ 4
+; At depth Q and beyond, only captures are evaluated. (Q is short for
+; "quiesence" - this is a basic sort of quiesence search.)
+DQ      .equ 4
 
 ; XXX bounteous free memory!
 unused0   .equ 39

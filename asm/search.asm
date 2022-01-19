@@ -42,21 +42,21 @@ output_move
   jz .no_capture    ; if no piece captured, consider pruning
   addn KING,A       ; is it a king?
   jz search_pop     ; if would capture king, fixup stack
-  jmp .apply_move
+  jmp .evaluate_move
 
-  ; optimization: at leaf nodes, only evaluate capture moves
-  ; we must still record that there _was_ a move possible, otherwise
+  ; at depth DQ and beyond, only evaluate capture moves
+  ; we must still record when there _was_ a move possible, otherwise
   ; moves with no answering captures look like checkmate
 .no_capture
   swap A,E          ; set E=0 to flag not to undo move
   mov depth,A<->B
   mov [B],A
-  addn MAXD,A
-  jz leaf           ; assume parent mscore
+  addn DQ,A         ; test if depth >= DQ
+  jn leaf           ; if so, assume parent mscore
   ; not a leaf, so fallthrough to evaluate move
 
   ; evaluate the move (updating mscore)
-.apply_move
+.evaluate_move
   jmp far move
 move_ret
   mov 1,A
