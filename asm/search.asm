@@ -10,6 +10,7 @@
 ; the initial best move 0000 means to resign.  any legal move should
 ; score better, but if there is none (i.e. checkmate) eniac will resign
 search
+undo_move_ret
   ; call movegen for top of stack
   jmp far next_move
 
@@ -54,7 +55,7 @@ output_move
   jz leaf           ; assume parent mscore
   ; not a leaf, so fallthrough to evaluate move
 
-  ; apply the move (updating mscore)
+  ; evaluate the move (updating mscore)
 .apply_move
   jmp far move
 move_ret
@@ -225,9 +226,7 @@ search_pop
   swap D,A
   mov A,[B]         ; fromp=player|piece
 
-  jmp far undo_move
-undo_move_ret
-  jmp search
+  jmp far undo_move ; continues at undo_move_ret
 
 ; stack routines
   .include stack.asm
