@@ -1,5 +1,7 @@
 // Simple standalone client for playing against ENIAC chess
 #include <algorithm>
+#include <cassert>
+#include <cstring>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
@@ -44,10 +46,15 @@ struct VM {
   int function_table[400][6];
 };
 
+#ifdef MAIN
 unsigned long long cycles;
 unsigned long long instructions;
 unsigned long long profile[400][7];
 unsigned long long turns;
+#define ADD_CYCLES(c) cycles += (c)
+#else
+#define ADD_CYCLES(c) (void)(c)
+#endif
 
 enum {
   HALT = 0x01,
@@ -247,15 +254,19 @@ void update_bank(VM* vm) {
 
 void step_one_instruction(VM* vm) {
   if (vm->status & HALT) return;
+  #ifdef MAIN
   profile[vm->pc][vm->ir_index]++;
+  #endif
   int fetch_cost = vm->ir_index < 6 ? 6 : vm->pc < 300 ? 12 : 13;
   int opcode = consume_ir(vm);
   if (opcode == 99) {
     fetch_cost = 0;
   } else {
+    #ifdef MAIN
     instructions++;
+    #endif
   }
-  cycles += fetch_cost;
+  ADD_CYCLES(fetch_cost);
   switch (opcode) {
     case 0: // clrall
       vm->a = 0;
@@ -263,23 +274,23 @@ void step_one_instruction(VM* vm) {
       vm->c = 0;
       vm->d = 0;
       vm->e = 0;
-      cycles += 4;
+      ADD_CYCLES(4);
       break;
     case 1: // swap A, B
       swap_dropping_sign(vm->a, vm->b);
-      cycles += 4;
+      ADD_CYCLES(4);
       break;
     case 2: // swap A, C
       swap_dropping_sign(vm->a, vm->c);
-      cycles += 4;
+      ADD_CYCLES(4);
       break;
     case 3: // swap A, D
       swap_dropping_sign(vm->a, vm->d);
-      cycles += 4;
+      ADD_CYCLES(4);
       break;
     case 4: // swap A, E
       swap_dropping_sign(vm->a, vm->e);
-      cycles += 4;
+      ADD_CYCLES(4);
       break;
     case 10: // loadacc A
       if (!(0 <= vm->a && vm->a < 15)) {
@@ -288,7 +299,7 @@ void step_one_instruction(VM* vm) {
         break;
       }
       copy_mem_to_ls(vm, vm->a);
-      cycles += 11;
+      ADD_CYCLES(11);
       break;
     case 11: // storeacc A
       if (!(0 <= vm->a && vm->a < 15)) {
@@ -298,7 +309,7 @@ void step_one_instruction(VM* vm) {
       }
       vm->f = copy_sign(vm->mem[vm->a][0], vm->f);
       copy_ls_to_mem(vm, vm->a);
-      cycles += 13;
+      ADD_CYCLES(13);
       break;
     case 12: // swapall
       std::swap(vm->a, vm->f);
@@ -306,7 +317,7 @@ void step_one_instruction(VM* vm) {
       std::swap(vm->c, vm->h);
       std::swap(vm->d, vm->i);
       std::swap(vm->e, vm->j);
-      cycles += 5;
+      ADD_CYCLES(5);
       break;
     case 14: { // ftl A
       int offset = drop_sign(vm->a);
@@ -316,48 +327,48 @@ void step_one_instruction(VM* vm) {
         break;
       }
       vm->a = vm->function_table[300 + offset][0];
-      cycles += 7;
+      ADD_CYCLES(7);
       break;
     }
     case 20: // mov B, A
       vm->a = vm->b;
-      cycles += 9;
+      ADD_CYCLES(9);
       break;
     case 21: // mov C, A
       vm->a = vm->c;
-      cycles += 9;
+      ADD_CYCLES(9);
       break;
     case 22: // mov D, A
       vm->a = vm->d;
-      cycles += 9;
+      ADD_CYCLES(9);
       break;
     case 23: // mov E, A
       vm->a = vm->e;
-      cycles += 9;
+      ADD_CYCLES(9);
       break;
     case 34: // mov F, A
       vm->a = drop_sign(vm->f);
-      cycles += 9;
+      ADD_CYCLES(9);
       break;
     case 30: // mov G, A
       vm->a = vm->g;
-      cycles += 9;
+      ADD_CYCLES(9);
       break;
     case 31: // mov H, A
       vm->a = vm->h;
-      cycles += 9;
+      ADD_CYCLES(9);
       break;
     case 32: // mov I, A
       vm->a = vm->i;
-      cycles += 9;
+      ADD_CYCLES(9);
       break;
     case 33: // mov J, A
       vm->a = vm->j;
-      cycles += 9;
+      ADD_CYCLES(9);
       break;
     case 40: // mov imm, A
       vm->a = consume_operand(vm);
-      cycles += 4;
+      ADD_CYCLES(4);
       break;
     case 41: { // mov [B], A
       if (vm->b < 0 || vm->b >= 75) {
@@ -375,7 +386,7 @@ void step_one_instruction(VM* vm) {
         case 3: vm->a = vm->i; break;
         case 4: vm->a = vm->j; break;
       }
-      cycles += 28;
+      ADD_CYCLES(28);
       break;
     }
     case 42: { // mov A, [B]
@@ -395,7 +406,7 @@ void step_one_instruction(VM* vm) {
         case 4: vm->j = drop_sign(vm->a); break;
       }
       copy_ls_to_mem(vm, acc);
-      cycles += 37;
+      ADD_CYCLES(37);
       break;
     }
     case 43: // lodig A
@@ -407,7 +418,7 @@ void step_one_instruction(VM* vm) {
         int tens_digit = digits % 10; // M99 (-1) -> 9
         vm->a = tens_digit - 100; // 9 -> M09 (-91)
       }
-      cycles += 5;
+      ADD_CYCLES(5);
       break;
     case 44: // swapdig A
       if (vm->a >= 0) {
@@ -422,38 +433,38 @@ void step_one_instruction(VM* vm) {
         int swapped_digits = 10 * ones_digit + tens_digit;
         vm->a = swapped_digits - 100; // 89 -> M89 (-11)
       }
-      cycles += 5;
+      ADD_CYCLES(5);
       break;
     case 52: // inc A
       vm->a++;
       if (vm->a == 100)
         vm->a = -100;
-      cycles += 1;
+      ADD_CYCLES(1);
       break;
     case 53: // dec A
       vm->a--;
       if (vm->a == -101)
         vm->a = 99;
-      cycles += 1;
+      ADD_CYCLES(1);
       break;
     case 54: // flipn
       if (vm->a < 0)
         vm->a += 100;
       else
         vm->a -= 100;
-      cycles += 2;
+      ADD_CYCLES(2);
       break;
     case 70: // add D,A
       vm->a += vm->d;
       if (vm->a >= 100)
         vm->a -= 200;
-      cycles += 5;
+      ADD_CYCLES(5);
       break;
     case 71: // add imm,A
       vm->a += consume_operand(vm);
       if (vm->a >= 100)
         vm->a -= 200;
-      cycles += 2;
+      ADD_CYCLES(2);
       break;
     case 72: // sub D,A
       vm->a -= vm->d;
@@ -461,19 +472,19 @@ void step_one_instruction(VM* vm) {
         vm->a -= 200;
       if (vm->a < -100)
         vm->a += 200;
-      cycles += 5;
+      ADD_CYCLES(5);
       break;
     case 73: { // jmp
       vm->pc = consume_near_address(vm);
       vm->ir_index = 6;
-      cycles += 2;
+      ADD_CYCLES(2);
       break;
     }
     case 74: { // jmp far
       vm->pc = consume_far_address(vm);
       update_bank(vm);
       vm->ir_index = 6;
-      cycles += 6;
+      ADD_CYCLES(6);
       break;
     }
     case 80: { // jn
@@ -482,7 +493,7 @@ void step_one_instruction(VM* vm) {
         vm->pc = taken_pc;
         vm->ir_index = 6;
       }
-      cycles += 6;
+      ADD_CYCLES(6);
       break;
     }
     case 81: { // jz
@@ -491,7 +502,7 @@ void step_one_instruction(VM* vm) {
         vm->pc = taken_pc;
         vm->ir_index = 6;
       }
-      cycles += 10;
+      ADD_CYCLES(10);
       break;
     }
     case 82: { // jil
@@ -503,7 +514,7 @@ void step_one_instruction(VM* vm) {
         vm->pc = taken_pc;
         vm->ir_index = 6;
       }
-      cycles += 10;
+      ADD_CYCLES(10);
       break;
     }
     case 84: { // jsr
@@ -512,7 +523,7 @@ void step_one_instruction(VM* vm) {
       vm->pc = consume_far_address(vm);
       update_bank(vm);
       vm->ir_index = 6;
-      cycles += 6;
+      ADD_CYCLES(6);
       break;
     }
     case 85: // ret
@@ -520,11 +531,11 @@ void step_one_instruction(VM* vm) {
       update_bank(vm);
       vm->old_pc = 0;
       vm->ir_index = 6;
-      cycles += 6;
+      ADD_CYCLES(6);
       break;
     case 90: // clr A
       vm->a = 0;
-      cycles += 2;
+      ADD_CYCLES(2);
       break;
     case 91: // read
       vm->status |= IO_READ;
@@ -760,7 +771,7 @@ std::string eniac_chess_move(const std::string& fen) {
     return "";
   }
   Deck deck(convert_position_to_deck(position));
-  int cur_card = 0;
+  size_t cur_card = 0;
 
   VM vm;
   init(&vm);
