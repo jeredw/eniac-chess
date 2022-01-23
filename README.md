@@ -1,5 +1,7 @@
 # ENIAC Chess
 
+[![CC BY 4.0][cc-by-shield]][cc-by]
+
 This repository contains a chess playing program for the historic ENIAC computer, and the tooling used to create it. It implements 4 ply [alpha-beta](https://www.chessprogramming.org/Alpha-Beta) search with a simple materiel evaluation function, and would generate one move in about 5 hours of ENIAC machine time (much faster in simulation, of course). 
 
 The goal is to demonstrate that a reasonably powerful chess playing program was already possible when ENIAC became the first operational general purpose digital computer in early 1946, perhaps a few months after Alan Turing set down (what we believe to be) the [first reference](https://www.google.com/books/edition/Alan_Turing_s_Electronic_Brain/wfMDW-IP8yMC?hl=en&gbpv=1&bsq=chess) to the possibility of a digital computer playing chess. Or perhaps the goal is to demonstrate that, even though chess has been a measure of human intelligence for centuries and then a measure of machine intelligence, it's not actually that difficult if the very first computer could play it at an amateur level.
@@ -76,3 +78,14 @@ To test the VM implementation, do `make vmtest` to assemble `chessvm.easm` into 
 
 To test the chess engine, do `python asm_test.py`. This will assemble `asm/movegen_test.asm`,`asm/move_test.asm` and `asm/chess.asm` to test move generation, move execution, and move search respectively.
 
+
+## License
+
+This work is licensed under a
+[Creative Commons Attribution 4.0 International License][cc-by]
+
+[![CC BY 4.0][cc-by-image]][cc-by]
+
+[cc-by]: http://creativecommons.org/licenses/by/4.0/
+[cc-by-image]: https://i.creativecommons.org/l/by/4.0/88x31.png
+[cc-by-shield]: https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg
